@@ -19,21 +19,22 @@ package com.github.gvolpe.fs2redis.algebra
 import com.github.gvolpe.fs2redis.model._
 import io.lettuce.core.RedisURI
 
-trait Subscriber[F[_]] {
-  def subscribe(channel: Fs2RedisChannel): F[Unit]
-  def unsubscribe(channel: Fs2RedisChannel): F[Unit]
+trait SubscriberCommands[F[_], K, V] {
+  def subscribe(channel: Fs2RedisChannel[K]): F[V]
+  def unsubscribe(channel: Fs2RedisChannel[K]): F[Unit]
 }
 
-trait Publisher[F[_]] {
-  def publish[A](channel: Fs2RedisChannel, message: A): F[Unit]
+trait PublisherCommands[F[_], A] {
+  def publish(message: A): F[A] => F[Unit]
 }
 
-trait PubSub[F[_]] {
-  def pubSubChannels[A]: F[List[A]]
-  def pubSubSubscriptions(channel: Fs2RedisChannel): F[Long]
-  def pubSubSubscriptions(channels: List[Fs2RedisChannel]): F[List[Subscriptions]]
+trait PubSub[F[_], K] {
+  def pubSubChannels: F[List[K]]
+  def pubSubSubscriptions(channel: Fs2RedisChannel[K]): F[Long]
+  def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): F[List[Subscriptions[K]]]
 }
 
 trait PubSubConnection[F[_]] {
-  def connect[K, V](codec: Fs2RedisCodec[K, V], uri: RedisURI): F[Fs2RedisPubSubConnection[K, V]]
+  def createSubscriber[K, V](codec: Fs2RedisCodec[K, V], uri: RedisURI): F[SubscriberCommands[F, K, V]]
+  def createPublisher[K, V](codec: Fs2RedisCodec[K, V], uri: RedisURI): F[PublisherCommands[F, K]]
 }

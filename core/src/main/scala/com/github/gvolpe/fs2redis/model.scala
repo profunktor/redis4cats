@@ -18,7 +18,7 @@ package com.github.gvolpe.fs2redis
 
 import io.lettuce.core.RedisClient
 import io.lettuce.core.codec.RedisCodec
-import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
+import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands
 
 object model {
 
@@ -27,16 +27,16 @@ object model {
   }
   case class DefaultRedisClient(underlying: RedisClient) extends Fs2RedisClient
 
-  trait Fs2RedisChannel {
-    def value: String
+  trait Fs2RedisChannel[A] {
+    def value: A
   }
-  case class DefaultChannel(value: String) extends Fs2RedisChannel
+  case class DefaultChannel(value: String) extends Fs2RedisChannel[String]
 
-  trait Fs2RedisPubSubConnection[K, V] {
-    def underlying: StatefulRedisPubSubConnection[K, V]
+  trait Fs2RedisPubSubCommands[K, V] {
+    def underlying: RedisPubSubAsyncCommands[K, V]
   }
-  case class DefaultPubSubConnection[K, V](underlying: StatefulRedisPubSubConnection[K, V])
-      extends Fs2RedisPubSubConnection[K, V]
+  case class DefaultPubSubCommands[K, V](underlying: RedisPubSubAsyncCommands[K, V])
+      extends Fs2RedisPubSubCommands[K, V]
 
   trait Fs2RedisCodec[K, V] {
     def underlying: RedisCodec[K, V]
@@ -44,5 +44,5 @@ object model {
   case class DefaultRedisCodec[K, V](underlying: RedisCodec[K, V]) extends Fs2RedisCodec[K, V]
 
   case class RedisMessage(value: String) extends AnyVal
-  case class Subscriptions(channel: Fs2RedisChannel, number: Long)
+  case class Subscriptions[A](channel: Fs2RedisChannel[A], number: Long)
 }

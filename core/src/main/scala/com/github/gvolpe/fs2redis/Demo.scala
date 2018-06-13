@@ -19,10 +19,11 @@ package com.github.gvolpe.fs2redis
 import cats.effect.IO
 import com.github.gvolpe.fs2redis.util.JRFuture
 import io.lettuce.core.api.async.RedisAsyncCommands
+import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands
 import io.lettuce.core.pubsub.{RedisPubSubListener, StatefulRedisPubSubConnection}
 import io.lettuce.core.{RedisClient, RedisFuture, RedisURI}
 
-object Fs2Redis extends App {
+object Demo extends App {
 
   val _redisUri = "redis://localhost"
 
@@ -52,11 +53,15 @@ object Fs2Redis extends App {
 
   JRFuture(ioa).flatMap(x => putStrLn(x)).unsafeRunSync()
 
-  val pubSub = pubSubConnection.async()
+  val pubSub: RedisPubSubAsyncCommands[String, String] = pubSubConnection.async()
 
   pubSub.subscribe("events")
 
-  Thread.sleep(1000 * 200)
+//  Thread.sleep(1000 * 2)
+
+//  pubSub.publish("events", "hello world!") // Cannot subscribe and publish with the same connection
+
+  Thread.sleep(1000 * 2)
 
   client.shutdown()
 
