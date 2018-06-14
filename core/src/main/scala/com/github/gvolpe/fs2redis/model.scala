@@ -47,5 +47,10 @@ object model {
   case class DefaultRedisCodec[K, V](underlying: RedisCodec[K, V]) extends Fs2RedisCodec[K, V]
 
   case class RedisMessage(value: String) extends AnyVal
-  case class Subscriptions[A](channel: Fs2RedisChannel[A], number: Long)
+  case class Subscription[K](channel: Fs2RedisChannel[K], number: Long)
+
+  object Subscription {
+    def empty[K](channel: Fs2RedisChannel[K]): Subscription[K] =
+      Subscription[K](channel, 0L)
+  }
 }

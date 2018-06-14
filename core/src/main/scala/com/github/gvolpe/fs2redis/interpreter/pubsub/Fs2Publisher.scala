@@ -16,36 +16,32 @@
 
 package com.github.gvolpe.fs2redis.interpreter.pubsub
 
-import cats.effect.Concurrent
-import cats.syntax.flatMap._
+import cats.effect.ConcurrentEffect
 import cats.syntax.functor._
-import com.github.gvolpe.fs2redis.algebra.PubSubStats
-import com.github.gvolpe.fs2redis.model._
+import com.github.gvolpe.fs2redis.algebra.{PubSubStats, PublishCommands}
+import com.github.gvolpe.fs2redis.model
+import com.github.gvolpe.fs2redis.model.{Fs2RedisChannel, Subscription}
 import com.github.gvolpe.fs2redis.util.JRFuture
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-import scala.collection.JavaConverters._
+class Fs2Publisher[F[_], K, V](pubConnection: StatefulRedisPubSubConnection[K, V])(implicit F: ConcurrentEffect[F])
+    extends PublishCommands[Stream[F, ?], K, V] {
 
-class Fs2PubSubStats[F[_], K, V](pubConnection: StatefulRedisPubSubConnection[K, V])(implicit F: Concurrent[F])
-    extends PubSubStats[Stream[F, ?], K] {
+  private[fs2redis] val pubSubStats: PubSubStats[Stream[F, ?], K] = new Fs2PubSubStats(pubConnection)
+
+  override def publish(channel: model.Fs2RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
+    _.evalMap { message =>
+      JRFuture { F.delay(pubConnection.async().publish(channel.value, message)) }.void
+    }
 
   override def pubSubChannels: Stream[F, List[K]] =
-    Stream
-      .eval {
-        JRFuture(F.delay(pubConnection.async().pubsubChannels()))
-      }
-      .map(_.asScala.toList)
+    pubSubStats.pubSubChannels
 
   override def pubSubSubscriptions(channel: Fs2RedisChannel[K]): Stream[F, Subscription[K]] =
-    pubSubSubscriptions(List(channel)).map(_.headOption).unNone
+    pubSubStats.pubSubSubscriptions(channel)
 
-  override def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
-    Stream.eval {
-      for {
-        kv <- JRFuture(F.delay(pubConnection.async().pubsubNumsub(channels.map(_.value): _*)))
-        rs <- F.delay(kv.asScala.toList.map { case (k, n) => Subscription(DefaultChannel[K](k), n) })
-      } yield rs
-    }
+  override def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): Stream[F, List[model.Subscription[K]]] =
+    pubSubStats.pubSubSubscriptions(channels)
 
 }

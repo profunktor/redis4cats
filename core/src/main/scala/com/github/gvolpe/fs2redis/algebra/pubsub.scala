@@ -21,14 +21,17 @@ import io.lettuce.core.RedisURI
 
 trait PubSubStats[F[_], K] {
   def pubSubChannels: F[List[K]]
-  def pubSubSubscriptions(channel: Fs2RedisChannel[K]): F[Long]
-  def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): F[List[Subscriptions[K]]]
+  def pubSubSubscriptions(channel: Fs2RedisChannel[K]): F[Subscription[K]]
+  def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): F[List[Subscription[K]]]
 }
 
-trait PubSubCommands[F[_], K, V] extends PubSubStats[F, K] {
+trait PublishCommands[F[_], K, V] extends PubSubStats[F, K] {
+  def publish(channel: Fs2RedisChannel[K]): F[V] => F[Unit]
+}
+
+trait PubSubCommands[F[_], K, V] extends PublishCommands[F, K, V] {
   def subscribe(channel: Fs2RedisChannel[K]): F[V]
   def unsubscribe(channel: Fs2RedisChannel[K]): F[Unit]
-  def publish(channel: Fs2RedisChannel[K]): F[V] => F[Unit]
 }
 
 trait PubSubConnection[F[_]] {
