@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.gvolpe.fs2redis.interpreter
+package com.github.gvolpe.fs2redis.interpreter.pubsub
 
 import cats.effect.ConcurrentEffect
 import cats.effect.concurrent.Ref

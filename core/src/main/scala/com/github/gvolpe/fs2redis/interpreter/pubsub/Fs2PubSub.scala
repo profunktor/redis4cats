@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.github.gvolpe.fs2redis.interpreter
+package com.github.gvolpe.fs2redis.interpreter.pubsub
 
 import cats.effect.ConcurrentEffect
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.algebra.{PubSubCommands, PubSubConnection}
+import com.github.gvolpe.fs2redis.algebra.PubSubCommands
 import com.github.gvolpe.fs2redis.model._
 import com.github.gvolpe.fs2redis.util.JRFuture
 import fs2.Stream
@@ -27,16 +27,19 @@ import fs2.async.mutable
 import io.lettuce.core.RedisURI
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-class Fs2PubSub[F[_]](client: Fs2RedisClient)(implicit F: ConcurrentEffect[F]) extends PubSubConnection[Stream[F, ?]] {
+object Fs2PubSub {
 
-  override def createPubSubConnection[K, V](codec: Fs2RedisCodec[K, V],
-                                            uri: RedisURI): Stream[F, PubSubCommands[Stream[F, ?], K, V]] = {
+  def mkPubSubConnection[F[_], K, V](client: Fs2RedisClient,
+                                     codec: Fs2RedisCodec[K, V],
+                                     uri: RedisURI)
+                                    (implicit F: ConcurrentEffect[F]): Stream[F, PubSubCommands[Stream[F, ?], K, V]] = {
     val acquire: F[StatefulRedisPubSubConnection[K, V]] = JRFuture.fromConnectionFuture {
       F.delay(client.underlying.connectPubSubAsync(codec.underlying, uri))
     }
 
     def release(c: StatefulRedisPubSubConnection[K, V]): F[Unit] =
-      JRFuture.fromCompletableFuture(F.delay(c.closeAsync())).void
+      JRFuture.fromCompletableFuture(F.delay(c.closeAsync())) *>
+        F.delay(s"Releasing PubSub connection: ${client.underlying}")
 
     // One exclusive connection for subscriptions and another connection for publishing / stats
     for {

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.github.gvolpe.fs2redis.interpreter
+package com.github.gvolpe.fs2redis.interpreter.connection
 
-import cats.effect.Async
-import cats.syntax.functor._
+import cats.effect.{Concurrent, Resource}
+import cats.syntax.apply._
 import com.github.gvolpe.fs2redis.model.{DefaultRedisClient, Fs2RedisClient}
 import com.github.gvolpe.fs2redis.util.JRFuture
 import fs2.Stream
@@ -25,12 +25,20 @@ import io.lettuce.core.{RedisClient, RedisURI}
 
 object Fs2RedisClient {
 
-  def apply[F[_]](uri: RedisURI)(implicit F: Async[F]): Stream[F, Fs2RedisClient] = {
+  def apply[F[_]](uri: RedisURI)(implicit F: Concurrent[F]): Resource[F, Fs2RedisClient] = {
+    val acquire: F[Fs2RedisClient] = F.delay { DefaultRedisClient(RedisClient.create(uri)) }
+    val release: Fs2RedisClient => F[Unit] = client =>
+      JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())) *>
+        F.delay(s"Releasing Redis connection: ${client.underlying}")
+
+    Resource.make(acquire)(release)
+  }
+
+  def stream[F[_]](uri: RedisURI)(implicit F: Concurrent[F]): Stream[F, Fs2RedisClient] = {
     val acquire = F.delay { DefaultRedisClient(RedisClient.create(uri)) }
     val release: Fs2RedisClient => F[Unit] = client =>
-      JRFuture.fromCompletableFuture {
-        F.delay(client.underlying.shutdownAsync())
-      }.void
+      JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())) *>
+        F.delay(s"Releasing Redis connection: ${client.underlying}")
 
     Stream.bracket(acquire)(release)
   }
