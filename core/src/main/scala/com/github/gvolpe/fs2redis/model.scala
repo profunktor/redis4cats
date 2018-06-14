@@ -19,22 +19,21 @@ package com.github.gvolpe.fs2redis
 import fs2.async.mutable
 import io.lettuce.core.RedisClient
 import io.lettuce.core.codec.RedisCodec
-import io.lettuce.core.pubsub.RedisPubSubListener
 import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands
 
 object model {
 
-  type PubSubState[F[_], K, V] = Map[K, (mutable.Topic[F, Option[V]], RedisPubSubListener[K, V])]
+  type PubSubState[F[_], K, V] = Map[K, mutable.Topic[F, Option[V]]]
 
   trait Fs2RedisClient {
     def underlying: RedisClient
   }
   case class DefaultRedisClient(underlying: RedisClient) extends Fs2RedisClient
 
-  trait Fs2RedisChannel[A] {
-    def value: A
+  trait Fs2RedisChannel[K] {
+    def value: K
   }
-  case class DefaultChannel(value: String) extends Fs2RedisChannel[String]
+  case class DefaultChannel[K](value: K) extends Fs2RedisChannel[K]
 
   trait Fs2RedisPubSubCommands[K, V] {
     def underlying: RedisPubSubAsyncCommands[K, V]

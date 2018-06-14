@@ -25,7 +25,7 @@ import com.github.gvolpe.fs2redis.util.JRFuture
 import fs2.Stream
 import fs2.async.mutable
 import io.lettuce.core.RedisURI
-import io.lettuce.core.pubsub.{RedisPubSubListener, StatefulRedisPubSubConnection}
+import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 class Fs2PubSub[F[_]](client: Fs2RedisClient)(implicit F: ConcurrentEffect[F]) extends PubSubConnection[Stream[F, ?]] {
 
@@ -38,8 +38,9 @@ class Fs2PubSub[F[_]](client: Fs2RedisClient)(implicit F: ConcurrentEffect[F]) e
     def release(c: StatefulRedisPubSubConnection[K, V]): F[Unit] =
       JRFuture.fromCompletableFuture(F.delay(c.closeAsync())).void
 
+    // One exclusive connection for subscriptions and another connection for publishing / stats
     for {
-      state <- Stream.eval(Ref.of(Map.empty[K, (mutable.Topic[F, Option[V]], RedisPubSubListener[K, V])]))
+      state <- Stream.eval(Ref.of(Map.empty[K, mutable.Topic[F, Option[V]]]))
       sConn <- Stream.bracket(acquire)(release)
       pConn <- Stream.bracket(acquire)(release)
       subs  <- Stream.emit(new Fs2PubSubCommands[F, K, V](state, sConn, pConn))

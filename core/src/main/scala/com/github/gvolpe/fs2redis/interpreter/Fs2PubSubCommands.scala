@@ -20,7 +20,8 @@ import cats.effect.ConcurrentEffect
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.algebra.PubSubCommands
+import com.github.gvolpe.fs2redis.algebra.{PubSubCommands, PubSubStats}
+import com.github.gvolpe.fs2redis.model
 import com.github.gvolpe.fs2redis.model.{Fs2RedisChannel, PubSubState}
 import com.github.gvolpe.fs2redis.util.JRFuture
 import fs2.Stream
@@ -33,8 +34,10 @@ class Fs2PubSubCommands[F[_], K, V](state: Ref[F, PubSubState[F, K, V]],
                                     pubConnection: StatefulRedisPubSubConnection[K, V])(implicit F: ConcurrentEffect[F])
     extends PubSubCommands[Stream[F, ?], K, V] {
 
-  private[fs2redis] def defaultListener[K, V](fs2RedisChannel: Fs2RedisChannel[K],
-                                              topic: mutable.Topic[F, Option[V]]): RedisPubSubListener[K, V] =
+  private[fs2redis] val pubSubStats: PubSubStats[Stream[F, ?], K] = new Fs2PubSubStats[F, K, V](pubConnection)
+
+  private[fs2redis] def defaultListener(fs2RedisChannel: Fs2RedisChannel[K],
+                                        topic: mutable.Topic[F, Option[V]]): RedisPubSubListener[K, V] =
     new RedisPubSubListener[K, V] {
       override def message(channel: K, message: V): Unit =
         if (channel == fs2RedisChannel.value) {
@@ -53,12 +56,12 @@ class Fs2PubSubCommands[F[_], K, V](state: Ref[F, PubSubState[F, K, V]],
       .fold {
         for {
           topic    <- fs2.async.topic[F, Option[V]](None)
-          listener = defaultListener[K, V](channel, topic)
+          listener = defaultListener(channel, topic)
           _        <- F.delay(println(s"Adding listener for channel: $channel"))
           _        <- F.delay(subConnection.addListener(listener))
-          _        <- state.update(_.updated(channel.value, (topic, listener)))
+          _        <- state.update(_.updated(channel.value, topic))
         } yield topic
-      } { case (topic, _) => F.pure(topic) }
+      }(F.pure)
 
   override def subscribe(channel: Fs2RedisChannel[K]): Stream[F, V] = {
     val setup: F[Topic[F, Option[V]]] =
@@ -84,5 +87,14 @@ class Fs2PubSubCommands[F[_], K, V](state: Ref[F, PubSubState[F, K, V]],
         _  <- JRFuture { F.delay(pubConnection.async().publish(channel.value, message)) }
       } yield ()
     }
+
+  override def pubSubChannels: Stream[F, List[K]] =
+    pubSubStats.pubSubChannels
+
+  override def pubSubSubscriptions(channel: Fs2RedisChannel[K]): Stream[F, Long] =
+    pubSubStats.pubSubSubscriptions(channel)
+
+  override def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): Stream[F, List[model.Subscriptions[K]]] =
+    pubSubStats.pubSubSubscriptions(channels)
 
 }

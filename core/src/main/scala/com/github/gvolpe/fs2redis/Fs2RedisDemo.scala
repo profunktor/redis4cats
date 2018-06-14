@@ -51,8 +51,12 @@ object Fs2RedisDemo extends StreamApp[IO] {
              sub1 to sink("#events"),
              sub2 to sink("#games"),
              Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
-             Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!") to pub2
-           ).join(4).drain
+             Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!") to pub2,
+             Stream.awakeDelay[IO](11.seconds) >> pubSubCmd.unsubscribe(gamesChannel),
+             Stream.awakeEvery[IO](6.seconds) >> pubSubCmd
+               .pubSubSubscriptions(List(eventsChannel, gamesChannel))
+               .evalMap(x => IO(println(x)))
+           ).join(6).drain
     } yield rs
 
 }
