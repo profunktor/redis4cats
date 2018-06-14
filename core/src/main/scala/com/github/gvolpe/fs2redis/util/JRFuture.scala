@@ -42,8 +42,7 @@ object JRFuture {
       F.async[A] { cb =>
         f.handle[Unit] { (value: A, t: Throwable) =>
           if (t != null) cb(Left(t))
-          else if (value != null) cb(Right(value))
-          else cb(Left(EmptyValue()))
+          else cb(Right(value))
         }
       }
     }

@@ -19,13 +19,10 @@ package com.github.gvolpe.fs2redis.algebra
 import com.github.gvolpe.fs2redis.model._
 import io.lettuce.core.RedisURI
 
-trait SubscriberCommands[F[_], K, V] {
+trait PubSubCommands[F[_], K, V] {
   def subscribe(channel: Fs2RedisChannel[K]): F[V]
   def unsubscribe(channel: Fs2RedisChannel[K]): F[Unit]
-}
-
-trait PublisherCommands[F[_], A] {
-  def publish(message: A): F[A] => F[Unit]
+  def publish(channel: Fs2RedisChannel[K]): F[V] => F[Unit]
 }
 
 trait PubSub[F[_], K] {
@@ -35,6 +32,5 @@ trait PubSub[F[_], K] {
 }
 
 trait PubSubConnection[F[_]] {
-  def createSubscriber[K, V](codec: Fs2RedisCodec[K, V], uri: RedisURI): F[SubscriberCommands[F, K, V]]
-  def createPublisher[K, V](codec: Fs2RedisCodec[K, V], uri: RedisURI): F[PublisherCommands[F, K]]
+  def createPubSubConnection[K, V](codec: Fs2RedisCodec[K, V], uri: RedisURI): F[PubSubCommands[F, K, V]]
 }

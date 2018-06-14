@@ -16,44 +16,21 @@
 
 package com.github.gvolpe.fs2redis.interpreter
 
-import cats.effect.Concurrent
-import cats.syntax.functor._
-import com.github.gvolpe.fs2redis.algebra.{PubSubConnection, PublisherCommands, SubscriberCommands}
+import cats.effect.ConcurrentEffect
+import cats.effect.concurrent.Ref
+import cats.syntax.all._
+import com.github.gvolpe.fs2redis.algebra.{PubSubCommands, PubSubConnection}
 import com.github.gvolpe.fs2redis.model._
 import com.github.gvolpe.fs2redis.util.JRFuture
 import fs2.Stream
 import fs2.async.mutable
 import io.lettuce.core.RedisURI
-import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands
 import io.lettuce.core.pubsub.{RedisPubSubListener, StatefulRedisPubSubConnection}
 
-class Fs2PubSub[F[_]](client: Fs2RedisClient)(implicit F: Concurrent[F]) extends PubSubConnection[Stream[F, ?]] {
+class Fs2PubSub[F[_]](client: Fs2RedisClient)(implicit F: ConcurrentEffect[F]) extends PubSubConnection[Stream[F, ?]] {
 
-  private def defaultListener[K, V](queue: mutable.Queue[F, V]) =
-    new RedisPubSubListener[K, V] {
-      override def message(channel: K, message: V): Unit = println(s"$channel >> $message")
-      override def message(pattern: K, channel: K, message: V): Unit = ()
-      override def psubscribed(pattern: K, count: Long): Unit = ()
-      override def subscribed(channel: K, count: Long): Unit = ()
-      override def unsubscribed(channel: K, count: Long): Unit = ()
-      override def punsubscribed(pattern: K, count: Long): Unit = ()
-    }
-
-  private[fs2redis] case class DefaultSubscriberCommands[K, V](queue: mutable.Queue[F, V], commands: RedisPubSubAsyncCommands[K, V]) extends SubscriberCommands[Stream[F, ?], K, V] {
-
-    override def subscribe(channel: Fs2RedisChannel[K]): Stream[F, V] = {
-      val subscription = JRFuture { F.delay(commands.subscribe(channel.value)) }.void
-      Stream.eval_(subscription) ++ queue.dequeue
-    }
-
-    override def unsubscribe(channel: Fs2RedisChannel[K]): Stream[F, Unit] =
-      Stream.eval {
-        JRFuture { F.delay(commands.unsubscribe(channel.value)) }.void
-      }
-
-  }
-
-  override def createSubscriber[K, V](codec: Fs2RedisCodec[K, V], uri: RedisURI): Stream[F, SubscriberCommands[Stream[F, ?], K, V]] = {
+  override def createPubSubConnection[K, V](codec: Fs2RedisCodec[K, V],
+                                            uri: RedisURI): Stream[F, PubSubCommands[Stream[F, ?], K, V]] = {
     val acquire: F[StatefulRedisPubSubConnection[K, V]] = JRFuture.fromConnectionFuture {
       F.delay(client.underlying.connectPubSubAsync(codec.underlying, uri))
     }
@@ -62,13 +39,11 @@ class Fs2PubSub[F[_]](client: Fs2RedisClient)(implicit F: Concurrent[F]) extends
       JRFuture.fromCompletableFuture(F.delay(c.closeAsync())).void
 
     for {
-      queue <- Stream.eval(fs2.async.boundedQueue[F, V](500))
-      conn  <- Stream.bracket(acquire)(release)
-      _     <- Stream.eval(F.delay(conn.addListener(defaultListener(queue))))
-      subs  <- Stream.emit(DefaultSubscriberCommands[K, V](queue, conn.async()))
+      state <- Stream.eval(Ref.of(Map.empty[K, (mutable.Topic[F, Option[V]], RedisPubSubListener[K, V])]))
+      sConn <- Stream.bracket(acquire)(release)
+      pConn <- Stream.bracket(acquire)(release)
+      subs  <- Stream.emit(new Fs2PubSubCommands[F, K, V](state, sConn, pConn))
     } yield subs
   }
-
-  override def createPublisher[K, V](codec: Fs2RedisCodec[K, V], uri: RedisURI): Stream[F, PublisherCommands[Stream[F, ?], K]] = ???
 
 }
