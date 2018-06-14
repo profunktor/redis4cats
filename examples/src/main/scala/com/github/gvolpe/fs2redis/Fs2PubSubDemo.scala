@@ -41,12 +41,12 @@ object Fs2PubSubDemo extends StreamApp[IO] {
 
   override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, ExitCode] =
     for {
-      client    <- Fs2RedisClient.stream[IO](redisURI)
-      pubSub    <- Fs2PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, redisURI)
-      sub1      = pubSub.subscribe(eventsChannel)
-      sub2      = pubSub.subscribe(gamesChannel)
-      pub1      = pubSub.publish(eventsChannel)
-      pub2      = pubSub.publish(gamesChannel)
+      client <- Fs2RedisClient.stream[IO](redisURI)
+      pubSub <- Fs2PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, redisURI)
+      sub1   = pubSub.subscribe(eventsChannel)
+      sub2   = pubSub.subscribe(gamesChannel)
+      pub1   = pubSub.publish(eventsChannel)
+      pub2   = pubSub.publish(gamesChannel)
       rs <- Stream(
              sub1 to sink("#events"),
              sub2 to sink("#games"),

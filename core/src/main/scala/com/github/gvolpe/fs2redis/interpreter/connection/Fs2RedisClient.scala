@@ -25,21 +25,24 @@ import io.lettuce.core.{RedisClient, RedisURI}
 
 object Fs2RedisClient {
 
-  def apply[F[_]](uri: RedisURI)(implicit F: Concurrent[F]): Resource[F, Fs2RedisClient] = {
+  private def acquireAndRelease[F[_]](uri: RedisURI)(
+      implicit F: Concurrent[F]): (F[Fs2RedisClient], Fs2RedisClient => F[Unit]) = {
     val acquire: F[Fs2RedisClient] = F.delay { DefaultRedisClient(RedisClient.create(uri)) }
+
     val release: Fs2RedisClient => F[Unit] = client =>
       JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())) *>
         F.delay(s"Releasing Redis connection: ${client.underlying}")
 
+    (acquire, release)
+  }
+
+  def apply[F[_]: Concurrent](uri: RedisURI): Resource[F, Fs2RedisClient] = {
+    val (acquire, release) = acquireAndRelease(uri)
     Resource.make(acquire)(release)
   }
 
-  def stream[F[_]](uri: RedisURI)(implicit F: Concurrent[F]): Stream[F, Fs2RedisClient] = {
-    val acquire = F.delay { DefaultRedisClient(RedisClient.create(uri)) }
-    val release: Fs2RedisClient => F[Unit] = client =>
-      JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())) *>
-        F.delay(s"Releasing Redis connection: ${client.underlying}")
-
+  def stream[F[_]: Concurrent](uri: RedisURI): Stream[F, Fs2RedisClient] = {
+    val (acquire, release) = acquireAndRelease(uri)
     Stream.bracket(acquire)(release)
   }
 

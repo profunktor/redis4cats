@@ -27,7 +27,7 @@ object Demo extends App {
 
   val redisUri = "redis://localhost"
 
-  val client: RedisClient                          = RedisClient.create(redisUri)
+  val client: RedisClient = RedisClient.create(redisUri)
 
   val connection: StatefulRedisConnection[String, String] = client.connect
 

@@ -18,6 +18,7 @@ package com.github.gvolpe.fs2redis
 
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.syntax.all._
+import com.github.gvolpe.fs2redis.algebra.BasicCommands
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.model.DefaultRedisCodec
@@ -32,24 +33,30 @@ object Fs2RedisBasicDemo extends IOApp {
   def putStrLn(str: String): IO[Unit] = IO(println(str))
 
   override def run(args: List[String]): IO[ExitCode] = {
-    val fs2RedisCommand: Resource[IO, Fs2Redis[IO, String, String]] = for {
-      client <- Fs2RedisClient[IO](redisURI)
-      redis  <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
-    } yield redis
-
     val usernameKey = "test"
 
     val showResult: Option[String] => IO[Unit] =
       _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
-    fs2RedisCommand.use { cmd =>
+    val commandsApi: Resource[IO, BasicCommands[IO, String, String]] =
+      for {
+        client <- Fs2RedisClient[IO](redisURI)
+        redis  <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
+      } yield redis
+
+    commandsApi.use { cmd =>
       for {
         x <- cmd.get(usernameKey)
         _ <- showResult(x)
         _ <- cmd.set(usernameKey, "some value")
-        _ <- showResult(x)
+        y <- cmd.get(usernameKey)
+        _ <- showResult(y)
+        _ <- cmd.setnx(usernameKey, "should not happen")
+        w <- cmd.get(usernameKey)
+        _ <- showResult(w)
         _ <- cmd.del(usernameKey)
-        _ <- showResult(x)
+        z <- cmd.get(usernameKey)
+        _ <- showResult(z)
       } yield ()
     } *> IO.pure(ExitCode.Success)
   }

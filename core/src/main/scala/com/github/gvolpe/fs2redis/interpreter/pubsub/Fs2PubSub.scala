@@ -29,10 +29,9 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 object Fs2PubSub {
 
-  def mkPubSubConnection[F[_], K, V](client: Fs2RedisClient,
-                                     codec: Fs2RedisCodec[K, V],
-                                     uri: RedisURI)
-                                    (implicit F: ConcurrentEffect[F]): Stream[F, PubSubCommands[Stream[F, ?], K, V]] = {
+  def mkPubSubConnection[F[_], K, V](client: Fs2RedisClient, codec: Fs2RedisCodec[K, V], uri: RedisURI)(
+      implicit F: ConcurrentEffect[F]): Stream[F, PubSubCommands[Stream[F, ?], K, V]] = {
+
     val acquire: F[StatefulRedisPubSubConnection[K, V]] = JRFuture.fromConnectionFuture {
       F.delay(client.underlying.connectPubSubAsync(codec.underlying, uri))
     }
@@ -48,6 +47,7 @@ object Fs2PubSub {
       pConn <- Stream.bracket(acquire)(release)
       subs  <- Stream.emit(new Fs2PubSubCommands[F, K, V](state, sConn, pConn))
     } yield subs
+
   }
 
 }
