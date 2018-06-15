@@ -18,7 +18,7 @@ package com.github.gvolpe.fs2redis.util
 
 import java.util.concurrent.{CompletableFuture, CompletionStage, Future}
 
-import cats.effect.Async
+import cats.effect.Concurrent
 import cats.syntax.flatMap._
 import io.lettuce.core.{ConnectionFuture, RedisFuture}
 
@@ -28,16 +28,16 @@ object JRFuture {
 
   private[fs2redis] type JFuture[A] = CompletionStage[A] with Future[A]
 
-  def apply[F[_]: Async, A](fa: F[RedisFuture[A]]): F[A] =
+  def apply[F[_]: Concurrent, A](fa: F[RedisFuture[A]]): F[A] =
     liftJFuture[F, RedisFuture[A], A](fa)
 
-  def fromConnectionFuture[F[_]: Async, G[_], A](fa: F[ConnectionFuture[A]]): F[A] =
+  def fromConnectionFuture[F[_]: Concurrent, G[_], A](fa: F[ConnectionFuture[A]]): F[A] =
     liftJFuture[F, ConnectionFuture[A], A](fa)
 
-  def fromCompletableFuture[F[_]: Async, A](fa: F[CompletableFuture[A]]): F[A] =
+  def fromCompletableFuture[F[_]: Concurrent, A](fa: F[CompletableFuture[A]]): F[A] =
     liftJFuture[F, CompletableFuture[A], A](fa)
 
-  private[fs2redis] def liftJFuture[F[_], G <: JFuture[A], A](fa: F[G])(implicit F: Async[F]): F[A] =
+  private[fs2redis] def liftJFuture[F[_], G <: JFuture[A], A](fa: F[G])(implicit F: Concurrent[F]): F[A] =
     fa.flatMap { f =>
       F.async[A] { cb =>
         f.handle[Unit] { (value: A, t: Throwable) =>

@@ -28,6 +28,7 @@ val commonSettings = Seq(
     Libraries.redisClient,
     Libraries.catsEffect,
     Libraries.fs2Core,
+    Libraries.slf4j,
     Libraries.scalaTest,
     Libraries.scalaCheck
   ),

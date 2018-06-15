@@ -23,6 +23,8 @@ import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.codec.StringCodec
 import io.lettuce.core.{RedisClient, RedisURI}
 
+import scala.concurrent.ExecutionContext.Implicits.global
+
 object Demo extends App {
 
   val redisUri = "redis://localhost"

@@ -21,6 +21,7 @@ import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.model.Fs2RedisChannel
+import com.github.gvolpe.fs2redis.util.Log
 import fs2.async.mutable
 import io.lettuce.core.pubsub.{RedisPubSubListener, StatefulRedisPubSubConnection}
 
@@ -43,13 +44,14 @@ object Fs2PubSubInternals {
 
   private[fs2redis] def apply[F[_], K, V](state: Ref[F, PubSubState[F, K, V]],
                                           subConnection: StatefulRedisPubSubConnection[K, V])(
-      implicit F: ConcurrentEffect[F]): GetOrCreateTopicListener[F, K, V] = { channel => st =>
+      implicit F: ConcurrentEffect[F],
+      L: Log[F]): GetOrCreateTopicListener[F, K, V] = { channel => st =>
     st.get(channel.value)
       .fold {
         for {
           topic    <- fs2.async.topic[F, Option[V]](None)
           listener = defaultListener(channel, topic)
-          _        <- F.delay(println(s"Adding listener for channel: $channel"))
+          _        <- L.info(s"Creating listener for channel: $channel")
           _        <- F.delay(subConnection.addListener(listener))
           _        <- state.update(_.updated(channel.value, topic))
         } yield topic

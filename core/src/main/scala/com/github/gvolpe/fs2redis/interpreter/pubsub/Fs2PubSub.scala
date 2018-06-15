@@ -21,7 +21,7 @@ import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.{PubSubCommands, PublishCommands, SubscribeCommands}
 import com.github.gvolpe.fs2redis.model._
-import com.github.gvolpe.fs2redis.util.JRFuture
+import com.github.gvolpe.fs2redis.util.{JRFuture, Log}
 import fs2.Stream
 import fs2.async.mutable
 import io.lettuce.core.RedisURI
@@ -31,8 +31,9 @@ object Fs2PubSub {
 
   private[fs2redis] def acquireAndRelease[F[_], K, V](client: Fs2RedisClient,
                                                       codec: Fs2RedisCodec[K, V],
-                                                      uri: RedisURI)(implicit F: ConcurrentEffect[F])
-    : (F[StatefulRedisPubSubConnection[K, V]], StatefulRedisPubSubConnection[K, V] => F[Unit]) = {
+                                                      uri: RedisURI)(
+      implicit F: ConcurrentEffect[F],
+      L: Log[F]): (F[StatefulRedisPubSubConnection[K, V]], StatefulRedisPubSubConnection[K, V] => F[Unit]) = {
 
     val acquire: F[StatefulRedisPubSubConnection[K, V]] = JRFuture.fromConnectionFuture {
       F.delay(client.underlying.connectPubSubAsync(codec.underlying, uri))
@@ -40,7 +41,7 @@ object Fs2PubSub {
 
     val release: StatefulRedisPubSubConnection[K, V] => F[Unit] = c =>
       JRFuture.fromCompletableFuture(F.delay(c.closeAsync())) *>
-        F.delay(println(s"Releasing PubSub connection: $uri"))
+        L.info(s"Releasing PubSub connection: $uri")
 
     (acquire, release)
   }
@@ -50,9 +51,10 @@ object Fs2PubSub {
     *
     * Use this option whenever you need one or more subscribers or subscribers and publishers.
     * */
-  def mkPubSubConnection[F[_]: ConcurrentEffect, K, V](client: Fs2RedisClient,
-                                                       codec: Fs2RedisCodec[K, V],
-                                                       uri: RedisURI): Stream[F, PubSubCommands[Stream[F, ?], K, V]] = {
+  def mkPubSubConnection[F[_]: ConcurrentEffect: Log, K, V](
+      client: Fs2RedisClient,
+      codec: Fs2RedisCodec[K, V],
+      uri: RedisURI): Stream[F, PubSubCommands[Stream[F, ?], K, V]] = {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec, uri)
     // One exclusive connection for subscriptions and another connection for publishing / stats
     for {
@@ -69,7 +71,7 @@ object Fs2PubSub {
     *
     * Use this option when you only need to publish and/or get PubSun stats such as number of subscriptions.
     * */
-  def mkPublisherConnection[F[_]: ConcurrentEffect, K, V](
+  def mkPublisherConnection[F[_]: ConcurrentEffect: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI): Stream[F, PublishCommands[Stream[F, ?], K, V]] = {
@@ -82,7 +84,7 @@ object Fs2PubSub {
     *
     * Use this option when you only need to one or more subscribers but no publishing and / or stats.
     * */
-  def mkSubscriberConnection[F[_]: ConcurrentEffect, K, V](
+  def mkSubscriberConnection[F[_]: ConcurrentEffect: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI): Stream[F, SubscribeCommands[Stream[F, ?], K, V]] = {
