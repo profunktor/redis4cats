@@ -19,7 +19,7 @@ package com.github.gvolpe.fs2redis.interpreter.pubsub
 import cats.effect.ConcurrentEffect
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.algebra.{PubSubCommands, PublishCommands}
+import com.github.gvolpe.fs2redis.algebra.{PubSubCommands, PublishCommands, SubscribeCommands}
 import com.github.gvolpe.fs2redis.model._
 import com.github.gvolpe.fs2redis.util.JRFuture
 import fs2.Stream
@@ -73,9 +73,25 @@ object Fs2PubSub {
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI): Stream[F, PublishCommands[Stream[F, ?], K, V]] = {
-
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec, uri)
     Stream.bracket(acquire)(release).map(c => new Fs2Publisher[F, K, V](c))
+  }
+
+  /**
+    * Creates a PubSub connection.
+    *
+    * Use this option when you only need to one or more subscribers but no publishing and / or stats.
+    * */
+  def mkSubscriberConnection[F[_]: ConcurrentEffect, K, V](
+      client: Fs2RedisClient,
+      codec: Fs2RedisCodec[K, V],
+      uri: RedisURI): Stream[F, SubscribeCommands[Stream[F, ?], K, V]] = {
+    val (acquire, release) = acquireAndRelease[F, K, V](client, codec, uri)
+
+    for {
+      state <- Stream.eval(Ref.of(Map.empty[K, mutable.Topic[F, Option[V]]]))
+      sConn <- Stream.bracket(acquire)(release)
+    } yield new Fs2Subscriber[F, K, V](state, sConn)
   }
 
 }

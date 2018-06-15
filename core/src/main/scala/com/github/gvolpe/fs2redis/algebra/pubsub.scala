@@ -29,10 +29,12 @@ trait PublishCommands[F[_], K, V] extends PubSubStats[F, K] {
   def publish(channel: Fs2RedisChannel[K]): F[V] => F[Unit]
 }
 
-trait PubSubCommands[F[_], K, V] extends PublishCommands[F, K, V] {
+trait SubscribeCommands[F[_], K, V] {
   def subscribe(channel: Fs2RedisChannel[K]): F[V]
   def unsubscribe(channel: Fs2RedisChannel[K]): F[Unit]
 }
+
+trait PubSubCommands[F[_], K, V] extends PublishCommands[F, K, V] with SubscribeCommands[F, K, V]
 
 trait PubSubConnection[F[_]] {
   def createPubSubConnection[K, V](codec: Fs2RedisCodec[K, V], uri: RedisURI): F[PubSubCommands[F, K, V]]

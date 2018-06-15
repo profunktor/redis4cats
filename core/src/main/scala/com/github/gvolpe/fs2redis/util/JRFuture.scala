@@ -26,7 +26,7 @@ object JRFuture {
 
   case class EmptyValue(msg: String = "Empty value") extends Throwable(msg)
 
-  type JFuture[A] = CompletionStage[A] with Future[A]
+  private[fs2redis] type JFuture[A] = CompletionStage[A] with Future[A]
 
   def apply[F[_]: Async, A](fa: F[RedisFuture[A]]): F[A] =
     liftJFuture[F, RedisFuture[A], A](fa)

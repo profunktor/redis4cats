@@ -25,7 +25,7 @@ import io.lettuce.core.{RedisClient, RedisURI}
 
 object Fs2RedisClient {
 
-  private def acquireAndRelease[F[_]](uri: RedisURI)(
+  private[fs2redis] def acquireAndRelease[F[_]](uri: RedisURI)(
       implicit F: Concurrent[F]): (F[Fs2RedisClient], Fs2RedisClient => F[Unit]) = {
     val acquire: F[Fs2RedisClient] = F.delay { DefaultRedisClient(RedisClient.create(uri)) }
 
