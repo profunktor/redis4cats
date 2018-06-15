@@ -49,7 +49,7 @@ object Fs2PubSub {
   /**
     * Creates a PubSub Connection.
     *
-    * Use this option whenever you need one or more subscribers or subscribers and publishers.
+    * Use this option whenever you need one or more subscribers or subscribers and publishers / stats.
     * */
   def mkPubSubConnection[F[_]: ConcurrentEffect: Log, K, V](
       client: Fs2RedisClient,
@@ -69,7 +69,7 @@ object Fs2PubSub {
   /**
     * Creates a PubSub connection.
     *
-    * Use this option when you only need to publish and/or get PubSun stats such as number of subscriptions.
+    * Use this option when you only need to publish and/or get stats such as number of subscriptions.
     * */
   def mkPublisherConnection[F[_]: ConcurrentEffect: Log, K, V](
       client: Fs2RedisClient,
