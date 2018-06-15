@@ -40,7 +40,7 @@ object Fs2PubSub {
 
     val release: StatefulRedisPubSubConnection[K, V] => F[Unit] = c =>
       JRFuture.fromCompletableFuture(F.delay(c.closeAsync())) *>
-        F.delay(s"Releasing PubSub connection: ${client.underlying}")
+        F.delay(println(s"Releasing PubSub connection: $uri"))
 
     (acquire, release)
   }

@@ -42,7 +42,7 @@ object Fs2Redis {
 
     val release: Fs2Redis[F, K, V] => F[Unit] = c =>
       JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync())) *>
-        F.delay(s"Releasing commands connection: ${client.underlying}")
+        F.delay(println(s"Releasing Commands connection: $uri"))
 
     (acquire, release)
   }
