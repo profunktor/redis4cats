@@ -102,7 +102,7 @@ lazy val microsite = project.in(file("site"))
   .settings(noPublish)
   .settings(
     micrositeName := "Fs2 Redis",
-    micrositeDescription := "Stream-based client for Redis built on top of Fs2",
+    micrositeDescription := "Redis stream-based client",
     micrositeAuthor := "Gabriel Volpe",
     micrositeGithubOwner := "gvolpe",
     micrositeGithubRepo := "fs2-redis",
