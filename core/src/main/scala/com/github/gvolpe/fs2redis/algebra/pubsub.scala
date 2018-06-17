@@ -35,7 +35,3 @@ trait SubscribeCommands[F[_], K, V] {
 }
 
 trait PubSubCommands[F[_], K, V] extends PublishCommands[F, K, V] with SubscribeCommands[F, K, V]
-
-trait PubSubConnection[F[_]] {
-  def createPubSubConnection[K, V](codec: Fs2RedisCodec[K, V], uri: RedisURI): F[PubSubCommands[F, K, V]]
-}
