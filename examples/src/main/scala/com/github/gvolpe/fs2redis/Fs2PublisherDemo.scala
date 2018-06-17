@@ -19,11 +19,9 @@ package com.github.gvolpe.fs2redis
 import cats.effect.IO
 import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
-import com.github.gvolpe.fs2redis.model.{DefaultChannel, DefaultRedisCodec}
+import com.github.gvolpe.fs2redis.model.DefaultChannel
 import fs2.StreamApp.ExitCode
 import fs2.{Stream, StreamApp}
-import io.lettuce.core.RedisURI
-import io.lettuce.core.codec.StringCodec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -31,8 +29,7 @@ import scala.util.Random
 
 object Fs2PublisherDemo extends StreamApp[IO] {
 
-  private val redisURI    = RedisURI.create("redis://localhost")
-  private val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
+  import Demo._
 
   private val eventsChannel = DefaultChannel("events")
 
@@ -43,7 +40,7 @@ object Fs2PublisherDemo extends StreamApp[IO] {
       pub1   = pubSub.publish(eventsChannel)
       rs <- Stream(
              Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
-             Stream.awakeEvery[IO](6.seconds) >> pubSub.pubSubSubscriptions(eventsChannel).evalMap(x => IO(println(x)))
+             Stream.awakeEvery[IO](6.seconds) >> pubSub.pubSubSubscriptions(eventsChannel).evalMap(x => putStrLn(x.toString))
            ).join(2).drain
     } yield rs
 

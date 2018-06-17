@@ -21,16 +21,10 @@ import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.BasicCommands
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.model.DefaultRedisCodec
-import io.lettuce.core.RedisURI
-import io.lettuce.core.codec.StringCodec
 
 object Fs2RedisBasicDemo extends IOApp {
 
-  private val redisURI    = RedisURI.create("redis://localhost")
-  private val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
-
-  def putStrLn(str: String): IO[Unit] = IO(println(str))
+  import Demo._
 
   override def run(args: List[String]): IO[ExitCode] = {
     val usernameKey = "test"

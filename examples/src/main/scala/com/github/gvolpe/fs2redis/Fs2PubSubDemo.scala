@@ -19,11 +19,9 @@ package com.github.gvolpe.fs2redis
 import cats.effect.IO
 import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
-import com.github.gvolpe.fs2redis.model.{DefaultChannel, DefaultRedisCodec}
+import com.github.gvolpe.fs2redis.model.DefaultChannel
 import fs2.StreamApp.ExitCode
 import fs2.{Sink, Stream, StreamApp}
-import io.lettuce.core.RedisURI
-import io.lettuce.core.codec.StringCodec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -31,13 +29,12 @@ import scala.util.Random
 
 object Fs2PubSubDemo extends StreamApp[IO] {
 
-  private val redisURI    = RedisURI.create("redis://localhost")
-  private val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
+  import Demo._
 
   private val eventsChannel = DefaultChannel("events")
   private val gamesChannel  = DefaultChannel("games")
 
-  def sink(name: String): Sink[IO, String] = _.evalMap(x => IO(println(s"Subscriber: $name >> $x")))
+  def sink(name: String): Sink[IO, String] = _.evalMap(x => putStrLn(s"Subscriber: $name >> $x"))
 
   override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, ExitCode] =
     for {
@@ -55,7 +52,7 @@ object Fs2PubSubDemo extends StreamApp[IO] {
              Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
              Stream.awakeEvery[IO](6.seconds) >> pubSub
                .pubSubSubscriptions(List(eventsChannel, gamesChannel))
-               .evalMap(x => IO(println(x)))
+               .evalMap(x => putStrLn(x.toString))
            ).join(6).drain
     } yield rs
 

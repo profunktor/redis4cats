@@ -20,11 +20,9 @@ import cats.effect.IO
 import cats.syntax.parallel._
 import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.streams.Fs2Streaming
-import com.github.gvolpe.fs2redis.model.{DefaultRedisCodec, StreamingMessage}
+import com.github.gvolpe.fs2redis.model.StreamingMessage
 import fs2.StreamApp.ExitCode
-import fs2.{Sink, Stream, StreamApp}
-import io.lettuce.core.RedisURI
-import io.lettuce.core.codec.StringCodec
+import fs2.{Stream, StreamApp}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -32,12 +30,7 @@ import scala.util.Random
 
 object Fs2StreamingDemo extends StreamApp[IO] {
 
-  private val redisURI    = RedisURI.create("redis://localhost")
-  private val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
-
-  def sink(name: String): Sink[IO, String] = _.evalMap(x => IO(println(s"Subscriber: $name >> $x")))
-
-  def putStrLn(str: String): IO[Unit] = IO(println(str))
+  import Demo._
 
   private val streamKey1 = "demo"
   private val streamKey2 = "users"
