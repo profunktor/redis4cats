@@ -1,0 +1,11 @@
+name: Fs2 Redis
+baseurl: /fs2-redis
+description: Redis stream-based client
+highlighter: rouge
+docs: true
+collections:
+  tut:
+    output: true
+version: 0.1-SNAPSHOT
+org: Fs2 Redis
+markdown: kramdown
