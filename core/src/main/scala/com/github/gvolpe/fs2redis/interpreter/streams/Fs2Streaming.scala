@@ -58,8 +58,8 @@ class Fs2Streaming[F[_]: Concurrent, K, V](rawStreaming: Fs2RawStreaming[F, K, V
   override def append: Stream[F, StreamingMessage[K, V]] => Stream[F, Unit] =
     _.evalMap(msg => rawStreaming.xAdd(msg.key, msg.body).void)
 
-  override def read(keys: Set[K], from: K => StreamingOffset[K]): Stream[F, StreamingMessageWithId[K, V]] = {
-    val initial = keys.map(k => k -> from(k)).toMap
+  override def read(keys: Set[K], initialOffset: K => StreamingOffset[K]): Stream[F, StreamingMessageWithId[K, V]] = {
+    val initial = keys.map(k => k -> initialOffset(k)).toMap
     Stream.eval(Ref.of[F, Map[K, StreamingOffset[K]]](initial)).flatMap { ref =>
       (for {
         offsets    <- Stream.eval(ref.get)

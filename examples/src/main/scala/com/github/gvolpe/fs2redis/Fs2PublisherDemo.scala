@@ -40,7 +40,9 @@ object Fs2PublisherDemo extends StreamApp[IO] {
       pub1   = pubSub.publish(eventsChannel)
       rs <- Stream(
              Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
-             Stream.awakeEvery[IO](6.seconds) >> pubSub.pubSubSubscriptions(eventsChannel).evalMap(x => putStrLn(x.toString))
+             Stream.awakeEvery[IO](6.seconds) >> pubSub
+               .pubSubSubscriptions(eventsChannel)
+               .evalMap(x => putStrLn(x.toString))
            ).join(2).drain
     } yield rs
 
