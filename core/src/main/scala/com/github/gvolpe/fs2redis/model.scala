@@ -59,8 +59,14 @@ object model {
     def key: K
     def offset: String
   }
-  case class Latest[K](key: K) extends StreamingOffset[K] {
-    override def offset: String = "$"
+
+  object StreamingOffset {
+    case class All[K](key: K) extends StreamingOffset[K] {
+      override def offset: String = "0"
+    }
+    case class Latest[K](key: K) extends StreamingOffset[K] {
+      override def offset: String = "$"
+    }
+    case class Custom[K](key: K, offset: String) extends StreamingOffset[K]
   }
-  case class CustomOffset[K](key: K, offset: String) extends StreamingOffset[K]
 }

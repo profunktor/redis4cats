@@ -25,5 +25,5 @@ trait RawStreaming[F[_], K, V] {
 
 trait Streaming[F[_], K, V] {
   def append: F[StreamingMessage[K, V]] => F[Unit]
-  def latest(keys: Set[K]): F[StreamingMessageWithId[K, V]]
+  def read(keys: Set[K], from: K => StreamingOffset[K] = StreamingOffset.All[K]): F[StreamingMessageWithId[K, V]]
 }

@@ -50,7 +50,7 @@ class Fs2Streaming[F[_]: Concurrent, K, V](rawStreaming: Fs2RawStreaming[F, K, V
     extends Streaming[Stream[F, ?], K, V] {
 
   private[streams] val nextOffset: K => StreamingMessageWithId[K, V] => StreamingOffset[K] =
-    key => msg => CustomOffset(key, (msg.id.value.dropRight(2).toLong + 1).toString)
+    key => msg => StreamingOffset.Custom(key, (msg.id.value.dropRight(2).toLong + 1).toString)
 
   private[streams] val offsetsByKey: List[StreamingMessageWithId[K, V]] => Map[K, Option[StreamingOffset[K]]] =
     list => list.groupBy(_.key).map { case (k, values) => k -> values.lastOption.map(nextOffset(k)) }
@@ -58,8 +58,8 @@ class Fs2Streaming[F[_]: Concurrent, K, V](rawStreaming: Fs2RawStreaming[F, K, V
   override def append: Stream[F, StreamingMessage[K, V]] => Stream[F, Unit] =
     _.evalMap(msg => rawStreaming.xAdd(msg.key, msg.body).void)
 
-  override def latest(keys: Set[K]): Stream[F, StreamingMessageWithId[K, V]] = {
-    val initial = keys.map(k => k -> CustomOffset(k, "0")).toMap
+  override def read(keys: Set[K], from: K => StreamingOffset[K]): Stream[F, StreamingMessageWithId[K, V]] = {
+    val initial = keys.map(k => k -> from(k)).toMap
     Stream.eval(Ref.of[F, Map[K, StreamingOffset[K]]](initial)).flatMap { ref =>
       (for {
         offsets    <- Stream.eval(ref.get)

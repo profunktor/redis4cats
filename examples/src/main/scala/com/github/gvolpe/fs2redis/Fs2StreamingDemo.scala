@@ -48,7 +48,7 @@ object Fs2StreamingDemo extends StreamApp[IO] {
     for {
       client    <- Fs2RedisClient.stream[IO](redisURI)
       streaming <- Fs2Streaming.mkStreamingConnection[IO, String, String](client, stringCodec, redisURI)
-      source    = streaming.latest(Set(streamKey1, streamKey2))
+      source    = streaming.read(Set(streamKey1, streamKey2))
       appender  = streaming.append
       rs <- Stream(
              source.evalMap(x => putStrLn(x.toString)),
