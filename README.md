@@ -7,8 +7,10 @@ Stream-based client built on top of [Fs2](https://functional-streams-for-scala.g
 
 - [x] Safe connection management.
 - [x] `PubSub` implemented on top of `fs2` streams.
-- [ ] `Streams` (Redis 5.0) WIP.
-- [x] `Basic Commands` such as `get`, `set`, `del`.
+- [x] `Streams` (Redis 5.0) experimental API, subject to changes (WIP).
+      + Consumer Groups are yet not implemented.
+      + Support for `XREAD`, `XADD` and high-level stream combinators `latest` and `append`.
+- [x] `Basic Commands` such as `get`, `set`, `del`, `expire`.
 
 Other features are not considered at the moment but PRs and suggestions are very welcome.
 

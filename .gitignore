@@ -46,3 +46,4 @@ worker*.log
 /bin
 tags
 tq:q
+*DoNotCommit*

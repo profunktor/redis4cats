@@ -50,4 +50,17 @@ object model {
     def empty[K](channel: Fs2RedisChannel[K]): Subscription[K] =
       Subscription[K](channel, 0L)
   }
+
+  final case class StreamingMessage[K, V](key: K, body: Map[K, V])
+  final case class StreamingMessageWithId[K, V](id: MessageId, key: K, body: Map[K, V])
+  final case class MessageId(value: String) extends AnyVal
+
+  sealed trait StreamingOffset[K] extends Product with Serializable {
+    def key: K
+    def offset: String
+  }
+  case class Latest[K](key: K) extends StreamingOffset[K] {
+    override def offset: String = "$"
+  }
+  case class CustomOffset[K](key: K, offset: String) extends StreamingOffset[K]
 }
