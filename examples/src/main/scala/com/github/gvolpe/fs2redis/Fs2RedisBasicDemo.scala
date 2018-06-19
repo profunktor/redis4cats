@@ -45,7 +45,7 @@ object Fs2RedisBasicDemo extends IOApp {
         _ <- cmd.set(usernameKey, "some value")
         y <- cmd.get(usernameKey)
         _ <- showResult(y)
-        _ <- cmd.setnx(usernameKey, "should not happen")
+        _ <- cmd.setNx(usernameKey, "should not happen")
         w <- cmd.get(usernameKey)
         _ <- showResult(w)
         _ <- cmd.del(usernameKey)

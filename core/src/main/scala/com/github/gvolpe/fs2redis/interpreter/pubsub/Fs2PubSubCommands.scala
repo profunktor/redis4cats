@@ -32,7 +32,8 @@ class Fs2PubSubCommands[F[_], K, V](state: Ref[F, PubSubState[F, K, V]],
                                     pubConnection: StatefulRedisPubSubConnection[K, V])(implicit F: ConcurrentEffect[F])
     extends PubSubCommands[Stream[F, ?], K, V] {
 
-  private[fs2redis] val subCommands: SubscribeCommands[Stream[F, ?], K, V] = new Fs2Subscriber[F, K, V](state, subConnection)
+  private[fs2redis] val subCommands: SubscribeCommands[Stream[F, ?], K, V] =
+    new Fs2Subscriber[F, K, V](state, subConnection)
   private[fs2redis] val pubSubStats: PubSubStats[Stream[F, ?], K] = new Fs2PubSubStats(pubConnection)
 
   override def subscribe(channel: Fs2RedisChannel[K]): Stream[F, V] =
@@ -43,9 +44,10 @@ class Fs2PubSubCommands[F[_], K, V](state: Ref[F, PubSubState[F, K, V]],
 
   override def publish(channel: Fs2RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
     _.evalMap { message =>
+      val getOrCreateTopicListener = Fs2PubSubInternals[F, K, V](state, subConnection)
       for {
         st <- state.get
-        _  <- Fs2PubSubInternals[F, K, V](state, subConnection)(F, Log[F])(channel)(st)
+        _  <- getOrCreateTopicListener(channel)(st)
         _  <- JRFuture { F.delay(pubConnection.async().publish(channel.value, message)) }
       } yield ()
     }
