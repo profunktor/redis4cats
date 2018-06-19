@@ -18,6 +18,7 @@ package com.github.gvolpe.fs2redis.algebra
 
 import com.github.gvolpe.fs2redis.model._
 
+// format: off
 trait RawStreaming[F[_], K, V] {
   def xAdd(key: K, body: Map[K, V]): F[MessageId]
   def xRead(streams: Set[StreamingOffset[K]]): F[List[StreamingMessageWithId[K, V]]]
@@ -25,6 +26,5 @@ trait RawStreaming[F[_], K, V] {
 
 trait Streaming[F[_], K, V] {
   def append: F[StreamingMessage[K, V]] => F[Unit]
-  def read(keys: Set[K],
-           initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K]): F[StreamingMessageWithId[K, V]]
+  def read(keys: Set[K], initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K]): F[StreamingMessageWithId[K, V]]
 }
