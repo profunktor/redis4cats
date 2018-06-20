@@ -18,7 +18,7 @@ package com.github.gvolpe.fs2redis.algebra
 
 import scala.concurrent.duration.FiniteDuration
 
-trait BasicCommands[F[_], K, V]
+trait StringCommands[F[_], K, V]
     extends Getter[F, K, V]
     with Setter[F, K, V]
     with MultiKey[F, K, V]

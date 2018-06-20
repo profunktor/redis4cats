@@ -18,21 +18,22 @@ package com.github.gvolpe.fs2redis
 
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.algebra.BasicCommands
+import com.github.gvolpe.fs2redis.algebra.HashCommands
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
 
-object Fs2RedisBasicDemo extends IOApp {
+object Fs2RedisHashDemo extends IOApp {
 
   import Demo._
 
   override def run(args: List[String]): IO[ExitCode] = {
-    val usernameKey = "test"
+    val testKey   = "foo"
+    val testField = "bar"
 
     val showResult: Option[String] => IO[Unit] =
-      _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
+      _.fold(putStrLn(s"Not found key: $testKey | field: $testField"))(s => putStrLn(s))
 
-    val commandsApi: Resource[IO, BasicCommands[IO, String, String]] =
+    val commandsApi: Resource[IO, HashCommands[IO, String, String]] =
       for {
         client <- Fs2RedisClient[IO](redisURI)
         redis  <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
@@ -40,16 +41,16 @@ object Fs2RedisBasicDemo extends IOApp {
 
     commandsApi.use { cmd =>
       for {
-        x <- cmd.get(usernameKey)
+        x <- cmd.hGet(testKey, testField)
         _ <- showResult(x)
-        _ <- cmd.set(usernameKey, "some value")
-        y <- cmd.get(usernameKey)
+        _ <- cmd.hSet(testKey, testField, "some value")
+        y <- cmd.hGet(testKey, testField)
         _ <- showResult(y)
-        _ <- cmd.setNx(usernameKey, "should not happen")
-        w <- cmd.get(usernameKey)
+        _ <- cmd.hSetNx(testKey, testField, "should not happen")
+        w <- cmd.hGet(testKey, testField)
         _ <- showResult(w)
-        _ <- cmd.del(usernameKey)
-        z <- cmd.get(usernameKey)
+        _ <- cmd.hDel(testKey, List(testField))
+        z <- cmd.hGet(testKey, testField)
         _ <- showResult(z)
       } yield ()
     } *> IO.pure(ExitCode.Success)
