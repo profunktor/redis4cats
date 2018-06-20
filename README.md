@@ -8,12 +8,24 @@ Stream-based client built on top of [Fs2](https://functional-streams-for-scala.g
 
 :warning: This project is under development and only includes a limited set of features :warning:
 
+`fs2-redis` defines two types of API: one Stream-based using [Fs2](https://functional-streams-for-scala.github.io/fs2/) and another Effect-based using [Cats Effect](https://typelevel.org/cats-effect/).
+
+### Streams
+
 - [x] Safe connection management.
-- [x] `PubSub` implemented on top of `fs2` streams.
-- [x] `Streams` (Redis 5.0) experimental API, subject to changes (WIP).
+- [x] [PubSub API](https://redis.io/topics/pubsub) implemented on top of `fs2` streams.
+- [x] [Streams API](https://redis.io/topics/streams-intro) experimental API, subject to changes (WIP).
   + High-level API offers `read` and `append` using the underlying commands `XREAD` and `XADD` respectively.
   + Consumer Groups are yet not implemented.
-- [x] `Basic Commands` such as `get`, `set`, `del`, `expire`.
+
+### Effects
+
+- [ ] [Geo API](https://redis.io/commands#geo): `geoadd`, `geohash`, `geopos`, `geodist`, etc.
+- [x] [Hashes API](https://redis.io/commands#hash): `hgetall`, `hset`, `hdel`, `hincrby`, etc.
+- [ ] [Lists API](https://redis.io/commands#list): `rpush`, `lrange`, `lpop`, etc.
+- [ ] [Sets API](https://redis.io/commands#set): `sadd`, `scard`, `srem`, `spop`, etc.
+- [ ] [Sorted Sets API](https://redis.io/commands#sorted_set): `zcount`, `zcard`, `zrangebyscore`, `zrank`, etc.
+- [x] [Strings API](https://redis.io/commands#string): `get`, `set`, `del`, `expire`, etc (includes some generic methods).
 
 Other features are not considered at the moment but PRs and suggestions are very welcome.
 
