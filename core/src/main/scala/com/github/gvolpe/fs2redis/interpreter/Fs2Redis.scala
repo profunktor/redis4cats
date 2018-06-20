@@ -16,6 +16,8 @@
 
 package com.github.gvolpe.fs2redis.interpreter
 
+import java.util.concurrent.TimeUnit
+
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.apply._
 import cats.syntax.functor._
@@ -66,34 +68,156 @@ object Fs2Redis {
 private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection[K, V])(implicit F: Concurrent[F])
     extends BasicCommands[F, K, V] {
 
-  override def get(k: K): F[Option[V]] =
+  import scala.collection.JavaConverters._
+
+  override def del(key: K): F[Unit] =
     JRFuture {
-      F.delay(client.async().get(k))
+      F.delay(client.async().del(key))
+    }.void
+
+  override def expire(key: K, expiresIn: FiniteDuration): F[Unit] =
+    JRFuture {
+      F.delay(client.async().expire(key, expiresIn.toSeconds))
+    }.void
+
+  override def append(key: K, value: V): F[Unit] =
+    JRFuture {
+      F.delay(client.async().append(key, value))
+    }.void
+
+  override def getSet(key: K, value: V): F[Option[V]] =
+    JRFuture {
+      F.delay(client.async().getset(key, value))
     }.map(Option.apply)
 
-  override def set(k: K, v: V): F[Unit] =
+  override def set(key: K, value: V): F[Unit] =
     JRFuture {
-      F.delay(client.async().set(k, v))
+      F.delay(client.async().set(key, value))
     }.void
 
-  override def setnx(k: K, v: V): F[Unit] =
+  override def setNx(key: K, value: V): F[Unit] =
     JRFuture {
-      F.delay(client.async().setnx(k, v))
+      F.delay(client.async().setnx(key, value))
     }.void
 
-  override def del(k: K): F[Unit] =
+  override def setEx(key: K, value: V, expiresIn: FiniteDuration): F[Unit] = {
+    val command = expiresIn.unit match {
+      case TimeUnit.MILLISECONDS =>
+        F.delay(client.async().psetex(key, expiresIn.toMillis, value))
+      case _ =>
+        F.delay(client.async().setex(key, expiresIn.toSeconds, value))
+    }
+    JRFuture(command).void
+  }
+
+  override def setRange(key: K, value: V, offset: Long): F[Unit] =
     JRFuture {
-      F.delay(client.async().del(k))
+      F.delay(client.async().setrange(key, offset, value))
     }.void
 
-  override def setex(k: K, v: V, seconds: FiniteDuration): F[Unit] =
+  override def decr(key: K)(implicit N: Numeric[V]): F[Long] =
     JRFuture {
-      F.delay(client.async().setex(k, seconds.toSeconds, v))
+      F.delay(client.async().decr(key))
+    }.map(x => Long.box(x))
+
+  override def decrBy(key: K, amount: Long)(implicit N: Numeric[V]): F[Long] =
+    JRFuture {
+      F.delay(client.async().incrby(key, amount))
+    }.map(x => Long.box(x))
+
+  override def incr(key: K)(implicit N: Numeric[V]): F[Long] =
+    JRFuture {
+      F.delay(client.async().incr(key))
+    }.map(x => Long.box(x))
+
+  override def incrBy(key: K, amount: Long)(implicit N: Numeric[V]): F[Long] =
+    JRFuture {
+      F.delay(client.async().incrby(key, amount))
+    }.map(x => Long.box(x))
+
+  override def incrByFloat(key: K, amount: Double)(implicit N: Numeric[V]): F[Double] =
+    JRFuture {
+      F.delay(client.async().incrbyfloat(key, amount))
+    }.map(x => Double.box(x))
+
+  override def get(key: K): F[Option[V]] =
+    JRFuture {
+      F.delay(client.async().get(key))
+    }.map(Option.apply)
+
+  override def getBit(key: K, offset: Long): F[Option[Long]] =
+    JRFuture {
+      F.delay(client.async().getbit(key, offset))
+    }.map(x => Option(Long.box(x)))
+
+  override def getRange(key: K, start: Long, end: Long): F[Option[V]] =
+    JRFuture {
+      F.delay(client.async().getrange(key, start, end))
+    }.map(Option.apply)
+
+  override def strLen(key: K): F[Option[Long]] =
+    JRFuture {
+      F.delay(client.async().strlen(key))
+    }.map(x => Option(Long.box(x)))
+
+  override def mGet(keys: Set[K]): F[Map[K, V]] =
+    JRFuture {
+      F.delay(client.async().mget(keys.toSeq: _*))
+    }.map(_.asScala.toList.map(kv => kv.getKey -> kv.getValue).toMap)
+
+  override def mSet(keyValues: Map[K, V]): F[Unit] =
+    JRFuture {
+      F.delay(client.async().mset(keyValues.asJava))
     }.void
 
-  override def expire(k: K, seconds: FiniteDuration): F[Unit] =
+  override def mSetNx(keyValues: Map[K, V]): F[Unit] =
     JRFuture {
-      F.delay(client.async().expire(k, seconds.toSeconds))
+      F.delay(client.async().msetnx(keyValues.asJava))
+    }.void
+
+  override def bitCount(key: K): F[Long] =
+    JRFuture {
+      F.delay(client.async().bitcount(key))
+    }.map(x => Long.box(x))
+
+  override def bitCount(key: K, start: Long, end: Long): F[Long] =
+    JRFuture {
+      F.delay(client.async().bitcount(key, start, end))
+    }.map(x => Long.box(x))
+
+  override def bitPos(key: K, state: Boolean): F[Long] =
+    JRFuture {
+      F.delay(client.async().bitpos(key, state))
+    }.map(x => Long.box(x))
+
+  override def bitPos(key: K, state: Boolean, start: Long): F[Long] =
+    JRFuture {
+      F.delay(client.async().bitpos(key, state, start))
+    }.map(x => Long.box(x))
+
+  override def bitPos(key: K, state: Boolean, start: Long, end: Long): F[Long] =
+    JRFuture {
+      F.delay(client.async().bitpos(key, state, start, end))
+    }.map(x => Long.box(x))
+
+  override def bitOpAnd(destination: K, source: List[K]): F[Unit] =
+    JRFuture {
+      F.delay(client.async().bitopAnd(destination, source: _*))
+    }.void
+
+  override def bitOpNot(destination: K, source: K): F[Unit] =
+    JRFuture {
+      F.delay(client.async().bitopNot(destination, source))
+    }.void
+
+  override def bitOpOr(destination: K, source: List[K]): F[Unit] =
+    JRFuture {
+      F.delay(client.async().bitopOr(destination, source: _*))
+    }.void
+
+  override def bitOpXor(destination: K, source: List[K]): F[Unit] =
+    JRFuture {
+      F.delay(client.async().bitopXor(destination, source: _*))
     }.void
 
 }
