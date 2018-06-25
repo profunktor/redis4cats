@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.apply._
 import cats.syntax.functor._
-import com.github.gvolpe.fs2redis.algebra.{HashCommands, SetCommands, StringCommands}
+import com.github.gvolpe.fs2redis.algebra.{HashCommands, ListCommands, SetCommands, StringCommands}
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis.RedisCommands
 import com.github.gvolpe.fs2redis.model.{Fs2RedisClient, Fs2RedisCodec}
 import com.github.gvolpe.fs2redis.util.{JRFuture, Log}
@@ -33,7 +33,11 @@ import scala.concurrent.duration.FiniteDuration
 
 object Fs2Redis {
 
-  trait RedisCommands[F[_], K, V] extends StringCommands[F, K, V] with HashCommands[F, K, V] with SetCommands[F, K, V]
+  trait RedisCommands[F[_], K, V]
+      extends StringCommands[F, K, V]
+      with HashCommands[F, K, V]
+      with SetCommands[F, K, V]
+      with ListCommands[F, K, V]
 
   private[fs2redis] def acquireAndRelease[F[_], K, V](
       client: Fs2RedisClient,
@@ -371,6 +375,96 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
   override def sUnionStore(destination: K, keys: K*): F[Unit] =
     JRFuture {
       F.delay(client.async().sunionstore(destination, keys: _*))
+    }.void
+
+  override def lIndex(key: K, index: Long): F[Option[V]] =
+    JRFuture {
+      F.delay(client.async().lindex(key, index))
+    }.map(Option.apply)
+
+  override def lLen(key: K): F[Option[Long]] =
+    JRFuture {
+      F.delay(client.async().llen(key))
+    }.map(x => Option(Long.box(x)))
+
+  override def lRange(key: K, start: Long, stop: Long): F[List[V]] =
+    JRFuture {
+      F.delay(client.async().lrange(key, start, stop))
+    }.map(_.asScala.toList)
+
+  override def blPop(timeout: FiniteDuration, keys: K*): F[(K, V)] =
+    JRFuture {
+      F.delay(client.async().blpop(timeout.toMillis, keys: _*))
+    }.map(kv => kv.getKey -> kv.getValue)
+
+  override def brPop(timeout: FiniteDuration, keys: K*): F[(K, V)] =
+    JRFuture {
+      F.delay(client.async().brpop(timeout.toMillis, keys: _*))
+    }.map(kv => kv.getKey -> kv.getValue)
+
+  override def brPopLPush(timeout: FiniteDuration, source: K, destination: K): F[Option[V]] =
+    JRFuture {
+      F.delay(client.async().brpoplpush(timeout.toMillis, source, destination))
+    }.map(Option.apply)
+
+  override def lPop(key: K): F[Option[V]] =
+    JRFuture {
+      F.delay(client.async().lpop(key))
+    }.map(Option.apply)
+
+  override def lPush(key: K, values: V*): F[Unit] =
+    JRFuture {
+      F.delay(client.async().lpush(key, values: _*))
+    }.void
+
+  override def lPushX(key: K, values: V*): F[Unit] =
+    JRFuture {
+      F.delay(client.async().lpushx(key, values: _*))
+    }.void
+
+  override def rPop(key: K): F[Option[V]] =
+    JRFuture {
+      F.delay(client.async().rpop(key))
+    }.map(Option.apply)
+
+  override def rPopLPush(source: K, destination: K): F[Option[V]] =
+    JRFuture {
+      F.delay(client.async().rpoplpush(source, destination))
+    }.map(Option.apply)
+
+  override def rPush(key: K, values: V*): F[Unit] =
+    JRFuture {
+      F.delay(client.async().rpush(key, values: _*))
+    }.void
+
+  override def rPushX(key: K, values: V*): F[Unit] =
+    JRFuture {
+      F.delay(client.async().rpushx(key, values: _*))
+    }.void
+
+  override def lInsertAfter(key: K, pivot: V, value: V): F[Unit] =
+    JRFuture {
+      F.delay(client.async().linsert(key, false, pivot, value))
+    }.void
+
+  override def lInsertBefore(key: K, pivot: V, value: V): F[Unit] =
+    JRFuture {
+      F.delay(client.async().linsert(key, true, pivot, value))
+    }.void
+
+  override def lRem(key: K, count: Long, value: V): F[Unit] =
+    JRFuture {
+      F.delay(client.async().lrem(key, count, value))
+    }.void
+
+  override def lSet(key: K, index: Long, value: V): F[Unit] =
+    JRFuture {
+      F.delay(client.async().lset(key, index, value))
+    }.void
+
+  override def lTrim(key: K, start: Long, stop: Long): F[Unit] =
+    JRFuture {
+      F.delay(client.async().ltrim(key, start, stop))
     }.void
 
 }
