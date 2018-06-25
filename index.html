@@ -11,9 +11,9 @@
 
 <h3 id="streams">Streams</h3>
 
-<ul class="task-list">
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><a href="https://redis.io/topics/pubsub">PubSub API</a> implemented on top of <code class="highlighter-rouge">fs2</code> streams.</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><a href="https://redis.io/topics/streams-intro">Streams API</a> experimental API, subject to changes (WIP).
+<ul>
+  <li><a href="https://redis.io/topics/pubsub">PubSub API</a> implemented on top of <code class="highlighter-rouge">fs2</code> streams.</li>
+  <li><a href="https://redis.io/topics/streams-intro">Streams API</a> experimental API, subject to changes (WIP).
     <ul>
       <li>High-level API offers <code class="highlighter-rouge">read</code> and <code class="highlighter-rouge">append</code> using the underlying commands <code class="highlighter-rouge">XREAD</code> and <code class="highlighter-rouge">XADD</code> respectively.</li>
       <li>Consumer Groups are yet not implemented.</li>
@@ -23,13 +23,13 @@
 
 <h3 id="effects">Effects</h3>
 
-<ul class="task-list">
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><a href="https://redis.io/commands#geo">Geo API</a>: <code class="highlighter-rouge">geoadd</code>, <code class="highlighter-rouge">geohash</code>, <code class="highlighter-rouge">geopos</code>, <code class="highlighter-rouge">geodist</code>, etc.</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><a href="https://redis.io/commands#hash">Hashes API</a>: <code class="highlighter-rouge">hgetall</code>, <code class="highlighter-rouge">hset</code>, <code class="highlighter-rouge">hdel</code>, <code class="highlighter-rouge">hincrby</code>, etc.</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><a href="https://redis.io/commands#list">Lists API</a>: <code class="highlighter-rouge">rpush</code>, <code class="highlighter-rouge">lrange</code>, <code class="highlighter-rouge">lpop</code>, etc.</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><a href="https://redis.io/commands#set">Sets API</a>: <code class="highlighter-rouge">sadd</code>, <code class="highlighter-rouge">scard</code>, <code class="highlighter-rouge">srem</code>, <code class="highlighter-rouge">spop</code>, etc.</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" /><a href="https://redis.io/commands#sorted_set">Sorted Sets API</a>: <code class="highlighter-rouge">zcount</code>, <code class="highlighter-rouge">zcard</code>, <code class="highlighter-rouge">zrangebyscore</code>, <code class="highlighter-rouge">zrank</code>, etc.</li>
-  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><a href="https://redis.io/commands#string">Strings API</a>: <code class="highlighter-rouge">get</code>, <code class="highlighter-rouge">set</code>, <code class="highlighter-rouge">del</code>, <code class="highlighter-rouge">expire</code>, etc (includes some generic methods).</li>
+<ul>
+  <li><a href="https://redis.io/commands#geo">Geo API</a>: <code class="highlighter-rouge">geoadd</code>, <code class="highlighter-rouge">geohash</code>, <code class="highlighter-rouge">geopos</code>, <code class="highlighter-rouge">geodist</code>, etc.</li>
+  <li><a href="https://redis.io/commands#hash">Hashes API</a>: <code class="highlighter-rouge">hgetall</code>, <code class="highlighter-rouge">hset</code>, <code class="highlighter-rouge">hdel</code>, <code class="highlighter-rouge">hincrby</code>, etc.</li>
+  <li><a href="https://redis.io/commands#list">Lists API</a>: <code class="highlighter-rouge">rpush</code>, <code class="highlighter-rouge">lrange</code>, <code class="highlighter-rouge">lpop</code>, etc.</li>
+  <li><a href="https://redis.io/commands#set">Sets API</a>: <code class="highlighter-rouge">sadd</code>, <code class="highlighter-rouge">scard</code>, <code class="highlighter-rouge">srem</code>, <code class="highlighter-rouge">spop</code>, etc.</li>
+  <li><a href="https://redis.io/commands#sorted_set">Sorted Sets API</a>: <code class="highlighter-rouge">zcount</code>, <code class="highlighter-rouge">zcard</code>, <code class="highlighter-rouge">zrangebyscore</code>, <code class="highlighter-rouge">zrank</code>, etc.</li>
+  <li><a href="https://redis.io/commands#string">Strings API</a>: <code class="highlighter-rouge">get</code>, <code class="highlighter-rouge">set</code>, <code class="highlighter-rouge">del</code>, <code class="highlighter-rouge">expire</code>, etc (includes some generic methods).</li>
 </ul>
 
 <p>Other features are not considered at the moment but PRs and suggestions are very welcome.</p>
