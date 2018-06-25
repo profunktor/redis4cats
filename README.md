@@ -12,7 +12,6 @@ Stream-based client built on top of [Fs2](https://functional-streams-for-scala.g
 
 ### Streams
 
-- [x] Safe connection management.
 - [x] [PubSub API](https://redis.io/topics/pubsub) implemented on top of `fs2` streams.
 - [x] [Streams API](https://redis.io/topics/streams-intro) experimental API, subject to changes (WIP).
   + High-level API offers `read` and `append` using the underlying commands `XREAD` and `XADD` respectively.
@@ -23,7 +22,7 @@ Stream-based client built on top of [Fs2](https://functional-streams-for-scala.g
 - [ ] [Geo API](https://redis.io/commands#geo): `geoadd`, `geohash`, `geopos`, `geodist`, etc.
 - [x] [Hashes API](https://redis.io/commands#hash): `hgetall`, `hset`, `hdel`, `hincrby`, etc.
 - [ ] [Lists API](https://redis.io/commands#list): `rpush`, `lrange`, `lpop`, etc.
-- [ ] [Sets API](https://redis.io/commands#set): `sadd`, `scard`, `srem`, `spop`, etc.
+- [x] [Sets API](https://redis.io/commands#set): `sadd`, `scard`, `srem`, `spop`, etc.
 - [ ] [Sorted Sets API](https://redis.io/commands#sorted_set): `zcount`, `zcard`, `zrangebyscore`, `zrank`, etc.
 - [x] [Strings API](https://redis.io/commands#string): `get`, `set`, `del`, `expire`, etc (includes some generic methods).
 

@@ -115,7 +115,8 @@ lazy val microsite = project.in(file("site"))
         Map("title" -> "Home", "position" -> "0")
       )
     ),
-    micrositeGitterChannel := false,
+    micrositeGitterChannel := true,
+    micrositeGitterChannelUrl := "fs2-redis/fs2-redis",
     micrositePushSiteWith := GitHub4s,
     micrositeGithubToken := sys.env.get("GITHUB_TOKEN"),
     fork in tut := true,

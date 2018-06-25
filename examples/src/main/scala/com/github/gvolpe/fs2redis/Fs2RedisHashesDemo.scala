@@ -22,7 +22,7 @@ import com.github.gvolpe.fs2redis.algebra.HashCommands
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
 
-object Fs2RedisHashDemo extends IOApp {
+object Fs2RedisHashesDemo extends IOApp {
 
   import Demo._
 
