@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis
 
-import io.lettuce.core.RedisClient
+import io.lettuce.core.{GeoArgs, RedisClient}
 import io.lettuce.core.codec.RedisCodec
 import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands
 
@@ -69,4 +69,17 @@ object model {
     }
     case class Custom[K](key: K, offset: String) extends StreamingOffset[K]
   }
+
+  case class Distance(value: Double)  extends AnyVal
+  case class GeoHash(value: Long)     extends AnyVal
+  case class Latitude(value: Double)  extends AnyVal
+  case class Longitude(value: Double) extends AnyVal
+
+  case class GeoLocation[V](lon: Longitude, lat: Latitude, value: V)
+  case class GeoRadius(lon: Longitude, lat: Latitude, dist: Distance)
+
+  case class GeoCoordinate(x: Double, y: Double)
+  case class GeoRadiusResult[V](value: V, dist: Distance, hash: GeoHash, coordinate: GeoCoordinate)
+  case class GeoRadiusKeyStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
+  case class GeoRadiusDistStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
 }

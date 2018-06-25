@@ -21,12 +21,12 @@ import java.util.concurrent.TimeUnit
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.apply._
 import cats.syntax.functor._
-import com.github.gvolpe.fs2redis.algebra.{HashCommands, ListCommands, SetCommands, StringCommands}
+import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis.RedisCommands
-import com.github.gvolpe.fs2redis.model.{Fs2RedisClient, Fs2RedisCodec}
+import com.github.gvolpe.fs2redis.model._
 import com.github.gvolpe.fs2redis.util.{JRFuture, Log}
 import fs2.Stream
-import io.lettuce.core.RedisURI
+import io.lettuce.core._
 import io.lettuce.core.api.StatefulRedisConnection
 
 import scala.concurrent.duration.FiniteDuration
@@ -38,6 +38,7 @@ object Fs2Redis {
       with HashCommands[F, K, V]
       with SetCommands[F, K, V]
       with ListCommands[F, K, V]
+      with GeoCommands[F, K, V]
 
   private[fs2redis] def acquireAndRelease[F[_], K, V](
       client: Fs2RedisClient,
@@ -73,7 +74,8 @@ object Fs2Redis {
 }
 
 private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection[K, V])(implicit F: Concurrent[F])
-    extends RedisCommands[F, K, V] {
+    extends RedisCommands[F, K, V]
+    with Fs2RedisConversionOps {
 
   import scala.collection.JavaConverters._
 
@@ -466,5 +468,132 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
     JRFuture {
       F.delay(client.async().ltrim(key, start, stop))
     }.void
+
+  override def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double] =
+    JRFuture {
+      F.delay(client.async().geodist(key, from, to, unit))
+    }.map(x => Double.box(x))
+
+  override def geoHash(key: K, values: V*): F[List[Option[String]]] =
+    JRFuture {
+      F.delay(client.async().geohash(key, values: _*))
+    }.map(_.asScala.toList.map(x => Option(x.getValue)))
+
+  override def geoPos(key: K, values: V*): F[List[GeoCoordinate]] =
+    JRFuture {
+      F.delay(client.async().geopos(key, values: _*))
+    }.map(_.asScala.toList.map(c => GeoCoordinate(c.getX.doubleValue(), c.getY.doubleValue())))
+
+  override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit): F[Set[V]] =
+    JRFuture {
+      F.delay(client.async().georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit))
+    }.map(_.asScala.toSet)
+
+  override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, args: GeoArgs): F[List[GeoRadiusResult[V]]] =
+    JRFuture {
+      F.delay(client.async().georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit, args))
+    }.map(_.asScala.toList.map(_.asGeoRadiusResult))
+
+  override def geoRadiusByMember(key: K, value: V, dist: Distance, unit: GeoArgs.Unit): F[Set[V]] =
+    JRFuture {
+      F.delay(client.async().georadiusbymember(key, value, dist.value, unit))
+    }.map(_.asScala.toSet)
+
+  override def geoRadiusByMember(key: K,
+                                 value: V,
+                                 dist: Distance,
+                                 unit: GeoArgs.Unit,
+                                 args: GeoArgs): F[List[GeoRadiusResult[V]]] =
+    JRFuture {
+      F.delay(client.async().georadiusbymember(key, value, dist.value, unit, args))
+    }.map(_.asScala.toList.map(_.asGeoRadiusResult))
+
+  override def geoAdd(key: K, geoValues: GeoLocation[V]*): F[Unit] =
+    JRFuture {
+      val triplets = geoValues.map(g => (g.lon, g.lat, g.value))
+      F.delay(client.async().geoadd(key, triplets: _*))
+    }.void
+
+  override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, storage: GeoRadiusKeyStorage[K]): F[Unit] =
+    JRFuture {
+      F.delay {
+        client
+          .async()
+          .georadius(key,
+                     geoRadius.lon.value,
+                     geoRadius.lat.value,
+                     geoRadius.dist.value,
+                     unit,
+                     storage.asGeoRadiusStoreArgs)
+      }
+    }.void
+
+  override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, storage: GeoRadiusDistStorage[K]): F[Unit] =
+    JRFuture {
+      F.delay {
+        client
+          .async()
+          .georadius(key,
+                     geoRadius.lon.value,
+                     geoRadius.lat.value,
+                     geoRadius.dist.value,
+                     unit,
+                     storage.asGeoRadiusStoreArgs)
+      }
+    }.void
+
+  override def geoRadiusByMember(key: K,
+                                 value: V,
+                                 dist: Distance,
+                                 unit: GeoArgs.Unit,
+                                 storage: GeoRadiusKeyStorage[K]): F[Unit] =
+    JRFuture {
+      F.delay {
+        client.async().georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs)
+      }
+    }.void
+
+  override def geoRadiusByMember(key: K,
+                                 value: V,
+                                 dist: Distance,
+                                 unit: GeoArgs.Unit,
+                                 storage: GeoRadiusDistStorage[K]): F[Unit] =
+    JRFuture {
+      F.delay {
+        client.async().georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs)
+      }
+    }.void
+
+}
+
+private[fs2redis] trait Fs2RedisConversionOps {
+
+  private[fs2redis] implicit class GeoRadiusResultOps[V](v: GeoWithin[V]) {
+    def asGeoRadiusResult: GeoRadiusResult[V] =
+      GeoRadiusResult[V](
+        v.getMember,
+        Distance(v.getDistance),
+        GeoHash(v.getGeohash),
+        GeoCoordinate(v.getCoordinates.getX.doubleValue(), v.getCoordinates.getY.doubleValue())
+      )
+  }
+
+  private[fs2redis] implicit class GeoRadiusKeyStorageOps[K](v: GeoRadiusKeyStorage[K]) {
+    def asGeoRadiusStoreArgs: GeoRadiusStoreArgs[K] = {
+      val store: GeoRadiusStoreArgs[_] = GeoRadiusStoreArgs.Builder
+        .store[K](v.key)
+        .withCount(v.count)
+      store.asInstanceOf[GeoRadiusStoreArgs[K]]
+    }
+  }
+
+  private[fs2redis] implicit class GeoRadiusDistStorageOps[K](v: GeoRadiusDistStorage[K]) {
+    def asGeoRadiusStoreArgs: GeoRadiusStoreArgs[K] = {
+      val store: GeoRadiusStoreArgs[_] = GeoRadiusStoreArgs.Builder
+        .withStoreDist[K](v.key)
+        .withCount(v.count)
+      store.asInstanceOf[GeoRadiusStoreArgs[K]]
+    }
+  }
 
 }
