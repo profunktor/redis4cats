@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.apply._
 import cats.syntax.functor._
-import com.github.gvolpe.fs2redis.algebra.{HashCommands, StringCommands}
+import com.github.gvolpe.fs2redis.algebra.{HashCommands, SetCommands, StringCommands}
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis.RedisCommands
 import com.github.gvolpe.fs2redis.model.{Fs2RedisClient, Fs2RedisCodec}
 import com.github.gvolpe.fs2redis.util.{JRFuture, Log}
@@ -33,7 +33,7 @@ import scala.concurrent.duration.FiniteDuration
 
 object Fs2Redis {
 
-  trait RedisCommands[F[_], K, V] extends StringCommands[F, K, V] with HashCommands[F, K, V]
+  trait RedisCommands[F[_], K, V] extends StringCommands[F, K, V] with HashCommands[F, K, V] with SetCommands[F, K, V]
 
   private[fs2redis] def acquireAndRelease[F[_], K, V](
       client: Fs2RedisClient,
@@ -292,5 +292,85 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
     JRFuture {
       F.delay(client.async().hincrbyfloat(key, field, amount))
     }.map(x => Double.box(x))
+
+  override def sIsMember(key: K, value: V): F[Boolean] =
+    JRFuture {
+      F.delay(client.async().sismember(key, value))
+    }.map(x => Boolean.box(x))
+
+  override def sAdd(key: K, values: V*): F[Unit] =
+    JRFuture {
+      F.delay(client.async().sadd(key, values: _*))
+    }.void
+
+  override def sDiffStore(destination: K, keys: K*): F[Unit] =
+    JRFuture {
+      F.delay(client.async().sdiffstore(destination, keys: _*))
+    }.void
+
+  override def sInterStore(destination: K, keys: K*): F[Unit] =
+    JRFuture {
+      F.delay(client.async().sinterstore(destination, keys: _*))
+    }.void
+
+  override def sMove(source: K, destination: K, value: V): F[Unit] =
+    JRFuture {
+      F.delay(client.async().smove(source, destination, value))
+    }.void
+
+  override def sPop(key: K): F[Option[V]] =
+    JRFuture {
+      F.delay(client.async().spop(key))
+    }.map(Option.apply)
+
+  override def sPop(key: K, count: Long): F[Set[V]] =
+    JRFuture {
+      F.delay(client.async().spop(key, count))
+    }.map(_.asScala.toSet)
+
+  override def sRem(key: K, values: V*): F[Unit] =
+    JRFuture {
+      F.delay(client.async().srem(key, values: _*))
+    }.void
+
+  override def sCard(key: K): F[Long] =
+    JRFuture {
+      F.delay(client.async().scard(key))
+    }.map(x => Long.box(x))
+
+  override def sDiff(keys: K*): F[Set[V]] =
+    JRFuture {
+      F.delay(client.async().sdiff(keys: _*))
+    }.map(_.asScala.toSet)
+
+  override def sInter(keys: K*): F[Set[V]] =
+    JRFuture {
+      F.delay(client.async().sinter(keys: _*))
+    }.map(_.asScala.toSet)
+
+  override def sMembers(key: K): F[Set[V]] =
+    JRFuture {
+      F.delay(client.async().smembers(key))
+    }.map(_.asScala.toSet)
+
+  override def sRandMember(key: K): F[Option[V]] =
+    JRFuture {
+      F.delay(client.async().srandmember(key))
+    }.map(Option.apply)
+
+  override def sRandMember(key: K, count: Long): F[List[V]] =
+    JRFuture {
+      F.delay(client.async().srandmember(key, count))
+    }.map(_.asScala.toList)
+
+  override def sUnion(keys: K*): F[Set[V]] =
+    JRFuture {
+      F.delay(client.async().sunion(keys: _*))
+    }.map(_.asScala.toSet)
+
+  override def sUnionStore(destination: K, keys: K*): F[Unit] =
+    JRFuture {
+      F.delay(client.async().sunionstore(destination, keys: _*))
+    }.void
 
 }
