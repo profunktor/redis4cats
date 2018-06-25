@@ -49,7 +49,7 @@ object Fs2RedisHashesDemo extends IOApp {
         _ <- cmd.hSetNx(testKey, testField, "should not happen")
         w <- cmd.hGet(testKey, testField)
         _ <- showResult(w)
-        _ <- cmd.hDel(testKey, List(testField))
+        _ <- cmd.hDel(testKey, testField)
         z <- cmd.hGet(testKey, testField)
         _ <- showResult(z)
       } yield ()

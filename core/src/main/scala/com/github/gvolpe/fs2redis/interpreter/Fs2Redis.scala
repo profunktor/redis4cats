@@ -207,9 +207,9 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
       F.delay(client.async().bitpos(key, state, start, end))
     }.map(x => Long.box(x))
 
-  override def bitOpAnd(destination: K, source: List[K]): F[Unit] =
+  override def bitOpAnd(destination: K, sources: K*): F[Unit] =
     JRFuture {
-      F.delay(client.async().bitopAnd(destination, source: _*))
+      F.delay(client.async().bitopAnd(destination, sources: _*))
     }.void
 
   override def bitOpNot(destination: K, source: K): F[Unit] =
@@ -217,17 +217,17 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
       F.delay(client.async().bitopNot(destination, source))
     }.void
 
-  override def bitOpOr(destination: K, source: List[K]): F[Unit] =
+  override def bitOpOr(destination: K, sources: K*): F[Unit] =
     JRFuture {
-      F.delay(client.async().bitopOr(destination, source: _*))
+      F.delay(client.async().bitopOr(destination, sources: _*))
     }.void
 
-  override def bitOpXor(destination: K, source: List[K]): F[Unit] =
+  override def bitOpXor(destination: K, sources: K*): F[Unit] =
     JRFuture {
-      F.delay(client.async().bitopXor(destination, source: _*))
+      F.delay(client.async().bitopXor(destination, sources: _*))
     }.void
 
-  override def hDel(key: K, fields: List[K]): F[Unit] =
+  override def hDel(key: K, fields: K*): F[Unit] =
     JRFuture {
       F.delay(client.async().hdel(key, fields: _*))
     }.void
@@ -247,7 +247,7 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
       F.delay(client.async().hgetall(key))
     }.map(_.asScala.toMap)
 
-  override def hmGet(key: K, fields: List[K]): F[Map[K, V]] =
+  override def hmGet(key: K, fields: K*): F[Map[K, V]] =
     JRFuture {
       F.delay(client.async().hmget(key, fields: _*))
     }.map(_.asScala.toList.map(kv => kv.getKey -> kv.getValue).toMap)

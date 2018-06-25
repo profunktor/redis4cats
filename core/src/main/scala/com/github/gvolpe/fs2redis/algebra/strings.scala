@@ -68,8 +68,8 @@ trait Bits[F[_], K, V] {
   def bitPos(key: K, state: Boolean): F[Long]
   def bitPos(key: K, state: Boolean, start: Long): F[Long]
   def bitPos(key: K, state: Boolean, start: Long, end: Long): F[Long]
-  def bitOpAnd(destination: K, source: List[K]): F[Unit]
+  def bitOpAnd(destination: K, sources: K*): F[Unit]
   def bitOpNot(destination: K, source: K): F[Unit]
-  def bitOpOr(destination: K, source: List[K]): F[Unit]
-  def bitOpXor(destination: K, source: List[K]): F[Unit]
+  def bitOpOr(destination: K, sources: K*): F[Unit]
+  def bitOpXor(destination: K, sources: K*): F[Unit]
 }

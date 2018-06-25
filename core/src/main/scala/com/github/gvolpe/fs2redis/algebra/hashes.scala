@@ -17,14 +17,14 @@
 package com.github.gvolpe.fs2redis.algebra
 
 trait HashCommands[F[_], K, V] extends HashGetter[F, K, V] with HashSetter[F, K, V] with HashIncrement[F, K, V] {
-  def hDel(key: K, fields: List[K]): F[Unit]
+  def hDel(key: K, fields: K*): F[Unit]
   def hExists(key: K, field: K): F[Boolean]
 }
 
 trait HashGetter[F[_], K, V] {
   def hGet(key: K, field: K): F[Option[V]]
   def hGetAll(key: K): F[Map[K, V]]
-  def hmGet(key: K, fields: List[K]): F[Map[K, V]]
+  def hmGet(key: K, fields: K*): F[Map[K, V]]
   def hKeys(key: K): F[List[K]]
   def hVals(key: K): F[List[V]]
   def hStrLen(key: K, field: K): F[Option[Long]]
