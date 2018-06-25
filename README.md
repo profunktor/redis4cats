@@ -19,7 +19,7 @@ Stream-based client built on top of [Fs2](https://functional-streams-for-scala.g
 
 ### Effects
 
-- [ ] [Geo API](https://redis.io/commands#geo): `geoadd`, `geohash`, `geopos`, `geodist`, etc.
+- [x] [Geo API](https://redis.io/commands#geo): `geoadd`, `geohash`, `geopos`, `geodist`, etc.
 - [x] [Hashes API](https://redis.io/commands#hash): `hgetall`, `hset`, `hdel`, `hincrby`, etc.
 - [x] [Lists API](https://redis.io/commands#list): `rpush`, `lrange`, `lpop`, etc.
 - [x] [Sets API](https://redis.io/commands#set): `sadd`, `scard`, `srem`, `spop`, etc.
