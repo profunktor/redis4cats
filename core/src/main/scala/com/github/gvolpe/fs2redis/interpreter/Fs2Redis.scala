@@ -37,6 +37,7 @@ object Fs2Redis {
       extends StringCommands[F, K, V]
       with HashCommands[F, K, V]
       with SetCommands[F, K, V]
+      with SortedSetCommands[F, K, V]
       with ListCommands[F, K, V]
       with GeoCommands[F, K, V]
 
@@ -89,6 +90,7 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
       F.delay(client.async().expire(key, expiresIn.toSeconds))
     }.void
 
+  /******************************* Strings API **********************************/
   override def append(key: K, value: V): F[Unit] =
     JRFuture {
       F.delay(client.async().append(key, value))
@@ -229,6 +231,7 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
       F.delay(client.async().bitopXor(destination, sources: _*))
     }.void
 
+  /******************************* Hashes API **********************************/
   override def hDel(key: K, fields: K*): F[Unit] =
     JRFuture {
       F.delay(client.async().hdel(key, fields: _*))
@@ -299,6 +302,7 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
       F.delay(client.async().hincrbyfloat(key, field, amount))
     }.map(x => Double.box(x))
 
+  /******************************* Sets API **********************************/
   override def sIsMember(key: K, value: V): F[Boolean] =
     JRFuture {
       F.delay(client.async().sismember(key, value))
@@ -379,6 +383,7 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
       F.delay(client.async().sunionstore(destination, keys: _*))
     }.void
 
+  /******************************* Lists API **********************************/
   override def lIndex(key: K, index: Long): F[Option[V]] =
     JRFuture {
       F.delay(client.async().lindex(key, index))
@@ -469,6 +474,7 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
       F.delay(client.async().ltrim(key, start, stop))
     }.void
 
+  /******************************* Geo API **********************************/
   override def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double] =
     JRFuture {
       F.delay(client.async().geodist(key, from, to, unit))
@@ -564,6 +570,219 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
       }
     }.void
 
+  /******************************* Sorted Sets API **********************************/
+  override def zAdd(key: K, args: Option[ZAddArgs], values: ScoreWithValue[V]*): F[Unit] =
+    JRFuture {
+      F.delay {
+        args match {
+          case Some(x) => client.async().zadd(key, x, values.map(s => ScoredValue.just(s.score.value, s.value)))
+          case None    => client.async().zadd(key, values.map(s => ScoredValue.just(s.score.value, s.value)))
+        }
+      }
+    }.void
+
+  override def zAddIncr(key: K, args: Option[ZAddArgs], member: ScoreWithValue[V])(implicit ev: Numeric[V]): F[Unit] =
+    JRFuture {
+      F.delay {
+        args match {
+          case Some(x) => client.async().zaddincr(key, x, member.score.value, member.value)
+          case None    => client.async().zaddincr(key, member.score.value, member.value)
+        }
+      }
+    }.void
+
+  override def zIncrBy(key: K, member: K, amount: Double): F[Unit] =
+    JRFuture {
+      F.delay {
+        client.async().zincrby(key, amount, member)
+      }
+    }.void
+
+  override def zInterStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Unit] =
+    JRFuture {
+      F.delay {
+        args match {
+          case Some(x) => client.async().zinterstore(destination, x, keys: _*)
+          case None    => client.async().zinterstore(destination, keys: _*)
+        }
+      }
+    }.void
+
+  override def zRem(key: K, values: V*): F[Unit] =
+    JRFuture {
+      F.delay {
+        client.async().zrem(key, values: _*)
+      }
+    }.void
+
+  override def zRemRangeByLex(key: K, range: ZRange[V]): F[Unit] =
+    JRFuture {
+      F.delay {
+        client.async().zremrangebylex(key, Range.create[V](range.start, range.end))
+      }
+    }.void
+
+  override def zRemRangeByRank(key: K, start: Long, stop: Long): F[Unit] =
+    JRFuture {
+      F.delay {
+        client.async().zremrangebyrank(key, start, stop)
+      }
+    }.void
+
+  override def zRemRangeByScore(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Unit] =
+    JRFuture {
+      F.delay {
+        client.async().zremrangebyscore(key, range.asJavaRange)
+      }
+    }.void
+
+  override def zUnionStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Unit] =
+    JRFuture {
+      F.delay {
+        args match {
+          case Some(x) => client.async().zunionstore(destination, x, keys: _*)
+          case None    => client.async().zunionstore(destination, keys: _*)
+        }
+      }
+    }.void
+
+  override def zCard(key: K): F[Option[Long]] =
+    JRFuture {
+      F.delay {
+        client.async().zcard(key)
+      }
+    }.map(x => Option(Long.box(x)))
+
+  override def zCount(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Option[Long]] =
+    JRFuture {
+      F.delay {
+        client.async().zcount(key, range.asJavaRange)
+      }
+    }.map(x => Option(Long.box(x)))
+
+  override def zLexCount(key: K, range: ZRange[V]): F[Option[Long]] =
+    JRFuture {
+      F.delay {
+        client.async().zlexcount(key, Range.create[V](range.start, range.end))
+      }
+    }.map(x => Option(Long.box(x)))
+
+  override def zRange(key: K, start: Long, stop: Long): F[List[V]] =
+    JRFuture {
+      F.delay {
+        client.async().zrange(key, start, stop)
+      }
+    }.map(_.asScala.toList)
+
+  override def zRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]] =
+    JRFuture {
+      F.delay {
+        limit match {
+          case Some(x) =>
+            client.async().zrangebylex(key, Range.create[V](range.start, range.end), Limit.create(x.offset, x.count))
+          case None => client.async().zrangebylex(key, Range.create[V](range.start, range.end))
+        }
+      }
+    }.map(_.asScala.toList)
+
+  override def zRangeByScore(key: K, range: ZRange[V], limit: Option[RangeLimit])(implicit ev: Numeric[V]): F[List[V]] =
+    JRFuture {
+      F.delay {
+        limit match {
+          case Some(x) => client.async().zrangebyscore(key, range.asJavaRange, Limit.create(x.offset, x.count))
+          case None    => client.async().zrangebyscore(key, range.asJavaRange)
+        }
+      }
+    }.map(_.asScala.toList)
+
+  override def zRangeByScoreWithScores(key: K, range: ZRange[V], limit: Option[RangeLimit])(
+      implicit ev: Numeric[V]): F[List[ScoreWithValue[V]]] =
+    JRFuture {
+      F.delay {
+        limit match {
+          case Some(x) =>
+            client.async().zrangebyscoreWithScores(key, range.asJavaRange, Limit.create(x.offset, x.count))
+          case None => client.async().zrangebyscoreWithScores(key, range.asJavaRange)
+        }
+      }
+    }.map(_.asScala.toList.map(_.asScoreWithValues))
+
+  override def zRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]] =
+    JRFuture {
+      F.delay {
+        client.async().zrangeWithScores(key, start, stop)
+      }
+    }.map(_.asScala.toList.map(_.asScoreWithValues))
+
+  override def zRank(key: K, value: V): F[Option[Long]] =
+    JRFuture {
+      F.delay {
+        client.async().zrank(key, value)
+      }
+    }.map(x => Option(Long.box(x)))
+
+  override def zRevRange(key: K, start: Long, stop: Long): F[List[V]] =
+    JRFuture {
+      F.delay {
+        client.async().zrevrange(key, start, stop)
+      }
+    }.map(_.asScala.toList)
+
+  override def zRevRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]] =
+    JRFuture {
+      F.delay {
+        limit match {
+          case Some(x) =>
+            client.async().zrevrangebylex(key, Range.create[V](range.start, range.end), Limit.create(x.offset, x.count))
+          case None => client.async().zrevrangebylex(key, Range.create[V](range.start, range.end))
+        }
+      }
+    }.map(_.asScala.toList)
+
+  override def zRevRangeByScore(key: K, range: ZRange[V], limit: Option[RangeLimit])(
+      implicit ev: Numeric[V]): F[List[V]] =
+    JRFuture {
+      F.delay {
+        limit match {
+          case Some(x) => client.async().zrevrangebyscore(key, range.asJavaRange, Limit.create(x.offset, x.count))
+          case None    => client.async().zrevrangebyscore(key, range.asJavaRange)
+        }
+      }
+    }.map(_.asScala.toList)
+
+  override def zRevRangeByScoreWithScores(key: K, range: ZRange[V], limit: Option[RangeLimit])(
+      implicit ev: Numeric[V]): F[List[ScoreWithValue[V]]] =
+    JRFuture {
+      F.delay {
+        limit match {
+          case Some(x) =>
+            client.async().zrangebyscoreWithScores(key, range.asJavaRange, Limit.create(x.offset, x.count))
+          case None => client.async().zrangebyscoreWithScores(key, range.asJavaRange)
+        }
+      }
+    }.map(_.asScala.toList.map(_.asScoreWithValues))
+
+  override def zRevRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]] =
+    JRFuture {
+      F.delay {
+        client.async().zrangeWithScores(key, start, stop)
+      }
+    }.map(_.asScala.toList.map(_.asScoreWithValues))
+
+  override def zRevRank(key: K, value: V): F[Option[Long]] =
+    JRFuture {
+      F.delay {
+        client.async().zrevrank(key, value)
+      }
+    }.map(x => Option(Long.box(x)))
+
+  override def zScore(key: K, value: V): F[Option[Double]] =
+    JRFuture {
+      F.delay {
+        client.async().zscore(key, value)
+      }
+    }.map(x => Option(Double.box(x)))
+
 }
 
 private[fs2redis] trait Fs2RedisConversionOps {
@@ -594,6 +813,18 @@ private[fs2redis] trait Fs2RedisConversionOps {
         .withCount(v.count)
       store.asInstanceOf[GeoRadiusStoreArgs[K]]
     }
+  }
+
+  private[fs2redis] implicit class ZRangeOps[V: Numeric](range: ZRange[V]) {
+    def asJavaRange: Range[Number] = {
+      val start: Number = range.start.asInstanceOf[java.lang.Number]
+      val end: Number   = range.end.asInstanceOf[java.lang.Number]
+      Range.create(start, end)
+    }
+  }
+
+  private[fs2redis] implicit class ScoredValuesOps[V](v: ScoredValue[V]) {
+    def asScoreWithValues: ScoreWithValue[V] = ScoreWithValue[V](Score(v.getScore), v.getValue)
   }
 
 }
