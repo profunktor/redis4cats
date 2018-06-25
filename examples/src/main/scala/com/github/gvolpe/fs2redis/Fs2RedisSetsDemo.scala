@@ -27,7 +27,7 @@ object Fs2RedisSetsDemo extends IOApp {
   import Demo._
 
   override def run(args: List[String]): IO[ExitCode] = {
-    val testKey   = "foos"
+    val testKey = "foos"
 
     val showResult: Set[String] => IO[Unit] = x => putStrLn(s"$testKey members: $x")
 
