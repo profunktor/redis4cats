@@ -82,4 +82,9 @@ object model {
   case class GeoRadiusResult[V](value: V, dist: Distance, hash: GeoHash, coordinate: GeoCoordinate)
   case class GeoRadiusKeyStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
   case class GeoRadiusDistStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
+
+  case class Score(value: Double) extends AnyVal
+  case class ScoreWithValue[V](score: Score, value: V)
+  case class ZRange[V](start: V, end: V)
+  case class RangeLimit(offset: Long, count: Long)
 }

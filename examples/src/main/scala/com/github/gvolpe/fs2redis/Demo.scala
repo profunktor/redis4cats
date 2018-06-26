@@ -17,15 +17,32 @@
 package com.github.gvolpe.fs2redis
 
 import cats.effect.IO
-import com.github.gvolpe.fs2redis.model.DefaultRedisCodec
+import com.github.gvolpe.fs2redis.model.{DefaultRedisCodec, Fs2RedisCodec}
 import io.lettuce.core.RedisURI
-import io.lettuce.core.codec.StringCodec
+import io.lettuce.core.codec.{RedisCodec, StringCodec, ToByteBufEncoder}
+import io.netty.buffer.ByteBuf
 
 object Demo {
 
-  val redisURI    = RedisURI.create("redis://localhost")
-  val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
+  val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
+  val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
+  val longCodec: Fs2RedisCodec[String, Long]     = DefaultRedisCodec(LongCodec)
 
   def putStrLn(str: String): IO[Unit] = IO(println(str))
 
+}
+
+object LongCodec extends RedisCodec[String, Long] with ToByteBufEncoder[String, Long] {
+
+  import java.nio.ByteBuffer
+
+  private val codec = StringCodec.UTF8
+
+  override def decodeKey(bytes: ByteBuffer): String            = codec.decodeKey(bytes)
+  override def encodeKey(key: String): ByteBuffer              = codec.encodeKey(key)
+  override def encodeValue(value: Long): ByteBuffer            = codec.encodeValue(value.toString)
+  override def decodeValue(bytes: ByteBuffer): Long            = codec.decodeValue(bytes).toLong
+  override def encodeKey(key: String, target: ByteBuf): Unit   = codec.encodeKey(key, target)
+  override def encodeValue(value: Long, target: ByteBuf): Unit = codec.encodeValue(value.toString, target)
+  override def estimateSize(keyOrValue: scala.Any): Int        = codec.estimateSize(keyOrValue)
 }

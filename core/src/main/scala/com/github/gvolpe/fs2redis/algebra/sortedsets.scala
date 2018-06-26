@@ -16,12 +16,8 @@
 
 package com.github.gvolpe.fs2redis.algebra
 
+import com.github.gvolpe.fs2redis.model.{RangeLimit, ScoreWithValue, ZRange}
 import io.lettuce.core.{ZAddArgs, ZStoreArgs}
-
-case class Score(value: Double) extends AnyVal
-case class ScoreWithValue[V](score: Score, value: V)
-case class ZRange[V](start: V, end: V)
-case class RangeLimit(offset: Long, count: Long)
 
 trait SortedSetCommands[F[_], K, V] extends SortedSetGetter[F, K, V] with SortedSetSetter[F, K, V]
 
