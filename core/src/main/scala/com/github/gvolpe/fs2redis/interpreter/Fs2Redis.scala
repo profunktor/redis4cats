@@ -575,8 +575,8 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
     JRFuture {
       F.delay {
         args match {
-          case Some(x) => client.async().zadd(key, x, values.map(s => ScoredValue.just(s.score.value, s.value)))
-          case None    => client.async().zadd(key, values.map(s => ScoredValue.just(s.score.value, s.value)))
+          case Some(x) => client.async().zadd(key, x, values.map(s => ScoredValue.just(s.score.value, s.value)): _*)
+          case None    => client.async().zadd(key, values.map(s => ScoredValue.just(s.score.value, s.value)): _*)
         }
       }
     }.void
