@@ -516,7 +516,7 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
 
   override def geoAdd(key: K, geoValues: GeoLocation[V]*): F[Unit] =
     JRFuture {
-      val triplets = geoValues.map(g => (g.lon, g.lat, g.value))
+      val triplets = geoValues.flatMap(g => Seq(g.lon.value, g.lat.value, g.value)).asInstanceOf[Seq[AnyRef]]
       F.delay(client.async().geoadd(key, triplets: _*))
     }.void
 

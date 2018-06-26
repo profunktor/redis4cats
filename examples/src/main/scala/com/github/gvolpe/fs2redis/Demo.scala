@@ -24,9 +24,9 @@ import io.netty.buffer.ByteBuf
 
 object Demo {
 
-  val redisURI: RedisURI = RedisURI.create("redis://localhost")
-  val stringCodec: Fs2RedisCodec[String, String]  = DefaultRedisCodec(StringCodec.UTF8)
-  val longCodec: Fs2RedisCodec[String, Long]      = DefaultRedisCodec(LongCodec)
+  val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
+  val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
+  val longCodec: Fs2RedisCodec[String, Long]     = DefaultRedisCodec(LongCodec)
 
   def putStrLn(str: String): IO[Unit] = IO(println(str))
 
@@ -38,11 +38,11 @@ object LongCodec extends RedisCodec[String, Long] with ToByteBufEncoder[String, 
 
   private val codec = StringCodec.UTF8
 
-  override def decodeKey(bytes: ByteBuffer): String = codec.decodeKey(bytes)
-  override def encodeKey(key: String): ByteBuffer = codec.encodeKey(key)
-  override def encodeValue(value: Long): ByteBuffer = codec.encodeValue(value.toString)
-  override def decodeValue(bytes: ByteBuffer): Long = codec.decodeValue(bytes).toLong
-  override def encodeKey(key: String, target: ByteBuf): Unit = codec.encodeKey(key, target)
+  override def decodeKey(bytes: ByteBuffer): String            = codec.decodeKey(bytes)
+  override def encodeKey(key: String): ByteBuffer              = codec.encodeKey(key)
+  override def encodeValue(value: Long): ByteBuffer            = codec.encodeValue(value.toString)
+  override def decodeValue(bytes: ByteBuffer): Long            = codec.decodeValue(bytes).toLong
+  override def encodeKey(key: String, target: ByteBuf): Unit   = codec.encodeKey(key, target)
   override def encodeValue(value: Long, target: ByteBuf): Unit = codec.encodeValue(value.toString, target)
-  override def estimateSize(keyOrValue: scala.Any): Int = codec.estimateSize(keyOrValue)
+  override def estimateSize(keyOrValue: scala.Any): Int        = codec.estimateSize(keyOrValue)
 }
