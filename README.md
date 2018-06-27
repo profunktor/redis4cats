@@ -2,7 +2,7 @@ fs2-redis
 =========
 
 [![Build Status](https://travis-ci.org/gvolpe/fs2-redis.svg?branch=master)](https://travis-ci.org/gvolpe/fs2-redis)
-[![codecov](https://codecov.io/gh/gvolpe/fs2-redis/branch/master/graph/badge.svg)](https://codecov.io/gh/gvolpe/fs2-redis)
+[![Maven Central](https://img.shields.io/maven-central/v/com.github.gvolpe/fs2-redis_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Cfs2-redis)
 
 Stream-based client built on top of [Fs2](https://functional-streams-for-scala.github.io/fs2/) and the async java client [Lettuce](https://lettuce.io/).
 
