@@ -80,9 +80,9 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
 
   import scala.collection.JavaConverters._
 
-  override def del(key: K): F[Unit] =
+  override def del(key: K*): F[Unit] =
     JRFuture {
-      F.delay(client.async().del(key))
+      F.delay(client.async().del(key: _*))
     }.void
 
   override def expire(key: K, expiresIn: FiniteDuration): F[Unit] =
