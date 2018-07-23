@@ -9,7 +9,7 @@ organization in ThisBuild := "com.github.gvolpe"
 
 version in ThisBuild := "0.1.0"
 
-crossScalaVersions in ThisBuild := Seq("2.12.6")
+crossScalaVersions in ThisBuild := Seq("2.12.4")
 
 sonatypeProfileName := "com.github.gvolpe"
 
