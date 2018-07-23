@@ -17,8 +17,6 @@
 package com.github.gvolpe.fs2redis.util
 
 import cats.effect.Sync
-import cats.syntax.flatMap._
-import org.slf4j.LoggerFactory
 
 trait Log[F[_]] {
   def info(value: String): F[Unit]
@@ -26,11 +24,11 @@ trait Log[F[_]] {
 }
 
 object Log {
-  private[fs2redis] def logger[F[_]: Sync] = Sync[F].delay { LoggerFactory.getLogger(this.getClass) }
+  def apply[F[_]: Sync](implicit ev: Log[F]): Log[F] = ev
 
   implicit def syncLogInstance[F[_]](implicit F: Sync[F]): Log[F] =
     new Log[F] {
-      override def error(error: Throwable): F[Unit] = logger[F].flatMap(l => F.delay(l.error(error.getMessage, error)))
-      override def info(value: String): F[Unit]     = logger[F].flatMap(l => F.delay(l.info(value)))
+      override def error(error: Throwable): F[Unit] = F.delay(scribe.error(error.getMessage, error))
+      override def info(value: String): F[Unit]     = F.delay(scribe.info(value))
     }
 }

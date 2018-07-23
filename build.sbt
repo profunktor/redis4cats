@@ -7,9 +7,9 @@ name := """fs2-redis-root"""
 
 organization in ThisBuild := "com.github.gvolpe"
 
-version in ThisBuild := "0.1-SNAPSHOT"
+version in ThisBuild := "0.1.0"
 
-crossScalaVersions in ThisBuild := Seq("2.12.6")
+crossScalaVersions in ThisBuild := Seq("2.12.4")
 
 sonatypeProfileName := "com.github.gvolpe"
 
@@ -23,12 +23,13 @@ val commonSettings = Seq(
   startYear := Some(2018),
   licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   homepage := Some(url("https://github.com/gvolpe/fs2-redis")),
-  addCompilerPlugin("org.spire-math" % "kind-projector" % "0.9.5" cross CrossVersion.binary),
   libraryDependencies ++= Seq(
+    compilerPlugin(Libraries.kindProjector cross CrossVersion.binary),
+    compilerPlugin(Libraries.betterMonadicFor),
     Libraries.redisClient,
     Libraries.catsEffect,
     Libraries.fs2Core,
-    Libraries.slf4j,
+    Libraries.scribe,
     Libraries.scalaTest,
     Libraries.scalaCheck
   ),
@@ -44,7 +45,6 @@ val commonSettings = Seq(
     "-language:higherKinds"
   ),
   scalafmtOnCompile := true,
-  //coverageExcludedPackages := "com\\.github\\.gvolpe\\.fs2rabbit\\.examples.*;com\\.github\\.gvolpe\\.fs2rabbit\\.util.*;.*QueueName*;.*RoutingKey*;.*ExchangeName*;.*DeliveryTag*;.*AMQPClientStream*;.*ConnectionStream*;",
   publishTo := {
     val sonatype = "https://oss.sonatype.org/"
     if (isSnapshot.value)
@@ -65,14 +65,6 @@ val commonSettings = Seq(
       </developers>
 )
 
-val CoreDependencies: Seq[ModuleID] = Seq(
-  Libraries.logback % "test"
-)
-
-val ExamplesDependencies: Seq[ModuleID] = Seq(
-  Libraries.logback % "runtime"
-)
-
 lazy val noPublish = Seq(
   publish := {},
   publishLocal := {},
@@ -86,13 +78,11 @@ lazy val `fs2-redis-root` = project.in(file("."))
 
 lazy val `fs2-redis` = project.in(file("core"))
   .settings(commonSettings: _*)
-  .settings(libraryDependencies ++= CoreDependencies)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val examples = project.in(file("examples"))
   .settings(commonSettings: _*)
-  .settings(libraryDependencies ++= ExamplesDependencies)
   .settings(noPublish)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`fs2-redis`)
@@ -131,4 +121,4 @@ lazy val microsite = project.in(file("site"))
   .dependsOn(`fs2-redis`, `examples`)
 
 // CI build
-addCommandAlias("buildFs2Redis", ";clean;+coverage;+test;+coverageReport;+coverageAggregate;tut")
+addCommandAlias("buildFs2Redis", ";clean;+test;tut")
