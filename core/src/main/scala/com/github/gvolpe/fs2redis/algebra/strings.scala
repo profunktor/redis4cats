@@ -47,6 +47,7 @@ trait Setter[F[_], K, V] {
 
 trait MultiKey[F[_], K, V] {
   def mGet(keys: Set[K]): F[Map[K, V]]
+  def safeMGet(keys: Set[K]): F[Map[K, V]]
   def mSet(keyValues: Map[K, V]): F[Unit]
   def mSetNx(keyValues: Map[K, V]): F[Unit]
 }

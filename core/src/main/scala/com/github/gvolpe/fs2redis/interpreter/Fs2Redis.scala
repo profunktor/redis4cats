@@ -176,6 +176,18 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
       F.delay(client.async().mget(keys.toSeq: _*))
     }.map(_.asScala.toList.map(kv => kv.getKey -> kv.getValue).toMap)
 
+  override def safeMGet(keys: Set[K]): F[Map[K, V]] =
+    JRFuture {
+      F.delay(client.async().mget(keys.toSeq: _*))
+    }.map {
+      _.asScala.toList.flatMap { kv =>
+        if (kv.hasValue)
+          Some(kv.getKey -> kv.getValue)
+        else
+          None
+      }.toMap
+    }
+
   override def mSet(keyValues: Map[K, V]): F[Unit] =
     JRFuture {
       F.delay(client.async().mset(keyValues.asJava))
