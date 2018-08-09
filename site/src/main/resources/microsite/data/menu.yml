@@ -12,11 +12,16 @@ options:
         url: streams/streams.html
         menu_section: streamapi
 
-  - title: Effect-based API
+  - title: Effects-based API
     url: effects/
-    menu_section: effects
+    menu_section: effectsapi
 
     nested_options:
-      - title: Strings API
+      - title: Geo
+        url: effects/geo.html
+        menu_section: effectsapi
+
+      - title: Strings
         url: effects/strings.html
-        menu_section: effects
+        menu_section: effectsapi
+

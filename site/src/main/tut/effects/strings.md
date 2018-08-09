@@ -1,47 +1,24 @@
 ---
 layout: docs
 title:  "Strings"
-number: 3
+number: 5
 ---
 
 # Strings API
 
-Purely functional interface for the [Strings API](https://redis.io/commands#string) definition.
+Purely functional interface for the [Strings API](https://redis.io/commands#string).
 
-### Establishing a connection
-
-You can either operate at the `Effect` level or at the `Stream` level. If your app does not do any streaming the recommended way is to use the former. Both methods `apply` and `stream` are available on `Fs2RedisClient`:
-
-```scala
-def apply[F[_]: Concurrent: Log](uri: RedisURI): Resource[F, Fs2RedisClient]
-```
-
-```scala
-def stream[F[_]: Concurrent: Log](uri: RedisURI): Stream[F, Fs2RedisClient]
-```
-
-Here's an example of acquiring a client and a connection to the Strings API:
-
-```tut:book:silent
+```tut:book:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.StringCommands
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
-import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.model.{DefaultRedisCodec, Fs2RedisCodec}
-import io.lettuce.core.RedisURI
-import io.lettuce.core.codec.{RedisCodec, StringCodec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
-val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
-
-val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
-  for {
-    client <- Fs2RedisClient[IO](redisURI)
-    redis  <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
-  } yield redis
+val commandsApi: Resource[IO, StringCommands[IO, String, String]] = {
+  Fs2Redis[IO, String, String](null, null, null).map(_.asInstanceOf[StringCommands[IO, String, String]])
+}
 ```
 
 ### String Commands usage
@@ -49,6 +26,9 @@ val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
 Once you have acquired a connection you can start using it:
 
 ```tut:book:silent
+import cats.effect.IO
+import cats.syntax.all._
+
 val usernameKey = "users"
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
