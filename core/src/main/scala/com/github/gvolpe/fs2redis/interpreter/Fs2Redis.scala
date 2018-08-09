@@ -174,7 +174,7 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val client: StatefulRedisConnection
   override def mGet(keys: Set[K]): F[Map[K, V]] =
     JRFuture {
       F.delay(client.async().mget(keys.toSeq: _*))
-    }.map(_.asScala.toList.map(kv => kv.getKey -> kv.getValue).toMap)
+    }.map(_.asScala.toList.collect { case kv if kv.hasValue => kv.getKey -> kv.getValue }.toMap)
 
   override def mSet(keyValues: Map[K, V]): F[Unit] =
     JRFuture {
