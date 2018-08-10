@@ -12,16 +12,32 @@ options:
         url: streams/streams.html
         menu_section: streamapi
 
-  - title: Effects-based API
+  - title: Effect-based API
     url: effects/
-    menu_section: effectsapi
+    menu_section: effectapi
 
     nested_options:
       - title: Geo
         url: effects/geo.html
-        menu_section: effectsapi
+        menu_section: effectapi
+
+      - title: Hashes
+        url: effects/hashes.html
+        menu_section: effectapi
+
+      - title: Lists
+        url: effects/lists.html
+        menu_section: effectapi
+
+      - title: Sets
+        url: effects/sets.html
+        menu_section: effectapi
+
+      - title: Sorted Sets
+        url: effects/sortedsets.html
+        menu_section: effectapi
 
       - title: Strings
         url: effects/strings.html
-        menu_section: effectsapi
+        menu_section: effectapi
 

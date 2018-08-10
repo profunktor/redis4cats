@@ -1,7 +1,7 @@
 ---
 layout: docs
 title:  "Strings"
-number: 5
+number: 10
 ---
 
 # Strings API
@@ -36,7 +36,7 @@ def putStrLn(str: String): IO[Unit] = IO(println(str))
 val showResult: Option[String] => IO[Unit] =
   _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
-commandsApi.use { cmd =>
+commandsApi.use { cmd => // StringCommands[IO, String, String]
   for {
     x <- cmd.get(usernameKey)
     _ <- showResult(x)

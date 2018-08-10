@@ -1,18 +1,24 @@
 ---
 layout: docs
-title:  "Effects-based API"
+title:  "Effect-based API"
 number: 3
 position: 2
 ---
 
-# Effects-based API
+# Effect-based API
 
-- **[Geo API](./geo)**: Purely functional `Geo API`.
-- **[Strings API](./strings)**: Purely functional `Strings API`.
+The API that operates at the effect level `F[_]` on top of `cats-effect`.
+
+- **[Geo API](./geo)**
+- **[Hashes API](./hashes)**
+- **[Lists API](./lists)**
+- **[Sets API](./sets)**
+- **[Sorted SetsAPI](./sortedsets)**
+- **[Strings API](./strings)**
 
 ### Acquiring client and connection
 
-For all the effects-based APIs a client and a commands connection is exactly the same. There are basically two options: to either operate at the `Effect` level or at the `Stream` level. If your app does not do any streaming the recommended way is to use the former. Both methods `apply` and `stream` are available on `Fs2RedisClient`:
+For all the effect-based APIs the process of acquiring a client and a commands connection is exactly the same. There are basically two options: to either operate at the `Effect` level or at the `Stream` level. If your app does not do any streaming the recommended way is to use the former. Both methods `apply` and `stream` are available on `Fs2RedisClient`:
 
 ```scala
 def apply[F[_]: Concurrent: Log](uri: RedisURI): Resource[F, Fs2RedisClient]
@@ -50,3 +56,8 @@ val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
 
 The only difference with other APIs will be the `Commands` type. For the `Strings API` is `StringCommands`, for `Sorted Sets API` is `SortedSetCommands` and so on. For a complete list please take a look at the
 [algebras](https://github.com/gvolpe/fs2-redis/tree/master/core/src/main/scala/com/github/gvolpe/fs2redis/algebra).
+
+### Standalone, Sentinel or Cluster
+
+You can connect in any of these modes by either using `RedisURI.create` or `RedisURI.Builder`. More information
+[here](https://github.com/lettuce-io/lettuce-core/wiki/Redis-URI-and-connection-details).
