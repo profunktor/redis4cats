@@ -1,8 +1,7 @@
 ---
 layout: docs
 title:  "PubSub"
-number: 0
-position: 1
+number: 1
 ---
 
 # PubSub

@@ -1,0 +1,43 @@
+options:
+  - title: Stream-based API
+    url: streams/
+    menu_section: streamapi
+
+    nested_options:
+      - title: PubSub
+        url: streams/pubsub.html
+        menu_section: streamapi
+
+      - title: Streams
+        url: streams/streams.html
+        menu_section: streamapi
+
+  - title: Effect-based API
+    url: effects/
+    menu_section: effectapi
+
+    nested_options:
+      - title: Geo
+        url: effects/geo.html
+        menu_section: effectapi
+
+      - title: Hashes
+        url: effects/hashes.html
+        menu_section: effectapi
+
+      - title: Lists
+        url: effects/lists.html
+        menu_section: effectapi
+
+      - title: Sets
+        url: effects/sets.html
+        menu_section: effectapi
+
+      - title: Sorted Sets
+        url: effects/sortedsets.html
+        menu_section: effectapi
+
+      - title: Strings
+        url: effects/strings.html
+        menu_section: effectapi
+

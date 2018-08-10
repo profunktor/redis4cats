@@ -1,8 +1,7 @@
 ---
 layout: docs
 title:  "Streams"
-number: 1
-position: 2
+number: 2
 ---
 
 # Streams (experimental)

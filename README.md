@@ -2,11 +2,10 @@ fs2-redis
 =========
 
 [![Build Status](https://travis-ci.org/gvolpe/fs2-redis.svg?branch=master)](https://travis-ci.org/gvolpe/fs2-redis)
+[![Gitter Chat](https://badges.gitter.im/fs2-redis/fs2-redis.svg)](https://gitter.im/fs2-redis/fs2-redis)
 [![Maven Central](https://img.shields.io/maven-central/v/com.github.gvolpe/fs2-redis_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Cfs2-redis)
 
-Stream-based client built on top of [Fs2](https://functional-streams-for-scala.github.io/fs2/) and the async java client [Lettuce](https://lettuce.io/).
-
-:warning: This project is under development and only includes a limited set of features :warning:
+Redis stream-based client built on top of [Fs2](https://functional-streams-for-scala.github.io/fs2/) and the async java client [Lettuce](https://lettuce.io/).
 
 `fs2-redis` defines two types of API: one Stream-based using [Fs2](https://functional-streams-for-scala.github.io/fs2/) and another Effect-based using [Cats Effect](https://typelevel.org/cats-effect/).
 
