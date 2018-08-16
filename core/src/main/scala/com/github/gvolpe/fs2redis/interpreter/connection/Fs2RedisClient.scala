@@ -18,6 +18,7 @@ package com.github.gvolpe.fs2redis.interpreter.connection
 
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.apply._
+import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.model.{DefaultRedisClient, Fs2RedisClient}
 import com.github.gvolpe.fs2redis.util.{JRFuture, Log}
 import fs2.Stream
@@ -30,8 +31,19 @@ object Fs2RedisClient {
     val acquire: F[Fs2RedisClient] = F.delay { DefaultRedisClient(RedisClient.create(uri)) }
 
     val release: Fs2RedisClient => F[Unit] = client =>
-      JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())) *>
-        L.info(s"Releasing Redis connection: $uri")
+      L.info(s"Releasing Redis connection: $uri") *>
+        JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())).void
+
+    (acquire, release)
+  }
+
+  private[fs2redis] def acquireAndReleaseWithoutUri[F[_]](implicit F: Concurrent[F],
+                                                          L: Log[F]): (F[Fs2RedisClient], Fs2RedisClient => F[Unit]) = {
+    val acquire: F[Fs2RedisClient] = F.delay { DefaultRedisClient(RedisClient.create()) }
+
+    val release: Fs2RedisClient => F[Unit] = client =>
+      L.info(s"Releasing Redis connection: No URI") *>
+        JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())).void
 
     (acquire, release)
   }
