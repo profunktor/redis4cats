@@ -21,10 +21,11 @@ import cats.effect.concurrent.Ref
 import cats.instances.list._
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.Streaming
+import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisMasterSlave
 import com.github.gvolpe.fs2redis.model._
 import com.github.gvolpe.fs2redis.util.{JRFuture, Log}
 import fs2.Stream
-import io.lettuce.core.RedisURI
+import io.lettuce.core.{ReadFrom, RedisURI}
 
 object Fs2Streaming {
 
@@ -43,6 +44,12 @@ object Fs2Streaming {
 
     Stream.bracket(acquire)(release).map(rs => new Fs2Streaming(rs))
   }
+
+  def mkMasterSlaveConnection[F[_]: Concurrent: Log, K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
+      readFrom: Option[ReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]] =
+    Fs2RedisMasterSlave.stream[F, K, V](codec, uris: _*)(readFrom).map { conn =>
+      new Fs2Streaming(new Fs2RawStreaming(conn.underlying))
+    }
 
 }
 
