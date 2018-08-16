@@ -10,7 +10,9 @@ High-level, safe and pure functional API on top of [Redis Streams](https://redis
 
 ### Establishing a connection
 
-There's only one way to stablish a connection by using the `Fs2Streaming` companion object:
+There are two ways of establishing a connection using the `Fs2Streaming` companion object:
+
+#### Single connection
 
 ```scala
 def mkStreamingConnection[F[_], K, V](
@@ -18,6 +20,13 @@ def mkStreamingConnection[F[_], K, V](
   codec: Fs2RedisCodec[K, V],
   uri: RedisURI
 ): Stream[F, Streaming[Stream[F, ?], K, V]]
+```
+
+#### Master / Slave connection
+
+```scala
+def mkMasterSlaveConnection[F[_], K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
+  readFrom: Option[ReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]]
 ```
 
 ### Streaming API
