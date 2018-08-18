@@ -21,11 +21,11 @@ The API that operates at the effect level `F[_]` on top of `cats-effect`.
 For all the effect-based APIs the process of acquiring a client and a commands connection is exactly the same. There are basically two options: to either operate at the `Effect` level or at the `Stream` level. If your app does not do any streaming the recommended way is to use the former. Both methods `apply` and `stream` are available on `Fs2RedisClient`:
 
 ```scala
-def apply[F[_]: Concurrent: Log](uri: RedisURI): Resource[F, Fs2RedisClient]
+def apply[F[_]](uri: RedisURI): Resource[F, Fs2RedisClient]
 ```
 
 ```scala
-def stream[F[_]: Concurrent: Log](uri: RedisURI): Stream[F, Fs2RedisClient]
+def stream[F[_]](uri: RedisURI): Stream[F, Fs2RedisClient]
 ```
 
 ### Establishing connection
@@ -61,3 +61,44 @@ The only difference with other APIs will be the `Commands` type. For the `String
 
 You can connect in any of these modes by either using `RedisURI.create` or `RedisURI.Builder`. More information
 [here](https://github.com/lettuce-io/lettuce-core/wiki/Redis-URI-and-connection-details).
+
+### Master / Slave connection
+
+The process is a bit different. First of all, you don't need to create a `Fs2RedisClient`, it'll be created for you. All you need is `Fs2RedisMasterSlave` that exposes in a similar way one method `apply` to operate at the effect level and another method `stream` to operate at the stream level.
+
+```scala
+def apply[F[_], K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
+  readFrom: Option[ReadFrom] = None): Resource[F, Fs2RedisMasterSlaveConnection[K, V]]
+```
+
+```scala
+def stream[F[_], K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
+  readFrom: Option[ReadFrom] = None): Stream[F, Fs2RedisMasterSlaveConnection[K, V]]
+```
+
+#### Example using the Strings API
+
+```tut:book:silent
+import cats.effect.{IO, Resource}
+import cats.syntax.all._
+import com.github.gvolpe.fs2redis.algebra.StringCommands
+import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
+import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisMasterSlave
+import com.github.gvolpe.fs2redis.model.Fs2RedisMasterSlaveConnection
+import io.lettuce.core.{ReadFrom, RedisURI}
+import io.lettuce.core.codec.{RedisCodec, StringCodec}
+
+val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
+val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
+
+val connection: Resource[IO, Fs2RedisMasterSlaveConnection[String, String]] =
+  Fs2RedisMasterSlave[IO, String, String](stringCodec, redisURI)(Some(ReadFrom.MASTER_PREFERRED))
+
+connection.use { conn =>
+  Fs2Redis.masterSlave[IO, String, String](conn).flatMap { cmd =>
+    IO.unit  // do something
+  }
+}
+```
+
+Find more information [here](https://github.com/lettuce-io/lettuce-core/wiki/Master-Slave#examples).
