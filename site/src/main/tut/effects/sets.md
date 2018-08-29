@@ -14,7 +14,9 @@ import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.SetCommands
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
+
+implicit val cs = IO.contextShift(ExecutionContext.global)
 
 val commandsApi: Resource[IO, SetCommands[IO, String, String]] = {
   Fs2Redis[IO, String, String](null, null, null).map(_.asInstanceOf[SetCommands[IO, String, String]])
