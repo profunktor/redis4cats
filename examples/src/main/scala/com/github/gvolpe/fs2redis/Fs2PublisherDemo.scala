@@ -16,34 +16,36 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.IO
+import cats.effect.{ExitCode, IO, IOApp}
+import cats.syntax.apply._
 import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
 import com.github.gvolpe.fs2redis.model.DefaultChannel
-import fs2.StreamApp.ExitCode
-import fs2.{Stream, StreamApp}
+import fs2.Stream
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.Random
 
-object Fs2PublisherDemo extends StreamApp[IO] {
+object Fs2PublisherDemo extends IOApp {
 
   import Demo._
 
   private val eventsChannel = DefaultChannel("events")
 
-  override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, ExitCode] =
+  def stream(args: List[String]): Stream[IO, Unit] =
     for {
       client <- Fs2RedisClient.stream[IO](redisURI)
       pubSub <- Fs2PubSub.mkPublisherConnection[IO, String, String](client, stringCodec, redisURI)
       pub1   = pubSub.publish(eventsChannel)
-      rs <- Stream(
-             Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
-             Stream.awakeEvery[IO](6.seconds) >> pubSub
-               .pubSubSubscriptions(eventsChannel)
-               .evalMap(x => putStrLn(x.toString))
-           ).join(2).drain
-    } yield rs
+      _ <- Stream(
+            Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
+            Stream.awakeEvery[IO](6.seconds) >> pubSub
+              .pubSubSubscriptions(eventsChannel)
+              .evalMap(x => putStrLn(x.toString))
+          ).parJoin(2).drain
+    } yield ()
+
+  override def run(args: List[String]): IO[ExitCode] =
+    stream(args).compile.drain *> IO.pure(ExitCode.Success)
 
 }

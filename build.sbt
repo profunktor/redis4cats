@@ -7,7 +7,7 @@ name := """fs2-redis-root"""
 
 organization in ThisBuild := "com.github.gvolpe"
 
-version in ThisBuild := "0.1.0"
+version in ThisBuild := "1.0.0-SNAPSHOT"
 
 crossScalaVersions in ThisBuild := Seq("2.12.4")
 

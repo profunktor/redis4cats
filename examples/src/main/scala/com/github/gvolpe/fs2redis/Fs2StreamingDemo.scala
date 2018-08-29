@@ -16,19 +16,18 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.IO
+import cats.effect.{ExitCode, IO, IOApp}
+import cats.syntax.apply._
 import cats.syntax.parallel._
 import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.streams.Fs2Streaming
 import com.github.gvolpe.fs2redis.model.StreamingMessage
-import fs2.StreamApp.ExitCode
-import fs2.{Stream, StreamApp}
+import fs2.Stream
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.Random
 
-object Fs2StreamingDemo extends StreamApp[IO] {
+object Fs2StreamingDemo extends IOApp {
 
   import Demo._
 
@@ -44,16 +43,19 @@ object Fs2StreamingDemo extends StreamApp[IO] {
     }
   }
 
-  override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, ExitCode] =
+  def stream(args: List[String]): Stream[IO, Unit] =
     for {
       client    <- Fs2RedisClient.stream[IO](redisURI)
       streaming <- Fs2Streaming.mkStreamingConnection[IO, String, String](client, stringCodec, redisURI)
       source    = streaming.read(Set(streamKey1, streamKey2))
       appender  = streaming.append
-      rs <- Stream(
-             source.evalMap(x => putStrLn(x.toString)),
-             Stream.awakeEvery[IO](3.seconds) >> randomMessage.to(appender)
-           ).join(2).drain
-    } yield rs
+      _ <- Stream(
+            source.evalMap(x => putStrLn(x.toString)),
+            Stream.awakeEvery[IO](3.seconds) >> randomMessage.to(appender)
+          ).parJoin(2).drain
+    } yield ()
+
+  override def run(args: List[String]): IO[ExitCode] =
+    stream(args).compile.drain *> IO.pure(ExitCode.Success)
 
 }

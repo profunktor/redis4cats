@@ -66,10 +66,8 @@ object Fs2Redis {
 
   def stream[F[_]: Concurrent: Log, K, V](client: Fs2RedisClient,
                                           codec: Fs2RedisCodec[K, V],
-                                          uri: RedisURI): Stream[F, RedisCommands[F, K, V]] = {
-    val (acquire, release) = acquireAndRelease(client, codec, uri)
-    Stream.bracket(acquire)(release)
-  }
+                                          uri: RedisURI): Stream[F, RedisCommands[F, K, V]] =
+    Stream.resource(apply(client, codec, uri))
 
   def masterSlave[F[_]: Concurrent: Log, K, V](conn: Fs2RedisMasterSlaveConnection[K, V]): F[RedisCommands[F, K, V]] =
     new Fs2Redis[F, K, V](conn.underlying).asInstanceOf[RedisCommands[F, K, V]].pure[F]
