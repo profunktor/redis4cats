@@ -63,12 +63,7 @@ object Fs2RedisMasterSlave {
   }
 
   def stream[F[_]: Concurrent: Log, K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
-      readFrom: Option[ReadFrom] = None): Stream[F, Fs2RedisMasterSlaveConnection[K, V]] = {
-    val (acquireClient, releaseClient) = Fs2RedisClient.acquireAndReleaseWithoutUri[F]
-    Stream.bracket(acquireClient)(releaseClient).flatMap { client =>
-      val (acquire, release) = acquireAndRelease(client, codec, readFrom, uris: _*)
-      Stream.bracket(acquire)(release)
-    }
-  }
-
+      readFrom: Option[ReadFrom] = None): Stream[F, Fs2RedisMasterSlaveConnection[K, V]] = 
+    Stream.resource(apply(codec, uris: _*)(readFrom))
+  
 }

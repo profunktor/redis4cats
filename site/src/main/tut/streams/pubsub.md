@@ -51,20 +51,19 @@ When using the `Fs2PubSub` interpreter the `publish` function will be defined as
 ### PubSub example
 
 ```tut:book:silent
-import cats.effect.IO
+import cats.effect.{ExitCode, IO, IOApp}
+import cats.syntax.apply._
 import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
 import com.github.gvolpe.fs2redis.model.{DefaultChannel, DefaultRedisCodec}
-import fs2.StreamApp.ExitCode
-import fs2.{Sink, Stream, StreamApp}
+import fs2.{Sink, Stream}
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.StringCodec
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.Random
 
-object Fs2PubSubDemo extends StreamApp[IO] {
+object Fs2PubSubDemo extends IOApp {
 
   private val redisURI    = RedisURI.create("redis://localhost")
   private val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
@@ -74,7 +73,7 @@ object Fs2PubSubDemo extends StreamApp[IO] {
 
   def sink(name: String): Sink[IO, String] = _.evalMap(x => IO(println(s"Subscriber: $name >> $x")))
 
-  override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, ExitCode] =
+  def stream(args: List[String]): Stream[IO, Unit] =
     for {
       client <- Fs2RedisClient.stream[IO](redisURI)
       pubSub <- Fs2PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, redisURI)
@@ -82,7 +81,7 @@ object Fs2PubSubDemo extends StreamApp[IO] {
       sub2   = pubSub.subscribe(gamesChannel)
       pub1   = pubSub.publish(eventsChannel)
       pub2   = pubSub.publish(gamesChannel)
-      rs <- Stream(
+      _  <- Stream(
              sub1 to sink("#events"),
              sub2 to sink("#games"),
              Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
@@ -91,8 +90,11 @@ object Fs2PubSubDemo extends StreamApp[IO] {
              Stream.awakeEvery[IO](6.seconds) >> pubSub
                .pubSubSubscriptions(List(eventsChannel, gamesChannel))
                .evalMap(x => IO(println(x)))
-           ).join(6).drain
-    } yield rs
+           ).parJoin(6).drain
+    } yield ()
+
+  override def run(args: List[String]): IO[ExitCode] =
+    stream(args).compile.drain *> IO.pure(ExitCode.Success)
 
 }
 ```

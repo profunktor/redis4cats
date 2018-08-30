@@ -53,9 +53,7 @@ object Fs2RedisClient {
     Resource.make(acquire)(release)
   }
 
-  def stream[F[_]: Concurrent: Log](uri: RedisURI): Stream[F, Fs2RedisClient] = {
-    val (acquire, release) = acquireAndRelease(uri)
-    Stream.bracket(acquire)(release)
-  }
+  def stream[F[_]: Concurrent: Log](uri: RedisURI): Stream[F, Fs2RedisClient] =
+    Stream.resource(apply(uri))
 
 }

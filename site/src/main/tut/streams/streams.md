@@ -54,9 +54,12 @@ import fs2.Stream
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.StringCodec
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.Random
+
+implicit val timer = IO.timer(ExecutionContext.global)
+implicit val cs    = IO.contextShift(ExecutionContext.global)
 
 val redisURI    = RedisURI.create("redis://localhost")
 val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
@@ -83,7 +86,7 @@ for {
   rs <- Stream(
          source.evalMap(x => putStrLn(x.toString)),
          Stream.awakeEvery[IO](3.seconds) >> randomMessage.to(appender)
-       ).join(2).drain
+       ).parJoin(2).drain
 } yield rs
 ```
 

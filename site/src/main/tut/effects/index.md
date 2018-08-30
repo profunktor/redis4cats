@@ -42,7 +42,9 @@ import com.github.gvolpe.fs2redis.model.{DefaultRedisCodec, Fs2RedisCodec}
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.{RedisCodec, StringCodec}
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
+
+implicit val cs = IO.contextShift(ExecutionContext.global)
 
 val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
 val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
