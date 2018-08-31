@@ -6,7 +6,7 @@ object Dependencies {
     val catsEffect = "1.0.0-RC3"
     val fs2        = "1.0.0-M4"
     val lettuce    = "5.1.0.M1"
-    val scribe     = "2.3.0"
+    val scribe     = "2.6.0"
 
     val betterMonadicFor  = "0.2.4"
     val kindProjector     = "0.9.7"
