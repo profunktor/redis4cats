@@ -23,7 +23,7 @@ import com.github.gvolpe.fs2redis.algebra.{PubSubCommands, PublishCommands, Subs
 import com.github.gvolpe.fs2redis.model._
 import com.github.gvolpe.fs2redis.util.{JRFuture, Log}
 import fs2.Stream
-import fs2.async.mutable
+import fs2.concurrent.Topic
 import io.lettuce.core.RedisURI
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
@@ -58,7 +58,7 @@ object Fs2PubSub {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec, uri)
     // One exclusive connection for subscriptions and another connection for publishing / stats
     for {
-      state <- Stream.eval(Ref.of(Map.empty[K, mutable.Topic[F, Option[V]]]))
+      state <- Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]]))
       sConn <- Stream.bracket(acquire)(release)
       pConn <- Stream.bracket(acquire)(release)
       subs  <- Stream.emit(new Fs2PubSubCommands[F, K, V](state, sConn, pConn))
@@ -91,7 +91,7 @@ object Fs2PubSub {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec, uri)
 
     for {
-      state <- Stream.eval(Ref.of(Map.empty[K, mutable.Topic[F, Option[V]]]))
+      state <- Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]]))
       sConn <- Stream.bracket(acquire)(release)
     } yield new Fs2Subscriber[F, K, V](state, sConn)
   }

@@ -3,8 +3,8 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val catsEffect = "1.0.0-RC3"
-    val fs2        = "1.0.0-M4"
+    val catsEffect = "1.0.0"
+    val fs2        = "1.0.0-M5"
     val lettuce    = "5.1.0.M1"
     val scribe     = "2.6.0"
 
