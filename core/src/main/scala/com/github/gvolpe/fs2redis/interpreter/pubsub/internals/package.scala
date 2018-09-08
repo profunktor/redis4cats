@@ -17,11 +17,10 @@
 package com.github.gvolpe.fs2redis.interpreter.pubsub
 
 import com.github.gvolpe.fs2redis.model.Fs2RedisChannel
-import fs2.async.mutable
-import fs2.async.mutable.Topic
+import fs2.concurrent.Topic
 
 package object internals {
-  private[pubsub] type PubSubState[F[_], K, V] = Map[K, mutable.Topic[F, Option[V]]]
+  private[pubsub] type PubSubState[F[_], K, V] = Map[K, Topic[F, Option[V]]]
   private[pubsub] type GetOrCreateTopicListener[F[_], K, V] =
     Fs2RedisChannel[K] => PubSubState[F, K, V] => F[Topic[F, Option[V]]]
 }

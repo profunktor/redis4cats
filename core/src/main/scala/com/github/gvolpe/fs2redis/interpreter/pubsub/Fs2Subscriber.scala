@@ -24,7 +24,7 @@ import com.github.gvolpe.fs2redis.interpreter.pubsub.internals.{Fs2PubSubInterna
 import com.github.gvolpe.fs2redis.model.Fs2RedisChannel
 import com.github.gvolpe.fs2redis.util.JRFuture
 import fs2.Stream
-import fs2.async.mutable.Topic
+import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 class Fs2Subscriber[F[_], K, V](state: Ref[F, PubSubState[F, K, V]], subConnection: StatefulRedisPubSubConnection[K, V])(
