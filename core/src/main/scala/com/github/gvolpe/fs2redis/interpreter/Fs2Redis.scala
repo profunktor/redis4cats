@@ -591,7 +591,7 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val conn: StatefulRedisConnection[K
       }
     }.void
 
-  override def zIncrBy(key: K, member: K, amount: Double): F[Unit] =
+  override def zIncrBy(key: K, member: V, amount: Double): F[Unit] =
     JRFuture {
       F.delay {
         conn.async().zincrby(key, amount, member)
