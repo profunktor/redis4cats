@@ -7,9 +7,7 @@ name := """fs2-redis-root"""
 
 organization in ThisBuild := "com.github.gvolpe"
 
-version in ThisBuild := "0.3.0"
-
-crossScalaVersions in ThisBuild := Seq("2.12.6")
+crossScalaVersions in ThisBuild := Seq("2.12.7")
 
 sonatypeProfileName := "com.github.gvolpe"
 
