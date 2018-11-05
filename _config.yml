@@ -6,6 +6,6 @@ docs: true
 collections:
   tut:
     output: true
-version: 0.2.0
+version: 0.5.0
 org: Fs2 Redis
 markdown: kramdown
