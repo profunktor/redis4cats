@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-package com.github.gvolpe.fs2redis.interpreter.connection
+package com.github.gvolpe.fs2redis.connection
 
-import cats.effect.{Concurrent, Resource}
+import cats.effect.{ Concurrent, Resource }
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.model._
-import com.github.gvolpe.fs2redis.util.{JRFuture, Log}
-import fs2.Stream
-import io.lettuce.core.{ReadFrom, RedisURI}
-import io.lettuce.core.masterslave.{MasterSlave, StatefulRedisMasterSlaveConnection}
+import com.github.gvolpe.fs2redis.domain._
+import com.github.gvolpe.fs2redis.util.{ JRFuture, Log }
+import io.lettuce.core.masterslave.{ MasterSlave, StatefulRedisMasterSlaveConnection }
+import io.lettuce.core.{ ReadFrom, RedisURI }
 
 import scala.collection.JavaConverters._
 
@@ -62,8 +61,4 @@ object Fs2RedisMasterSlave {
     }
   }
 
-  def stream[F[_]: Concurrent: Log, K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
-      readFrom: Option[ReadFrom] = None): Stream[F, Fs2RedisMasterSlaveConnection[K, V]] = 
-    Stream.resource(apply(codec, uris: _*)(readFrom))
-  
 }

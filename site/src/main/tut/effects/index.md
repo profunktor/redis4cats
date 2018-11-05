@@ -18,14 +18,10 @@ The API that operates at the effect level `F[_]` on top of `cats-effect`.
 
 ### Acquiring client and connection
 
-For all the effect-based APIs the process of acquiring a client and a commands connection is exactly the same. There are basically two options: to either operate at the `Effect` level or at the `Stream` level. If your app does not do any streaming the recommended way is to use the former. Both methods `apply` and `stream` are available on `Fs2RedisClient`:
+For all the effect-based APIs the process of acquiring a client and a commands connection is exactly the same. The `apply` method returns a `Resource`:
 
 ```scala
 def apply[F[_]](uri: RedisURI): Resource[F, Fs2RedisClient]
-```
-
-```scala
-def stream[F[_]](uri: RedisURI): Stream[F, Fs2RedisClient]
 ```
 
 ### Establishing connection
@@ -36,9 +32,9 @@ Here's an example of acquiring a client and a connection to the `Strings API`:
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.StringCommands
+import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
-import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.model.{DefaultRedisCodec, Fs2RedisCodec}
+import com.github.gvolpe.fs2redis.domain.{DefaultRedisCodec, Fs2RedisCodec}
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.{RedisCodec, StringCodec}
 
@@ -66,16 +62,11 @@ You can connect in any of these modes by either using `RedisURI.create` or `Redi
 
 ### Master / Slave connection
 
-The process is a bit different. First of all, you don't need to create a `Fs2RedisClient`, it'll be created for you. All you need is `Fs2RedisMasterSlave` that exposes in a similar way one method `apply` to operate at the effect level and another method `stream` to operate at the stream level.
+The process is a bit different. First of all, you don't need to create a `Fs2RedisClient`, it'll be created for you. All you need is `Fs2RedisMasterSlave` that exposes in a similar way one method `apply` that returns a `Resource`.
 
 ```scala
 def apply[F[_], K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
   readFrom: Option[ReadFrom] = None): Resource[F, Fs2RedisMasterSlaveConnection[K, V]]
-```
-
-```scala
-def stream[F[_], K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
-  readFrom: Option[ReadFrom] = None): Stream[F, Fs2RedisMasterSlaveConnection[K, V]]
 ```
 
 #### Example using the Strings API
@@ -84,9 +75,9 @@ def stream[F[_], K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.StringCommands
+import com.github.gvolpe.fs2redis.connection.Fs2RedisMasterSlave
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
-import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisMasterSlave
-import com.github.gvolpe.fs2redis.model.Fs2RedisMasterSlaveConnection
+import com.github.gvolpe.fs2redis.domain.Fs2RedisMasterSlaveConnection
 import io.lettuce.core.{ReadFrom, RedisURI}
 import io.lettuce.core.codec.{RedisCodec, StringCodec}
 

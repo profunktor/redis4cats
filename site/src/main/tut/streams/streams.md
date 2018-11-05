@@ -47,9 +47,10 @@ trait Streaming[F[_], K, V] {
 ```tut:silent
 import cats.effect.IO
 import cats.syntax.parallel._
-import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.streams.Fs2Streaming
-import com.github.gvolpe.fs2redis.model._
+import com.github.gvolpe.fs2redis.domain._
+import com.github.gvolpe.fs2redis.streams._
 import fs2.Stream
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.StringCodec
@@ -79,7 +80,7 @@ def randomMessage: Stream[IO, StreamingMessage[String, String]] = Stream.eval {
 }
 
 for {
-  client    <- Fs2RedisClient.stream[IO](redisURI)
+  client    <- Stream.resource(Fs2RedisClient[IO](redisURI))
   streaming <- Fs2Streaming.mkStreamingConnection[IO, String, String](client, stringCodec, redisURI)
   source    = streaming.read(Set(streamKey1, streamKey2))
   appender  = streaming.append

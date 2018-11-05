@@ -16,8 +16,8 @@
 
 package com.github.gvolpe.fs2redis.algebra
 
-import com.github.gvolpe.fs2redis.model.{RangeLimit, ScoreWithValue, ZRange}
-import io.lettuce.core.{ZAddArgs, ZStoreArgs}
+import com.github.gvolpe.fs2redis.effects.{ RangeLimit, ScoreWithValue, ZRange }
+import io.lettuce.core.{ ZAddArgs, ZStoreArgs }
 
 trait SortedSetCommands[F[_], K, V] extends SortedSetGetter[F, K, V] with SortedSetSetter[F, K, V]
 
@@ -29,14 +29,16 @@ trait SortedSetGetter[F[_], K, V] {
   def zRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]]
   def zRangeByScore(key: K, range: ZRange[V], limit: Option[RangeLimit])(implicit ev: Numeric[V]): F[List[V]]
   def zRangeByScoreWithScores(key: K, range: ZRange[V], limit: Option[RangeLimit])(
-      implicit ev: Numeric[V]): F[List[ScoreWithValue[V]]]
+      implicit ev: Numeric[V]
+  ): F[List[ScoreWithValue[V]]]
   def zRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]]
   def zRank(key: K, value: V): F[Option[Long]]
   def zRevRange(key: K, start: Long, stop: Long): F[List[V]]
   def zRevRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]]
   def zRevRangeByScore(key: K, range: ZRange[V], limit: Option[RangeLimit])(implicit ev: Numeric[V]): F[List[V]]
   def zRevRangeByScoreWithScores(key: K, range: ZRange[V], limit: Option[RangeLimit])(
-      implicit ev: Numeric[V]): F[List[ScoreWithValue[V]]]
+      implicit ev: Numeric[V]
+  ): F[List[ScoreWithValue[V]]]
   def zRevRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]]
   def zRevRank(key: K, value: V): F[Option[Long]]
   def zScore(key: K, value: V): F[Option[Double]]

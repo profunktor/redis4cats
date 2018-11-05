@@ -16,28 +16,29 @@
 
 package com.github.gvolpe.fs2redis.interpreter.streams
 
-import cats.effect.Concurrent
+import cats.effect.{ Concurrent, Sync }
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.RawStreaming
-import com.github.gvolpe.fs2redis.model._
+import com.github.gvolpe.fs2redis.streams._
 import com.github.gvolpe.fs2redis.util.JRFuture
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
 
 import scala.collection.JavaConverters._
 
-private[streams] class Fs2RawStreaming[F[_], K, V](val client: StatefulRedisConnection[K, V])(implicit F: Concurrent[F])
-    extends RawStreaming[F, K, V] {
+private[streams] class Fs2RawStreaming[F[_]: Concurrent, K, V](
+    val client: StatefulRedisConnection[K, V]
+) extends RawStreaming[F, K, V] {
 
   override def xAdd(key: K, body: Map[K, V]): F[MessageId] =
     JRFuture {
-      F.delay(client.async().xadd(key, body.asJava))
+      Sync[F].delay(client.async().xadd(key, body.asJava))
     }.map(MessageId.apply)
 
   override def xRead(streams: Set[StreamingOffset[K]]): F[List[StreamingMessageWithId[K, V]]] = {
     val offsets = streams.map(s => StreamOffset.from(s.key, s.offset)).toSeq
     JRFuture {
-      F.delay(client.async().xread(offsets: _*))
+      Sync[F].delay(client.async().xread(offsets: _*))
     }.map { list =>
       list.asScala.toList.map { msg =>
         StreamingMessageWithId[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap)

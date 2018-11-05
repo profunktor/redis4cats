@@ -16,21 +16,22 @@
 
 package com.github.gvolpe.fs2redis.interpreter.pubsub
 
-import cats.effect.ConcurrentEffect
+import cats.effect.{ ConcurrentEffect, Sync }
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.algebra.{PubSubCommands, PubSubStats, SubscribeCommands}
-import com.github.gvolpe.fs2redis.interpreter.pubsub.internals.{Fs2PubSubInternals, PubSubState}
-import com.github.gvolpe.fs2redis.model
-import com.github.gvolpe.fs2redis.model.{Fs2RedisChannel, Subscription}
+import com.github.gvolpe.fs2redis.algebra.{ PubSubCommands, PubSubStats, SubscribeCommands }
+import com.github.gvolpe.fs2redis.domain.Fs2RedisChannel
+import com.github.gvolpe.fs2redis.interpreter.pubsub.internals.{ Fs2PubSubInternals, PubSubState }
+import com.github.gvolpe.fs2redis.streams.Subscription
 import com.github.gvolpe.fs2redis.util.JRFuture
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-class Fs2PubSubCommands[F[_], K, V](state: Ref[F, PubSubState[F, K, V]],
-                                    subConnection: StatefulRedisPubSubConnection[K, V],
-                                    pubConnection: StatefulRedisPubSubConnection[K, V])(implicit F: ConcurrentEffect[F])
-    extends PubSubCommands[Stream[F, ?], K, V] {
+class Fs2PubSubCommands[F[_]: ConcurrentEffect, K, V](
+    state: Ref[F, PubSubState[F, K, V]],
+    subConnection: StatefulRedisPubSubConnection[K, V],
+    pubConnection: StatefulRedisPubSubConnection[K, V]
+) extends PubSubCommands[Stream[F, ?], K, V] {
 
   private[fs2redis] val subCommands: SubscribeCommands[Stream[F, ?], K, V] =
     new Fs2Subscriber[F, K, V](state, subConnection)
@@ -47,8 +48,8 @@ class Fs2PubSubCommands[F[_], K, V](state: Ref[F, PubSubState[F, K, V]],
       val getOrCreateTopicListener = Fs2PubSubInternals[F, K, V](state, subConnection)
       for {
         st <- state.get
-        _  <- getOrCreateTopicListener(channel)(st)
-        _  <- JRFuture { F.delay(pubConnection.async().publish(channel.value, message)) }
+        _ <- getOrCreateTopicListener(channel)(st)
+        _ <- JRFuture { Sync[F].delay(pubConnection.async().publish(channel.value, message)) }
       } yield ()
     }
 
@@ -58,7 +59,7 @@ class Fs2PubSubCommands[F[_], K, V](state: Ref[F, PubSubState[F, K, V]],
   override def pubSubSubscriptions(channel: Fs2RedisChannel[K]): Stream[F, Subscription[K]] =
     pubSubStats.pubSubSubscriptions(channel)
 
-  override def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): Stream[F, List[model.Subscription[K]]] =
+  override def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
     pubSubStats.pubSubSubscriptions(channels)
 
 }

@@ -16,12 +16,12 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect.{ ExitCode, IO, IOApp }
 import cats.syntax.apply._
 import cats.syntax.parallel._
-import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.streams.Fs2Streaming
-import com.github.gvolpe.fs2redis.model.StreamingMessage
+import com.github.gvolpe.fs2redis.streams.StreamingMessage
 import fs2.Stream
 
 import scala.concurrent.duration._
@@ -45,10 +45,10 @@ object Fs2StreamingDemo extends IOApp {
 
   def stream(args: List[String]): Stream[IO, Unit] =
     for {
-      client    <- Fs2RedisClient.stream[IO](redisURI)
+      client <- Stream.resource(Fs2RedisClient[IO](redisURI))
       streaming <- Fs2Streaming.mkStreamingConnection[IO, String, String](client, stringCodec, redisURI)
-      source    = streaming.read(Set(streamKey1, streamKey2))
-      appender  = streaming.append
+      source   = streaming.read(Set(streamKey1, streamKey2))
+      appender = streaming.append
       _ <- Stream(
             source.evalMap(x => putStrLn(x.toString)),
             Stream.awakeEvery[IO](3.seconds) >> randomMessage.to(appender)

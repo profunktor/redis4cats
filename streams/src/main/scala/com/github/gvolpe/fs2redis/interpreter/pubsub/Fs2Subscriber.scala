@@ -16,28 +16,29 @@
 
 package com.github.gvolpe.fs2redis.interpreter.pubsub
 
-import cats.effect.ConcurrentEffect
+import cats.effect.{ ConcurrentEffect, Sync }
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.SubscribeCommands
-import com.github.gvolpe.fs2redis.interpreter.pubsub.internals.{Fs2PubSubInternals, PubSubState}
-import com.github.gvolpe.fs2redis.model.Fs2RedisChannel
+import com.github.gvolpe.fs2redis.interpreter.pubsub.internals.{ Fs2PubSubInternals, PubSubState }
+import com.github.gvolpe.fs2redis.domain.Fs2RedisChannel
 import com.github.gvolpe.fs2redis.util.JRFuture
 import fs2.Stream
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-class Fs2Subscriber[F[_], K, V](state: Ref[F, PubSubState[F, K, V]], subConnection: StatefulRedisPubSubConnection[K, V])(
-    implicit F: ConcurrentEffect[F])
-    extends SubscribeCommands[Stream[F, ?], K, V] {
+class Fs2Subscriber[F[_]: ConcurrentEffect, K, V](
+    state: Ref[F, PubSubState[F, K, V]],
+    subConnection: StatefulRedisPubSubConnection[K, V]
+) extends SubscribeCommands[Stream[F, ?], K, V] {
 
   override def subscribe(channel: Fs2RedisChannel[K]): Stream[F, V] = {
     val getOrCreateTopicListener = Fs2PubSubInternals[F, K, V](state, subConnection)
     val setup: F[Topic[F, Option[V]]] =
       for {
-        st    <- state.get
+        st <- state.get
         topic <- getOrCreateTopicListener(channel)(st)
-        _     <- JRFuture(F.delay(subConnection.async().subscribe(channel.value)))
+        _ <- JRFuture(Sync[F].delay(subConnection.async().subscribe(channel.value)))
       } yield topic
 
     Stream.eval(setup).flatMap(_.subscribe(500).unNone)
@@ -45,7 +46,7 @@ class Fs2Subscriber[F[_], K, V](state: Ref[F, PubSubState[F, K, V]], subConnecti
 
   override def unsubscribe(channel: Fs2RedisChannel[K]): Stream[F, Unit] =
     Stream.eval {
-      JRFuture(F.delay(subConnection.async().unsubscribe(channel.value))).void
+      JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.value))).void
     }
 
 }

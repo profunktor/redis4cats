@@ -16,11 +16,11 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ExitCode, IO, IOApp, Resource}
+import cats.effect.{ ExitCode, IO, IOApp, Resource }
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.SetCommands
+import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
-import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
 
 object Fs2RedisSetsDemo extends IOApp {
 
@@ -34,7 +34,7 @@ object Fs2RedisSetsDemo extends IOApp {
     val commandsApi: Resource[IO, SetCommands[IO, String, String]] =
       for {
         client <- Fs2RedisClient[IO](redisURI)
-        redis  <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
+        redis <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
       } yield redis
 
     commandsApi.use { cmd =>

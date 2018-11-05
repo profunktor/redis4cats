@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.algebra
 
-import com.github.gvolpe.fs2redis.model._
+import com.github.gvolpe.fs2redis.streams._
 
 // format: off
 trait RawStreaming[F[_], K, V] {

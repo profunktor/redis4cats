@@ -16,12 +16,12 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect.{ ExitCode, IO, IOApp }
 import cats.syntax.apply._
-import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
-import com.github.gvolpe.fs2redis.model.DefaultChannel
-import fs2.{Sink, Stream}
+import com.github.gvolpe.fs2redis.domain.DefaultChannel
+import fs2.{ Sink, Stream }
 
 import scala.concurrent.duration._
 import scala.util.Random
@@ -37,12 +37,12 @@ object Fs2PubSubDemo extends IOApp {
 
   def stream(args: List[String]): Stream[IO, Unit] =
     for {
-      client <- Fs2RedisClient.stream[IO](redisURI)
+      client <- Stream.resource(Fs2RedisClient[IO](redisURI))
       pubSub <- Fs2PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, redisURI)
-      sub1   = pubSub.subscribe(eventsChannel)
-      sub2   = pubSub.subscribe(gamesChannel)
-      pub1   = pubSub.publish(eventsChannel)
-      pub2   = pubSub.publish(gamesChannel)
+      sub1 = pubSub.subscribe(eventsChannel)
+      sub2 = pubSub.subscribe(gamesChannel)
+      pub1 = pubSub.publish(eventsChannel)
+      pub2 = pubSub.publish(gamesChannel)
       _ <- Stream(
             sub1 to sink("#events"),
             sub2 to sink("#games"),

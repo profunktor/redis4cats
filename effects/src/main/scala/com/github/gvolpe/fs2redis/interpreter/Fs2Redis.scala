@@ -18,13 +18,13 @@ package com.github.gvolpe.fs2redis.interpreter
 
 import java.util.concurrent.TimeUnit
 
-import cats.effect.{Concurrent, Resource}
+import cats.effect.{ Concurrent, Resource }
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis.RedisCommands
-import com.github.gvolpe.fs2redis.model._
-import com.github.gvolpe.fs2redis.util.{JRFuture, Log}
-import fs2.Stream
+import com.github.gvolpe.fs2redis.domain._
+import com.github.gvolpe.fs2redis.effects._
+import com.github.gvolpe.fs2redis.util.{ JRFuture, Log }
 import io.lettuce.core._
 import io.lettuce.core.api.StatefulRedisConnection
 
@@ -43,7 +43,8 @@ object Fs2Redis {
   private[fs2redis] def acquireAndRelease[F[_], K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
-      uri: RedisURI)(implicit F: Concurrent[F], L: Log[F]): (F[Fs2Redis[F, K, V]], Fs2Redis[F, K, V] => F[Unit]) = {
+      uri: RedisURI
+  )(implicit F: Concurrent[F], L: Log[F]): (F[Fs2Redis[F, K, V]], Fs2Redis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromConnectionFuture {
         F.delay(client.underlying.connectAsync[K, V](codec.underlying, uri))
@@ -63,11 +64,6 @@ object Fs2Redis {
     val (acquire, release) = acquireAndRelease(client, codec, uri)
     Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
   }
-
-  def stream[F[_]: Concurrent: Log, K, V](client: Fs2RedisClient,
-                                          codec: Fs2RedisCodec[K, V],
-                                          uri: RedisURI): Stream[F, RedisCommands[F, K, V]] =
-    Stream.resource(apply(client, codec, uri))
 
   def masterSlave[F[_]: Concurrent: Log, K, V](conn: Fs2RedisMasterSlaveConnection[K, V]): F[RedisCommands[F, K, V]] =
     new Fs2Redis[F, K, V](conn.underlying).asInstanceOf[RedisCommands[F, K, V]].pure[F]
@@ -525,12 +521,14 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val conn: StatefulRedisConnection[K
       F.delay {
         conn
           .async()
-          .georadius(key,
-                     geoRadius.lon.value,
-                     geoRadius.lat.value,
-                     geoRadius.dist.value,
-                     unit,
-                     storage.asGeoRadiusStoreArgs)
+          .georadius(
+            key,
+            geoRadius.lon.value,
+            geoRadius.lat.value,
+            geoRadius.dist.value,
+            unit,
+            storage.asGeoRadiusStoreArgs
+          )
       }
     }.void
 
@@ -539,12 +537,14 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val conn: StatefulRedisConnection[K
       F.delay {
         conn
           .async()
-          .georadius(key,
-                     geoRadius.lon.value,
-                     geoRadius.lat.value,
-                     geoRadius.dist.value,
-                     unit,
-                     storage.asGeoRadiusStoreArgs)
+          .georadius(
+            key,
+            geoRadius.lon.value,
+            geoRadius.lat.value,
+            geoRadius.dist.value,
+            unit,
+            storage.asGeoRadiusStoreArgs
+          )
       }
     }.void
 
@@ -698,7 +698,8 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val conn: StatefulRedisConnection[K
     }.map(_.asScala.toList)
 
   override def zRangeByScoreWithScores(key: K, range: ZRange[V], limit: Option[RangeLimit])(
-      implicit ev: Numeric[V]): F[List[ScoreWithValue[V]]] =
+      implicit ev: Numeric[V]
+  ): F[List[ScoreWithValue[V]]] =
     JRFuture {
       F.delay {
         limit match {
@@ -744,7 +745,8 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val conn: StatefulRedisConnection[K
     }.map(_.asScala.toList)
 
   override def zRevRangeByScore(key: K, range: ZRange[V], limit: Option[RangeLimit])(
-      implicit ev: Numeric[V]): F[List[V]] =
+      implicit ev: Numeric[V]
+  ): F[List[V]] =
     JRFuture {
       F.delay {
         limit match {
@@ -755,7 +757,8 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val conn: StatefulRedisConnection[K
     }.map(_.asScala.toList)
 
   override def zRevRangeByScoreWithScores(key: K, range: ZRange[V], limit: Option[RangeLimit])(
-      implicit ev: Numeric[V]): F[List[ScoreWithValue[V]]] =
+      implicit ev: Numeric[V]
+  ): F[List[ScoreWithValue[V]]] =
     JRFuture {
       F.delay {
         limit match {

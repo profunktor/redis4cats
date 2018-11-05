@@ -16,38 +16,42 @@
 
 package com.github.gvolpe.fs2redis.interpreter.streams
 
-import cats.effect.Concurrent
+import cats.effect.{ Concurrent, Sync }
 import cats.effect.concurrent.Ref
 import cats.instances.list._
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.Streaming
-import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisMasterSlave
-import com.github.gvolpe.fs2redis.model._
-import com.github.gvolpe.fs2redis.util.{JRFuture, Log}
+import com.github.gvolpe.fs2redis.connection.Fs2RedisMasterSlave
+import com.github.gvolpe.fs2redis.domain._
+import com.github.gvolpe.fs2redis.util.{ JRFuture, Log }
+import com.github.gvolpe.fs2redis.streams._
 import fs2.Stream
-import io.lettuce.core.{ReadFrom, RedisURI}
+import io.lettuce.core.{ ReadFrom, RedisURI }
 
 object Fs2Streaming {
 
-  def mkStreamingConnection[F[_], K, V](client: Fs2RedisClient, codec: Fs2RedisCodec[K, V], uri: RedisURI)(
-      implicit F: Concurrent[F],
-      L: Log[F]): Stream[F, Streaming[Stream[F, ?], K, V]] = {
+  def mkStreamingConnection[F[_]: Concurrent: Log, K, V](
+      client: Fs2RedisClient,
+      codec: Fs2RedisCodec[K, V],
+      uri: RedisURI
+  ): Stream[F, Streaming[Stream[F, ?], K, V]] = {
     val acquire = JRFuture
       .fromConnectionFuture {
-        F.delay(client.underlying.connectAsync[K, V](codec.underlying, uri))
+        Sync[F].delay(client.underlying.connectAsync[K, V](codec.underlying, uri))
       }
       .map(c => new Fs2RawStreaming(c))
 
     val release: Fs2RawStreaming[F, K, V] => F[Unit] = c =>
-      JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync())) *>
-        L.info(s"Releasing Streaming connection: $uri")
+      JRFuture.fromCompletableFuture(Sync[F].delay(c.client.closeAsync())) *>
+        Log[F].info(s"Releasing Streaming connection: $uri")
 
     Stream.bracket(acquire)(release).map(rs => new Fs2Streaming(rs))
   }
 
   def mkMasterSlaveConnection[F[_]: Concurrent: Log, K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
-      readFrom: Option[ReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]] =
-    Fs2RedisMasterSlave.stream[F, K, V](codec, uris: _*)(readFrom).map { conn =>
+      readFrom: Option[ReadFrom] = None
+  ): Stream[F, Streaming[Stream[F, ?], K, V]] =
+    Stream.resource(Fs2RedisMasterSlave[F, K, V](codec, uris: _*)(readFrom)).map { conn =>
       new Fs2Streaming(new Fs2RawStreaming(conn.underlying))
     }
 
@@ -69,11 +73,11 @@ class Fs2Streaming[F[_]: Concurrent, K, V](rawStreaming: Fs2RawStreaming[F, K, V
     val initial = keys.map(k => k -> initialOffset(k)).toMap
     Stream.eval(Ref.of[F, Map[K, StreamingOffset[K]]](initial)).flatMap { ref =>
       (for {
-        offsets    <- Stream.eval(ref.get)
-        list       <- Stream.eval(rawStreaming.xRead(offsets.values.toSet))
+        offsets <- Stream.eval(ref.get)
+        list <- Stream.eval(rawStreaming.xRead(offsets.values.toSet))
         newOffsets = offsetsByKey(list).collect { case (key, Some(value)) => key -> value }.toList
-        _          <- Stream.eval(newOffsets.map { case (k, v) => ref.update(_.updated(k, v)) }.sequence)
-        result     <- Stream.fromIterator(list.iterator)
+        _ <- Stream.eval(newOffsets.map { case (k, v) => ref.update(_.updated(k, v)) }.sequence)
+        result <- Stream.fromIterator(list.iterator)
       } yield result).repeat
     }
   }

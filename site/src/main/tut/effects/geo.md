@@ -30,7 +30,7 @@ Once you have acquired a connection you can start using it:
 ```tut:book:silent
 import cats.effect.IO
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.model._
+import com.github.gvolpe.fs2redis.effects._
 import io.lettuce.core.GeoArgs
 
 val testKey = "location"
