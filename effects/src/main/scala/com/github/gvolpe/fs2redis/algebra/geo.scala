@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.algebra
 
-import com.github.gvolpe.fs2redis.model._
+import com.github.gvolpe.fs2redis.effects._
 import io.lettuce.core.GeoArgs
 
 // format: off

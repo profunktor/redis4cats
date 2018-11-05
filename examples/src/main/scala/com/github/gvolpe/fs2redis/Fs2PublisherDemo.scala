@@ -16,11 +16,11 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect.{ ExitCode, IO, IOApp }
 import cats.syntax.apply._
-import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
-import com.github.gvolpe.fs2redis.model.DefaultChannel
+import com.github.gvolpe.fs2redis.domain.DefaultChannel
 import fs2.Stream
 
 import scala.concurrent.duration._
@@ -34,9 +34,9 @@ object Fs2PublisherDemo extends IOApp {
 
   def stream(args: List[String]): Stream[IO, Unit] =
     for {
-      client <- Fs2RedisClient.stream[IO](redisURI)
+      client <- Stream.resource(Fs2RedisClient[IO](redisURI))
       pubSub <- Fs2PubSub.mkPublisherConnection[IO, String, String](client, stringCodec, redisURI)
-      pub1   = pubSub.publish(eventsChannel)
+      pub1 = pubSub.publish(eventsChannel)
       _ <- Stream(
             Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
             Stream.awakeEvery[IO](6.seconds) >> pubSub

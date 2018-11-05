@@ -5,7 +5,7 @@ fs2-redis
 [![Gitter Chat](https://badges.gitter.im/fs2-redis/fs2-redis.svg)](https://gitter.im/fs2-redis/fs2-redis)
 [![Maven Central](https://img.shields.io/maven-central/v/com.github.gvolpe/fs2-redis_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Cfs2-redis)
 
-Redis stream-based client built on top of [Fs2](https://functional-streams-for-scala.github.io/fs2/) and the async java client [Lettuce](https://lettuce.io/).
+Redis stream-based client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async java client [Lettuce](https://lettuce.io/).
 
 `fs2-redis` defines two types of API: one Stream-based using [Fs2](https://functional-streams-for-scala.github.io/fs2/) and another Effect-based using [Cats Effect](https://typelevel.org/cats-effect/).
 
@@ -26,6 +26,20 @@ Redis stream-based client built on top of [Fs2](https://functional-streams-for-s
 - [Strings API](https://redis.io/commands#string): `get`, `set`, `del`, `expire`, etc (includes some generic methods).
 
 Other features are not considered at the moment but PRs and suggestions are very welcome.
+
+## Dependencies
+
+Add this to your `build.sbt` for the Effects API (depends on `cats-effect`):
+
+```
+libraryDependencies += "com.github.gvolpe" %% "fs2-redis-effects" % Version
+```
+
+And this for the Streams API (depends on `fs2` and `cats-effect`):
+
+```
+libraryDependencies += "com.github.gvolpe" %% "fs2-redis-streams" % Version
+```
 
 ## LICENSE
 

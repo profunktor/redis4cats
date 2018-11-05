@@ -16,8 +16,8 @@
 
 package com.github.gvolpe.fs2redis.algebra
 
-import com.github.gvolpe.fs2redis.model._
-import io.lettuce.core.RedisURI
+import com.github.gvolpe.fs2redis.domain._
+import com.github.gvolpe.fs2redis.streams.Subscription
 
 trait PubSubStats[F[_], K] {
   def pubSubChannels: F[List[K]]

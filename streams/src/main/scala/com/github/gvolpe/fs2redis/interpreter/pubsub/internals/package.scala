@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.interpreter.pubsub
 
-import com.github.gvolpe.fs2redis.model.Fs2RedisChannel
+import com.github.gvolpe.fs2redis.domain.Fs2RedisChannel
 import fs2.concurrent.Topic
 
 package object internals {

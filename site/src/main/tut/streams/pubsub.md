@@ -53,9 +53,9 @@ When using the `Fs2PubSub` interpreter the `publish` function will be defined as
 ```tut:book:silent
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.apply._
-import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
-import com.github.gvolpe.fs2redis.model.{DefaultChannel, DefaultRedisCodec}
+import com.github.gvolpe.fs2redis.domain.{DefaultChannel, DefaultRedisCodec}
 import fs2.{Sink, Stream}
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.StringCodec
@@ -75,7 +75,7 @@ object Fs2PubSubDemo extends IOApp {
 
   def stream(args: List[String]): Stream[IO, Unit] =
     for {
-      client <- Fs2RedisClient.stream[IO](redisURI)
+      client <- Stream.resource(Fs2RedisClient[IO](redisURI))
       pubSub <- Fs2PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, redisURI)
       sub1   = pubSub.subscribe(eventsChannel)
       sub2   = pubSub.subscribe(gamesChannel)

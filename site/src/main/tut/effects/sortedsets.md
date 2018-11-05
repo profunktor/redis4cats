@@ -30,7 +30,7 @@ Once you have acquired a connection you can start using it:
 ```tut:book:silent
 import cats.effect.IO
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.model.{Score, ScoreWithValue, ZRange}
+import com.github.gvolpe.fs2redis.effects.{Score, ScoreWithValue, ZRange}
 
 val testKey = "zztop"
 

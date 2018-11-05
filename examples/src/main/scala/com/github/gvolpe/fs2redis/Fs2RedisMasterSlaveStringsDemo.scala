@@ -16,11 +16,11 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ExitCode, IO, IOApp, Resource}
+import cats.effect.{ ExitCode, IO, IOApp, Resource }
 import cats.syntax.all._
+import com.github.gvolpe.fs2redis.connection.Fs2RedisMasterSlave
+import com.github.gvolpe.fs2redis.domain.Fs2RedisMasterSlaveConnection
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
-import com.github.gvolpe.fs2redis.interpreter.connection.Fs2RedisMasterSlave
-import com.github.gvolpe.fs2redis.model.Fs2RedisMasterSlaveConnection
 import io.lettuce.core.ReadFrom
 
 object Fs2RedisMasterSlaveStringsDemo extends IOApp {

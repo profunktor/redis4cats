@@ -16,11 +16,11 @@
 
 package com.github.gvolpe.fs2redis.util
 
-import java.util.concurrent.{CompletableFuture, CompletionStage, Future}
+import java.util.concurrent.{ CompletableFuture, CompletionStage, Future }
 
 import cats.effect.Concurrent
 import cats.syntax.flatMap._
-import io.lettuce.core.{ConnectionFuture, RedisFuture}
+import io.lettuce.core.{ ConnectionFuture, RedisFuture }
 
 object JRFuture {
 

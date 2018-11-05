@@ -17,9 +17,9 @@
 package com.github.gvolpe.fs2redis
 
 import cats.effect.IO
-import com.github.gvolpe.fs2redis.model.{DefaultRedisCodec, Fs2RedisCodec}
+import com.github.gvolpe.fs2redis.domain.{ DefaultRedisCodec, Fs2RedisCodec }
 import io.lettuce.core.RedisURI
-import io.lettuce.core.codec.{RedisCodec, StringCodec, ToByteBufEncoder}
+import io.lettuce.core.codec.{ RedisCodec, StringCodec, ToByteBufEncoder }
 import io.netty.buffer.ByteBuf
 
 object Demo {

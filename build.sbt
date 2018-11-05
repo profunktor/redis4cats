@@ -26,7 +26,6 @@ val commonSettings = Seq(
     compilerPlugin(Libraries.betterMonadicFor),
     Libraries.redisClient,
     Libraries.catsEffect,
-    Libraries.fs2Core,
     Libraries.scribe,
     Libraries.scalaTest,
     Libraries.scalaCheck
@@ -71,19 +70,34 @@ lazy val noPublish = Seq(
 )
 
 lazy val `fs2-redis-root` = project.in(file("."))
-  .aggregate(`fs2-redis`, examples, microsite)
+  .aggregate(`fs2-redis-core`, `fs2-redis-effects`, `fs2-redis-streams`, examples, microsite)
   .settings(noPublish)
 
-lazy val `fs2-redis` = project.in(file("core"))
+lazy val `fs2-redis-core` = project.in(file("core"))
   .settings(commonSettings: _*)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
+  .settings(noPublish)
+
+lazy val `fs2-redis-effects` = project.in(file("effects"))
+  .settings(commonSettings: _*)
+  .settings(parallelExecution in Test := false)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`fs2-redis-core`)
+
+lazy val `fs2-redis-streams` = project.in(file("streams"))
+  .settings(commonSettings: _*)
+  .settings(libraryDependencies += Libraries.fs2Core)
+  .settings(parallelExecution in Test := false)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`fs2-redis-core`)
 
 lazy val examples = project.in(file("examples"))
   .settings(commonSettings: _*)
   .settings(noPublish)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`fs2-redis`)
+  .dependsOn(`fs2-redis-effects`)
+  .dependsOn(`fs2-redis-streams`)
 
 lazy val microsite = project.in(file("site"))
   .enablePlugins(MicrositesPlugin)
@@ -116,7 +130,7 @@ lazy val microsite = project.in(file("site"))
       "-Xlint:-missing-interpolator,_",
     )
   )
-  .dependsOn(`fs2-redis`, `examples`)
+  .dependsOn(`fs2-redis-effects`, `fs2-redis-streams`, `examples`)
 
 // CI build
 addCommandAlias("buildFs2Redis", ";clean;+test;tut")
