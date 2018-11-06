@@ -3,7 +3,7 @@ fs2-redis
 
 [![Build Status](https://travis-ci.org/gvolpe/fs2-redis.svg?branch=master)](https://travis-ci.org/gvolpe/fs2-redis)
 [![Gitter Chat](https://badges.gitter.im/fs2-redis/fs2-redis.svg)](https://gitter.im/fs2-redis/fs2-redis)
-[![Maven Central](https://img.shields.io/maven-central/v/com.github.gvolpe/fs2-redis_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Cfs2-redis)
+[![Maven Central](https://img.shields.io/maven-central/v/com.github.gvolpe/fs2-redis-effects_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Cfs2-redis-effects)
 
 Redis stream-based client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async java client [Lettuce](https://lettuce.io/).
 
