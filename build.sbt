@@ -77,7 +77,6 @@ lazy val `fs2-redis-core` = project.in(file("core"))
   .settings(commonSettings: _*)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
-  .settings(noPublish)
 
 lazy val `fs2-redis-effects` = project.in(file("effects"))
   .settings(commonSettings: _*)
