@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.connection
 
-import cats.effect.{ Concurrent, Resource }
+import cats.effect.{ Concurrent, Resource, Sync }
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.domain._
 import com.github.gvolpe.fs2redis.util.{ JRFuture, Log }
@@ -25,35 +25,37 @@ import io.lettuce.core.{ ReadFrom, RedisURI }
 
 import scala.collection.JavaConverters._
 
-// format: off
 object Fs2RedisMasterSlave {
 
-  private[fs2redis] def acquireAndRelease[F[_], K, V](client: Fs2RedisClient,
-                                                      codec: Fs2RedisCodec[K, V],
-                                                      readFrom: Option[ReadFrom],
-                                                      uris: RedisURI*)
-                                                     (implicit F: Concurrent[F], L: Log[F])
-  : (F[Fs2RedisMasterSlaveConnection[K, V]], Fs2RedisMasterSlaveConnection[K, V] => F[Unit]) = {
+  private[fs2redis] def acquireAndRelease[F[_]: Concurrent: Log, K, V](
+      client: Fs2RedisClient,
+      codec: Fs2RedisCodec[K, V],
+      readFrom: Option[ReadFrom],
+      uris: RedisURI*
+  ): (F[Fs2RedisMasterSlaveConnection[K, V]], Fs2RedisMasterSlaveConnection[K, V] => F[Unit]) = {
 
     val acquire: F[Fs2RedisMasterSlaveConnection[K, V]] = {
 
       val connection: F[Fs2RedisMasterSlaveConnection[K, V]] =
-        JRFuture.fromCompletableFuture[F, StatefulRedisMasterSlaveConnection[K, V]] {
-          F.delay { MasterSlave.connectAsync[K, V](client.underlying, codec.underlying, uris.asJava) }
-        }.map(DefaultRedisMasterSlaveConnection.apply)
+        JRFuture
+          .fromCompletableFuture[F, StatefulRedisMasterSlaveConnection[K, V]] {
+            Sync[F].delay { MasterSlave.connectAsync[K, V](client.underlying, codec.underlying, uris.asJava) }
+          }
+          .map(DefaultRedisMasterSlaveConnection.apply)
 
-      readFrom.fold(connection)(rf => connection.flatMap(c => F.delay(c.underlying.setReadFrom(rf)) *> c.pure[F]))
+      readFrom.fold(connection)(rf => connection.flatMap(c => Sync[F].delay(c.underlying.setReadFrom(rf)) *> c.pure[F]))
     }
 
     val release: Fs2RedisMasterSlaveConnection[K, V] => F[Unit] = connection =>
-      L.info(s"Releasing Redis Master/Slave connection: ${connection.underlying}") *>
-        JRFuture.fromCompletableFuture(F.delay(connection.underlying.closeAsync())).void
+      Log[F].info(s"Releasing Redis Master/Slave connection: ${connection.underlying}") *>
+        JRFuture.fromCompletableFuture(Sync[F].delay(connection.underlying.closeAsync())).void
 
     (acquire, release)
   }
 
   def apply[F[_]: Concurrent: Log, K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
-      readFrom: Option[ReadFrom] = None): Resource[F, Fs2RedisMasterSlaveConnection[K, V]] = {
+      readFrom: Option[ReadFrom] = None
+  ): Resource[F, Fs2RedisMasterSlaveConnection[K, V]] = {
     val (acquireClient, releaseClient) = Fs2RedisClient.acquireAndReleaseWithoutUri[F]
     Resource.make(acquireClient)(releaseClient).flatMap { client =>
       val (acquire, release) = acquireAndRelease(client, codec, readFrom, uris: _*)

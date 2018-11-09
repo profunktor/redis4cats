@@ -26,8 +26,8 @@ object Dependencies {
     lazy val kindProjector    = "org.spire-math" %% "kind-projector"     % Versions.kindProjector
 
     // Scala test libraries
-    lazy val scalaTest  = "org.scalatest"  %% "scalatest"  % Versions.scalaTest  % "test"
-    lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % Versions.scalaCheck % "test"
+    lazy val scalaTest  = "org.scalatest"  %% "scalatest"  % Versions.scalaTest
+    lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % Versions.scalaCheck
   }
 
 }

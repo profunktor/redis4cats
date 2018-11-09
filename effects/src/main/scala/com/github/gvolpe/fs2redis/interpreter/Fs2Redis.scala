@@ -58,9 +58,11 @@ object Fs2Redis {
     (acquire, release)
   }
 
-  def apply[F[_]: Concurrent: Log, K, V](client: Fs2RedisClient,
-                                         codec: Fs2RedisCodec[K, V],
-                                         uri: RedisURI): Resource[F, RedisCommands[F, K, V]] = {
+  def apply[F[_]: Concurrent: Log, K, V](
+      client: Fs2RedisClient,
+      codec: Fs2RedisCodec[K, V],
+      uri: RedisURI
+  ): Resource[F, RedisCommands[F, K, V]] = {
     val (acquire, release) = acquireAndRelease(client, codec, uri)
     Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
   }

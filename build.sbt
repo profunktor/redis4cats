@@ -27,8 +27,8 @@ val commonSettings = Seq(
     Libraries.redisClient,
     Libraries.catsEffect,
     Libraries.scribe,
-    Libraries.scalaTest,
-    Libraries.scalaCheck
+    Libraries.scalaTest % Test,
+    Libraries.scalaCheck % Test
   ),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= Seq(
@@ -70,7 +70,7 @@ lazy val noPublish = Seq(
 )
 
 lazy val `fs2-redis-root` = project.in(file("."))
-  .aggregate(`fs2-redis-core`, `fs2-redis-effects`, `fs2-redis-streams`, examples, microsite)
+  .aggregate(`fs2-redis-core`, `fs2-redis-effects`, `fs2-redis-streams`, examples, `fs2-redis-test-support`, tests, microsite)
   .settings(noPublish)
 
 lazy val `fs2-redis-core` = project.in(file("core"))
@@ -97,6 +97,26 @@ lazy val examples = project.in(file("examples"))
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`fs2-redis-effects`)
   .dependsOn(`fs2-redis-streams`)
+
+lazy val `fs2-redis-test-support` = project.in(file("test-support"))
+  .settings(commonSettings: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      Libraries.scalaTest,
+      Libraries.scalaCheck
+    )
+  )
+  .settings(parallelExecution in Test := false)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`fs2-redis-core`)
+  .dependsOn(`fs2-redis-effects`)
+  .dependsOn(`fs2-redis-streams`)
+
+lazy val tests = project.in(file("tests"))
+  .settings(commonSettings: _*)
+  .settings(noPublish)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`fs2-redis-test-support` % Test)
 
 lazy val microsite = project.in(file("site"))
   .enablePlugins(MicrositesPlugin)
