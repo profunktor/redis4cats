@@ -31,7 +31,7 @@ object JRFuture {
   def apply[F[_]: Concurrent, A](fa: F[RedisFuture[A]]): F[A] =
     liftJFuture[F, RedisFuture[A], A](fa)
 
-  def fromConnectionFuture[F[_]: Concurrent, G[_], A](fa: F[ConnectionFuture[A]]): F[A] =
+  def fromConnectionFuture[F[_]: Concurrent, A](fa: F[ConnectionFuture[A]]): F[A] =
     liftJFuture[F, ConnectionFuture[A], A](fa)
 
   def fromCompletableFuture[F[_]: Concurrent, A](fa: F[CompletableFuture[A]]): F[A] =
