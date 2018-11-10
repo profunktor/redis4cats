@@ -24,7 +24,7 @@ import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis.RedisCommands
 import com.github.gvolpe.fs2redis.domain._
 import com.github.gvolpe.fs2redis.effects._
-import com.github.gvolpe.fs2redis.util.{ JRFuture, Log }
+import com.github.gvolpe.fs2redis.effect.{ JRFuture, Log }
 import io.lettuce.core._
 import io.lettuce.core.api.StatefulRedisConnection
 

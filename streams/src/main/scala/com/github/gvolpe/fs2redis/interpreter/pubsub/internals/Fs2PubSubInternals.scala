@@ -21,7 +21,7 @@ import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.domain.Fs2RedisChannel
-import com.github.gvolpe.fs2redis.util.Log
+import com.github.gvolpe.fs2redis.effect.Log
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnection }
 

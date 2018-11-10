@@ -20,7 +20,7 @@ import cats.effect.{ Concurrent, Sync }
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.RawStreaming
 import com.github.gvolpe.fs2redis.streams._
-import com.github.gvolpe.fs2redis.util.JRFuture
+import com.github.gvolpe.fs2redis.effect.JRFuture
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
 

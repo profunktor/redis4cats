@@ -23,7 +23,7 @@ import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.Streaming
 import com.github.gvolpe.fs2redis.connection.Fs2RedisMasterSlave
 import com.github.gvolpe.fs2redis.domain._
-import com.github.gvolpe.fs2redis.util.{ JRFuture, Log }
+import com.github.gvolpe.fs2redis.effect.{ JRFuture, Log }
 import com.github.gvolpe.fs2redis.streams._
 import fs2.Stream
 import io.lettuce.core.{ ReadFrom, RedisURI }

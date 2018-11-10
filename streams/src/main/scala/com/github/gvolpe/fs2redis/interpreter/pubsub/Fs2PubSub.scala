@@ -21,7 +21,7 @@ import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.{ PubSubCommands, PublishCommands, SubscribeCommands }
 import com.github.gvolpe.fs2redis.domain._
-import com.github.gvolpe.fs2redis.util.{ JRFuture, Log }
+import com.github.gvolpe.fs2redis.effect.{ JRFuture, Log }
 import fs2.Stream
 import fs2.concurrent.Topic
 import io.lettuce.core.RedisURI

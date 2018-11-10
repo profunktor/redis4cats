@@ -22,7 +22,7 @@ import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.PubSubStats
 import com.github.gvolpe.fs2redis.domain._
 import com.github.gvolpe.fs2redis.streams.Subscription
-import com.github.gvolpe.fs2redis.util.JRFuture
+import com.github.gvolpe.fs2redis.effect.JRFuture
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 

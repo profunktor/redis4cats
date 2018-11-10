@@ -20,7 +20,7 @@ import cats.effect.{ Concurrent, Resource, Sync }
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.domain.{ DefaultRedisClient, Fs2RedisClient }
-import com.github.gvolpe.fs2redis.util.{ JRFuture, Log }
+import com.github.gvolpe.fs2redis.effect.{ JRFuture, Log }
 import io.lettuce.core.{ RedisClient, RedisURI }
 
 object Fs2RedisClient {

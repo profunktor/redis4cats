@@ -20,7 +20,7 @@ import cats.effect.{ ContextShift, IO }
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.domain.DefaultRedisCodec
+import com.github.gvolpe.fs2redis.domain.{ DefaultRedisCodec, Fs2RedisCodec }
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.StringCodec
@@ -69,14 +69,17 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
 
   private val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
 
-  private val mkRedis =
+  private def mkRedis[K, V](codec: Fs2RedisCodec[K, V]) =
     Fs2RedisClient[IO](redisUri)
       .flatMap { client =>
-        Fs2Redis[IO, String, String](client, stringCodec, redisUri)
+        Fs2Redis[IO, K, V](client, codec, redisUri)
       }
 
+  def withAbstractRedis[A, K, V](f: Fs2Redis.RedisCommands[IO, K, V] => IO[A])(codec: Fs2RedisCodec[K, V]): Unit =
+    mkRedis(codec).use(f).void.unsafeRunSync()
+
   def withRedis[A](f: Fs2Redis.RedisCommands[IO, String, String] => IO[A]): Unit =
-    mkRedis.use(f).void.unsafeRunSync()
+    withAbstractRedis[A, String, String](f)(stringCodec)
 
   private def flushAll(): Unit =
     Fs2RedisClient[IO](redisUri)

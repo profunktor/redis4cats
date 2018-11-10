@@ -23,7 +23,7 @@ import com.github.gvolpe.fs2redis.algebra.{ PubSubCommands, PubSubStats, Subscri
 import com.github.gvolpe.fs2redis.domain.Fs2RedisChannel
 import com.github.gvolpe.fs2redis.interpreter.pubsub.internals.{ Fs2PubSubInternals, PubSubState }
 import com.github.gvolpe.fs2redis.streams.Subscription
-import com.github.gvolpe.fs2redis.util.JRFuture
+import com.github.gvolpe.fs2redis.effect.JRFuture
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 

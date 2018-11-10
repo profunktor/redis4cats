@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.gvolpe.fs2redis.util
+package com.github.gvolpe.fs2redis.effect
 
 import cats.effect.Sync
 

@@ -19,7 +19,7 @@ package com.github.gvolpe.fs2redis.connection
 import cats.effect.{ Concurrent, Resource, Sync }
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.domain._
-import com.github.gvolpe.fs2redis.util.{ JRFuture, Log }
+import com.github.gvolpe.fs2redis.effect.{ JRFuture, Log }
 import io.lettuce.core.masterslave.{ MasterSlave, StatefulRedisMasterSlaveConnection }
 import io.lettuce.core.{ ReadFrom, RedisURI }
 
