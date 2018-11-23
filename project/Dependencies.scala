@@ -9,7 +9,7 @@ object Dependencies {
     val scribe     = "2.6.0"
 
     val betterMonadicFor = "0.2.4"
-    val kindProjector    = "0.9.8"
+    val kindProjector    = "0.9.9"
 
     val scalaTest  = "3.0.5"
     val scalaCheck = "1.14.0"
