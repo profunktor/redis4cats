@@ -21,6 +21,8 @@ trait Fs2RedisChannel[K] { def value: K }
 case class Subscription[K](channel: Fs2RedisChannel[K], number: Long)
 ```
 
+Note: cluster support is not implemented yet.
+
 ### Subscriber
 
 ```tut:silent
