@@ -52,8 +52,8 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
     super.beforeAll()
     if (startContainers) {
       assertDockerAvailable()
-      downloadRedisImage()
-      dockerInstanceId = Some(startRedis(redisPort))
+      downloadRedisImage(dockerRedisImage)
+      dockerInstanceId = Some(startRedis(dockerRedisImage, redisPort))
     }
   }
 
@@ -96,7 +96,8 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
 
 object DockerRedis {
 
-  val dockerImage = "redis:5.0.0"
+  val dockerRedisImage        = "redis:5.0.0"
+  val dockerRedisClusterImage = "m0stwanted/redis-cluster:latest"
 
   /** asserts that docker is available on host os **/
   def assertDockerAvailable(): Unit = {
@@ -104,20 +105,22 @@ object DockerRedis {
     println(s"Verifying docker is available: $r")
   }
 
-  def downloadRedisImage(): Unit = {
-    val current: String = Process(s"docker images $dockerImage").!!
-    if (current.lines.size <= 1) {
-      println(s"Pulling docker image for $dockerImage")
-      Process(s"docker pull $dockerImage").!!
+  def downloadRedisImage(image: String): Unit = {
+    val current: String = Process(s"docker images $image").!!
+    if (current.linesIterator.size <= 1) {
+      println(s"Pulling docker image for $image")
+      Process(s"docker pull $image").!!
       ()
     }
   }
 
-  def startRedis(port: Int): String = {
+  def startRedis(image: String, firstPort: Int, lastPort: Option[Int] = None): String = {
 
     val dockerId = new SyncVar[String]()
+    val ports    = lastPort.map(lp => s"$firstPort-$lp:$firstPort-$lp").getOrElse(s"$firstPort:$firstPort")
+
     val runCmd =
-      s"docker run --name scalatest_redis_${System.currentTimeMillis()} -d -p $port:6379 $dockerImage"
+      s"docker run --name scalatest_redis_${System.currentTimeMillis()} -d -p $ports $image"
 
     val thread = new Thread(
       new Runnable {
@@ -126,7 +129,8 @@ object DockerRedis {
           var observer: Option[Process] = None
           val logger = ProcessLogger(
             { str =>
-              if (str.contains("Ready to accept connections")) {
+              if (str.contains("Ready to accept connections") || str
+                    .contains("Background AOF rewrite finished successfully")) {
                 observer.foreach(_.destroy())
                 dockerId.put(result)
               }
@@ -134,16 +138,16 @@ object DockerRedis {
             _ => ()
           )
 
-          println(s"Awaiting Redis startup ($dockerImage @ 127.0.0.1:$port)")
+          println(s"Awaiting Redis startup ($image @ 127.0.0.1:($ports))")
           val observeCmd = s"docker logs -f $result"
           observer = Some(Process(observeCmd).run(logger))
         }
       },
-      s"Redis $dockerImage startup observer"
+      s"Redis $image startup observer"
     )
     thread.start()
     val id = dockerId.get
-    println(s"Redis ($dockerImage @ 127.0.0.1:$port) started successfully as $id ")
+    println(s"Redis ($image @ 127.0.0.1:($ports)) started successfully as $id ")
     id
   }
 
