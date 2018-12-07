@@ -18,90 +18,19 @@ package com.github.gvolpe.fs2redis.interpreter
 
 import java.util.concurrent.TimeUnit
 
-import cats.effect.{ Concurrent, Resource }
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.algebra._
-import com.github.gvolpe.fs2redis.domain._
-import com.github.gvolpe.fs2redis.effect.{ JRFuture, Log }
+import cats.effect.Concurrent
+import com.github.gvolpe.fs2redis.effect.JRFuture
 import com.github.gvolpe.fs2redis.effects._
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis.RedisCommands
-import io.lettuce.core._
-import io.lettuce.core.api.StatefulRedisConnection
+import io.lettuce.core.{ GeoArgs, Limit, Range, ScoredValue, ZAddArgs, ZStoreArgs }
+import io.lettuce.core.cluster.api.StatefulRedisClusterConnection
 
 import scala.concurrent.duration.FiniteDuration
 
-object Fs2Redis {
-
-  trait RedisCommands[F[_], K, V]
-      extends StringCommands[F, K, V]
-      with HashCommands[F, K, V]
-      with SetCommands[F, K, V]
-      with SortedSetCommands[F, K, V]
-      with ListCommands[F, K, V]
-      with GeoCommands[F, K, V]
-
-  private[fs2redis] def acquireAndRelease[F[_], K, V](
-      client: Fs2RedisClient,
-      codec: Fs2RedisCodec[K, V],
-      uri: RedisURI
-  )(implicit F: Concurrent[F], L: Log[F]): (F[Fs2Redis[F, K, V]], Fs2Redis[F, K, V] => F[Unit]) = {
-    val acquire = JRFuture
-      .fromConnectionFuture {
-        F.delay(client.underlying.connectAsync[K, V](codec.underlying, uri))
-      }
-      .map(c => new Fs2Redis(c))
-
-    val release: Fs2Redis[F, K, V] => F[Unit] = c =>
-      L.info(s"Releasing Commands connection: $uri") *>
-        JRFuture.fromCompletableFuture(F.delay(c.conn.closeAsync())).void
-
-    (acquire, release)
-  }
-
-  private[fs2redis] def acquireAndReleaseCluster[F[_], K, V](
-      client: Fs2RedisClusterClient,
-      codec: Fs2RedisCodec[K, V],
-  )(implicit F: Concurrent[F], L: Log[F]): (F[Fs2RedisCluster[F, K, V]], Fs2RedisCluster[F, K, V] => F[Unit]) = {
-    val acquire = JRFuture
-      .fromCompletableFuture {
-        F.delay(client.underlying.connectAsync[K, V](codec.underlying))
-      }
-      .map(c => new Fs2RedisCluster(c))
-
-    val release: Fs2RedisCluster[F, K, V] => F[Unit] = c =>
-      L.info(s"Releasing cluster Commands connection: ${client.underlying}") *>
-        JRFuture.fromCompletableFuture(F.delay(c.conn.closeAsync())).void
-
-    (acquire, release)
-  }
-
-  //
-
-  def apply[F[_]: Concurrent: Log, K, V](
-      client: Fs2RedisClient,
-      codec: Fs2RedisCodec[K, V],
-      uri: RedisURI
-  ): Resource[F, RedisCommands[F, K, V]] = {
-    val (acquire, release) = acquireAndRelease(client, codec, uri)
-    Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
-  }
-
-  def cluster[F[_]: Concurrent: Log, K, V](
-      clusterClient: Fs2RedisClusterClient,
-      codec: Fs2RedisCodec[K, V],
-      uri: RedisURI*
-  ): Resource[F, RedisCommands[F, K, V]] = {
-    val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec)
-    Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
-  }
-
-  def masterSlave[F[_]: Concurrent: Log, K, V](conn: Fs2RedisMasterSlaveConnection[K, V]): F[RedisCommands[F, K, V]] =
-    new Fs2Redis[F, K, V](conn.underlying).asInstanceOf[RedisCommands[F, K, V]].pure[F]
-
-}
-
-private[fs2redis] class Fs2Redis[F[_], K, V](val conn: StatefulRedisConnection[K, V])(implicit F: Concurrent[F])
-    extends RedisCommands[F, K, V]
+private[fs2redis] class Fs2RedisCluster[F[_], K, V](val conn: StatefulRedisClusterConnection[K, V])(
+    implicit F: Concurrent[F]
+) extends RedisCommands[F, K, V]
     with Fs2RedisConversionOps {
 
   import scala.collection.JavaConverters._
@@ -819,49 +748,5 @@ private[fs2redis] class Fs2Redis[F[_], K, V](val conn: StatefulRedisConnection[K
         conn.async().zscore(key, value)
       }
     }.map(x => Option(Double.box(x)))
-
-}
-
-private[fs2redis] trait Fs2RedisConversionOps {
-
-  private[fs2redis] implicit class GeoRadiusResultOps[V](v: GeoWithin[V]) {
-    def asGeoRadiusResult: GeoRadiusResult[V] =
-      GeoRadiusResult[V](
-        v.getMember,
-        Distance(v.getDistance),
-        GeoHash(v.getGeohash),
-        GeoCoordinate(v.getCoordinates.getX.doubleValue(), v.getCoordinates.getY.doubleValue())
-      )
-  }
-
-  private[fs2redis] implicit class GeoRadiusKeyStorageOps[K](v: GeoRadiusKeyStorage[K]) {
-    def asGeoRadiusStoreArgs: GeoRadiusStoreArgs[K] = {
-      val store: GeoRadiusStoreArgs[_] = GeoRadiusStoreArgs.Builder
-        .store[K](v.key)
-        .withCount(v.count)
-      store.asInstanceOf[GeoRadiusStoreArgs[K]]
-    }
-  }
-
-  private[fs2redis] implicit class GeoRadiusDistStorageOps[K](v: GeoRadiusDistStorage[K]) {
-    def asGeoRadiusStoreArgs: GeoRadiusStoreArgs[K] = {
-      val store: GeoRadiusStoreArgs[_] = GeoRadiusStoreArgs.Builder
-        .withStoreDist[K](v.key)
-        .withCount(v.count)
-      store.asInstanceOf[GeoRadiusStoreArgs[K]]
-    }
-  }
-
-  private[fs2redis] implicit class ZRangeOps[V: Numeric](range: ZRange[V]) {
-    def asJavaRange: Range[Number] = {
-      val start: Number = range.start.asInstanceOf[java.lang.Number]
-      val end: Number   = range.end.asInstanceOf[java.lang.Number]
-      Range.create(start, end)
-    }
-  }
-
-  private[fs2redis] implicit class ScoredValuesOps[V](v: ScoredValue[V]) {
-    def asScoreWithValues: ScoreWithValue[V] = ScoreWithValue[V](Score(v.getScore), v.getValue)
-  }
 
 }
