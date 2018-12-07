@@ -1,0 +1,8 @@
+-Dfile.encoding=UTF8
+-Xms2G
+-Xmx8G
+-Xss2M
+-XX:ReservedCodeCacheSize=256M
+-XX:+TieredCompilation
+-XX:-UseGCOverheadLimit
+-XX:+CMSClassUnloadingEnabled
