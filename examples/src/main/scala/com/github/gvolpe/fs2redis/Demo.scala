@@ -25,6 +25,7 @@ import io.netty.buffer.ByteBuf
 object Demo {
 
   val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
+  val redisClusterURI: RedisURI                  = RedisURI.create("redis://localhost:30001")
   val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
   val longCodec: Fs2RedisCodec[String, Long]     = DefaultRedisCodec(LongCodec)
 
