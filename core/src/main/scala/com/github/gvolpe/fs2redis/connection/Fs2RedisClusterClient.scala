@@ -29,7 +29,7 @@ object Fs2RedisClusterClient {
 
   private[fs2redis] def acquireAndRelease[F[_]: Concurrent: Log](
       uri: RedisURI*
-  )(implicit F: Sync[F]): (F[Fs2RedisClusterClient], Fs2RedisClusterClient => F[Unit]) = {
+  ): (F[Fs2RedisClusterClient], Fs2RedisClusterClient => F[Unit]) = {
 
     val acquire: F[Fs2RedisClusterClient] =
       Log[F].info(s"Acquire Redis Cluster client") *>

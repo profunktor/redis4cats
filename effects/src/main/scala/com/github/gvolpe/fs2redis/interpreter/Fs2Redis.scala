@@ -75,8 +75,6 @@ object Fs2Redis {
     (acquire, release)
   }
 
-  //
-
   def apply[F[_]: Concurrent: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
