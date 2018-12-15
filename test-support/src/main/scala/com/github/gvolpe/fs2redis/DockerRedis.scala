@@ -28,6 +28,7 @@ import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }
 
 import scala.concurrent.{ ExecutionContext, SyncVar }
 import scala.sys.process.{ Process, ProcessLogger }
+import scala.util.Random
 
 // Highly-inspired by DockerCassandra -> https://github.com/Spinoco/fs2-cassandra/blob/series/0.4/test-support/src/main/scala/spinoco/fs2/cassandra/support/DockerCassandra.scala
 trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suite =>
@@ -120,7 +121,7 @@ object DockerRedis {
     val ports    = lastPort.map(lp => s"$firstPort-$lp:$firstPort-$lp").getOrElse(s"$firstPort:$firstPort")
 
     val runCmd =
-      s"docker run --name scalatest_redis_${System.currentTimeMillis()} -d -p $ports $image"
+      s"docker run --name scalatest_redis_${System.currentTimeMillis()}_${math.abs(Random.nextInt)} -d -p $ports $image"
 
     val thread = new Thread(
       new Runnable {
