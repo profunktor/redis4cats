@@ -16,7 +16,8 @@
 
 package com.github.gvolpe.fs2redis
 
-import io.lettuce.core.{ GeoArgs, RedisClient }
+import io.lettuce.core.RedisClient
+import io.lettuce.core.cluster.RedisClusterClient
 import io.lettuce.core.codec.RedisCodec
 import io.lettuce.core.masterslave.StatefulRedisMasterSlaveConnection
 
@@ -26,6 +27,11 @@ object domain {
     def underlying: RedisClient
   }
   case class DefaultRedisClient(underlying: RedisClient) extends Fs2RedisClient
+
+  trait Fs2RedisClusterClient {
+    def underlying: RedisClusterClient
+  }
+  case class DefaultRedisClusterClient(underlying: RedisClusterClient) extends Fs2RedisClusterClient
 
   trait Fs2RedisMasterSlaveConnection[K, V] {
     def underlying: StatefulRedisMasterSlaveConnection[K, V]

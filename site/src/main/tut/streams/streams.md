@@ -29,6 +29,10 @@ def mkMasterSlaveConnection[F[_], K, V](codec: Fs2RedisCodec[K, V], uris: RedisU
   readFrom: Option[ReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]]
 ```
 
+#### Cluster connection
+
+Not implemented yet. 
+
 ### Streaming API
 
 At the moment there's only two combinators:

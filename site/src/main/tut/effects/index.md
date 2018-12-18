@@ -60,6 +60,18 @@ The only difference with other APIs will be the `Commands` type. For the `String
 You can connect in any of these modes by either using `RedisURI.create` or `RedisURI.Builder`. More information
 [here](https://github.com/lettuce-io/lettuce-core/wiki/Redis-URI-and-connection-details).
 
+### Cluster connection
+
+The process looks mostly like standalone connection but with small differences:
+
+```scala
+val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
+  for {
+    client <- Fs2RedisClusterClient[IO](redisClusterURI)
+    redis <- Fs2Redis.cluster[IO, String, String](client, stringCodec, redisURI)
+  } yield redis
+```
+
 ### Master / Slave connection
 
 The process is a bit different. First of all, you don't need to create a `Fs2RedisClient`, it'll be created for you. All you need is `Fs2RedisMasterSlave` that exposes in a similar way one method `apply` that returns a `Resource`.
