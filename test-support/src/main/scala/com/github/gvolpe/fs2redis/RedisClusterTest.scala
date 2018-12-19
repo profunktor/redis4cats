@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Fs2 Redis
+ * Copyright 2018-2019 Fs2 Redis
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
