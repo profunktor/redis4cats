@@ -35,8 +35,8 @@ object Fs2RedisClusterClient {
       Log[F].info(s"Acquire Redis Cluster client") *>
         Sync[F]
           .delay(RedisClusterClient.create(uri.asJava))
-          .flatMap(initializeClusterPartitions(_))
-          .map(DefaultRedisClusterClient(_))
+          .flatTap(initializeClusterPartitions[F])
+          .map(DefaultRedisClusterClient)
 
     val release: Fs2RedisClusterClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *>
@@ -48,8 +48,8 @@ object Fs2RedisClusterClient {
   private[fs2redis] def acquireAndReleaseWithoutUri[F[_]: Concurrent: Log]
     : (F[Fs2RedisClusterClient], Fs2RedisClusterClient => F[Unit]) = acquireAndRelease(new RedisURI())
 
-  private[fs2redis] def initializeClusterPartitions[F[_]: Sync](client: RedisClusterClient): F[RedisClusterClient] =
-    Sync[F].delay(client.getPartitions) *> Sync[F].pure(client)
+  private[fs2redis] def initializeClusterPartitions[F[_]: Sync](client: RedisClusterClient): F[Unit] =
+    Sync[F].delay(client.getPartitions)
 
   def apply[F[_]: Concurrent: Log](uri: RedisURI*): Resource[F, Fs2RedisClusterClient] = {
     val (acquire, release) = acquireAndRelease(uri: _*)

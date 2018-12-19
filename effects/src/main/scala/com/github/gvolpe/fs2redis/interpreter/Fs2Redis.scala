@@ -94,7 +94,9 @@ object Fs2Redis {
 
 }
 
-private[fs2redis] class BaseFs2Redis[F[_], K, V](val conn: Fs2RedisConnection[F, K, V])(implicit F: Concurrent[F])
+private[fs2redis] class BaseFs2Redis[F[_], K, V](
+    val conn: Fs2RedisConnection[F, K, V]
+)(implicit F: Concurrent[F])
     extends RedisCommands[F, K, V]
     with Fs2RedisConversionOps {
 
