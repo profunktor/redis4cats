@@ -18,7 +18,7 @@ package com.github.gvolpe.fs2redis
 
 import cats.effect.IO
 import com.github.gvolpe.fs2redis.effects._
-import io.lettuce.core.GeoArgs
+import cats.implicits._
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import io.lettuce.core.GeoArgs
 
@@ -134,5 +134,11 @@ trait Fs2TestScenarios {
       _ <- IO { assert(z.isEmpty) }
     } yield ()
   }
+
+  def connectionScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] =
+    for {
+      pong <- cmd.ping
+      _ <- IO { assert(pong === "PONG") }
+    } yield ()
 
 }

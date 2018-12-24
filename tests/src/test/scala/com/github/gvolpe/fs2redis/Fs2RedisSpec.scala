@@ -35,6 +35,7 @@ class Fs2RedisSpec extends FunSuite with DockerRedis with Fs2TestScenarios {
 
   test("strings api")(withRedis(stringsScenario))
 
+  test("connection api")(withRedis(connectionScenario))
 }
 
 object LongCodec extends RedisCodec[String, Long] with ToByteBufEncoder[String, Long] {

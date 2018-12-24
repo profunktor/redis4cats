@@ -38,6 +38,7 @@ object Fs2Redis {
       with SortedSetCommands[F, K, V]
       with ListCommands[F, K, V]
       with GeoCommands[F, K, V]
+      with ConnectionCommands[F]
 
   private[fs2redis] def acquireAndRelease[F[_]: Concurrent: Log, K, V](
       client: Fs2RedisClient,
@@ -779,6 +780,11 @@ private[fs2redis] class BaseFs2Redis[F[_], K, V](
       conn.async.flatMap(c => F.delay(c.zscore(key, value)))
     }.map(x => Option(Double.box(x)))
 
+  /******************************* Connection API **********************************/
+  override val ping: F[String] =
+    JRFuture {
+      conn.async.flatMap(c => F.delay(c.ping()))
+    }
 }
 
 private[fs2redis] trait Fs2RedisConversionOps {

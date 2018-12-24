@@ -35,4 +35,6 @@ class Fs2RedisClusterSpec extends FunSuite with RedisClusterTest with Fs2TestSce
 
   test("cluster: strings api")(withRedisCluster(stringsScenario))
 
+  test("connection api")(withRedisCluster(connectionScenario))
+
 }
