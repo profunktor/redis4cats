@@ -41,3 +41,7 @@ options:
         url: effects/strings.html
         menu_section: effectapi
 
+      - title: Connection
+        url: effects/connection.html
+        menu_section: effectapi
+

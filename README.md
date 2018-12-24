@@ -24,6 +24,7 @@ Redis stream-based client built on top of [Cats Effect](https://typelevel.org/ca
 - [Sets API](https://redis.io/commands#set): `sadd`, `scard`, `srem`, `spop`, etc.
 - [Sorted Sets API](https://redis.io/commands#sorted_set): `zcount`, `zcard`, `zrangebyscore`, `zrank`, etc.
 - [Strings API](https://redis.io/commands#string): `get`, `set`, `del`, `expire`, etc (includes some generic methods).
+- [Connection API](https://redis.io/commands#connection): `ping`
 
 Other features are not considered at the moment but PRs and suggestions are very welcome.
 
