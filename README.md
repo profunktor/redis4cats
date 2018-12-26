@@ -18,13 +18,14 @@ Redis stream-based client built on top of [Cats Effect](https://typelevel.org/ca
 
 ### Effects
 
+- [Connection API](https://redis.io/commands#connection): `ping`
 - [Geo API](https://redis.io/commands#geo): `geoadd`, `geohash`, `geopos`, `geodist`, etc.
 - [Hashes API](https://redis.io/commands#hash): `hgetall`, `hset`, `hdel`, `hincrby`, etc.
 - [Lists API](https://redis.io/commands#list): `rpush`, `lrange`, `lpop`, etc.
+- [Server API](https://redis.io/commands#server): `flushall`, etc.
 - [Sets API](https://redis.io/commands#set): `sadd`, `scard`, `srem`, `spop`, etc.
 - [Sorted Sets API](https://redis.io/commands#sorted_set): `zcount`, `zcard`, `zrangebyscore`, `zrank`, etc.
 - [Strings API](https://redis.io/commands#string): `get`, `set`, `del`, `expire`, etc (includes some generic methods).
-- [Connection API](https://redis.io/commands#connection): `ping`
 
 Other features are not considered at the moment but PRs and suggestions are very welcome.
 

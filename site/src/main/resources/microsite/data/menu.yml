@@ -17,6 +17,10 @@ options:
     menu_section: effectapi
 
     nested_options:
+      - title: Connection
+        url: effects/connection.html
+        menu_section: effectapi
+
       - title: Geo
         url: effects/geo.html
         menu_section: effectapi
@@ -27,6 +31,10 @@ options:
 
       - title: Lists
         url: effects/lists.html
+        menu_section: effectapi
+
+      - title: Server
+        url: effects/server.html
         menu_section: effectapi
 
       - title: Sets
@@ -40,8 +48,3 @@ options:
       - title: Strings
         url: effects/strings.html
         menu_section: effectapi
-
-      - title: Connection
-        url: effects/connection.html
-        menu_section: effectapi
-

@@ -83,16 +83,9 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
     withAbstractRedis[A, String, String](f)(stringCodec)
 
   private def flushAll(): Unit =
-    Fs2RedisClient[IO](redisUri)
-      .use { client =>
-        IO {
-          val conn = client.underlying.connect(redisUri)
-          conn.sync().flushall()
-        } *> IO(println(">>>>>> FLUSHALL done <<<<<<<"))
-      }
-      .void
-      .unsafeRunSync()
-
+    withRedis {
+      _.flushAll *> IO(println(">>>>>> FLUSHALL done <<<<<<<"))
+    }
 }
 
 object DockerRedis {

@@ -39,6 +39,7 @@ object Fs2Redis {
       with ListCommands[F, K, V]
       with GeoCommands[F, K, V]
       with ConnectionCommands[F]
+      with ServerCommands[F]
 
   private[fs2redis] def acquireAndRelease[F[_]: Concurrent: Log, K, V](
       client: Fs2RedisClient,
@@ -785,6 +786,17 @@ private[fs2redis] class BaseFs2Redis[F[_], K, V](
     JRFuture {
       conn.async.flatMap(c => F.delay(c.ping()))
     }
+
+  /******************************* Server API **********************************/
+  override val flushAll: F[Unit] =
+    JRFuture {
+      conn.async.flatMap(c => F.delay(c.flushall()))
+    }.void
+
+  override val flushAllAsync: F[Unit] =
+    JRFuture {
+      conn.async.flatMap(c => F.delay(c.flushallAsync()))
+    }.void
 }
 
 private[fs2redis] trait Fs2RedisConversionOps {
