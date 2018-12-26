@@ -87,14 +87,7 @@ trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self:
     withAbstractRedisCluster[A, String, String](f)(stringCodec)
 
   private def flushAll(): Unit =
-    Fs2RedisClusterClient[IO](redisUri: _*)
-      .use { client =>
-        IO {
-          val conn = client.underlying.connect(StringCodec.UTF8)
-          conn.async().flushall()
-        } *> IO(println(">>>>>> CLUSTER FLUSHALL done <<<<<<<"))
-      }
-      .void
-      .unsafeRunSync()
-
+    withRedisCluster {
+      _.flushAll *> IO(println(">>>>>> CLUSTER FLUSHALL done <<<<<<<"))
+    }
 }

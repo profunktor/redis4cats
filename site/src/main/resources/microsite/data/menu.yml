@@ -45,3 +45,6 @@ options:
         url: effects/connection.html
         menu_section: effectapi
 
+      - title: Server
+        url: effects/server.html
+        menu_section: effectapi
