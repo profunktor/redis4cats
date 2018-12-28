@@ -29,7 +29,7 @@ object Demo {
   val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
   val longCodec: Fs2RedisCodec[String, Long]     = DefaultRedisCodec(LongCodec)
 
-  def putStrLn(str: String): IO[Unit] = IO(println(str))
+  def putStrLn[A](a: A): IO[Unit] = IO(println(a))
 
 }
 

@@ -37,23 +37,25 @@ object Fs2RedisSetsDemo extends IOApp {
         redis <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
       } yield redis
 
-    commandsApi.use { cmd =>
-      for {
-        x <- cmd.sMembers(testKey)
-        _ <- showResult(x)
-        _ <- cmd.sAdd(testKey, "set value")
-        y <- cmd.sMembers(testKey)
-        _ <- showResult(y)
-        _ <- cmd.sCard(testKey).flatMap(s => putStrLn(s"size: ${s.toString}"))
-        _ <- cmd.sRem("non-existing", "random")
-        w <- cmd.sMembers(testKey)
-        _ <- showResult(w)
-        _ <- cmd.sRem(testKey, "set value")
-        z <- cmd.sMembers(testKey)
-        _ <- showResult(z)
-        _ <- cmd.sCard(testKey).flatMap(s => putStrLn(s"size: ${s.toString}"))
-      } yield ()
-    } *> IO.pure(ExitCode.Success)
+    commandsApi
+      .use { cmd =>
+        for {
+          x <- cmd.sMembers(testKey)
+          _ <- showResult(x)
+          _ <- cmd.sAdd(testKey, "set value")
+          y <- cmd.sMembers(testKey)
+          _ <- showResult(y)
+          _ <- cmd.sCard(testKey).flatMap(s => putStrLn(s"size: $s"))
+          _ <- cmd.sRem("non-existing", "random")
+          w <- cmd.sMembers(testKey)
+          _ <- showResult(w)
+          _ <- cmd.sRem(testKey, "set value")
+          z <- cmd.sMembers(testKey)
+          _ <- showResult(z)
+          _ <- cmd.sCard(testKey).flatMap(s => putStrLn(s"size: $s"))
+        } yield ()
+      }
+      .as(ExitCode.Success)
   }
 
 }

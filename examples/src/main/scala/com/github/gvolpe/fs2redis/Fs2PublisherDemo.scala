@@ -18,6 +18,7 @@ package com.github.gvolpe.fs2redis
 
 import cats.effect.{ ExitCode, IO, IOApp }
 import cats.syntax.apply._
+import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
 import com.github.gvolpe.fs2redis.domain.DefaultChannel
@@ -41,11 +42,11 @@ object Fs2PublisherDemo extends IOApp {
             Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
             Stream.awakeEvery[IO](6.seconds) >> pubSub
               .pubSubSubscriptions(eventsChannel)
-              .evalMap(x => putStrLn(x.toString))
+              .evalMap(putStrLn)
           ).parJoin(2).drain
     } yield ()
 
   override def run(args: List[String]): IO[ExitCode] =
-    stream(args).compile.drain *> IO.pure(ExitCode.Success)
+    stream(args).compile.drain.as(ExitCode.Success)
 
 }

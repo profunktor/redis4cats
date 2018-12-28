@@ -35,21 +35,23 @@ object Fs2RedisListsDemo extends IOApp {
         redis <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
       } yield redis
 
-    commandsApi.use { cmd =>
-      for {
-        _ <- cmd.rPush(testKey, "one", "two", "three")
-        x <- cmd.lRange(testKey, 0, 10)
-        _ <- putStrLn(s"Range: $x")
-        y <- cmd.lLen(testKey)
-        _ <- putStrLn(s"Length: $y")
-        a <- cmd.lPop(testKey)
-        _ <- putStrLn(s"Left Pop: $a")
-        b <- cmd.rPop(testKey)
-        _ <- putStrLn(s"Right Pop: $b")
-        z <- cmd.lRange(testKey, 0, 10)
-        _ <- putStrLn(s"Range: $z")
-      } yield ()
-    } *> IO.pure(ExitCode.Success)
+    commandsApi
+      .use { cmd =>
+        for {
+          _ <- cmd.rPush(testKey, "one", "two", "three")
+          x <- cmd.lRange(testKey, 0, 10)
+          _ <- putStrLn(s"Range: $x")
+          y <- cmd.lLen(testKey)
+          _ <- putStrLn(s"Length: $y")
+          a <- cmd.lPop(testKey)
+          _ <- putStrLn(s"Left Pop: $a")
+          b <- cmd.rPop(testKey)
+          _ <- putStrLn(s"Right Pop: $b")
+          z <- cmd.lRange(testKey, 0, 10)
+          _ <- putStrLn(s"Range: $z")
+        } yield ()
+      }
+      .as(ExitCode.Success)
   }
 
 }

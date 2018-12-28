@@ -18,6 +18,7 @@ package com.github.gvolpe.fs2redis
 
 import cats.effect.{ ExitCode, IO, IOApp }
 import cats.syntax.apply._
+import cats.syntax.functor._
 import cats.syntax.parallel._
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.streams.Fs2Streaming
@@ -50,12 +51,12 @@ object Fs2StreamingDemo extends IOApp {
       source   = streaming.read(Set(streamKey1, streamKey2))
       appender = streaming.append
       _ <- Stream(
-            source.evalMap(x => putStrLn(x.toString)),
+            source.evalMap(putStrLn),
             Stream.awakeEvery[IO](3.seconds) >> randomMessage.to(appender)
           ).parJoin(2).drain
     } yield ()
 
   override def run(args: List[String]): IO[ExitCode] =
-    stream(args).compile.drain *> IO.pure(ExitCode.Success)
+    stream(args).compile.drain.as(ExitCode.Success)
 
 }

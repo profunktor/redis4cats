@@ -36,23 +36,25 @@ object Fs2RedisMasterSlaveStringsDemo extends IOApp {
     val connection: Resource[IO, Fs2RedisMasterSlaveConnection[String, String]] =
       Fs2RedisMasterSlave[IO, String, String](stringCodec, redisURI)(Some(ReadFrom.MASTER_PREFERRED))
 
-    connection.use { conn =>
-      Fs2Redis.masterSlave[IO, String, String](conn).flatMap { cmd =>
-        for {
-          x <- cmd.get(usernameKey)
-          _ <- showResult(x)
-          _ <- cmd.set(usernameKey, "some value")
-          y <- cmd.get(usernameKey)
-          _ <- showResult(y)
-          _ <- cmd.setNx(usernameKey, "should not happen")
-          w <- cmd.get(usernameKey)
-          _ <- showResult(w)
-          _ <- cmd.del(usernameKey)
-          z <- cmd.get(usernameKey)
-          _ <- showResult(z)
-        } yield ()
+    connection
+      .use { conn =>
+        Fs2Redis.masterSlave[IO, String, String](conn).flatMap { cmd =>
+          for {
+            x <- cmd.get(usernameKey)
+            _ <- showResult(x)
+            _ <- cmd.set(usernameKey, "some value")
+            y <- cmd.get(usernameKey)
+            _ <- showResult(y)
+            _ <- cmd.setNx(usernameKey, "should not happen")
+            w <- cmd.get(usernameKey)
+            _ <- showResult(w)
+            _ <- cmd.del(usernameKey)
+            z <- cmd.get(usernameKey)
+            _ <- showResult(z)
+          } yield ()
+        }
       }
-    } *> IO.pure(ExitCode.Success)
+      .as(ExitCode.Success)
   }
 
 }

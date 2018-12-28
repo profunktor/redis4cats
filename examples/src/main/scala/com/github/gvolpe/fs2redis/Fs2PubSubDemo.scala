@@ -18,6 +18,7 @@ package com.github.gvolpe.fs2redis
 
 import cats.effect.{ ExitCode, IO, IOApp }
 import cats.syntax.apply._
+import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
 import com.github.gvolpe.fs2redis.domain.DefaultChannel
@@ -56,6 +57,6 @@ object Fs2PubSubDemo extends IOApp {
     } yield ()
 
   override def run(args: List[String]): IO[ExitCode] =
-    stream(args).compile.drain *> IO.pure(ExitCode.Success)
+    stream(args).compile.drain.as(ExitCode.Success)
 
 }
