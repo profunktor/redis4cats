@@ -36,17 +36,19 @@ object Fs2RedisSortedSetsDemo extends IOApp {
         redis <- Fs2Redis[IO, String, Long](client, longCodec, redisURI)
       } yield redis
 
-    commandsApi.use { cmd =>
-      for {
-        _ <- cmd.zAdd(testKey, args = None, ScoreWithValue(Score(1), 1), ScoreWithValue(Score(3), 2))
-        x <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
-        _ <- putStrLn(s"Score: $x")
-        y <- cmd.zCard(testKey)
-        _ <- putStrLn(s"Size: $y")
-        z <- cmd.zCount(testKey, ZRange(0, 1))
-        _ <- putStrLn(s"Count: $z")
-      } yield ()
-    } *> IO.pure(ExitCode.Success)
+    commandsApi
+      .use { cmd =>
+        for {
+          _ <- cmd.zAdd(testKey, args = None, ScoreWithValue(Score(1), 1), ScoreWithValue(Score(3), 2))
+          x <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
+          _ <- putStrLn(s"Score: $x")
+          y <- cmd.zCard(testKey)
+          _ <- putStrLn(s"Size: $y")
+          z <- cmd.zCount(testKey, ZRange(0, 1))
+          _ <- putStrLn(s"Count: $z")
+        } yield ()
+      }
+      .as(ExitCode.Success)
   }
 
 }

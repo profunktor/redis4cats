@@ -39,21 +39,23 @@ object Fs2RedisHashesDemo extends IOApp {
         redis <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
       } yield redis
 
-    commandsApi.use { cmd =>
-      for {
-        x <- cmd.hGet(testKey, testField)
-        _ <- showResult(x)
-        _ <- cmd.hSet(testKey, testField, "some value")
-        y <- cmd.hGet(testKey, testField)
-        _ <- showResult(y)
-        _ <- cmd.hSetNx(testKey, testField, "should not happen")
-        w <- cmd.hGet(testKey, testField)
-        _ <- showResult(w)
-        _ <- cmd.hDel(testKey, testField)
-        z <- cmd.hGet(testKey, testField)
-        _ <- showResult(z)
-      } yield ()
-    } *> IO.pure(ExitCode.Success)
+    commandsApi
+      .use { cmd =>
+        for {
+          x <- cmd.hGet(testKey, testField)
+          _ <- showResult(x)
+          _ <- cmd.hSet(testKey, testField, "some value")
+          y <- cmd.hGet(testKey, testField)
+          _ <- showResult(y)
+          _ <- cmd.hSetNx(testKey, testField, "should not happen")
+          w <- cmd.hGet(testKey, testField)
+          _ <- showResult(w)
+          _ <- cmd.hDel(testKey, testField)
+          z <- cmd.hGet(testKey, testField)
+          _ <- showResult(z)
+        } yield ()
+      }
+      .as(ExitCode.Success)
   }
 
 }

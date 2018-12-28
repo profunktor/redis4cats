@@ -38,21 +38,23 @@ object Fs2RedisStringsDemo extends IOApp {
         redis <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
       } yield redis
 
-    commandsApi.use { cmd =>
-      for {
-        x <- cmd.get(usernameKey)
-        _ <- showResult(x)
-        _ <- cmd.set(usernameKey, "some value")
-        y <- cmd.get(usernameKey)
-        _ <- showResult(y)
-        _ <- cmd.setNx(usernameKey, "should not happen")
-        w <- cmd.get(usernameKey)
-        _ <- showResult(w)
-        _ <- cmd.del(usernameKey)
-        z <- cmd.get(usernameKey)
-        _ <- showResult(z)
-      } yield ()
-    } *> IO.pure(ExitCode.Success)
+    commandsApi
+      .use { cmd =>
+        for {
+          x <- cmd.get(usernameKey)
+          _ <- showResult(x)
+          _ <- cmd.set(usernameKey, "some value")
+          y <- cmd.get(usernameKey)
+          _ <- showResult(y)
+          _ <- cmd.setNx(usernameKey, "should not happen")
+          w <- cmd.get(usernameKey)
+          _ <- showResult(w)
+          _ <- cmd.del(usernameKey)
+          z <- cmd.get(usernameKey)
+          _ <- showResult(z)
+        } yield ()
+      }
+      .as(ExitCode.Success)
   }
 
 }
