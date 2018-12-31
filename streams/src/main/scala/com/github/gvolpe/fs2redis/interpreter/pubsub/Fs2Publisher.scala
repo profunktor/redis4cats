@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.interpreter.pubsub
 
-import cats.effect.ConcurrentEffect
+import cats.effect.{ ConcurrentEffect, ContextShift, Sync }
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.{ PubSubStats, PublishCommands }
 import com.github.gvolpe.fs2redis.domain.Fs2RedisChannel
@@ -25,14 +25,14 @@ import com.github.gvolpe.fs2redis.effect.JRFuture
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-class Fs2Publisher[F[_], K, V](pubConnection: StatefulRedisPubSubConnection[K, V])(implicit F: ConcurrentEffect[F])
+class Fs2Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](pubConnection: StatefulRedisPubSubConnection[K, V])
     extends PublishCommands[Stream[F, ?], K, V] {
 
   private[fs2redis] val pubSubStats: PubSubStats[Stream[F, ?], K] = new Fs2PubSubStats(pubConnection)
 
   override def publish(channel: Fs2RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
     _.evalMap { message =>
-      JRFuture { F.delay(pubConnection.async().publish(channel.value, message)) }.void
+      JRFuture { Sync[F].delay(pubConnection.async().publish(channel.value, message)) }.void
     }
 
   override def pubSubChannels: Stream[F, List[K]] =

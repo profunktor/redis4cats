@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.connection
 
-import cats.effect.{ Concurrent, Resource, Sync }
+import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.domain.{ DefaultRedisClient, Fs2RedisClient }
@@ -25,7 +25,7 @@ import io.lettuce.core.{ RedisClient, RedisURI }
 
 object Fs2RedisClient {
 
-  private[fs2redis] def acquireAndRelease[F[_]: Concurrent: Log](
+  private[fs2redis] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
       uri: RedisURI
   ): (F[Fs2RedisClient], Fs2RedisClient => F[Unit]) = {
     val acquire: F[Fs2RedisClient] = Sync[F].delay { DefaultRedisClient(RedisClient.create(uri)) }
@@ -37,10 +37,10 @@ object Fs2RedisClient {
     (acquire, release)
   }
 
-  private[fs2redis] def acquireAndReleaseWithoutUri[F[_]: Concurrent: Log]
+  private[fs2redis] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log]
     : (F[Fs2RedisClient], Fs2RedisClient => F[Unit]) = acquireAndRelease(new RedisURI())
 
-  def apply[F[_]: Concurrent: Log](uri: RedisURI): Resource[F, Fs2RedisClient] = {
+  def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI): Resource[F, Fs2RedisClient] = {
     val (acquire, release) = acquireAndRelease(uri)
     Resource.make(acquire)(release)
   }

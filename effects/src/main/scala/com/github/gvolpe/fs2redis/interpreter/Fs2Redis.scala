@@ -18,7 +18,7 @@ package com.github.gvolpe.fs2redis.interpreter
 import java.util.concurrent.TimeUnit
 
 import cats.implicits._
-import cats.effect.{ Concurrent, Resource, Sync }
+import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
 import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.connection._
 import com.github.gvolpe.fs2redis.domain._
@@ -41,7 +41,7 @@ object Fs2Redis {
       with ConnectionCommands[F]
       with ServerCommands[F]
 
-  private[fs2redis] def acquireAndRelease[F[_]: Concurrent: Log, K, V](
+  private[fs2redis] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI
@@ -57,7 +57,7 @@ object Fs2Redis {
     (acquire, release)
   }
 
-  private[fs2redis] def acquireAndReleaseCluster[F[_]: Concurrent: Log, K, V](
+  private[fs2redis] def acquireAndReleaseCluster[F[_]: Concurrent: ContextShift: Log, K, V](
       client: Fs2RedisClusterClient,
       codec: Fs2RedisCodec[K, V],
   ): (F[Fs2RedisCluster[F, K, V]], Fs2RedisCluster[F, K, V] => F[Unit]) = {
@@ -73,7 +73,7 @@ object Fs2Redis {
     (acquire, release)
   }
 
-  def apply[F[_]: Concurrent: Log, K, V](
+  def apply[F[_]: Concurrent: ContextShift: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI
@@ -82,7 +82,7 @@ object Fs2Redis {
     Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
   }
 
-  def cluster[F[_]: Concurrent: Log, K, V](
+  def cluster[F[_]: Concurrent: ContextShift: Log, K, V](
       clusterClient: Fs2RedisClusterClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI*
@@ -91,12 +91,14 @@ object Fs2Redis {
     Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
   }
 
-  def masterSlave[F[_]: Concurrent: Log, K, V](conn: Fs2RedisMasterSlaveConnection[K, V]): F[RedisCommands[F, K, V]] =
+  def masterSlave[F[_]: Concurrent: ContextShift: Log, K, V](
+      conn: Fs2RedisMasterSlaveConnection[K, V]
+  ): F[RedisCommands[F, K, V]] =
     new Fs2Redis[F, K, V](new Fs2RedisStatefulConnection(conn.underlying)).asInstanceOf[RedisCommands[F, K, V]].pure[F]
 
 }
 
-private[fs2redis] class BaseFs2Redis[F[_], K, V](
+private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
     val conn: Fs2RedisConnection[F, K, V]
 )(implicit F: Concurrent[F])
     extends RedisCommands[F, K, V]
@@ -843,10 +845,10 @@ private[fs2redis] trait Fs2RedisConversionOps {
 
 }
 
-private[fs2redis] class Fs2Redis[F[_]: Concurrent, K, V](
+private[fs2redis] class Fs2Redis[F[_]: Concurrent: ContextShift, K, V](
     connection: Fs2RedisStatefulConnection[F, K, V]
 ) extends BaseFs2Redis[F, K, V](connection)
 
-private[fs2redis] class Fs2RedisCluster[F[_]: Concurrent, K, V](
+private[fs2redis] class Fs2RedisCluster[F[_]: Concurrent: ContextShift, K, V](
     connection: Fs2RedisStatefulClusterConnection[F, K, V]
 ) extends BaseFs2Redis[F, K, V](connection)

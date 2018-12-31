@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.connection
 
-import cats.effect.{ Concurrent, Resource, Sync }
+import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.domain._
 import com.github.gvolpe.fs2redis.effect.{ JRFuture, Log }
@@ -27,7 +27,7 @@ import scala.collection.JavaConverters._
 
 object Fs2RedisMasterSlave {
 
-  private[fs2redis] def acquireAndRelease[F[_]: Concurrent: Log, K, V](
+  private[fs2redis] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       readFrom: Option[ReadFrom],
@@ -53,7 +53,7 @@ object Fs2RedisMasterSlave {
     (acquire, release)
   }
 
-  def apply[F[_]: Concurrent: Log, K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
+  def apply[F[_]: Concurrent: ContextShift: Log, K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
       readFrom: Option[ReadFrom] = None
   ): Resource[F, Fs2RedisMasterSlaveConnection[K, V]] = {
     val (acquireClient, releaseClient) = Fs2RedisClient.acquireAndReleaseWithoutUri[F]

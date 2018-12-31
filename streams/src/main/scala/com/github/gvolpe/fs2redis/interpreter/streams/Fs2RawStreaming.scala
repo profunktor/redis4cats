@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.interpreter.streams
 
-import cats.effect.{ Concurrent, Sync }
+import cats.effect.{ Concurrent, ContextShift, Sync }
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.RawStreaming
 import com.github.gvolpe.fs2redis.streams._
@@ -26,7 +26,7 @@ import io.lettuce.core.api.StatefulRedisConnection
 
 import scala.collection.JavaConverters._
 
-private[streams] class Fs2RawStreaming[F[_]: Concurrent, K, V](
+private[streams] class Fs2RawStreaming[F[_]: Concurrent: ContextShift, K, V](
     val client: StatefulRedisConnection[K, V]
 ) extends RawStreaming[F, K, V] {
 
