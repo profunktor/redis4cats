@@ -13,10 +13,12 @@ import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.ConnectionCommands
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
+import com.github.gvolpe.fs2redis.log4cats._
+import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
-import scala.concurrent.ExecutionContext
-
-implicit val cs = IO.contextShift(ExecutionContext.global)
+implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
+implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
 val commandsApi: Resource[IO, ConnectionCommands[IO]] = {
   Fs2Redis[IO, String, String](null, null, null).widen[ConnectionCommands[IO]]

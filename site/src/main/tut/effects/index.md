@@ -39,14 +39,16 @@ import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.StringCommands
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import com.github.gvolpe.fs2redis.domain.{DefaultRedisCodec, Fs2RedisCodec}
+import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
+import com.github.gvolpe.fs2redis.log4cats._
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.{RedisCodec, StringCodec}
+import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
-import scala.concurrent.ExecutionContext
-
-implicit val cs = IO.contextShift(ExecutionContext.global)
+implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
+implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
 val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
 val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
