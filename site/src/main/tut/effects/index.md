@@ -18,11 +18,17 @@ The API that operates at the effect level `F[_]` on top of `cats-effect`.
 
 ### Acquiring client and connection
 
-For all the effect-based APIs the process of acquiring a client and a commands connection is exactly the same. The `apply` method returns a `Resource`:
+For all the effect-based APIs the process of acquiring a client and a commands connection is via the `apply` method that returns a `Resource`:
 
 ```scala
 def apply[F[_]](uri: RedisURI): Resource[F, Fs2RedisClient]
 ```
+
+### Logger
+
+In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either create your own or use `log4cats` (recommended). `fs2-redis` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to `import com.github.gvolpe.fs2redis.log4cats._` and add the extra dependency `fs2-redis-log4cats`.
+
+Take a look at the [examples](https://github.com/gvolpe/fs2-redis/blob/master/examples/src/main/scala/com/github/gvolpe/fs2redis/LoggerIOApp.scala) to find out more.
 
 ### Establishing connection
 
