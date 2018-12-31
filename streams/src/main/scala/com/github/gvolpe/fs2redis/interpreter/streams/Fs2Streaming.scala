@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.interpreter.streams
 
-import cats.effect.{ Concurrent, Sync }
+import cats.effect.{ Concurrent, ContextShift, Sync }
 import cats.effect.concurrent.Ref
 import cats.instances.list._
 import cats.syntax.all._
@@ -30,7 +30,7 @@ import io.lettuce.core.{ ReadFrom, RedisURI }
 
 object Fs2Streaming {
 
-  def mkStreamingConnection[F[_]: Concurrent: Log, K, V](
+  def mkStreamingConnection[F[_]: Concurrent: ContextShift: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI
@@ -48,7 +48,7 @@ object Fs2Streaming {
     Stream.bracket(acquire)(release).map(rs => new Fs2Streaming(rs))
   }
 
-  def mkMasterSlaveConnection[F[_]: Concurrent: Log, K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
+  def mkMasterSlaveConnection[F[_]: Concurrent: ContextShift: Log, K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
       readFrom: Option[ReadFrom] = None
   ): Stream[F, Streaming[Stream[F, ?], K, V]] =
     Stream.resource(Fs2RedisMasterSlave[F, K, V](codec, uris: _*)(readFrom)).map { conn =>

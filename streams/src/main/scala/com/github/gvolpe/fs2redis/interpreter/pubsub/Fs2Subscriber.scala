@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.interpreter.pubsub
 
-import cats.effect.{ ConcurrentEffect, Sync }
+import cats.effect.{ ConcurrentEffect, ContextShift, Sync }
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.SubscribeCommands
@@ -27,7 +27,7 @@ import fs2.Stream
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-class Fs2Subscriber[F[_]: ConcurrentEffect, K, V](
+class Fs2Subscriber[F[_]: ConcurrentEffect: ContextShift, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V]
 ) extends SubscribeCommands[Stream[F, ?], K, V] {

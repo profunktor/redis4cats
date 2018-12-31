@@ -15,7 +15,7 @@
  */
 
 package com.github.gvolpe.fs2redis.connection
-import cats.effect.{ Concurrent, Sync }
+import cats.effect.{ Concurrent, ContextShift, Sync }
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.effect.JRFuture
 import io.lettuce.core.api.StatefulRedisConnection
@@ -27,14 +27,14 @@ private[fs2redis] trait Fs2RedisConnection[F[_], K, V] {
   def close: F[Unit]
 }
 
-private[fs2redis] class Fs2RedisStatefulConnection[F[_]: Concurrent, K, V](
+private[fs2redis] class Fs2RedisStatefulConnection[F[_]: Concurrent: ContextShift, K, V](
     conn: StatefulRedisConnection[K, V]
 ) extends Fs2RedisConnection[F, K, V] {
   override def async: F[RedisClusterAsyncCommands[K, V]] = Sync[F].delay(conn.async())
   override def close: F[Unit]                            = JRFuture.fromCompletableFuture(Sync[F].delay(conn.closeAsync())).void
 }
 
-private[fs2redis] class Fs2RedisStatefulClusterConnection[F[_]: Concurrent, K, V](
+private[fs2redis] class Fs2RedisStatefulClusterConnection[F[_]: Concurrent: ContextShift, K, V](
     conn: StatefulRedisClusterConnection[K, V]
 ) extends Fs2RedisConnection[F, K, V] {
   override def async: F[RedisClusterAsyncCommands[K, V]] = Sync[F].delay(conn.async())

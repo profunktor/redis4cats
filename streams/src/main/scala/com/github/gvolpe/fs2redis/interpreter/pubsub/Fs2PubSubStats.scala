@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.interpreter.pubsub
 
-import cats.effect.{ Concurrent, Sync }
+import cats.effect.{ Concurrent, ContextShift, Sync }
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.PubSubStats
@@ -28,7 +28,7 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 import scala.collection.JavaConverters._
 
-class Fs2PubSubStats[F[_]: Concurrent, K, V](
+class Fs2PubSubStats[F[_]: Concurrent: ContextShift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
 ) extends PubSubStats[Stream[F, ?], K] {
 

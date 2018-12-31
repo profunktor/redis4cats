@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis.interpreter.pubsub
 
-import cats.effect.{ ConcurrentEffect, Sync }
+import cats.effect.{ ConcurrentEffect, ContextShift, Sync }
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.{ PubSubCommands, PublishCommands, SubscribeCommands }
@@ -29,7 +29,7 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 object Fs2PubSub {
 
-  private[fs2redis] def acquireAndRelease[F[_]: ConcurrentEffect: Log, K, V](
+  private[fs2redis] def acquireAndRelease[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI
@@ -51,7 +51,7 @@ object Fs2PubSub {
     *
     * Use this option whenever you need one or more subscribers or subscribers and publishers / stats.
     * */
-  def mkPubSubConnection[F[_]: ConcurrentEffect: Log, K, V](
+  def mkPubSubConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI
@@ -72,7 +72,7 @@ object Fs2PubSub {
     *
     * Use this option when you only need to publish and/or get stats such as number of subscriptions.
     * */
-  def mkPublisherConnection[F[_]: ConcurrentEffect: Log, K, V](
+  def mkPublisherConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI
@@ -86,7 +86,7 @@ object Fs2PubSub {
     *
     * Use this option when you only need to one or more subscribers but no publishing and / or stats.
     * */
-  def mkSubscriberConnection[F[_]: ConcurrentEffect: Log, K, V](
+  def mkSubscriberConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI
