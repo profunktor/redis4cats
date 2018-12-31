@@ -16,18 +16,19 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ ExitCode, IO, IOApp, Resource }
-import cats.syntax.all._
+import cats.effect.{ IO, Resource }
+import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.SortedSetCommands
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.effects.{ Score, ScoreWithValue, ZRange }
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 
-object Fs2RedisSortedSetsDemo extends IOApp {
+object Fs2RedisSortedSetsDemo extends LoggerIOApp {
 
   import Demo._
 
-  override def run(args: List[String]): IO[ExitCode] = {
+  def program(implicit log: Log[IO]): IO[Unit] = {
     val testKey = "zztop"
 
     val commandsApi: Resource[IO, SortedSetCommands[IO, String, Long]] =
@@ -48,7 +49,6 @@ object Fs2RedisSortedSetsDemo extends IOApp {
           _ <- putStrLn(s"Count: $z")
         } yield ()
       }
-      .as(ExitCode.Success)
   }
 
 }

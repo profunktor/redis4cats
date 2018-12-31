@@ -16,17 +16,18 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ ExitCode, IO, IOApp, Resource }
-import cats.syntax.all._
+import cats.effect.{ IO, Resource }
+import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.SetCommands
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 
-object Fs2RedisSetsDemo extends IOApp {
+object Fs2RedisSetsDemo extends LoggerIOApp {
 
   import Demo._
 
-  override def run(args: List[String]): IO[ExitCode] = {
+  def program(implicit log: Log[IO]): IO[Unit] = {
     val testKey = "foos"
 
     val showResult: Set[String] => IO[Unit] = x => putStrLn(s"$testKey members: $x")
@@ -55,7 +56,6 @@ object Fs2RedisSetsDemo extends IOApp {
           _ <- cmd.sCard(testKey).flatMap(s => putStrLn(s"size: $s"))
         } yield ()
       }
-      .as(ExitCode.Success)
   }
 
 }

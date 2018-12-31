@@ -16,24 +16,23 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ ExitCode, IO, IOApp }
-import cats.syntax.apply._
-import cats.syntax.functor._
+import cats.effect.IO
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
 import com.github.gvolpe.fs2redis.domain.DefaultChannel
+import com.github.gvolpe.fs2redis.effect.Log
+import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
 import fs2.Stream
 
 import scala.concurrent.duration._
 import scala.util.Random
 
-object Fs2PublisherDemo extends IOApp {
+object Fs2PublisherDemo extends LoggerIOApp {
 
   import Demo._
 
   private val eventsChannel = DefaultChannel("events")
 
-  def stream(args: List[String]): Stream[IO, Unit] =
+  def stream(implicit log: Log[IO]): Stream[IO, Unit] =
     for {
       client <- Stream.resource(Fs2RedisClient[IO](redisURI))
       pubSub <- Fs2PubSub.mkPublisherConnection[IO, String, String](client, stringCodec, redisURI)
@@ -46,7 +45,7 @@ object Fs2PublisherDemo extends IOApp {
           ).parJoin(2).drain
     } yield ()
 
-  override def run(args: List[String]): IO[ExitCode] =
-    stream(args).compile.drain.as(ExitCode.Success)
+  def program(implicit log: Log[IO]): IO[Unit] =
+    stream.compile.drain
 
 }

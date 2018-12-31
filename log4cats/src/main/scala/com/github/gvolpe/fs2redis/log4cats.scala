@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-package com.github.gvolpe.fs2redis.effect
+package com.github.gvolpe.fs2redis
 
-/**
-  * Typeclass used for internal logging such as acquiring and releasing connections.
-  *
-  * You should provide an instance. It is recommended to use `log4cats`.
-  * */
-trait Log[F[_]] {
-  def info(msg: => String): F[Unit]
-  def error(msg: => String): F[Unit]
-}
+import com.github.gvolpe.fs2redis.effect.Log
+import io.chrisdavenport.log4cats.Logger
 
-object Log {
-  def apply[F[_]](implicit ev: Log[F]): Log[F] = ev
+object log4cats {
+
+  implicit def log4CatsInstance[F[_]](implicit L: Logger[F]): Log[F] =
+    new Log[F] {
+      def info(msg: => String): F[Unit]  = L.info(msg)
+      def error(msg: => String): F[Unit] = L.error(msg)
+    }
+
 }

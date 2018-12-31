@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ ContextShift, IO }
+import cats.effect.{ Clock, ContextShift, IO, Timer }
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClusterClient
@@ -29,7 +29,7 @@ import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }
 import scala.concurrent.ExecutionContext
 
 trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suite =>
-  import DockerRedis._
+  import DockerRedis._, testLogger._
 
   // override this if the Redis container has to be started before invocation
   // when developing tests, this likely shall be false, so there is no additional overhead starting Redis
@@ -47,7 +47,9 @@ trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self:
     "redis://localhost:30003"
   ).map(RedisURI.create)
 
-  implicit val cts: ContextShift[IO] = IO.contextShift(ExecutionContext.Implicits.global)
+  implicit val cts: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
+  implicit val timer: Timer[IO]      = IO.timer(ExecutionContext.global)
+  implicit val clock: Clock[IO]      = timer.clock
 
   private val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
 

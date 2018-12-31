@@ -23,11 +23,11 @@ import com.github.gvolpe.fs2redis.algebra.{ PubSubCommands, PubSubStats, Subscri
 import com.github.gvolpe.fs2redis.domain.Fs2RedisChannel
 import com.github.gvolpe.fs2redis.interpreter.pubsub.internals.{ Fs2PubSubInternals, PubSubState }
 import com.github.gvolpe.fs2redis.streams.Subscription
-import com.github.gvolpe.fs2redis.effect.JRFuture
+import com.github.gvolpe.fs2redis.effect.{ JRFuture, Log }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-class Fs2PubSubCommands[F[_]: ConcurrentEffect: ContextShift, K, V](
+class Fs2PubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V],
     pubConnection: StatefulRedisPubSubConnection[K, V]

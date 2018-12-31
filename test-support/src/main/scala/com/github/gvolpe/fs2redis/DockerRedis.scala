@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ ContextShift, IO }
+import cats.effect.{ Clock, ContextShift, IO, Timer }
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
@@ -32,7 +32,7 @@ import scala.util.Random
 
 // Highly-inspired by DockerCassandra -> https://github.com/Spinoco/fs2-cassandra/blob/series/0.4/test-support/src/main/scala/spinoco/fs2/cassandra/support/DockerCassandra.scala
 trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suite =>
-  import DockerRedis._
+  import DockerRedis._, testLogger._
 
   // override this if the Redis container has to be started before invocation
   // when developing tests, this likely shall be false, so there is no additional overhead starting Redis
@@ -47,7 +47,9 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
 
   private var dockerInstanceId: Option[String] = None
 
-  implicit val cts: ContextShift[IO] = IO.contextShift(ExecutionContext.Implicits.global)
+  implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
+  implicit val timer: Timer[IO]     = IO.timer(ExecutionContext.global)
+  implicit val clock: Clock[IO]     = timer.clock
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
