@@ -26,7 +26,7 @@ def apply[F[_]](uri: RedisURI): Resource[F, Fs2RedisClient]
 
 ### Logger
 
-In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either create your own or use `log4cats` (recommended). `fs2-redis` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to `import com.github.gvolpe.fs2redis.log4cats._` and add the extra dependency `fs2-redis-log4cats`.
+In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either create your own or use `log4cats` (recommended). `fs2-redis` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to add the extra dependency `fs2-redis-log4cats` and `import com.github.gvolpe.fs2redis.log4cats._`.
 
 Take a look at the [examples](https://github.com/gvolpe/fs2-redis/blob/master/examples/src/main/scala/com/github/gvolpe/fs2redis/LoggerIOApp.scala) to find out more.
 
