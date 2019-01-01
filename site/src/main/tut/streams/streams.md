@@ -31,7 +31,7 @@ def mkMasterSlaveConnection[F[_], K, V](codec: Fs2RedisCodec[K, V], uris: RedisU
 
 #### Cluster connection
 
-Not implemented yet. 
+Not implemented yet.
 
 ### Streaming API
 
@@ -52,10 +52,13 @@ trait Streaming[F[_], K, V] {
 import cats.effect.IO
 import cats.syntax.parallel._
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.interpreter.streams.Fs2Streaming
 import com.github.gvolpe.fs2redis.domain._
+import com.github.gvolpe.fs2redis.interpreter.streams.Fs2Streaming
+import com.github.gvolpe.fs2redis.log4cats._
 import com.github.gvolpe.fs2redis.streams._
 import fs2.Stream
+import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.StringCodec
 
@@ -65,6 +68,7 @@ import scala.util.Random
 
 implicit val timer = IO.timer(ExecutionContext.global)
 implicit val cs    = IO.contextShift(ExecutionContext.global)
+implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
 val redisURI    = RedisURI.create("redis://localhost")
 val stringCodec = DefaultRedisCodec(StringCodec.UTF8)

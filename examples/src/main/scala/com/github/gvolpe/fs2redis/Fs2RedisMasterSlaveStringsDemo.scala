@@ -16,18 +16,18 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ ExitCode, IO, IOApp, Resource }
-import cats.syntax.all._
+import cats.effect.{ IO, Resource }
 import com.github.gvolpe.fs2redis.connection.Fs2RedisMasterSlave
 import com.github.gvolpe.fs2redis.domain.Fs2RedisMasterSlaveConnection
+import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import io.lettuce.core.ReadFrom
 
-object Fs2RedisMasterSlaveStringsDemo extends IOApp {
+object Fs2RedisMasterSlaveStringsDemo extends LoggerIOApp {
 
   import Demo._
 
-  override def run(args: List[String]): IO[ExitCode] = {
+  def program(implicit log: Log[IO]): IO[Unit] = {
     val usernameKey = "test"
 
     val showResult: Option[String] => IO[Unit] =
@@ -54,7 +54,6 @@ object Fs2RedisMasterSlaveStringsDemo extends IOApp {
           } yield ()
         }
       }
-      .as(ExitCode.Success)
   }
 
 }

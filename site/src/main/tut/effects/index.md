@@ -18,11 +18,17 @@ The API that operates at the effect level `F[_]` on top of `cats-effect`.
 
 ### Acquiring client and connection
 
-For all the effect-based APIs the process of acquiring a client and a commands connection is exactly the same. The `apply` method returns a `Resource`:
+For all the effect-based APIs the process of acquiring a client and a commands connection is via the `apply` method that returns a `Resource`:
 
 ```scala
 def apply[F[_]](uri: RedisURI): Resource[F, Fs2RedisClient]
 ```
+
+### Logger
+
+In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either create your own or use `log4cats` (recommended). `fs2-redis` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to add the extra dependency `fs2-redis-log4cats` and `import com.github.gvolpe.fs2redis.log4cats._`.
+
+Take a look at the [examples](https://github.com/gvolpe/fs2-redis/blob/master/examples/src/main/scala/com/github/gvolpe/fs2redis/LoggerIOApp.scala) to find out more.
 
 ### Establishing connection
 
@@ -33,14 +39,16 @@ import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.StringCommands
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import com.github.gvolpe.fs2redis.domain.{DefaultRedisCodec, Fs2RedisCodec}
+import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
+import com.github.gvolpe.fs2redis.log4cats._
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.{RedisCodec, StringCodec}
+import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
-import scala.concurrent.ExecutionContext
-
-implicit val cs = IO.contextShift(ExecutionContext.global)
+implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
+implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
 val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
 val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)

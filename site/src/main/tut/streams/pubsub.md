@@ -56,9 +56,12 @@ When using the `Fs2PubSub` interpreter the `publish` function will be defined as
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.apply._
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
 import com.github.gvolpe.fs2redis.domain.{DefaultChannel, DefaultRedisCodec}
+import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
+import com.github.gvolpe.fs2redis.log4cats._
 import fs2.{Sink, Stream}
+import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.StringCodec
 
@@ -66,6 +69,8 @@ import scala.concurrent.duration._
 import scala.util.Random
 
 object Fs2PubSubDemo extends IOApp {
+
+  implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
   private val redisURI    = RedisURI.create("redis://localhost")
   private val stringCodec = DefaultRedisCodec(StringCodec.UTF8)

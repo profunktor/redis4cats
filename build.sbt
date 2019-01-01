@@ -27,7 +27,6 @@ val commonSettings = Seq(
     compilerPlugin(Libraries.betterMonadicFor),
     Libraries.redisClient,
     Libraries.catsEffect,
-    Libraries.scribe,
     Libraries.scalaTest % Test,
     Libraries.scalaCheck % Test
   ),
@@ -79,6 +78,13 @@ lazy val `fs2-redis-core` = project.in(file("core"))
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `fs2-redis-log4cats` = project.in(file("log4cats"))
+  .settings(commonSettings: _*)
+  .settings(libraryDependencies += Libraries.log4CatsCore)
+  .settings(parallelExecution in Test := false)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`fs2-redis-core`)
+
 lazy val `fs2-redis-effects` = project.in(file("effects"))
   .settings(commonSettings: _*)
   .settings(parallelExecution in Test := false)
@@ -95,7 +101,9 @@ lazy val `fs2-redis-streams` = project.in(file("streams"))
 lazy val examples = project.in(file("examples"))
   .settings(commonSettings: _*)
   .settings(noPublish)
+  .settings(libraryDependencies += Libraries.log4CatsSlf4j)
   .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`fs2-redis-log4cats`)
   .dependsOn(`fs2-redis-effects`)
   .dependsOn(`fs2-redis-streams`)
 

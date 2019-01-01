@@ -6,7 +6,7 @@ object Dependencies {
     val catsEffect = "1.1.0"
     val fs2        = "1.0.2"
     val lettuce    = "5.1.3.RELEASE"
-    val scribe     = "2.7.1"
+    val log4cats   = "0.2.0"
 
     val betterMonadicFor = "0.2.4"
     val kindProjector    = "0.9.9"
@@ -16,10 +16,14 @@ object Dependencies {
   }
 
   object Libraries {
+    def log4cats(artifact: String): ModuleID = "io.chrisdavenport" %% s"log4cats-$artifact" % Versions.log4cats
+
     lazy val redisClient = "io.lettuce"    % "lettuce-core" % Versions.lettuce
     lazy val catsEffect  = "org.typelevel" %% "cats-effect" % Versions.catsEffect
     lazy val fs2Core     = "co.fs2"        %% "fs2-core"    % Versions.fs2
-    lazy val scribe      = "com.outr"      %% "scribe"      % Versions.scribe
+
+    lazy val log4CatsCore  = log4cats("core")
+    lazy val log4CatsSlf4j = log4cats("slf4j")
 
     // Compiler plugins
     lazy val betterMonadicFor = "com.olegpy"     %% "better-monadic-for" % Versions.betterMonadicFor

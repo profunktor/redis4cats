@@ -43,6 +43,14 @@ And this for the Streams API (depends on `fs2` and `cats-effect`):
 libraryDependencies += "com.github.gvolpe" %% "fs2-redis-streams" % Version
 ```
 
+### Log4cats support
+
+`fs2-redis` needs a logger for internal use and provides instances for `log4cats`. It is the recommended logging library:
+
+```
+libraryDependencies += "com.github.gvolpe" %% "fs2-redis-log4cats" % Version
+```
+
 ## LICENSE
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this project except in compliance with

@@ -16,17 +16,18 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ ExitCode, IO, IOApp, Resource }
-import cats.syntax.all._
+import cats.effect.{ IO, Resource }
+import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.StringCommands
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 
-object Fs2RedisStringsDemo extends IOApp {
+object Fs2RedisStringsDemo extends LoggerIOApp {
 
   import Demo._
 
-  override def run(args: List[String]): IO[ExitCode] = {
+  def program(implicit log: Log[IO]): IO[Unit] = {
     val usernameKey = "test"
 
     val showResult: Option[String] => IO[Unit] =
@@ -54,7 +55,6 @@ object Fs2RedisStringsDemo extends IOApp {
           _ <- showResult(z)
         } yield ()
       }
-      .as(ExitCode.Success)
   }
 
 }

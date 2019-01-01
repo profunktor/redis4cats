@@ -16,18 +16,17 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ ExitCode, IO, IOApp }
-import cats.syntax.apply._
-import cats.syntax.functor._
+import cats.effect.IO
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
 import com.github.gvolpe.fs2redis.domain.DefaultChannel
+import com.github.gvolpe.fs2redis.effect.Log
+import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
 import fs2.{ Sink, Stream }
 
 import scala.concurrent.duration._
 import scala.util.Random
 
-object Fs2PubSubDemo extends IOApp {
+object Fs2PubSubDemo extends LoggerIOApp {
 
   import Demo._
 
@@ -36,7 +35,7 @@ object Fs2PubSubDemo extends IOApp {
 
   def sink(name: String): Sink[IO, String] = _.evalMap(x => putStrLn(s"Subscriber: $name >> $x"))
 
-  def stream(args: List[String]): Stream[IO, Unit] =
+  def stream(implicit log: Log[IO]): Stream[IO, Unit] =
     for {
       client <- Stream.resource(Fs2RedisClient[IO](redisURI))
       pubSub <- Fs2PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, redisURI)
@@ -52,11 +51,11 @@ object Fs2PubSubDemo extends IOApp {
             Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
             Stream.awakeEvery[IO](6.seconds) >> pubSub
               .pubSubSubscriptions(List(eventsChannel, gamesChannel))
-              .evalMap(x => putStrLn(x.toString))
+              .evalMap(putStrLn)
           ).parJoin(6).drain
     } yield ()
 
-  override def run(args: List[String]): IO[ExitCode] =
-    stream(args).compile.drain.as(ExitCode.Success)
+  def program(implicit log: Log[IO]): IO[Unit] =
+    stream.compile.drain
 
 }
