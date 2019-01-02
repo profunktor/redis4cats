@@ -34,7 +34,8 @@ class IsoTests extends FunSuite with Checkers {
     }
 
   // (iso.from compose iso.to) <-> identity[A]
-  def isomorphism[A, B](implicit iso: Iso[A, B]): A => A = iso.from compose iso.to
+  def isomorphism[A, B](implicit iso: Iso[A, B]): A => A =
+    iso.from compose iso.to
 
   test("arrows equality") {
     check(arrowsEquality((_: Int) + 2, 2 + (_: Int)))
