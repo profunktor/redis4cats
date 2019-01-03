@@ -51,10 +51,12 @@ trait Fs2TestScenarios {
     for {
       x <- cmd.hGet(testKey, testField)
       _ <- IO { assert(x.isEmpty) }
-      _ <- cmd.hSet(testKey, testField, "some value")
+      isSet1 <- cmd.hSetNx(testKey, testField, "some value")
+      _ <- IO { assert(isSet1) }
       y <- cmd.hGet(testKey, testField)
       _ <- IO { assert(y.contains("some value")) }
-      _ <- cmd.hSetNx(testKey, testField, "should not happen")
+      isSet2 <- cmd.hSetNx(testKey, testField, "should not happen")
+      _ <- IO { assert(!isSet2) }
       w <- cmd.hGet(testKey, testField)
       _ <- IO { assert(w.contains("some value")) }
       _ <- cmd.hDel(testKey, testField)
@@ -123,10 +125,22 @@ trait Fs2TestScenarios {
     for {
       x <- cmd.get(key)
       _ <- IO { assert(x.isEmpty) }
-      _ <- cmd.set(key, "some value")
+      isSet1 <- cmd.setNx(key, "some value")
+      _ <- IO { assert(isSet1) }
       y <- cmd.get(key)
       _ <- IO { assert(y.contains("some value")) }
-      _ <- cmd.setNx(key, "should not happen")
+      isSet2 <- cmd.setNx(key, "should not happen")
+      _ <- IO { assert(!isSet2) }
+      isSet3 <- cmd.mSetNx(Map("multikey1" -> "someVal1", "multikey2" -> "someVal2"))
+      _ <- IO { assert(isSet3) }
+      isSet4 <- cmd.mSetNx(Map("multikey1" -> "someVal0", "multikey3" -> "someVal3"))
+      _ <- IO { assert(!isSet4) }
+      val1 <- cmd.get("multikey1")
+      _ <- IO { assert(val1.contains("someVal1")) }
+      val3 <- cmd.get("multikey3")
+      _ <- IO { assert(val3.isEmpty) }
+      isSet5 <- cmd.mSetNx(Map("multikey1" -> "someVal1", "multikey2" -> "someVal2"))
+      _ <- IO { assert(!isSet5) }
       w <- cmd.get(key)
       _ <- IO { assert(w.contains("some value")) }
       _ <- cmd.del(key)

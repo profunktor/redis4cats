@@ -132,10 +132,11 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
       conn.async.flatMap(c => F.delay(c.set(key, value)))
     }.void
 
-  override def setNx(key: K, value: V): F[Unit] =
+  override def setNx(key: K, value: V): F[Boolean] =
     JRFuture {
       conn.async.flatMap(c => F.delay(c.setnx(key, value)))
-    }.void
+    }.map(x => Boolean.box(x))
+
 
   override def setEx(key: K, value: V, expiresIn: FiniteDuration): F[Unit] = {
     val command = expiresIn.unit match {
@@ -207,10 +208,10 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
       conn.async.flatMap(c => F.delay(c.mset(keyValues.asJava)))
     }.void
 
-  override def mSetNx(keyValues: Map[K, V]): F[Unit] =
+  override def mSetNx(keyValues: Map[K, V]): F[Boolean] =
     JRFuture {
       conn.async.flatMap(c => F.delay(c.msetnx(keyValues.asJava)))
-    }.void
+    }.map(x => Boolean.box(x))
 
   override def bitCount(key: K): F[Long] =
     JRFuture {
@@ -308,10 +309,10 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
       conn.async.flatMap(c => F.delay(c.hset(key, field, value)))
     }.void
 
-  override def hSetNx(key: K, field: K, value: V): F[Unit] =
+  override def hSetNx(key: K, field: K, value: V): F[Boolean] =
     JRFuture {
       conn.async.flatMap(c => F.delay(c.hsetnx(key, field, value)))
-    }.void
+    }.map(x => Boolean.box(x))
 
   override def hmSet(key: K, fieldValues: Map[K, V]): F[Unit] =
     JRFuture {

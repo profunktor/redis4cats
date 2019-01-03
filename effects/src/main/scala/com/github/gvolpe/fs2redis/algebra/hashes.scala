@@ -33,7 +33,7 @@ trait HashGetter[F[_], K, V] {
 
 trait HashSetter[F[_], K, V] {
   def hSet(key: K, field: K, value: V): F[Unit]
-  def hSetNx(key: K, field: K, value: V): F[Unit]
+  def hSetNx(key: K, field: K, value: V): F[Boolean]
   def hmSet(key: K, fieldValues: Map[K, V]): F[Unit]
 }
 

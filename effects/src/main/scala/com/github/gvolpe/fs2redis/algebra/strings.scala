@@ -40,7 +40,7 @@ trait Setter[F[_], K, V] {
   def append(key: K, value: V): F[Unit]
   def getSet(key: K, value: V): F[Option[V]]
   def set(key: K, value: V): F[Unit]
-  def setNx(key: K, value: V): F[Unit]
+  def setNx(key: K, value: V): F[Boolean]
   def setEx(key: K, value: V, expiresIn: FiniteDuration): F[Unit]
   def setRange(key: K, value: V, offset: Long): F[Unit]
 }
@@ -48,7 +48,7 @@ trait Setter[F[_], K, V] {
 trait MultiKey[F[_], K, V] {
   def mGet(keys: Set[K]): F[Map[K, V]]
   def mSet(keyValues: Map[K, V]): F[Unit]
-  def mSetNx(keyValues: Map[K, V]): F[Unit]
+  def mSetNx(keyValues: Map[K, V]): F[Boolean]
 }
 
 trait Decrement[F[_], K, V] {
