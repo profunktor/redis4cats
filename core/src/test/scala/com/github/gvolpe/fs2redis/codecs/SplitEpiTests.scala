@@ -22,6 +22,7 @@ import com.github.gvolpe.fs2redis.codecs.splits.SplitEpi
 import org.scalacheck.Arbitrary
 import org.scalacheck.Prop._
 import org.typelevel.discipline.Laws
+import cats.laws.discipline._
 
 // Credits to Rob Norris (@tpolecat) -> https://skillsmatter.com/skillscasts/11626-keynote-pushing-types-and-gazing-at-the-stars
 trait SplitEpiTests[A, B] extends Laws {
