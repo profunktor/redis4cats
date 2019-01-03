@@ -37,7 +37,7 @@ object TestSplitEpiInstances {
 
   // Just proving that these form a split monomorphism and won't pass the laws of epimorphisms
   val intDoubleMono: SplitMono[Int, Double] =
-    SplitMono(s => Try(s.toDouble).getOrElse(0), s => Try(s.toInt).getOrElse(0))
+    SplitMono(s => Try(s.toDouble).getOrElse(0), _.toInt)
 
   val intStringMono: SplitMono[Int, String] =
     SplitMono(_.toString, s => Try(s.toInt).getOrElse(0))
