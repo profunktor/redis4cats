@@ -24,22 +24,33 @@ import scala.util.Try
 class SplitMorphismTest extends CatsSuite {
   import TestSplitEpiInstances._
 
-  checkAll("IntDouble", SplitEpiTests(intDoubleEpi).splitEpi)
-  checkAll("IntLong", SplitEpiTests(intLongEpi).splitEpi)
-  checkAll("IntString", SplitEpiTests(intStringEpi).splitEpi)
+  checkAll("IntDoubleInt", SplitMonoTests(intDoubleMono).splitMono)
+  checkAll("IntString", SplitMonoTests(intStringMono).splitMono)
+
+  checkAll("DoubleInt", SplitEpiTests(doubleIntEpi).splitEpi)
+  checkAll("StringDouble", SplitEpiTests(stringDoubleEpi).splitEpi)
+  checkAll("StringLong", SplitEpiTests(stringLongEpi).splitEpi)
   checkAll("StringInt", SplitEpiTests(stringIntEpi).splitEpi)
 }
 
 object TestSplitEpiInstances {
 
-  val intDoubleEpi: SplitEpi[Int, Double] =
-    SplitEpi(_.toDouble, _.toInt)
+  // Just proving that these form a split monomorphism and won't pass the laws of epimorphisms
+  val intDoubleMono: SplitMono[Int, Double] =
+    SplitMono(s => Try(s.toDouble).getOrElse(0), s => Try(s.toInt).getOrElse(0))
 
-  val intLongEpi: SplitEpi[Int, Long] =
-    SplitEpi(_.toLong, _.toInt)
+  val intStringMono: SplitMono[Int, String] =
+    SplitMono(_.toString, s => Try(s.toInt).getOrElse(0))
 
-  val intStringEpi: SplitEpi[Int, String] =
-    SplitEpi(_.toString, s => Try(s.toInt).getOrElse(0))
+  // Epimorphisms
+  val doubleIntEpi: SplitEpi[Double, Int] =
+    SplitEpi(s => Try(s.toInt).getOrElse(0), s => Try(s.toDouble).getOrElse(0))
+
+  val stringDoubleEpi: SplitEpi[String, Double] =
+    SplitEpi(s => Try(s.toDouble).getOrElse(0), _.toString)
+
+  val stringLongEpi: SplitEpi[String, Long] =
+    SplitEpi(s => Try(s.toLong).getOrElse(0), _.toString)
 
   val stringIntEpi: SplitEpi[String, Int] =
     SplitEpi(s => Try(s.toInt).getOrElse(0), _.toString)

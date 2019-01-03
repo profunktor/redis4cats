@@ -18,28 +18,28 @@ package com.github.gvolpe.fs2redis.codecs
 
 import cats.Eq
 import cats.laws.discipline._
-import com.github.gvolpe.fs2redis.codecs.laws.SplitEpiLaws
-import com.github.gvolpe.fs2redis.codecs.splits.SplitEpi
+import com.github.gvolpe.fs2redis.codecs.laws.SplitMonoLaws
+import com.github.gvolpe.fs2redis.codecs.splits.SplitMono
 import org.scalacheck.Arbitrary
 import org.scalacheck.Prop._
 import org.typelevel.discipline.Laws
 
 // Credits to Rob Norris (@tpolecat) -> https://skillsmatter.com/skillscasts/11626-keynote-pushing-types-and-gazing-at-the-stars
-trait SplitEpiTests[A, B] extends Laws {
-  def laws: SplitEpiLaws[A, B]
+trait SplitMonoTests[A, B] extends Laws {
+  def laws: SplitMonoLaws[A, B]
 
-  def splitEpi(implicit a: Arbitrary[A], b: Arbitrary[B], eqA: Eq[A], eqB: Eq[B]): RuleSet =
+  def splitMono(implicit a: Arbitrary[A], b: Arbitrary[B], eqA: Eq[A], eqB: Eq[B]): RuleSet =
     new DefaultRuleSet(
-      name = "split epimorphism",
+      name = "split monomorphism",
       parent = None,
       "identity" -> forAll(laws.identity _),
       "idempotence" -> forAll(laws.idempotence _)
     )
 }
 
-object SplitEpiTests {
-  def apply[A, B](epi: SplitEpi[A, B]): SplitEpiTests[A, B] =
-    new SplitEpiTests[A, B] {
-      val laws = SplitEpiLaws[A, B](epi)
+object SplitMonoTests {
+  def apply[A, B](mono: SplitMono[A, B]): SplitMonoTests[A, B] =
+    new SplitMonoTests[A, B] {
+      val laws = SplitMonoLaws[A, B](mono)
     }
 }
