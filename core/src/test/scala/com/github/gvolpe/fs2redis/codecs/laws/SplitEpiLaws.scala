@@ -14,16 +14,21 @@
  * limitations under the License.
  */
 
-package com.github.gvolpe.fs2redis.codecs
+package com.github.gvolpe.fs2redis.codecs.laws
 
-/**
-  * Represents an isomorphism, or invertible arrow, between two types A and B.
-  * */
-trait Iso[A, B] {
-  def to: A => B
-  def from: B => A
-}
+import cats.laws._
+import com.github.gvolpe.fs2redis.codecs.splits.SplitEpi
 
-object Iso {
-  def apply[A, B](implicit ev: Iso[A, B]): Iso[A, B] = ev
+final case class SplitEpiLaws[A, B](
+    epi: SplitEpi[A, B]
+) {
+
+  def identity(b: B): IsEq[B] =
+    (epi.get compose epi.reverseGet)(b) <-> b
+
+  def idempotence(a: A): IsEq[A] = {
+    val f = epi.reverseGet compose epi.get
+    f(a) <-> f(f(a))
+  }
+
 }

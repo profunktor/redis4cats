@@ -17,7 +17,8 @@
 package com.github.gvolpe.fs2redis
 
 import cats.effect.IO
-import com.github.gvolpe.fs2redis.codecs.{ Codecs, Iso }
+import com.github.gvolpe.fs2redis.codecs.Codecs
+import com.github.gvolpe.fs2redis.codecs.splits.SplitEpi
 import com.github.gvolpe.fs2redis.domain.{ DefaultRedisCodec, Fs2RedisCodec }
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.StringCodec
@@ -26,16 +27,13 @@ import scala.util.Try
 
 object Demo {
 
-  implicit val stringLongIso: Iso[String, Long] =
-    new Iso[String, Long] {
-      def to: String => Long   = s => Try(s.toLong).getOrElse(0)
-      def from: Long => String = _.toString
-    }
+  implicit val stringLongEpi: SplitEpi[String, Long] =
+    SplitEpi(s => Try(s.toLong).getOrElse(0), _.toString)
 
   val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
   val redisClusterURI: RedisURI                  = RedisURI.create("redis://localhost:30001")
   val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
-  val longCodec: Fs2RedisCodec[String, Long]     = Codecs.make[String, Long](stringCodec)
+  val longCodec: Fs2RedisCodec[String, Long]     = Codecs.derive[String, Long](stringCodec)
 
   def putStrLn[A](a: A): IO[Unit] = IO(println(a))
 
