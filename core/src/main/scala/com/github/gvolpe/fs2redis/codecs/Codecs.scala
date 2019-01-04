@@ -26,7 +26,7 @@ import io.netty.buffer.ByteBuf
 object Codecs {
 
   /**
-    * Given a base `Fs2RedisCodec[K, K` and evidence of a split epimorphism between K and V
+    * Given a base `Fs2RedisCodec[K, K]` and evidence of a split epimorphism between K and V
     * a new `Fs2RedisCodec[K, V]` can be derived.
     * */
   def derive[K, V](
