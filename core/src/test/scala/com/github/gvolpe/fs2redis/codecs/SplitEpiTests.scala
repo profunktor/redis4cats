@@ -30,7 +30,7 @@ trait SplitEpiTests[A, B] extends Laws {
 
   def splitEpi(implicit a: Arbitrary[A], b: Arbitrary[B], eqA: Eq[A], eqB: Eq[B]): RuleSet =
     new DefaultRuleSet(
-      name = "split epimorphism",
+      name = "splitEpimorphism",
       parent = None,
       "identity" -> forAll(laws.identity _),
       "idempotence" -> forAll(laws.idempotence _)

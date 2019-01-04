@@ -46,13 +46,4 @@ object TestSplitEpiInstances {
   val doubleIntEpi: SplitEpi[Double, Int] =
     SplitEpi(s => Try(s.toInt).getOrElse(0), s => Try(s.toDouble).getOrElse(0))
 
-  val stringDoubleEpi: SplitEpi[String, Double] =
-    SplitEpi(s => Try(s.toDouble).getOrElse(0), _.toString)
-
-  val stringLongEpi: SplitEpi[String, Long] =
-    SplitEpi(s => Try(s.toLong).getOrElse(0), _.toString)
-
-  val stringIntEpi: SplitEpi[String, Int] =
-    SplitEpi(s => Try(s.toInt).getOrElse(0), _.toString)
-
 }

@@ -14,39 +14,20 @@
  * limitations under the License.
  */
 
-package com.github.gvolpe.fs2redis.codecs
+package com.github.gvolpe.fs2redis.codecs.splits
 
 // Credits to Rob Norris (@tpolecat) -> https://skillsmatter.com/skillscasts/11626-keynote-pushing-types-and-gazing-at-the-stars
-object splits {
+final case class SplitEpi[A, B](
+    get: A => B,
+    reverseGet: B => A
+) extends (A => B) {
 
-  final case class SplitEpi[A, B](
-      get: A => B,
-      reverseGet: B => A
-  ) extends (A => B) {
+  def apply(a: A): B = get(a)
 
-    def apply(a: A): B = get(a)
+  def reverse: SplitMono[B, A] =
+    SplitMono(reverseGet, get)
 
-    def reverse: SplitMono[B, A] =
-      SplitMono(reverseGet, get)
-
-    def andThen[C](f: SplitEpi[B, C]): SplitEpi[A, C] =
-      SplitEpi(get andThen f.get, f.reverseGet andThen reverseGet)
-
-  }
-
-  final case class SplitMono[A, B](
-      get: A => B,
-      reverseGet: B => A
-  ) extends (A => B) {
-
-    def apply(a: A): B = get(a)
-
-    def reverse: SplitEpi[B, A] =
-      SplitEpi(reverseGet, get)
-
-    def andThen[C](f: SplitMono[B, C]): SplitMono[A, C] =
-      SplitMono(get andThen f.get, f.reverseGet andThen reverseGet)
-
-  }
+  def andThen[C](f: SplitEpi[B, C]): SplitEpi[A, C] =
+    SplitEpi(get andThen f.get, f.reverseGet andThen reverseGet)
 
 }
