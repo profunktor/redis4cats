@@ -18,7 +18,7 @@ package com.github.gvolpe.fs2redis
 
 import io.lettuce.core.RedisClient
 import io.lettuce.core.cluster.RedisClusterClient
-import io.lettuce.core.codec.RedisCodec
+import io.lettuce.core.codec.{ RedisCodec, ToByteBufEncoder }
 import io.lettuce.core.masterslave.StatefulRedisMasterSlaveConnection
 
 object domain {
@@ -44,9 +44,11 @@ object domain {
   }
   case class DefaultChannel[K](value: K) extends Fs2RedisChannel[K]
 
+  type JCodec[K, V] = RedisCodec[K, V] with ToByteBufEncoder[K, V]
+
   trait Fs2RedisCodec[K, V] {
-    def underlying: RedisCodec[K, V]
+    def underlying: JCodec[K, V]
   }
-  case class DefaultRedisCodec[K, V](underlying: RedisCodec[K, V]) extends Fs2RedisCodec[K, V]
+  case class DefaultRedisCodec[K, V](underlying: JCodec[K, V]) extends Fs2RedisCodec[K, V]
 
 }

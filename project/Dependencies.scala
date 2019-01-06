@@ -3,6 +3,7 @@ import sbt._
 object Dependencies {
 
   object Versions {
+    val cats       = "1.5.0"
     val catsEffect = "1.1.0"
     val fs2        = "1.0.2"
     val lettuce    = "5.1.3.RELEASE"
@@ -30,8 +31,10 @@ object Dependencies {
     lazy val kindProjector    = "org.spire-math" %% "kind-projector"     % Versions.kindProjector
 
     // Scala test libraries
-    lazy val scalaTest  = "org.scalatest"  %% "scalatest"  % Versions.scalaTest
-    lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % Versions.scalaCheck
+    lazy val catsLaws    = "org.typelevel"  %% "cats-core"    % Versions.cats
+    lazy val catsTestKit = "org.typelevel"  %% "cats-testkit" % Versions.cats
+    lazy val scalaTest   = "org.scalatest"  %% "scalatest"    % Versions.scalaTest
+    lazy val scalaCheck  = "org.scalacheck" %% "scalacheck"   % Versions.scalaCheck
   }
 
 }

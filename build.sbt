@@ -27,6 +27,8 @@ val commonSettings = Seq(
     compilerPlugin(Libraries.betterMonadicFor),
     Libraries.redisClient,
     Libraries.catsEffect,
+    Libraries.catsLaws % Test,
+    Libraries.catsTestKit % Test,
     Libraries.scalaTest % Test,
     Libraries.scalaCheck % Test
   ),
