@@ -149,6 +149,25 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
+  def stringsClusterScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+    val key = "test"
+    for {
+      x <- cmd.get(key)
+      _ <- IO { assert(x.isEmpty) }
+      isSet1 <- cmd.setNx(key, "some value")
+      _ <- IO { assert(isSet1) }
+      y <- cmd.get(key)
+      _ <- IO { assert(y.contains("some value")) }
+      isSet2 <- cmd.setNx(key, "should not happen")
+      _ <- IO { assert(!isSet2) }
+      w <- cmd.get(key)
+      _ <- IO { assert(w.contains("some value")) }
+      _ <- cmd.del(key)
+      z <- cmd.get(key)
+      _ <- IO { assert(z.isEmpty) }
+    } yield ()
+  }
+
   def connectionScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] =
     for {
       pong <- cmd.ping
