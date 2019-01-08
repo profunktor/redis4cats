@@ -137,7 +137,6 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
       conn.async.flatMap(c => F.delay(c.setnx(key, value)))
     }.map(x => Boolean.box(x))
 
-
   override def setEx(key: K, value: V, expiresIn: FiniteDuration): F[Unit] = {
     val command = expiresIn.unit match {
       case TimeUnit.MILLISECONDS =>
