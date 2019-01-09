@@ -18,17 +18,14 @@ package com.github.gvolpe.fs2redis
 
 import cats.effect.IO
 import com.github.gvolpe.fs2redis.codecs.Codecs
-import com.github.gvolpe.fs2redis.codecs.splits.SplitEpi
+import com.github.gvolpe.fs2redis.codecs.splits._
 import com.github.gvolpe.fs2redis.domain.{ DefaultRedisCodec, Fs2RedisCodec }
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.StringCodec
 
-import scala.util.Try
-
 object Demo {
 
-  implicit val stringLongEpi: SplitEpi[String, Long] =
-    SplitEpi(s => Try(s.toLong).getOrElse(0), _.toString)
+  implicit val epi: SplitEpi[String, Long] = stringLongEpi
 
   val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
   val redisClusterURI: RedisURI                  = RedisURI.create("redis://localhost:30001")
