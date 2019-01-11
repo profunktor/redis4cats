@@ -72,7 +72,7 @@ lazy val noPublish = Seq(
 )
 
 lazy val `fs2-redis-root` = project.in(file("."))
-  .aggregate(`fs2-redis-core`, `fs2-redis-effects`, `fs2-redis-streams`, examples, `fs2-redis-test-support`, tests, microsite)
+  .aggregate(`fs2-redis-core`, `fs2-redis-effects`, `fs2-redis-streams`, `fs2-redis-log4cats`, examples, `fs2-redis-test-support`, tests, microsite)
   .settings(noPublish)
 
 lazy val `fs2-redis-core` = project.in(file("modules/core"))
