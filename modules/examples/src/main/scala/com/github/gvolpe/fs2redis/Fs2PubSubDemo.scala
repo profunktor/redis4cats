@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 Fs2 Redis
+ * Copyright 2018-2019 Gabriel Volpe
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.domain.DefaultChannel
 import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
-import fs2.{ Sink, Stream }
+import fs2.{ Pipe, Stream }
 
 import scala.concurrent.duration._
 import scala.util.Random
@@ -33,7 +33,8 @@ object Fs2PubSubDemo extends LoggerIOApp {
   private val eventsChannel = DefaultChannel("events")
   private val gamesChannel  = DefaultChannel("games")
 
-  def sink(name: String): Sink[IO, String] = _.evalMap(x => putStrLn(s"Subscriber: $name >> $x"))
+  def sink(name: String): Pipe[IO, String, Unit] =
+    _.evalMap(x => putStrLn(s"Subscriber: $name >> $x"))
 
   def stream(implicit log: Log[IO]): Stream[IO, Unit] =
     for {
@@ -44,10 +45,10 @@ object Fs2PubSubDemo extends LoggerIOApp {
       pub1 = pubSub.publish(eventsChannel)
       pub2 = pubSub.publish(gamesChannel)
       _ <- Stream(
-            sub1 to sink("#events"),
-            sub2 to sink("#games"),
-            Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
-            Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!") to pub2,
+            sub1.through(sink("#events")),
+            sub2.through(sink("#games")),
+            Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
+            Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
             Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
             Stream.awakeEvery[IO](6.seconds) >> pubSub
               .pubSubSubscriptions(List(eventsChannel, gamesChannel))

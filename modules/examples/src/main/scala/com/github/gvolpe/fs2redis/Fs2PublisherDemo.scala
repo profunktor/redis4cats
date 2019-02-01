@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 Fs2 Redis
+ * Copyright 2018-2019 Gabriel Volpe
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ object Fs2PublisherDemo extends LoggerIOApp {
       pubSub <- Fs2PubSub.mkPublisherConnection[IO, String, String](client, stringCodec, redisURI)
       pub1 = pubSub.publish(eventsChannel)
       _ <- Stream(
-            Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
+            Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
             Stream.awakeEvery[IO](6.seconds) >> pubSub
               .pubSubSubscriptions(eventsChannel)
               .evalMap(putStrLn)

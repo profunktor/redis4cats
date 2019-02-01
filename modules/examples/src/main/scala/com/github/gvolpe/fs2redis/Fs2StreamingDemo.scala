@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 Fs2 Redis
+ * Copyright 2018-2019 Gabriel Volpe
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ object Fs2StreamingDemo extends LoggerIOApp {
       appender = streaming.append
       _ <- Stream(
             source.evalMap(putStrLn),
-            Stream.awakeEvery[IO](3.seconds) >> randomMessage.to(appender)
+            Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
           ).parJoin(2).drain
     } yield ()
 
