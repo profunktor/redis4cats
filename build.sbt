@@ -21,7 +21,7 @@ val commonSettings = Seq(
   startYear := Some(2018),
   licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   homepage := Some(url("https://github.com/gvolpe/fs2-redis")),
-  headerLicense := Some(HeaderLicense.ALv2("2018-2019", "Fs2 Redis")),
+  headerLicense := Some(HeaderLicense.ALv2("2018-2019", "Gabriel Volpe")),
   libraryDependencies ++= Seq(
     compilerPlugin(Libraries.kindProjector cross CrossVersion.binary),
     compilerPlugin(Libraries.betterMonadicFor),
