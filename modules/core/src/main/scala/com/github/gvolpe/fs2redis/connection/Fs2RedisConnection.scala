@@ -19,24 +19,29 @@ import cats.effect.{ Concurrent, ContextShift, Sync }
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.effect.JRFuture
 import io.lettuce.core.api.StatefulRedisConnection
+import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 
 private[fs2redis] trait Fs2RedisConnection[F[_], K, V] {
-  def async: F[RedisClusterAsyncCommands[K, V]]
+  def async: F[RedisAsyncCommands[K, V]]
+  def clusterAsync: F[RedisClusterAsyncCommands[K, V]]
   def close: F[Unit]
 }
 
 private[fs2redis] class Fs2RedisStatefulConnection[F[_]: Concurrent: ContextShift, K, V](
     conn: StatefulRedisConnection[K, V]
 ) extends Fs2RedisConnection[F, K, V] {
-  override def async: F[RedisClusterAsyncCommands[K, V]] = Sync[F].delay(conn.async())
-  override def close: F[Unit]                            = JRFuture.fromCompletableFuture(Sync[F].delay(conn.closeAsync())).void
+  override def async: F[RedisAsyncCommands[K, V]] = Sync[F].delay(conn.async())
+  override def clusterAsync: F[RedisClusterAsyncCommands[K, V]] =
+    Sync[F].raiseError(new Exception("Operation not supported"))
+  override def close: F[Unit] = JRFuture.fromCompletableFuture(Sync[F].delay(conn.closeAsync())).void
 }
 
 private[fs2redis] class Fs2RedisStatefulClusterConnection[F[_]: Concurrent: ContextShift, K, V](
     conn: StatefulRedisClusterConnection[K, V]
 ) extends Fs2RedisConnection[F, K, V] {
-  override def async: F[RedisClusterAsyncCommands[K, V]] = Sync[F].delay(conn.async())
-  override def close: F[Unit]                            = JRFuture.fromCompletableFuture(Sync[F].delay(conn.closeAsync())).void
+  override def async: F[RedisAsyncCommands[K, V]]               = Sync[F].raiseError(new Exception("Operation not supported"))
+  override def clusterAsync: F[RedisClusterAsyncCommands[K, V]] = Sync[F].delay(conn.async())
+  override def close: F[Unit]                                   = JRFuture.fromCompletableFuture(Sync[F].delay(conn.closeAsync())).void
 }
