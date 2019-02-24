@@ -22,6 +22,7 @@ import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis.RedisCommands
+import com.github.gvolpe.fs2redis.transactions._
 import scala.concurrent.duration._
 
 object Fs2RedisTransactionsDemo extends LoggerIOApp {
@@ -56,15 +57,15 @@ object Fs2RedisTransactionsDemo extends LoggerIOApp {
             cmd.set(key2, "asd").start *>
             IO.raiseError(new Exception("boom"))
 
-        def transactional(commands: IO[Unit]) =
+        def manualTransaction(commands: IO[Unit]) = // same as `cmd.transactional`
           cmd.multi.bracketCase(_ => commands) {
             case (_, ExitCase.Completed) => cmd.exec *> putStrLn("Transaction completed")
             case (_, ExitCase.Error(e))  => cmd.discard *> putStrLn(s"Transaction failed: ${e.getMessage}")
             case (_, ExitCase.Canceled)  => cmd.discard *> putStrLn("Transaction canceled")
           }
 
-        val tx1 = transactional(setters.void)
-        val tx2 = transactional(failedSetters.void)
+        val tx1 = manualTransaction(setters.void)
+        val tx2 = cmd.transactional(failedSetters.void) // Extension method encapsulating transaction
 
         getters *> tx1 *> tx2.attempt *> getters.void
       }

@@ -18,7 +18,7 @@ package com.github.gvolpe.fs2redis.interpreter
 import java.util.concurrent.TimeUnit
 
 import cats.implicits._
-import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
+import cats.effect._
 import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.connection._
 import com.github.gvolpe.fs2redis.domain._
