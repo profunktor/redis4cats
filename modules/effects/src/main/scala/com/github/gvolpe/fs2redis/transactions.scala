@@ -16,6 +16,7 @@
 
 package com.github.gvolpe.fs2redis
 
+import cats.Applicative
 import cats.implicits._
 import cats.effect._
 import cats.effect.implicits._
@@ -24,15 +25,24 @@ import com.github.gvolpe.fs2redis.interpreter.Fs2Redis._
 
 object transactions {
 
+  private def release[F[_]: Applicative: Log, K, V](
+      cmd: RedisCommands[F, K, V]
+  ): (Unit, ExitCase[Throwable]) => F[Unit] = {
+    case (_, ExitCase.Completed) => cmd.exec *> Log[F].info("Transaction completed")
+    case (_, ExitCase.Error(e))  => cmd.discard *> Log[F].error(s"Transaction failed: ${e.getMessage}")
+    case (_, ExitCase.Canceled)  => cmd.discard *> Log[F].error("Transaction canceled")
+  }
+
+  object Transaction {
+    def apply[F[_]: Log: Sync, K, V](cmd: RedisCommands[F, K, V]): Resource[F, Unit] =
+      Resource.makeCase(cmd.multi)(release(cmd))
+  }
+
   implicit class TxOps[F[_]: Bracket[?[_], Throwable]: Log, K, V](cmd: RedisCommands[F, K, V]) {
 
     def transactional(commands: F[Unit]): F[Unit] =
       Log[F].info("Transaction started") *>
-        cmd.multi.bracketCase(_ => commands) {
-          case (_, ExitCase.Completed) => cmd.exec *> Log[F].info("Transaction completed")
-          case (_, ExitCase.Error(e))  => cmd.discard *> Log[F].error(s"Transaction failed: ${e.getMessage}")
-          case (_, ExitCase.Canceled)  => cmd.discard *> Log[F].error("Transaction canceled")
-        }
+        cmd.multi.bracketCase(_ => commands)(release(cmd))
 
   }
 

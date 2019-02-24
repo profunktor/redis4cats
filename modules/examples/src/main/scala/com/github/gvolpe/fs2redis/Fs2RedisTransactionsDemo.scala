@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ ExitCase, IO, Resource }
+import cats.effect.{ IO, Resource }
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
 import com.github.gvolpe.fs2redis.effect.Log
@@ -57,14 +57,7 @@ object Fs2RedisTransactionsDemo extends LoggerIOApp {
             cmd.set(key2, "asd").start *>
             IO.raiseError(new Exception("boom"))
 
-        def manualTransaction(commands: IO[Unit]) = // same as `cmd.transactional`
-          cmd.multi.bracketCase(_ => commands) {
-            case (_, ExitCase.Completed) => cmd.exec *> putStrLn("Transaction completed")
-            case (_, ExitCase.Error(e))  => cmd.discard *> putStrLn(s"Transaction failed: ${e.getMessage}")
-            case (_, ExitCase.Canceled)  => cmd.discard *> putStrLn("Transaction canceled")
-          }
-
-        val tx1 = manualTransaction(setters.void)
+        val tx1 = Transaction(cmd).use(_ => setters.void)
         val tx2 = cmd.transactional(failedSetters.void) // Extension method encapsulating transaction
 
         getters *> tx1 *> tx2.attempt *> getters.void
