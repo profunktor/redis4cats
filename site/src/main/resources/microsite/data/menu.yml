@@ -48,3 +48,8 @@ options:
       - title: Strings
         url: effects/strings.html
         menu_section: effectapi
+
+  - title: Transactions
+    url: transactions
+    menu_section: transactions
+
