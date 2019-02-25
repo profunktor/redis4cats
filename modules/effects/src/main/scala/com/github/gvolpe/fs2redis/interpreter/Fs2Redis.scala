@@ -24,24 +24,12 @@ import com.github.gvolpe.fs2redis.connection._
 import com.github.gvolpe.fs2redis.domain._
 import com.github.gvolpe.fs2redis.effect.{ JRFuture, Log }
 import com.github.gvolpe.fs2redis.effects._
-import com.github.gvolpe.fs2redis.interpreter.Fs2Redis.RedisCommands
 import io.lettuce.core._
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 
 import scala.concurrent.duration.FiniteDuration
 
 object Fs2Redis {
-
-  sealed trait RedisCommands[F[_], K, V]
-      extends StringCommands[F, K, V]
-      with HashCommands[F, K, V]
-      with SetCommands[F, K, V]
-      with SortedSetCommands[F, K, V]
-      with ListCommands[F, K, V]
-      with GeoCommands[F, K, V]
-      with ConnectionCommands[F]
-      with ServerCommands[F]
-      with TransactionalCommands[F, K]
 
   private[fs2redis] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
       client: Fs2RedisClient,

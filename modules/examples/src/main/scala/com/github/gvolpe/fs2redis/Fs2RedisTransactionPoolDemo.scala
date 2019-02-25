@@ -16,7 +16,7 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.{ IO, Resource }
+import cats.effect.{ IO, Resource, Sync }
 import cats.instances.list._
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.RedisCommands
@@ -25,7 +25,7 @@ import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import com.github.gvolpe.fs2redis.transactions._
 
-object Fs2RedisTransactionsDemo extends LoggerIOApp {
+object Fs2RedisTransactionPoolDemo extends LoggerIOApp {
 
   import Demo._
 
@@ -36,36 +36,36 @@ object Fs2RedisTransactionsDemo extends LoggerIOApp {
     val showResult: String => Option[String] => IO[Unit] = key =>
       _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s))
 
-    val commandsApi: Resource[IO, RedisCommands[IO, String, String]] =
+    val commandsApi: Resource[IO, (RedisCommands[IO, String, String], TransactionPool[IO, String, String])] =
       for {
         client <- Fs2RedisClient[IO](redisURI)
         redis <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
-      } yield redis
+        txPool <- TransactionPool(redis)
+      } yield (redis, txPool)
 
     commandsApi
-      .use { cmd =>
-        val getters =
-          cmd.get(key1).flatTap(showResult(key1)) *>
-            cmd.get(key2).flatTap(showResult(key2))
+      .use {
+        case (cmd, txs) =>
+          val getters =
+            cmd.get(key1).flatTap(showResult(key1)) *>
+              cmd.get(key2).flatTap(showResult(key2))
 
-        val setters =
-          List(
-            cmd.set(key1, "foo"),
-            cmd.set(key2, "bar")
-          ).traverse_(_.start)
+          val setters =
+            List(
+              cmd.set(key1, "foo"),
+              cmd.set(key2, "bar")
+            ).traverse_(_.start)
 
-        val failedSetters =
-          List(
-            cmd.set(key1, "qwe"),
-            cmd.set(key2, "asd")
-          ).traverse(_.start) *> IO.raiseError(new Exception("boom"))
+          val failedSetters =
+            List(
+              cmd.set(key1, "qwe"),
+              cmd.set(key2, "asd")
+            ).traverse(_.start) *> IO.raiseError(new Exception("boom"))
 
-        val tx1 = Transaction(cmd)(setters)
-        val tx2 = Transaction(cmd)(failedSetters)
-        // `apply` is syntax sugar for `resource(cmd).use(_ => fa)`
-        val tx3 = Transaction.resource(cmd).use(_ => failedSetters)
+          val tx1 = txs.run(setters)
+          val tx2 = txs.run(failedSetters)
 
-        getters *> tx1 *> tx2.attempt *> tx3.attempt *> getters.void
+          getters *> tx1 *> tx2.attempt *> getters.void
       }
   }
 

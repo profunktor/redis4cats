@@ -17,11 +17,10 @@
 package com.github.gvolpe.fs2redis
 
 import cats.Applicative
-import cats.implicits._
 import cats.effect._
-import cats.effect.implicits._
+import cats.implicits._
+import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.effect.Log
-import com.github.gvolpe.fs2redis.interpreter.Fs2Redis._
 
 object transactions {
 
@@ -34,16 +33,20 @@ object transactions {
   }
 
   object Transaction {
-    def apply[F[_]: Log: Sync, K, V](cmd: RedisCommands[F, K, V]): Resource[F, Unit] =
-      Resource.makeCase(cmd.multi)(release(cmd))
+    def apply[F[_]: Log: Sync, K, V, A](cmd: RedisCommands[F, K, V])(fa: F[A]): F[A] =
+      resource(cmd).use(_ => fa)
+
+    def resource[F[_]: Log: Sync, K, V](cmd: RedisCommands[F, K, V]): Resource[F, Unit] =
+      Resource.makeCase(cmd.multi <* Log[F].info("Transaction started"))(release(cmd))
   }
 
-  implicit class TxOps[F[_]: Bracket[?[_], Throwable]: Log, K, V](cmd: RedisCommands[F, K, V]) {
+  class TransactionPool[F[_]: Log: Sync, K, V](cmd: RedisCommands[F, K, V]) {
+    def run[A](fa: F[A]): F[A] = Transaction(cmd)(fa)
+  }
 
-    def transactional(commands: F[Unit]): F[Unit] =
-      Log[F].info("Transaction started") *>
-        cmd.multi.bracketCase(_ => commands)(release(cmd))
-
+  object TransactionPool {
+    def apply[F[_]: Log: Sync, K, V](cmd: RedisCommands[F, K, V]): Resource[F, TransactionPool[F, K, V]] =
+      Resource.pure(new TransactionPool(cmd))
   }
 
 }
