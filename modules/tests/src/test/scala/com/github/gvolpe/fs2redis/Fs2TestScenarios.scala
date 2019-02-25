@@ -17,14 +17,15 @@
 package com.github.gvolpe.fs2redis
 
 import cats.effect.IO
-import com.github.gvolpe.fs2redis.effects._
 import cats.implicits._
+import com.github.gvolpe.fs2redis.algebra._
+import com.github.gvolpe.fs2redis.effects._
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import io.lettuce.core.GeoArgs
 
 trait Fs2TestScenarios {
 
-  def locationScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  def locationScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val _BuenosAires  = GeoLocation(Longitude(-58.3816), Latitude(-34.6037), "Buenos Aires")
     val _RioDeJaneiro = GeoLocation(Longitude(-43.1729), Latitude(-22.9068), "Rio de Janeiro")
     val _Montevideo   = GeoLocation(Longitude(-56.164532), Latitude(-34.901112), "Montevideo")
@@ -45,7 +46,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def hashesScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  def hashesScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val testKey   = "foo"
     val testField = "bar"
     for {
@@ -65,7 +66,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def listsScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  def listsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val testKey = "listos"
     for {
       t <- cmd.lRange(testKey, 0, 10)
@@ -84,7 +85,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def setsScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  def setsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val testKey = "foos"
     for {
       x <- cmd.sMembers(testKey)
@@ -105,7 +106,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def sortedSetsScenario(cmd: Fs2Redis.RedisCommands[IO, String, Long]): IO[Unit] = {
+  def sortedSetsScenario(cmd: RedisCommands[IO, String, Long]): IO[Unit] = {
     val testKey = "zztop"
     for {
       t <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
@@ -120,7 +121,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def stringsScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  def stringsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key = "test"
     for {
       x <- cmd.get(key)
@@ -149,7 +150,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def stringsClusterScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  def stringsClusterScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key = "test"
     for {
       x <- cmd.get(key)
@@ -168,7 +169,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def connectionScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] =
+  def connectionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] =
     for {
       pong <- cmd.ping
       _ <- IO { assert(pong === "PONG") }
