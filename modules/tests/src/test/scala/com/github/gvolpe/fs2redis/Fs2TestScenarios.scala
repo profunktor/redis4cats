@@ -16,14 +16,23 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.IO
+import cats.effect._
+import cats.effect.implicits._
 import cats.implicits._
 import com.github.gvolpe.fs2redis.algebra._
+import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.effects._
-import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
+import com.github.gvolpe.fs2redis.transactions.TransactionPool
 import io.lettuce.core.GeoArgs
 
 trait Fs2TestScenarios {
+
+  implicit def cs: ContextShift[IO]
+  implicit def timer: Timer[IO]
+  implicit val logger: Log[IO] = new Log[IO] {
+    def info(msg: => String): IO[Unit]  = IO(println(msg))
+    def error(msg: => String): IO[Unit] = IO(println(msg))
+  }
 
   def locationScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val _BuenosAires  = GeoLocation(Longitude(-58.3816), Latitude(-34.6037), "Buenos Aires")
@@ -170,9 +179,45 @@ trait Fs2TestScenarios {
   }
 
   def connectionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] =
-    for {
-      pong <- cmd.ping
-      _ <- IO { assert(pong === "PONG") }
-    } yield ()
+    cmd.ping.flatMap(pong => IO { assert(pong === "PONG") }).void
+
+  def transactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val key1 = "test1"
+    val key2 = "test2"
+
+    TransactionPool(cmd).use { txs =>
+      val setters =
+        List(
+          cmd.set(key1, "foo"),
+          cmd.set(key2, "bar")
+        ).traverse_(_.start)
+
+      val failedSetters =
+        List(
+          cmd.set(key1, "qwe"),
+          cmd.set(key2, "asd")
+        ).traverse(_.start) *> IO.raiseError(new Exception("boom"))
+
+      val successfulTx =
+        for {
+          _ <- txs.run(setters)
+          x <- cmd.get(key1)
+          _ <- IO { assert(x.contains("foo")) }
+          y <- cmd.get(key2)
+          _ <- IO { assert(y.contains("bar")) }
+        } yield ()
+
+      val failedTx =
+        for {
+          _ <- txs.run(failedSetters).attempt
+          x <- cmd.get(key1)
+          _ <- IO { assert(x.contains("foo")) } // Value did not change
+          y <- cmd.get(key2)
+          _ <- IO { assert(y.contains("bar")) } // Value did not change
+        } yield ()
+
+      successfulTx *> failedTx
+    }
+  }
 
 }

@@ -25,16 +25,11 @@ import cats.effect.{IO, Resource}
 import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import com.github.gvolpe.fs2redis.log4cats._
-import com.github.gvolpe.fs2redis.transactions._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
 implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
-
-val api: Resource[IO, (RedisCommands[IO, String, String], TransactionPool[IO, String, String])] = {
-  Fs2Redis[IO, String, String](null, null, null).map(r => (r, new TransactionPool[IO, String, String](null)))
-}
 
 val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
   Fs2Redis[IO, String, String](null, null, null)
@@ -81,22 +76,11 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
 
 ### Transaction Pool
 
-As demonstrated in the example above the easiest way to operate with transactions is by using the `Transaction.apply` method but you might also find convenient to create a `TransactionPool` to avoid passing the `RedisCommands` every time you need a transaction.
-
-```scala
-val api: Resource[IO, (RedisCommands[IO, String, String], TransactionPool[IO, String, String])] =
-  for {
-    client <- Fs2RedisClient[IO](redisURI)
-    redis <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
-    txPool <- TransactionPool(redis)
-  } yield (redis, txPool)
-```
-
-And then just use `run` to execute the given commands within a new transaction:
+As demonstrated in the example above the easiest way to operate with transactions is by using the `Transaction.apply` method but you might also find convenient to create a `TransactionPool` to avoid passing the `RedisCommands` every time you need a transaction and then just use `run` to execute the given commands within a new transaction:
 
 ```tut:book:silent
-api.use {
-  case (cmd, txs) => // (RedisCommands[IO, String, String], TransactionPool[IO, String, String])
+commandsApi.use { cmd => // RedisCommands[IO, String, String]
+  TransactionPool(cmd).use { txs => // TransactionPool[IO, String, String])
     val getters =
       cmd.get(key1).flatTap(showResult(key1)) *>
         cmd.get(key2).flatTap(showResult(key2))
@@ -117,5 +101,9 @@ api.use {
     val tx2 = txs.run(failedSetters) // Creates a new transaction and runs `failedSetters`
 
     getters *> tx1 *> tx2.attempt *> getters.void
+  }
 }
 ```
+
+Note that a `TransactionPool` is created as a `Resource` so it can be composed with the commands and clients on startup.
+
