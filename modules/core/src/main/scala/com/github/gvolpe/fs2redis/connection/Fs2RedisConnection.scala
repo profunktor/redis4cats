@@ -41,7 +41,8 @@ private[fs2redis] class Fs2RedisStatefulConnection[F[_]: Concurrent: ContextShif
 private[fs2redis] class Fs2RedisStatefulClusterConnection[F[_]: Concurrent: ContextShift, K, V](
     conn: StatefulRedisClusterConnection[K, V]
 ) extends Fs2RedisConnection[F, K, V] {
-  override def async: F[RedisAsyncCommands[K, V]]               = Sync[F].raiseError(new Exception("Operation not supported"))
+  override def async: F[RedisAsyncCommands[K, V]] =
+    Sync[F].raiseError(new Exception("Transactions are not supported on a cluster"))
   override def clusterAsync: F[RedisClusterAsyncCommands[K, V]] = Sync[F].delay(conn.async())
   override def close: F[Unit]                                   = JRFuture.fromCompletableFuture(Sync[F].delay(conn.closeAsync())).void
 }
