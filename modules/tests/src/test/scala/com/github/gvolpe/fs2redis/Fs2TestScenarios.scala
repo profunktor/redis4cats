@@ -19,10 +19,10 @@ package com.github.gvolpe.fs2redis
 import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._
+import com.github.gvolpe.fs2redis._
 import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.effects._
-import com.github.gvolpe.fs2redis.transactions.TransactionPool
 import io.lettuce.core.GeoArgs
 
 trait Fs2TestScenarios {
@@ -185,39 +185,39 @@ trait Fs2TestScenarios {
     val key1 = "test1"
     val key2 = "test2"
 
-    TransactionPool(cmd).use { txs =>
-      val setters =
-        List(
-          cmd.set(key1, "foo"),
-          cmd.set(key2, "bar")
-        ).traverse_(_.start)
+    val tx = RedisTransaction(cmd)
 
-      val failedSetters =
-        List(
-          cmd.set(key1, "qwe"),
-          cmd.set(key2, "asd")
-        ).traverse(_.start) *> IO.raiseError(new Exception("boom"))
+    val setters =
+      List(
+        cmd.set(key1, "foo"),
+        cmd.set(key2, "bar")
+      ).traverse_(_.start)
 
-      val successfulTx =
-        for {
-          _ <- txs.run(setters)
-          x <- cmd.get(key1)
-          _ <- IO { assert(x.contains("foo")) }
-          y <- cmd.get(key2)
-          _ <- IO { assert(y.contains("bar")) }
-        } yield ()
+    val failedSetters =
+      List(
+        cmd.set(key1, "qwe"),
+        cmd.set(key2, "asd")
+      ).traverse(_.start) *> IO.raiseError(new Exception("boom"))
 
-      val failedTx =
-        for {
-          _ <- txs.run(failedSetters).attempt
-          x <- cmd.get(key1)
-          _ <- IO { assert(x.contains("foo")) } // Value did not change
-          y <- cmd.get(key2)
-          _ <- IO { assert(y.contains("bar")) } // Value did not change
-        } yield ()
+    val successfulTx =
+      for {
+        _ <- tx.run(setters)
+        x <- cmd.get(key1)
+        _ <- IO { assert(x.contains("foo")) }
+        y <- cmd.get(key2)
+        _ <- IO { assert(y.contains("bar")) }
+      } yield ()
 
-      successfulTx *> failedTx
-    }
+    val failedTx =
+      for {
+        _ <- tx.run(failedSetters).attempt
+        x <- cmd.get(key1)
+        _ <- IO { assert(x.contains("foo")) } // Value did not change
+        y <- cmd.get(key2)
+        _ <- IO { assert(y.contains("bar")) } // Value did not change
+      } yield ()
+
+    successfulTx *> failedTx
   }
 
 }

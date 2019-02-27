@@ -23,18 +23,14 @@ import cats.implicits._
 import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.effect.Log
 
-object transactions {
-
-  case class RedisTransaction[F[_]: Log: Sync, K, V, A](
-      cmd: RedisCommands[F, K, V]
-  ) {
-    def run(fa: F[A]): F[A] =
-      Log[F].info("Transaction started") *>
-        cmd.multi.bracketCase(_ => fa) {
-          case (_, ExitCase.Completed) => cmd.exec *> Log[F].info("Transaction completed")
-          case (_, ExitCase.Error(e))  => cmd.discard *> Log[F].error(s"Transaction failed: ${e.getMessage}")
-          case (_, ExitCase.Canceled)  => cmd.discard *> Log[F].error("Transaction canceled")
-        }
-  }
-
+case class RedisTransaction[F[_]: Log: Sync, K, V](
+    cmd: RedisCommands[F, K, V]
+) {
+  def run[A](fa: F[A]): F[A] =
+    Log[F].info("Transaction started") *>
+      cmd.multi.bracketCase(_ => fa) {
+        case (_, ExitCase.Completed) => cmd.exec *> Log[F].info("Transaction completed")
+        case (_, ExitCase.Error(e))  => cmd.discard *> Log[F].error(s"Transaction failed: ${e.getMessage}")
+        case (_, ExitCase.Canceled)  => cmd.discard *> Log[F].error("Transaction canceled")
+      }
 }
