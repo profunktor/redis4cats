@@ -16,15 +16,25 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.effect.IO
-import com.github.gvolpe.fs2redis.effects._
+import cats.effect._
+import cats.effect.implicits._
 import cats.implicits._
-import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
+import com.github.gvolpe.fs2redis._
+import com.github.gvolpe.fs2redis.algebra._
+import com.github.gvolpe.fs2redis.effect.Log
+import com.github.gvolpe.fs2redis.effects._
 import io.lettuce.core.GeoArgs
 
 trait Fs2TestScenarios {
 
-  def locationScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  implicit def cs: ContextShift[IO]
+  implicit def timer: Timer[IO]
+  implicit val logger: Log[IO] = new Log[IO] {
+    def info(msg: => String): IO[Unit]  = IO(println(msg))
+    def error(msg: => String): IO[Unit] = IO(println(msg))
+  }
+
+  def locationScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val _BuenosAires  = GeoLocation(Longitude(-58.3816), Latitude(-34.6037), "Buenos Aires")
     val _RioDeJaneiro = GeoLocation(Longitude(-43.1729), Latitude(-22.9068), "Rio de Janeiro")
     val _Montevideo   = GeoLocation(Longitude(-56.164532), Latitude(-34.901112), "Montevideo")
@@ -45,7 +55,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def hashesScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  def hashesScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val testKey   = "foo"
     val testField = "bar"
     for {
@@ -65,7 +75,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def listsScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  def listsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val testKey = "listos"
     for {
       t <- cmd.lRange(testKey, 0, 10)
@@ -84,7 +94,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def setsScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  def setsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val testKey = "foos"
     for {
       x <- cmd.sMembers(testKey)
@@ -105,7 +115,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def sortedSetsScenario(cmd: Fs2Redis.RedisCommands[IO, String, Long]): IO[Unit] = {
+  def sortedSetsScenario(cmd: RedisCommands[IO, String, Long]): IO[Unit] = {
     val testKey = "zztop"
     for {
       t <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
@@ -120,7 +130,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def stringsScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  def stringsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key = "test"
     for {
       x <- cmd.get(key)
@@ -149,7 +159,7 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def stringsClusterScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] = {
+  def stringsClusterScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key = "test"
     for {
       x <- cmd.get(key)
@@ -168,10 +178,46 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
-  def connectionScenario(cmd: Fs2Redis.RedisCommands[IO, String, String]): IO[Unit] =
-    for {
-      pong <- cmd.ping
-      _ <- IO { assert(pong === "PONG") }
-    } yield ()
+  def connectionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] =
+    cmd.ping.flatMap(pong => IO { assert(pong === "PONG") }).void
+
+  def transactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val key1 = "test1"
+    val key2 = "test2"
+
+    val tx = RedisTransaction(cmd)
+
+    val setters =
+      List(
+        cmd.set(key1, "foo"),
+        cmd.set(key2, "bar")
+      ).traverse_(_.start)
+
+    val failedSetters =
+      List(
+        cmd.set(key1, "qwe"),
+        cmd.set(key2, "asd")
+      ).traverse(_.start) *> IO.raiseError(new Exception("boom"))
+
+    val successfulTx =
+      for {
+        _ <- tx.run(setters)
+        x <- cmd.get(key1)
+        _ <- IO { assert(x.contains("foo")) }
+        y <- cmd.get(key2)
+        _ <- IO { assert(y.contains("bar")) }
+      } yield ()
+
+    val failedTx =
+      for {
+        _ <- tx.run(failedSetters).attempt
+        x <- cmd.get(key1)
+        _ <- IO { assert(x.contains("foo")) } // Value did not change
+        y <- cmd.get(key2)
+        _ <- IO { assert(y.contains("bar")) } // Value did not change
+      } yield ()
+
+    successfulTx *> failedTx
+  }
 
 }

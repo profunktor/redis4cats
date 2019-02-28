@@ -9,9 +9,11 @@ position: 2
 
 The API that operates at the effect level `F[_]` on top of `cats-effect`.
 
+- **[Connection API](./connection)**
 - **[Geo API](./geo)**
 - **[Hashes API](./hashes)**
 - **[Lists API](./lists)**
+- **[Server API](./server)**
 - **[Sets API](./sets)**
 - **[Sorted SetsAPI](./sortedsets)**
 - **[Strings API](./strings)**

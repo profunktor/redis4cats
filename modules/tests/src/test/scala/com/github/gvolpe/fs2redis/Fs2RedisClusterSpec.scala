@@ -16,10 +16,13 @@
 
 package com.github.gvolpe.fs2redis
 
+import cats.effect._
 import com.github.gvolpe.fs2redis.domain.DefaultRedisCodec
 import org.scalatest.FunSuite
 
 class Fs2RedisClusterSpec extends FunSuite with RedisClusterTest with Fs2TestScenarios {
+
+  implicit val cs: ContextShift[IO] = IO.contextShift(scala.concurrent.ExecutionContext.global)
 
   test("cluster: geo api")(withRedisCluster(locationScenario))
 
@@ -36,5 +39,8 @@ class Fs2RedisClusterSpec extends FunSuite with RedisClusterTest with Fs2TestSce
   test("cluster: strings api")(withRedisCluster(stringsClusterScenario))
 
   test("cluster: connection api")(withRedisCluster(connectionScenario))
+
+  // FIXME: The Cluster impl cannot connect to a single node just yet
+//  test("cluster: transactions")(withRedisCluster(transactionScenario))
 
 }

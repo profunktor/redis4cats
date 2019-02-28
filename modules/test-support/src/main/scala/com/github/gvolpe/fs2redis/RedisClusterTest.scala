@@ -19,6 +19,7 @@ package com.github.gvolpe.fs2redis
 import cats.effect.{ Clock, ContextShift, IO, Timer }
 import cats.syntax.apply._
 import cats.syntax.functor._
+import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.connection.Fs2RedisClusterClient
 import com.github.gvolpe.fs2redis.domain.{ DefaultRedisCodec, Fs2RedisCodec }
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
@@ -81,11 +82,11 @@ trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self:
       }
 
   def withAbstractRedisCluster[A, K, V](
-      f: Fs2Redis.RedisCommands[IO, K, V] => IO[A]
+      f: RedisCommands[IO, K, V] => IO[A]
   )(codec: Fs2RedisCodec[K, V]): Unit =
     mkRedisCluster(codec).use(f).void.unsafeRunSync()
 
-  def withRedisCluster[A](f: Fs2Redis.RedisCommands[IO, String, String] => IO[A]): Unit =
+  def withRedisCluster[A](f: RedisCommands[IO, String, String] => IO[A]): Unit =
     withAbstractRedisCluster[A, String, String](f)(stringCodec)
 
   private def flushAll(): Unit =
