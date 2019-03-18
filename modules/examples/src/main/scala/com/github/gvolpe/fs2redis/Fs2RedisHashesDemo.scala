@@ -19,7 +19,7 @@ package com.github.gvolpe.fs2redis
 import cats.effect.{ IO, Resource }
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.HashCommands
-import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.connection._
 import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 
@@ -36,8 +36,9 @@ object Fs2RedisHashesDemo extends LoggerIOApp {
 
     val commandsApi: Resource[IO, HashCommands[IO, String, String]] =
       for {
-        client <- Fs2RedisClient[IO](redisURI)
-        redis <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
+        uri <- Resource.liftF(Fs2RedisURI.make[IO](redisURI))
+        client <- Fs2RedisClient[IO](uri)
+        redis <- Fs2Redis[IO, String, String](client, stringCodec, uri)
       } yield redis
 
     commandsApi

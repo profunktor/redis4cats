@@ -55,12 +55,13 @@ object Fs2RedisMasterSlave {
 
   def apply[F[_]: Concurrent: ContextShift: Log, K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
       readFrom: Option[ReadFrom] = None
-  ): Resource[F, Fs2RedisMasterSlaveConnection[K, V]] = {
-    val (acquireClient, releaseClient) = Fs2RedisClient.acquireAndReleaseWithoutUri[F]
-    Resource.make(acquireClient)(releaseClient).flatMap { client =>
-      val (acquire, release) = acquireAndRelease(client, codec, readFrom, uris: _*)
-      Resource.make(acquire)(release)
+  ): Resource[F, Fs2RedisMasterSlaveConnection[K, V]] =
+    Resource.liftF(Fs2RedisClient.acquireAndReleaseWithoutUri[F]).flatMap {
+      case (acquireClient, releaseClient) =>
+        Resource.make(acquireClient)(releaseClient).flatMap { client =>
+          val (acquire, release) = acquireAndRelease(client, codec, readFrom, uris: _*)
+          Resource.make(acquire)(release)
+        }
     }
-  }
 
 }

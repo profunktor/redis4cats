@@ -19,7 +19,7 @@ package com.github.gvolpe.fs2redis
 import cats.effect.{ IO, Resource }
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.StringCommands
-import com.github.gvolpe.fs2redis.connection.Fs2RedisClusterClient
+import com.github.gvolpe.fs2redis.connection._
 import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 
@@ -35,8 +35,9 @@ object Fs2RedisClusterStringsDemo extends LoggerIOApp {
 
     val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
       for {
-        client <- Fs2RedisClusterClient[IO](redisClusterURI)
-        redis <- Fs2Redis.cluster[IO, String, String](client, stringCodec, redisURI)
+        uri <- Resource.liftF(Fs2RedisURI.make[IO](redisClusterURI))
+        client <- Fs2RedisClusterClient[IO](uri)
+        redis <- Fs2Redis.cluster[IO, String, String](client, stringCodec, uri)
       } yield redis
 
     commandsApi

@@ -17,7 +17,7 @@
 package com.github.gvolpe.fs2redis
 
 import cats.effect.{ IO, Resource }
-import com.github.gvolpe.fs2redis.connection.Fs2RedisMasterSlave
+import com.github.gvolpe.fs2redis.connection._
 import com.github.gvolpe.fs2redis.domain.Fs2RedisMasterSlaveConnection
 import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
@@ -34,7 +34,9 @@ object Fs2RedisMasterSlaveStringsDemo extends LoggerIOApp {
       _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
     val connection: Resource[IO, Fs2RedisMasterSlaveConnection[String, String]] =
-      Fs2RedisMasterSlave[IO, String, String](stringCodec, redisURI)(Some(ReadFrom.MASTER_PREFERRED))
+      Resource.liftF(Fs2RedisURI.make[IO](redisURI)).flatMap { uri =>
+        Fs2RedisMasterSlave[IO, String, String](stringCodec, uri)(Some(ReadFrom.MASTER_PREFERRED))
+      }
 
     connection
       .use { conn =>

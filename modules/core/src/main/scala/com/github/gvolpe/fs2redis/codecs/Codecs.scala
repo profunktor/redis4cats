@@ -30,8 +30,9 @@ object Codecs {
     * a new `Fs2RedisCodec[K, V]` can be derived.
     * */
   def derive[K, V](
-      baseCodec: Fs2RedisCodec[K, K]
-  )(implicit epi: SplitEpi[K, V]): Fs2RedisCodec[K, V] = {
+      baseCodec: Fs2RedisCodec[K, K],
+      epi: SplitEpi[K, V]
+  ): Fs2RedisCodec[K, V] = {
     val codec = baseCodec.underlying
     DefaultRedisCodec(
       new RedisCodec[K, V] with ToByteBufEncoder[K, V] {

@@ -17,7 +17,7 @@
 package com.github.gvolpe.fs2redis
 
 import cats.effect.IO
-import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.connection._
 import com.github.gvolpe.fs2redis.domain.DefaultChannel
 import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
@@ -34,8 +34,9 @@ object Fs2PublisherDemo extends LoggerIOApp {
 
   def stream(implicit log: Log[IO]): Stream[IO, Unit] =
     for {
-      client <- Stream.resource(Fs2RedisClient[IO](redisURI))
-      pubSub <- Fs2PubSub.mkPublisherConnection[IO, String, String](client, stringCodec, redisURI)
+      uri <- Stream.eval(Fs2RedisURI.make[IO](redisURI))
+      client <- Stream.resource(Fs2RedisClient[IO](uri))
+      pubSub <- Fs2PubSub.mkPublisherConnection[IO, String, String](client, stringCodec, uri)
       pub1 = pubSub.publish(eventsChannel)
       _ <- Stream(
             Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
