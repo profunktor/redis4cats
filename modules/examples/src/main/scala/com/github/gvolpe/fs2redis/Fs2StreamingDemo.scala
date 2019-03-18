@@ -18,7 +18,7 @@ package com.github.gvolpe.fs2redis
 
 import cats.effect.IO
 import cats.syntax.parallel._
-import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.connection._
 import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.interpreter.streams.Fs2Streaming
 import com.github.gvolpe.fs2redis.streams.StreamingMessage
@@ -45,8 +45,9 @@ object Fs2StreamingDemo extends LoggerIOApp {
 
   def stream(implicit log: Log[IO]): Stream[IO, Unit] =
     for {
-      client <- Stream.resource(Fs2RedisClient[IO](redisURI))
-      streaming <- Fs2Streaming.mkStreamingConnection[IO, String, String](client, stringCodec, redisURI)
+      uri <- Stream.eval(Fs2RedisURI.make[IO](redisURI))
+      client <- Stream.resource(Fs2RedisClient[IO](uri))
+      streaming <- Fs2Streaming.mkStreamingConnection[IO, String, String](client, stringCodec, uri)
       source   = streaming.read(Set(streamKey1, streamKey2))
       appender = streaming.append
       _ <- Stream(

@@ -26,7 +26,7 @@ import io.lettuce.core.{ RedisClient, RedisURI }
 object Fs2RedisClient {
 
   private[fs2redis] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
-      uri: RedisURI
+      uri: => RedisURI
   ): (F[Fs2RedisClient], Fs2RedisClient => F[Unit]) = {
     val acquire: F[Fs2RedisClient] = Sync[F].delay { DefaultRedisClient(RedisClient.create(uri)) }
 
@@ -38,9 +38,9 @@ object Fs2RedisClient {
   }
 
   private[fs2redis] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log]
-    : (F[Fs2RedisClient], Fs2RedisClient => F[Unit]) = acquireAndRelease(new RedisURI())
+    : F[(F[Fs2RedisClient], Fs2RedisClient => F[Unit])] = Sync[F].delay(new RedisURI()).map(acquireAndRelease(_))
 
-  def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI): Resource[F, Fs2RedisClient] = {
+  def apply[F[_]: Concurrent: ContextShift: Log](uri: => RedisURI): Resource[F, Fs2RedisClient] = {
     val (acquire, release) = acquireAndRelease(uri)
     Resource.make(acquire)(release)
   }

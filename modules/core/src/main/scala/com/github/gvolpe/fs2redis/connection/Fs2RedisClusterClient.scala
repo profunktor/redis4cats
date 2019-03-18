@@ -45,9 +45,6 @@ object Fs2RedisClusterClient {
     (acquire, release)
   }
 
-  private[fs2redis] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log]
-    : (F[Fs2RedisClusterClient], Fs2RedisClusterClient => F[Unit]) = acquireAndRelease(new RedisURI())
-
   private[fs2redis] def initializeClusterPartitions[F[_]: Sync](client: RedisClusterClient): F[Unit] =
     Sync[F].delay(client.getPartitions)
 

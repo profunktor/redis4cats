@@ -20,17 +20,14 @@ import cats.effect.IO
 import com.github.gvolpe.fs2redis.codecs.Codecs
 import com.github.gvolpe.fs2redis.codecs.splits._
 import com.github.gvolpe.fs2redis.domain.{ DefaultRedisCodec, Fs2RedisCodec }
-import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.StringCodec
 
 object Demo {
 
-  implicit val epi: SplitEpi[String, Long] = stringLongEpi
-
-  val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
-  val redisClusterURI: RedisURI                  = RedisURI.create("redis://localhost:30001")
+  val redisURI: String                           = "redis://localhost"
+  val redisClusterURI: String                    = "redis://localhost:30001"
   val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
-  val longCodec: Fs2RedisCodec[String, Long]     = Codecs.derive[String, Long](stringCodec)
+  val longCodec: Fs2RedisCodec[String, Long]     = Codecs.derive[String, Long](stringCodec, stringLongEpi)
 
   def putStrLn[A](a: A): IO[Unit] = IO(println(a))
 

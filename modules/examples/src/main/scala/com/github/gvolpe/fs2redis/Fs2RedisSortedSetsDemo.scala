@@ -19,7 +19,7 @@ package com.github.gvolpe.fs2redis
 import cats.effect.{ IO, Resource }
 import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.SortedSetCommands
-import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.connection._
 import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.effects.{ Score, ScoreWithValue, ZRange }
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
@@ -33,8 +33,9 @@ object Fs2RedisSortedSetsDemo extends LoggerIOApp {
 
     val commandsApi: Resource[IO, SortedSetCommands[IO, String, Long]] =
       for {
-        client <- Fs2RedisClient[IO](redisURI)
-        redis <- Fs2Redis[IO, String, Long](client, longCodec, redisURI)
+        uri <- Resource.liftF(Fs2RedisURI.make[IO](redisURI))
+        client <- Fs2RedisClient[IO](uri)
+        redis <- Fs2Redis[IO, String, Long](client, longCodec, uri)
       } yield redis
 
     commandsApi

@@ -40,7 +40,7 @@ Here's an example of acquiring a client and a connection to the `Strings API`:
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import com.github.gvolpe.fs2redis.algebra.StringCommands
-import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
+import com.github.gvolpe.fs2redis.connection.{Fs2RedisClient, Fs2RedisURI}
 import com.github.gvolpe.fs2redis.domain.{DefaultRedisCodec, Fs2RedisCodec}
 import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
 import com.github.gvolpe.fs2redis.log4cats._
@@ -52,13 +52,13 @@ import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
-val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
 val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
 
 val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
-    client <- Fs2RedisClient[IO](redisURI)
-    redis  <- Fs2Redis[IO, String, String](client, stringCodec, redisURI)
+    uri    <- Resource.liftF(Fs2RedisURI.make[IO]("redis://localhost"))
+    client <- Fs2RedisClient[IO](uri)
+    redis  <- Fs2Redis[IO, String, String](client, stringCodec, uri)
   } yield redis
 ```
 
@@ -77,8 +77,9 @@ The process looks mostly like standalone connection but with small differences:
 ```scala
 val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
-    client <- Fs2RedisClusterClient[IO](redisClusterURI)
-    redis <- Fs2Redis.cluster[IO, String, String](client, stringCodec, redisURI)
+    uri    <- Resource.liftF(Fs2RedisURI.make[IO]("redis://localhost:30001"))
+    client <- Fs2RedisClusterClient[IO](uri)
+    redis  <- Fs2Redis.cluster[IO, String, String](client, stringCodec, uri)
   } yield redis
 ```
 
@@ -103,11 +104,12 @@ import com.github.gvolpe.fs2redis.domain.Fs2RedisMasterSlaveConnection
 import io.lettuce.core.{ReadFrom, RedisURI}
 import io.lettuce.core.codec.{RedisCodec, StringCodec}
 
-val redisURI: RedisURI                         = RedisURI.create("redis://localhost")
 val stringCodec: Fs2RedisCodec[String, String] = DefaultRedisCodec(StringCodec.UTF8)
 
 val connection: Resource[IO, Fs2RedisMasterSlaveConnection[String, String]] =
-  Fs2RedisMasterSlave[IO, String, String](stringCodec, redisURI)(Some(ReadFrom.MASTER_PREFERRED))
+  Resource.liftF(Fs2RedisURI.make[IO]("redis://localhost")).flatMap { uri =>
+    Fs2RedisMasterSlave[IO, String, String](stringCodec, uri)(Some(ReadFrom.MASTER_PREFERRED))
+  }
 
 connection.use { conn =>
   Fs2Redis.masterSlave[IO, String, String](conn).flatMap { cmd =>
