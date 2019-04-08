@@ -10,7 +10,7 @@ object Dependencies {
     val log4cats   = "0.3.0"
 
     val betterMonadicFor = "0.2.4"
-    val kindProjector    = "0.9.9"
+    val kindProjector    = "0.9.10"
 
     val scalaTest  = "3.0.7"
     val scalaCheck = "1.14.0"
