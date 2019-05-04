@@ -145,6 +145,11 @@ lazy val microsite = project.in(file("site"))
         "index.md",
         "home",
         Map("title" -> "Home", "position" -> "0")
+      ),
+      file("CODE_OF_CONDUCT.md") -> ExtraMdFileConfig(
+        "CODE_OF_CONDUCT.md",
+        "page",
+        Map("title" -> "Code of Conduct")
       )
     ),
     micrositeGitterChannel := true,

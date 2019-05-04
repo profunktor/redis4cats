@@ -65,7 +65,7 @@ docker run -p 30001:30001 -p 30002:30002 -p 30003:30003 -p 30004:30004 -p 30005:
 
 ## Code of Conduct
 
-See the [Code of Conduct](CODE_OF_CONDUCT.md)
+See the [Code of Conduct](https://gvolpe.github.io/fs2-redis/CODE_OF_CONDUCT)
 
 ## LICENSE
 
