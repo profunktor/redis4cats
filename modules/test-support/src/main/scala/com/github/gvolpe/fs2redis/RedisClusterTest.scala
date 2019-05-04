@@ -34,10 +34,10 @@ trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self:
 
   // override this if the Redis container has to be started before invocation
   // when developing tests, this likely shall be false, so there is no additional overhead starting Redis
-  lazy val startContainers: Boolean = true
+  lazy val startContainers: Boolean = false
 
   // override this to indicate whether containers shall be removed (true) once the test with Redis is done.
-  lazy val clearContainers: Boolean = true
+  lazy val clearContainers: Boolean = false
 
   lazy val firstPort = 30001
   lazy val lastPort  = 30006
@@ -78,7 +78,7 @@ trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self:
   private def mkRedisCluster[K, V](codec: Fs2RedisCodec[K, V]) =
     Fs2RedisClusterClient[IO](redisUri: _*)
       .flatMap { client =>
-        Fs2Redis.cluster[IO, K, V](client, codec, redisUri: _*)
+        Fs2Redis.cluster[IO, K, V](client, codec)
       }
 
   def withAbstractRedisCluster[A, K, V](

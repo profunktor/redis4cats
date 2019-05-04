@@ -7,13 +7,13 @@ name := """fs2-redis-root"""
 
 organization in ThisBuild := "com.github.gvolpe"
 
-crossScalaVersions in ThisBuild := Seq("2.12.7")
+crossScalaVersions in ThisBuild := Seq("2.12.8")
 
 sonatypeProfileName := "com.github.gvolpe"
 
 promptTheme := PromptTheme(List(
-  text("[SBT] ", fg(136)),
-  text(_ => "fs2-redis", fg(64)).padRight(" λ ")
+  text("[sbt] ", fg(105)),
+  text(_ => "fs2-redis", fg(15)).padRight(" λ ")
  ))
 
 val commonSettings = Seq(
@@ -164,3 +164,4 @@ lazy val microsite = project.in(file("site"))
 
 // CI build
 addCommandAlias("buildFs2Redis", ";clean;+test;tut")
+

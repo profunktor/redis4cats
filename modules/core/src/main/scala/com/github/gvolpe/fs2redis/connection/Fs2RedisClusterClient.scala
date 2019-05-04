@@ -16,8 +16,8 @@
 
 package com.github.gvolpe.fs2redis.connection
 
-import cats.implicits._
 import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
+import cats.implicits._
 import com.github.gvolpe.fs2redis.domain.{ DefaultRedisClusterClient, Fs2RedisClusterClient }
 import com.github.gvolpe.fs2redis.effect.{ JRFuture, Log }
 import io.lettuce.core.RedisURI
@@ -46,7 +46,7 @@ object Fs2RedisClusterClient {
   }
 
   private[fs2redis] def initializeClusterPartitions[F[_]: Sync](client: RedisClusterClient): F[Unit] =
-    Sync[F].delay(client.getPartitions)
+    Sync[F].delay(client.getPartitions).void
 
   def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI*): Resource[F, Fs2RedisClusterClient] = {
     val (acquire, release) = acquireAndRelease(uri: _*)

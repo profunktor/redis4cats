@@ -1,7 +1,7 @@
 fs2-redis
 =========
 
-[![Build Status](https://travis-ci.org/gvolpe/fs2-redis.svg?branch=master)](https://travis-ci.org/gvolpe/fs2-redis)
+[![CircleCI](https://circleci.com/gh/gvolpe/fs2-redis.svg?style=svg)](https://circleci.com/gh/gvolpe/fs2-redis)
 [![Gitter Chat](https://badges.gitter.im/fs2-redis/fs2-redis.svg)](https://gitter.im/fs2-redis/fs2-redis)
 [![Maven Central](https://img.shields.io/maven-central/v/com.github.gvolpe/fs2-redis-effects_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Cfs2-redis-effects) <a href="https://typelevel.org/cats/"><img src="https://typelevel.org/cats/img/cats-badge.svg" height="40px" align="right" alt="Cats friendly" /></a>
 
@@ -49,6 +49,18 @@ libraryDependencies += "com.github.gvolpe" %% "fs2-redis-streams" % Version
 
 ```
 libraryDependencies += "com.github.gvolpe" %% "fs2-redis-log4cats" % Version
+```
+
+## Running the tests locally
+
+Either change the `startContainer` boolean in the `DockerRedis.scala` file or start the `redis` client manually using `docker`:
+
+```bash
+# single server
+docker run -p 6379:6379 redis:5.0.0
+
+# cluster server
+docker run -p 30001:30001 -p 30002:30002 -p 30003:30003 -p 30004:30004 -p 30005:30005 -p 30006:30006 m0stwanted/redis-cluster:latest
 ```
 
 ## Code of Conduct

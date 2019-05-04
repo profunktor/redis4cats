@@ -19,8 +19,7 @@ package com.github.gvolpe.fs2redis.effect
 import java.util.concurrent.{ CompletableFuture, CompletionStage, Future }
 
 import cats.effect.{ Async, ContextShift }
-import cats.syntax.apply._
-import cats.syntax.flatMap._
+import cats.implicits._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
 
 object JRFuture {
@@ -47,6 +46,7 @@ object JRFuture {
           if (t != null) cb(Left(t))
           else cb(Right(value))
         }
+        ()
       } <* cs.shift
     }
 

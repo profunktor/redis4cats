@@ -37,10 +37,10 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
 
   // override this if the Redis container has to be started before invocation
   // when developing tests, this likely shall be false, so there is no additional overhead starting Redis
-  lazy val startContainers: Boolean = true
+  lazy val startContainers: Boolean = false
 
   // override this to indicate whether containers shall be removed (true) once the test with Redis is done.
-  lazy val clearContainers: Boolean = true
+  lazy val clearContainers: Boolean = false
 
   lazy val redisPort: Int = 6379
 

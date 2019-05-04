@@ -17,7 +17,6 @@
 package com.github.gvolpe.fs2redis
 
 import cats.effect.{ IO, Resource }
-import cats.syntax.functor._
 import com.github.gvolpe.fs2redis.algebra.StringCommands
 import com.github.gvolpe.fs2redis.connection._
 import com.github.gvolpe.fs2redis.effect.Log

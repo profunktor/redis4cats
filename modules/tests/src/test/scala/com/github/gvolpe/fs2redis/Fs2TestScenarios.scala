@@ -17,9 +17,7 @@
 package com.github.gvolpe.fs2redis
 
 import cats.effect._
-import cats.effect.implicits._
 import cats.implicits._
-import com.github.gvolpe.fs2redis._
 import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.effect.Log
 import com.github.gvolpe.fs2redis.effects._
