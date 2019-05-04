@@ -1,7 +1,7 @@
 fs2-redis
 =========
 
-[![Build Status](https://travis-ci.org/gvolpe/fs2-redis.svg?branch=master)](https://travis-ci.org/gvolpe/fs2-redis)
+[![CircleCI](https://circleci.com/gh/gvolpe/fs2-redis.svg?style=svg)](https://circleci.com/gh/gvolpe/fs2-redis)
 [![Gitter Chat](https://badges.gitter.im/fs2-redis/fs2-redis.svg)](https://gitter.im/fs2-redis/fs2-redis)
 [![Maven Central](https://img.shields.io/maven-central/v/com.github.gvolpe/fs2-redis-effects_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Cfs2-redis-effects) <a href="https://typelevel.org/cats/"><img src="https://typelevel.org/cats/img/cats-badge.svg" height="40px" align="right" alt="Cats friendly" /></a>
 
