@@ -51,6 +51,10 @@ libraryDependencies += "com.github.gvolpe" %% "fs2-redis-streams" % Version
 libraryDependencies += "com.github.gvolpe" %% "fs2-redis-log4cats" % Version
 ```
 
+## Code of Conduct
+
+See the [Code of Conduct](CODE_OF_CONDUCT.md)
+
 ## LICENSE
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this project except in compliance with
