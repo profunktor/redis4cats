@@ -50,11 +50,11 @@ object Fs2StreamingDemo extends LoggerIOApp {
       streaming <- Fs2Streaming.mkStreamingConnection[IO, String, String](client, stringCodec, uri)
       source   = streaming.read(Set(streamKey1, streamKey2))
       appender = streaming.append
-      _ <- Stream(
-            source.evalMap(putStrLn),
-            Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
-          ).parJoin(2).drain
-    } yield ()
+      rs <- Stream(
+             source.evalMap(putStrLn),
+             Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
+           ).parJoin(2).drain
+    } yield rs
 
   def program(implicit log: Log[IO]): IO[Unit] =
     stream.compile.drain

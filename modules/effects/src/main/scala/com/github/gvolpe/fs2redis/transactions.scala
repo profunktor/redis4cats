@@ -16,7 +16,6 @@
 
 package com.github.gvolpe.fs2redis
 
-import cats.Applicative
 import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._

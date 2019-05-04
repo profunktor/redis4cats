@@ -45,17 +45,17 @@ object Fs2PubSubDemo extends LoggerIOApp {
       sub2 = pubSub.subscribe(gamesChannel)
       pub1 = pubSub.publish(eventsChannel)
       pub2 = pubSub.publish(gamesChannel)
-      _ <- Stream(
-            sub1.through(sink("#events")),
-            sub2.through(sink("#games")),
-            Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
-            Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
-            Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
-            Stream.awakeEvery[IO](6.seconds) >> pubSub
-              .pubSubSubscriptions(List(eventsChannel, gamesChannel))
-              .evalMap(putStrLn)
-          ).parJoin(6).drain
-    } yield ()
+      rs <- Stream(
+             sub1.through(sink("#events")),
+             sub2.through(sink("#games")),
+             Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
+             Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
+             Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
+             Stream.awakeEvery[IO](6.seconds) >> pubSub
+               .pubSubSubscriptions(List(eventsChannel, gamesChannel))
+               .evalMap(putStrLn)
+           ).parJoin(6).drain
+    } yield rs
 
   def program(implicit log: Log[IO]): IO[Unit] =
     stream.compile.drain

@@ -51,6 +51,18 @@ libraryDependencies += "com.github.gvolpe" %% "fs2-redis-streams" % Version
 libraryDependencies += "com.github.gvolpe" %% "fs2-redis-log4cats" % Version
 ```
 
+## Running the tests locally
+
+Either change the `startContainer` boolean in the `DockerRedis.scala` file or start the `redis` client manually using `docker`:
+
+```bash
+# single server
+docker run -p 6379:6379 redis:5.0.0
+
+# cluster server
+docker run -p 30001:30001 -p 30002:30002 -p 30003:30003 -p 30004:30004 -p 30005:30005 -p 30006:30006 m0stwanted/redis-cluster:latest
+```
+
 ## Code of Conduct
 
 See the [Code of Conduct](CODE_OF_CONDUCT.md)

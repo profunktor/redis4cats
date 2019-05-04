@@ -17,8 +17,8 @@
 package com.github.gvolpe.fs2redis.interpreter
 import java.util.concurrent.TimeUnit
 
-import cats.implicits._
 import cats.effect._
+import cats.implicits._
 import com.github.gvolpe.fs2redis.algebra._
 import com.github.gvolpe.fs2redis.connection._
 import com.github.gvolpe.fs2redis.domain._
@@ -74,8 +74,7 @@ object Fs2Redis {
 
   def cluster[F[_]: Concurrent: ContextShift: Log, K, V](
       clusterClient: Fs2RedisClusterClient,
-      codec: Fs2RedisCodec[K, V],
-      uri: RedisURI*
+      codec: Fs2RedisCodec[K, V]
   ): Resource[F, RedisCommands[F, K, V]] = {
     val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec)
     Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
@@ -207,7 +206,7 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
   override def getBit(key: K, offset: Long): F[Option[Long]] =
     JRFuture {
       async.flatMap(c => F.delay(c.getbit(key, offset)))
-    }.map(x => Option(Long.box(x)))
+    }.map(x => Option(Long.unbox(x)))
 
   override def getRange(key: K, start: Long, end: Long): F[Option[V]] =
     JRFuture {
@@ -217,7 +216,7 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
   override def strLen(key: K): F[Option[Long]] =
     JRFuture {
       async.flatMap(c => F.delay(c.strlen(key)))
-    }.map(x => Option(Long.box(x)))
+    }.map(x => Option(Long.unbox(x)))
 
   override def mGet(keys: Set[K]): F[Map[K, V]] =
     JRFuture {
@@ -318,12 +317,12 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
   override def hStrLen(key: K, field: K): F[Option[Long]] =
     JRFuture {
       async.flatMap(c => F.delay(c.hstrlen(key, field)))
-    }.map(x => Option(Long.box(x)))
+    }.map(x => Option(Long.unbox(x)))
 
   override def hLen(key: K): F[Option[Long]] =
     JRFuture {
       async.flatMap(c => F.delay(c.hlen(key)))
-    }.map(x => Option(Long.box(x)))
+    }.map(x => Option(Long.unbox(x)))
 
   override def hSet(key: K, field: K, value: V): F[Unit] =
     JRFuture {
@@ -440,7 +439,7 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
   override def lLen(key: K): F[Option[Long]] =
     JRFuture {
       async.flatMap(c => F.delay(c.llen(key)))
-    }.map(x => Option(Long.box(x)))
+    }.map(x => Option(Long.unbox(x)))
 
   override def lRange(key: K, start: Long, stop: Long): F[List[V]] =
     JRFuture {
@@ -568,7 +567,7 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
 
   override def geoAdd(key: K, geoValues: GeoLocation[V]*): F[Unit] =
     JRFuture {
-      val triplets = geoValues.flatMap(g => Seq(g.lon.value, g.lat.value, g.value)).asInstanceOf[Seq[AnyRef]]
+      val triplets = geoValues.flatMap(g => Seq[Any](g.lon.value, g.lat.value, g.value)).asInstanceOf[Seq[AnyRef]]
       async.flatMap(c => F.delay(c.geoadd(key, triplets: _*)))
     }.void
 
@@ -689,17 +688,17 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
   override def zCard(key: K): F[Option[Long]] =
     JRFuture {
       async.flatMap(c => F.delay(c.zcard(key)))
-    }.map(x => Option(Long.box(x)))
+    }.map(x => Option(Long.unbox(x)))
 
   override def zCount(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Option[Long]] =
     JRFuture {
       async.flatMap(c => F.delay(c.zcount(key, range.asJavaRange)))
-    }.map(x => Option(Long.box(x)))
+    }.map(x => Option(Long.unbox(x)))
 
   override def zLexCount(key: K, range: ZRange[V]): F[Option[Long]] =
     JRFuture {
       async.flatMap(c => F.delay(c.zlexcount(key, Range.create[V](range.start, range.end))))
-    }.map(x => Option(Long.box(x)))
+    }.map(x => Option(Long.unbox(x)))
 
   override def zRange(key: K, start: Long, stop: Long): F[List[V]] =
     JRFuture {
@@ -747,7 +746,7 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
   override def zRank(key: K, value: V): F[Option[Long]] =
     JRFuture {
       async.flatMap(c => F.delay(c.zrank(key, value)))
-    }.map(x => Option(Long.box(x)))
+    }.map(x => Option(Long.unbox(x)))
 
   override def zRevRange(key: K, start: Long, stop: Long): F[List[V]] =
     JRFuture {
@@ -798,12 +797,12 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
   override def zRevRank(key: K, value: V): F[Option[Long]] =
     JRFuture {
       async.flatMap(c => F.delay(c.zrevrank(key, value)))
-    }.map(x => Option(Long.box(x)))
+    }.map(x => Option(Long.unbox(x)))
 
   override def zScore(key: K, value: V): F[Option[Double]] =
     JRFuture {
       async.flatMap(c => F.delay(c.zscore(key, value)))
-    }.map(x => Option(Double.box(x)))
+    }.map(x => Option(Double.unbox(x)))
 
   /******************************* Connection API **********************************/
   override val ping: F[String] =
