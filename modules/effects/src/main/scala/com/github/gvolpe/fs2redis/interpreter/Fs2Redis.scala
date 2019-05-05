@@ -49,7 +49,7 @@ object Fs2Redis {
 
   private[fs2redis] def acquireAndReleaseCluster[F[_]: Concurrent: ContextShift: Log, K, V](
       client: Fs2RedisClusterClient,
-      codec: Fs2RedisCodec[K, V],
+      codec: Fs2RedisCodec[K, V]
   ): (F[Fs2RedisCluster[F, K, V]], Fs2RedisCluster[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture {
@@ -556,11 +556,13 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
       async.flatMap(c => F.delay(c.georadiusbymember(key, value, dist.value, unit)))
     }.map(_.asScala.toSet)
 
-  override def geoRadiusByMember(key: K,
-                                 value: V,
-                                 dist: Distance,
-                                 unit: GeoArgs.Unit,
-                                 args: GeoArgs): F[List[GeoRadiusResult[V]]] =
+  override def geoRadiusByMember(
+      key: K,
+      value: V,
+      dist: Distance,
+      unit: GeoArgs.Unit,
+      args: GeoArgs
+  ): F[List[GeoRadiusResult[V]]] =
     JRFuture {
       async.flatMap(c => F.delay(c.georadiusbymember(key, value, dist.value, unit, args)))
     }.map(_.asScala.toList.map(_.asGeoRadiusResult))
@@ -605,20 +607,24 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
         }
     }.void
 
-  override def geoRadiusByMember(key: K,
-                                 value: V,
-                                 dist: Distance,
-                                 unit: GeoArgs.Unit,
-                                 storage: GeoRadiusKeyStorage[K]): F[Unit] =
+  override def geoRadiusByMember(
+      key: K,
+      value: V,
+      dist: Distance,
+      unit: GeoArgs.Unit,
+      storage: GeoRadiusKeyStorage[K]
+  ): F[Unit] =
     JRFuture {
       async.flatMap(c => F.delay(c.georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs)))
     }.void
 
-  override def geoRadiusByMember(key: K,
-                                 value: V,
-                                 dist: Distance,
-                                 unit: GeoArgs.Unit,
-                                 storage: GeoRadiusDistStorage[K]): F[Unit] =
+  override def geoRadiusByMember(
+      key: K,
+      value: V,
+      dist: Distance,
+      unit: GeoArgs.Unit,
+      storage: GeoRadiusDistStorage[K]
+  ): F[Unit] =
     JRFuture {
       async.flatMap(c => F.delay(c.georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs)))
     }.void
@@ -716,7 +722,7 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
       }
     }.map(_.asScala.toList)
 
-  override def zRangeByScore(key: K, range: ZRange[V], limit: Option[RangeLimit])(implicit ev: Numeric[V]): F[List[V]] =
+  override def zRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]] =
     JRFuture {
       limit match {
         case Some(x) =>
@@ -725,8 +731,10 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
       }
     }.map(_.asScala.toList)
 
-  override def zRangeByScoreWithScores(key: K, range: ZRange[V], limit: Option[RangeLimit])(
-      implicit ev: Numeric[V]
+  override def zRangeByScoreWithScores[T: Numeric](
+      key: K,
+      range: ZRange[T],
+      limit: Option[RangeLimit]
   ): F[List[ScoreWithValue[V]]] =
     JRFuture {
       limit match {
@@ -765,9 +773,7 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
       }
     }.map(_.asScala.toList)
 
-  override def zRevRangeByScore(key: K, range: ZRange[V], limit: Option[RangeLimit])(
-      implicit ev: Numeric[V]
-  ): F[List[V]] =
+  override def zRevRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]] =
     JRFuture {
       limit match {
         case Some(x) =>
@@ -776,8 +782,10 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
       }
     }.map(_.asScala.toList)
 
-  override def zRevRangeByScoreWithScores(key: K, range: ZRange[V], limit: Option[RangeLimit])(
-      implicit ev: Numeric[V]
+  override def zRevRangeByScoreWithScores[T: Numeric](
+      key: K,
+      range: ZRange[T],
+      limit: Option[RangeLimit]
   ): F[List[ScoreWithValue[V]]] =
     JRFuture {
       limit match {
@@ -852,7 +860,7 @@ private[fs2redis] trait Fs2RedisConversionOps {
     }
   }
 
-  private[fs2redis] implicit class ZRangeOps[V: Numeric](range: ZRange[V]) {
+  private[fs2redis] implicit class ZRangeOps[T: Numeric](range: ZRange[T]) {
     def asJavaRange: Range[Number] = {
       val start: Number = range.start.asInstanceOf[java.lang.Number]
       val end: Number   = range.end.asInstanceOf[java.lang.Number]
