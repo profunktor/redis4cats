@@ -27,18 +27,18 @@ trait SortedSetGetter[F[_], K, V] {
   def zLexCount(key: K, range: ZRange[V]): F[Option[Long]]
   def zRange(key: K, start: Long, stop: Long): F[List[V]]
   def zRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]]
-  def zRangeByScore(key: K, range: ZRange[V], limit: Option[RangeLimit])(implicit ev: Numeric[V]): F[List[V]]
-  def zRangeByScoreWithScores(key: K, range: ZRange[V], limit: Option[RangeLimit])(
-      implicit ev: Numeric[V]
-  ): F[List[ScoreWithValue[V]]]
+  def zRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]]
+  def zRangeByScoreWithScores[T: Numeric](key: K,
+                                          range: ZRange[T],
+                                          limit: Option[RangeLimit]): F[List[ScoreWithValue[V]]]
   def zRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]]
   def zRank(key: K, value: V): F[Option[Long]]
   def zRevRange(key: K, start: Long, stop: Long): F[List[V]]
   def zRevRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]]
-  def zRevRangeByScore(key: K, range: ZRange[V], limit: Option[RangeLimit])(implicit ev: Numeric[V]): F[List[V]]
-  def zRevRangeByScoreWithScores(key: K, range: ZRange[V], limit: Option[RangeLimit])(
-      implicit ev: Numeric[V]
-  ): F[List[ScoreWithValue[V]]]
+  def zRevRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]]
+  def zRevRangeByScoreWithScores[T: Numeric](key: K,
+                                             range: ZRange[T],
+                                             limit: Option[RangeLimit]): F[List[ScoreWithValue[V]]]
   def zRevRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]]
   def zRevRank(key: K, value: V): F[Option[Long]]
   def zScore(key: K, value: V): F[Option[Double]]
