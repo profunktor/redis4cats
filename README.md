@@ -43,6 +43,9 @@ And this for the Streams API (depends on `fs2` and `cats-effect`):
 libraryDependencies += "dev.profunktor" %% "redis4cats-streams" % Version
 ```
 
+Note: previous artifacts `<= 0.8.0-RC1` were published using the `com.github.gvolpe` group id (see [migration
+guide](https://github.com/profunktor/redis4cats/wiki/Migration-guide-(Vim))).
+
 ### Log4cats support
 
 `redis4cats` needs a logger for internal use and provides instances for `log4cats`. It is the recommended logging library:
