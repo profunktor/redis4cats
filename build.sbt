@@ -3,25 +3,25 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-name := """fs2-redis-root"""
+name := """redis4cats-root"""
 
-organization in ThisBuild := "com.github.gvolpe"
+organization in ThisBuild := "dev.profunktor"
 
 crossScalaVersions in ThisBuild := Seq("2.12.8")
 
-sonatypeProfileName := "com.github.gvolpe"
+sonatypeProfileName := "dev.profunktor"
 
 promptTheme := PromptTheme(List(
   text("[sbt] ", fg(105)),
-  text(_ => "fs2-redis", fg(15)).padRight(" λ ")
+  text(_ => "redis4cats", fg(15)).padRight(" λ ")
  ))
 
 val commonSettings = Seq(
-  organizationName := "Fs2 Redis",
+  organizationName := "Redis client for Cats Effect & Fs2",
   startYear := Some(2018),
   licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
-  homepage := Some(url("https://github.com/gvolpe/fs2-redis")),
-  headerLicense := Some(HeaderLicense.ALv2("2018-2019", "Gabriel Volpe")),
+  homepage := Some(url("https://redis4cats.profunktor.dev/")),
+  headerLicense := Some(HeaderLicense.ALv2("2018-2019", "ProfunKtor")),
   libraryDependencies ++= Seq(
     compilerPlugin(Libraries.kindProjector cross CrossVersion.binary),
     compilerPlugin(Libraries.betterMonadicFor),
@@ -33,16 +33,7 @@ val commonSettings = Seq(
     Libraries.scalaCheck % Test
   ),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
-  scalacOptions ++= Seq(
-    "-Xmax-classfile-name", "80",
-    "-deprecation",
-    "-encoding",
-    "UTF-8",
-    "-feature",
-    "-Ypartial-unification",
-    "-language:existentials",
-    "-language:higherKinds"
-  ),
+  scalacOptions ++= Seq("-Xmax-classfile-name", "80"),
   scalafmtOnCompile := true,
   publishTo := {
     val sonatype = "https://oss.sonatype.org/"
@@ -59,7 +50,7 @@ val commonSettings = Seq(
         <developer>
           <id>gvolpe</id>
           <name>Gabriel Volpe</name>
-          <url>http://github.com/gvolpe</url>
+          <url>https://github.com/gvolpe</url>
         </developer>
       </developers>
 )
@@ -71,45 +62,45 @@ lazy val noPublish = Seq(
   skip in publish := true
 )
 
-lazy val `fs2-redis-root` = project.in(file("."))
-  .aggregate(`fs2-redis-core`, `fs2-redis-effects`, `fs2-redis-streams`, `fs2-redis-log4cats`, examples, `fs2-redis-test-support`, tests, microsite)
+lazy val `redis4cats-root` = project.in(file("."))
+  .aggregate(`redis4cats-core`, `redis4cats-effects`, `redis4cats-streams`, `redis4cats-log4cats`, examples, `redis4cats-test-support`, tests, microsite)
   .settings(noPublish)
 
-lazy val `fs2-redis-core` = project.in(file("modules/core"))
+lazy val `redis4cats-core` = project.in(file("modules/core"))
   .settings(commonSettings: _*)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `fs2-redis-log4cats` = project.in(file("modules/log4cats"))
+lazy val `redis4cats-log4cats` = project.in(file("modules/log4cats"))
   .settings(commonSettings: _*)
   .settings(libraryDependencies += Libraries.log4CatsCore)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`fs2-redis-core`)
+  .dependsOn(`redis4cats-core`)
 
-  lazy val `fs2-redis-effects` = project.in(file("modules/effects"))
+  lazy val `redis4cats-effects` = project.in(file("modules/effects"))
   .settings(commonSettings: _*)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`fs2-redis-core`)
+  .dependsOn(`redis4cats-core`)
 
-lazy val `fs2-redis-streams` = project.in(file("modules/streams"))
+lazy val `redis4cats-streams` = project.in(file("modules/streams"))
   .settings(commonSettings: _*)
   .settings(libraryDependencies += Libraries.fs2Core)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`fs2-redis-core`)
+  .dependsOn(`redis4cats-core`)
 
 lazy val examples = project.in(file("modules/examples"))
   .settings(commonSettings: _*)
   .settings(noPublish)
   .settings(libraryDependencies += Libraries.log4CatsSlf4j)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`fs2-redis-log4cats`)
-  .dependsOn(`fs2-redis-effects`)
-  .dependsOn(`fs2-redis-streams`)
+  .dependsOn(`redis4cats-log4cats`)
+  .dependsOn(`redis4cats-effects`)
+  .dependsOn(`redis4cats-streams`)
 
-  lazy val `fs2-redis-test-support` = project.in(file("modules/test-support"))
+  lazy val `redis4cats-test-support` = project.in(file("modules/test-support"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
@@ -119,27 +110,27 @@ lazy val examples = project.in(file("modules/examples"))
   )
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`fs2-redis-core`)
-  .dependsOn(`fs2-redis-effects`)
-  .dependsOn(`fs2-redis-streams`)
+  .dependsOn(`redis4cats-core`)
+  .dependsOn(`redis4cats-effects`)
+  .dependsOn(`redis4cats-streams`)
 
 lazy val tests = project.in(file("modules/tests"))
   .settings(commonSettings: _*)
   .settings(noPublish)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`fs2-redis-test-support` % Test)
+  .dependsOn(`redis4cats-test-support` % Test)
 
 lazy val microsite = project.in(file("site"))
   .enablePlugins(MicrositesPlugin)
   .settings(commonSettings: _*)
   .settings(noPublish)
   .settings(
-    micrositeName := "Fs2 Redis",
-    micrositeDescription := "Redis stream-based client",
-    micrositeAuthor := "Gabriel Volpe",
-    micrositeGithubOwner := "gvolpe",
-    micrositeGithubRepo := "fs2-redis",
-    micrositeBaseUrl := "/fs2-redis",
+    micrositeName := "Redis4Cats",
+    micrositeDescription := "Redis client for Cats Effect & Fs2",
+    micrositeAuthor := "ProfunKtor",
+    micrositeGithubOwner := "profunktor",
+    micrositeGithubRepo := "redis4cats",
+    micrositeBaseUrl := "/redis4cats",
     micrositeExtraMdFiles := Map(
       file("README.md") -> ExtraMdFileConfig(
         "index.md",
@@ -153,7 +144,7 @@ lazy val microsite = project.in(file("site"))
       )
     ),
     micrositeGitterChannel := true,
-    micrositeGitterChannelUrl := "fs2-redis/fs2-redis",
+    micrositeGitterChannelUrl := "redis4cats/redis4cats",
     micrositePushSiteWith := GitHub4s,
     micrositeGithubToken := sys.env.get("GITHUB_TOKEN"),
     fork in tut := true,
@@ -165,8 +156,8 @@ lazy val microsite = project.in(file("site"))
       "-Xlint:-missing-interpolator,_",
     )
   )
-  .dependsOn(`fs2-redis-effects`, `fs2-redis-streams`, `examples`)
+  .dependsOn(`redis4cats-effects`, `redis4cats-streams`, `examples`)
 
 // CI build
-addCommandAlias("buildFs2Redis", ";clean;+test;tut")
+addCommandAlias("buildRedis4Cats", ";clean;+test;tut")
 
