@@ -1,20 +1,13 @@
-fs2-redis
-=========
+redis4cats
+==========
 
-[![CircleCI](https://circleci.com/gh/gvolpe/fs2-redis.svg?style=svg)](https://circleci.com/gh/gvolpe/fs2-redis)
+[![CircleCI](https://circleci.com/gh/profunktor/redis4cats.svg?style=svg)](https://circleci.com/gh/profunktor/redis4cats)
 [![Gitter Chat](https://badges.gitter.im/fs2-redis/fs2-redis.svg)](https://gitter.im/fs2-redis/fs2-redis)
-[![Maven Central](https://img.shields.io/maven-central/v/com.github.gvolpe/fs2-redis-effects_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Cfs2-redis-effects) <a href="https://typelevel.org/cats/"><img src="https://typelevel.org/cats/img/cats-badge.svg" height="40px" align="right" alt="Cats friendly" /></a>
+[![Maven Central](https://img.shields.io/maven-central/v/dev.profunktor/redis4cats-effects_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Credis4cats-effects) <a href="https://typelevel.org/cats/"><img src="https://typelevel.org/cats/img/cats-badge.svg" height="40px" align="right" alt="Cats friendly" /></a>
 
-Redis stream-based client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async java client [Lettuce](https://lettuce.io/).
+Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async java client [Lettuce](https://lettuce.io/).
 
-`fs2-redis` defines two types of API: one Stream-based using [Fs2](https://functional-streams-for-scala.github.io/fs2/) and another Effect-based using [Cats Effect](https://typelevel.org/cats-effect/).
-
-### Streams
-
-- [PubSub API](https://redis.io/topics/pubsub) implemented on top of `fs2` streams.
-- [Streams API](https://redis.io/topics/streams-intro) experimental API, subject to changes (WIP).
-  + High-level API offers `read` and `append` using the underlying commands `XREAD` and `XADD` respectively.
-  + Consumer Groups are yet not implemented.
+`redis4cats` defines two types of API: the main one effect-based using [Cats Effect](https://typelevel.org/cats-effect/) and another one stream-based using [Fs2](http://fs2.io/).
 
 ### Effects
 
@@ -27,6 +20,13 @@ Redis stream-based client built on top of [Cats Effect](https://typelevel.org/ca
 - [Sorted Sets API](https://redis.io/commands#sorted_set): `zcount`, `zcard`, `zrangebyscore`, `zrank`, etc.
 - [Strings API](https://redis.io/commands#string): `get`, `set`, `del`, `expire`, etc (includes some generic methods).
 
+### Streams
+
+- [PubSub API](https://redis.io/topics/pubsub) implemented on top of `fs2` streams.
+- [Streams API](https://redis.io/topics/streams-intro) experimental API, subject to changes (WIP).
+  + High-level API offers `read` and `append` using the underlying commands `XREAD` and `XADD` respectively.
+  + Consumer Groups are yet not implemented.
+
 Other features are not considered at the moment but PRs and suggestions are very welcome.
 
 ## Dependencies
@@ -34,21 +34,21 @@ Other features are not considered at the moment but PRs and suggestions are very
 Add this to your `build.sbt` for the Effects API (depends on `cats-effect`):
 
 ```
-libraryDependencies += "com.github.gvolpe" %% "fs2-redis-effects" % Version
+libraryDependencies += "dev.profunktor" %% "redis4cats-effects" % Version
 ```
 
 And this for the Streams API (depends on `fs2` and `cats-effect`):
 
 ```
-libraryDependencies += "com.github.gvolpe" %% "fs2-redis-streams" % Version
+libraryDependencies += "dev.profunktor" %% "redis4cats-streams" % Version
 ```
 
 ### Log4cats support
 
-`fs2-redis` needs a logger for internal use and provides instances for `log4cats`. It is the recommended logging library:
+`redis4cats` needs a logger for internal use and provides instances for `log4cats`. It is the recommended logging library:
 
 ```
-libraryDependencies += "com.github.gvolpe" %% "fs2-redis-log4cats" % Version
+libraryDependencies += "dev.profunktor" %% "redis4cats-log4cats" % Version
 ```
 
 ## Running the tests locally

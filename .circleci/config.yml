@@ -38,4 +38,4 @@ jobs:
           key: v1-dependencies--{{ checksum "build.sbt" }}
 
       # run tests!
-      - run: cat /dev/null | sbt buildFs2Redis
+      - run: cat /dev/null | sbt buildRedis4Cats

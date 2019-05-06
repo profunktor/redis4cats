@@ -55,10 +55,10 @@ When using the `Fs2PubSub` interpreter the `publish` function will be defined as
 ```tut:book:silent
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.apply._
-import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.domain.{DefaultChannel, DefaultRedisCodec}
-import com.github.gvolpe.fs2redis.interpreter.pubsub.Fs2PubSub
-import com.github.gvolpe.fs2redis.log4cats._
+import dev.profunktor.fs2redis.connection.Fs2RedisClient
+import dev.profunktor.fs2redis.domain.{DefaultChannel, DefaultRedisCodec}
+import dev.profunktor.fs2redis.interpreter.pubsub.Fs2PubSub
+import dev.profunktor.fs2redis.log4cats._
 import fs2.{Sink, Stream}
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
