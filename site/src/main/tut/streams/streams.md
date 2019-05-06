@@ -51,11 +51,11 @@ trait Streaming[F[_], K, V] {
 ```tut:silent
 import cats.effect.IO
 import cats.syntax.parallel._
-import com.github.gvolpe.fs2redis.connection.Fs2RedisClient
-import com.github.gvolpe.fs2redis.domain._
-import com.github.gvolpe.fs2redis.interpreter.streams.Fs2Streaming
-import com.github.gvolpe.fs2redis.log4cats._
-import com.github.gvolpe.fs2redis.streams._
+import dev.profunktor.fs2redis.connection.Fs2RedisClient
+import dev.profunktor.fs2redis.domain._
+import dev.profunktor.fs2redis.interpreter.streams.Fs2Streaming
+import dev.profunktor.fs2redis.log4cats._
+import dev.profunktor.fs2redis.streams._
 import fs2.Stream
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger

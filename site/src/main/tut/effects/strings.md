@@ -11,9 +11,9 @@ Purely functional interface for the [Strings API](https://redis.io/commands#stri
 ```tut:book:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.algebra.StringCommands
-import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
-import com.github.gvolpe.fs2redis.log4cats._
+import dev.profunktor.fs2redis.algebra.StringCommands
+import dev.profunktor.fs2redis.interpreter.Fs2Redis
+import dev.profunktor.fs2redis.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 

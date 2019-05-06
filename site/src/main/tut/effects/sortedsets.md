@@ -11,9 +11,9 @@ Purely functional interface for the [Sorted Sets API](https://redis.io/commands#
 ```tut:book:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.algebra.SortedSetCommands
-import com.github.gvolpe.fs2redis.interpreter.Fs2Redis
-import com.github.gvolpe.fs2redis.log4cats._
+import dev.profunktor.fs2redis.algebra.SortedSetCommands
+import dev.profunktor.fs2redis.interpreter.Fs2Redis
+import dev.profunktor.fs2redis.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
@@ -32,7 +32,7 @@ Once you have acquired a connection you can start using it:
 ```tut:book:silent
 import cats.effect.IO
 import cats.syntax.all._
-import com.github.gvolpe.fs2redis.effects.{Score, ScoreWithValue, ZRange}
+import dev.profunktor.fs2redis.effects.{Score, ScoreWithValue, ZRange}
 
 val testKey = "zztop"
 
