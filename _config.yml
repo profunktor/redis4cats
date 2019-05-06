@@ -1,5 +1,5 @@
 name: Redis4Cats
-baseurl: /redis4cats
+baseurl: ''
 description: Redis client for Cats Effect & Fs2
 highlighter: rouge
 docs: true
