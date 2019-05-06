@@ -130,7 +130,7 @@ lazy val microsite = project.in(file("site"))
     micrositeAuthor := "ProfunKtor",
     micrositeGithubOwner := "profunktor",
     micrositeGithubRepo := "redis4cats",
-    micrositeBaseUrl := "/redis4cats",
+    micrositeBaseUrl := "",
     micrositeExtraMdFiles := Map(
       file("README.md") -> ExtraMdFileConfig(
         "index.md",
