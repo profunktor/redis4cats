@@ -1,11 +1,11 @@
-name: Fs2 Redis
-baseurl: /fs2-redis
-description: Redis stream-based client
+name: Redis4Cats
+baseurl: /redis4cats
+description: Redis client for Cats Effect & Fs2
 highlighter: rouge
 docs: true
 collections:
   tut:
     output: true
-version: 0.8.0-M2
-org: Fs2 Redis
+version: 0.8.0
+org: Redis client for Cats Effect & Fs2
 markdown: kramdown
