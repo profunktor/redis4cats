@@ -144,7 +144,7 @@ lazy val microsite = project.in(file("site"))
       )
     ),
     micrositeGitterChannel := true,
-    micrositeGitterChannelUrl := "profunktor.dev/redis4cats",
+    micrositeGitterChannelUrl := "profunktor-dev/redis4cats",
     micrositePushSiteWith := GitHub4s,
     micrositeGithubToken := sys.env.get("GITHUB_TOKEN"),
     fork in tut := true,

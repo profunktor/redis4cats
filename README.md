@@ -2,7 +2,7 @@ redis4cats
 ==========
 
 [![CircleCI](https://circleci.com/gh/profunktor/redis4cats.svg?style=svg)](https://circleci.com/gh/profunktor/redis4cats)
-[![Gitter Chat](https://badges.gitter.im/profunktor.dev/redis4cats.svg)](https://gitter.im/profunktor.dev/redis4cats)
+[![Gitter Chat](https://badges.gitter.im/profunktor-dev/redis4cats.svg)](https://gitter.im/profunktor-dev/redis4cats)
 [![Maven Central](https://img.shields.io/maven-central/v/dev.profunktor/redis4cats-effects_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Credis4cats-effects) <a href="https://typelevel.org/cats/"><img src="https://typelevel.org/cats/img/cats-badge.svg" height="40px" align="right" alt="Cats friendly" /></a>
 
 Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async java client [Lettuce](https://lettuce.io/).
