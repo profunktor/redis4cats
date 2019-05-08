@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import cats.effect.IO
-import dev.profunktor.fs2redis.connection._
-import dev.profunktor.fs2redis.domain.DefaultChannel
-import dev.profunktor.fs2redis.effect.Log
-import dev.profunktor.fs2redis.interpreter.pubsub.Fs2PubSub
+import dev.profunktor.redis4cats.connection._
+import dev.profunktor.redis4cats.domain.DefaultChannel
+import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.interpreter.pubsub.Fs2PubSub
 import fs2.{ Pipe, Stream }
 
 import scala.concurrent.duration._

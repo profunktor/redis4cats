@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import cats.effect.IO
-import dev.profunktor.fs2redis.codecs.Codecs
-import dev.profunktor.fs2redis.codecs.splits._
-import dev.profunktor.fs2redis.domain.{ DefaultRedisCodec, Fs2RedisCodec }
+import dev.profunktor.redis4cats.codecs.Codecs
+import dev.profunktor.redis4cats.codecs.splits._
+import dev.profunktor.redis4cats.domain.{ DefaultRedisCodec, Fs2RedisCodec }
 import io.lettuce.core.codec.StringCodec
 
 object Demo {

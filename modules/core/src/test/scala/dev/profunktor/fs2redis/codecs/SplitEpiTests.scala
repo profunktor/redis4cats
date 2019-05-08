@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.codecs
+package dev.profunktor.redis4cats.codecs
 
 import cats.Eq
 import cats.laws.discipline._
-import dev.profunktor.fs2redis.codecs.laws.SplitEpiLaws
-import dev.profunktor.fs2redis.codecs.splits.SplitEpi
+import dev.profunktor.redis4cats.codecs.laws.SplitEpiLaws
+import dev.profunktor.redis4cats.codecs.splits.SplitEpi
 import org.scalacheck.Arbitrary
 import org.scalacheck.Prop._
 import org.typelevel.discipline.Laws

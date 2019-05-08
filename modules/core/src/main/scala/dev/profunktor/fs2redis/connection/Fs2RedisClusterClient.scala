@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.connection
+package dev.profunktor.redis4cats.connection
 
 import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
 import cats.implicits._
-import dev.profunktor.fs2redis.domain.{ DefaultRedisClusterClient, Fs2RedisClusterClient }
-import dev.profunktor.fs2redis.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.domain.{ DefaultRedisClusterClient, Fs2RedisClusterClient }
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import io.lettuce.core.RedisURI
 import io.lettuce.core.cluster.RedisClusterClient
 
@@ -27,7 +27,7 @@ import scala.collection.JavaConverters._
 
 object Fs2RedisClusterClient {
 
-  private[fs2redis] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
       uri: RedisURI*
   ): (F[Fs2RedisClusterClient], Fs2RedisClusterClient => F[Unit]) = {
 
@@ -45,7 +45,7 @@ object Fs2RedisClusterClient {
     (acquire, release)
   }
 
-  private[fs2redis] def initializeClusterPartitions[F[_]: Sync](client: RedisClusterClient): F[Unit] =
+  private[redis4cats] def initializeClusterPartitions[F[_]: Sync](client: RedisClusterClient): F[Unit] =
     Sync[F].delay(client.getPartitions).void
 
   def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI*): Resource[F, Fs2RedisClusterClient] = {

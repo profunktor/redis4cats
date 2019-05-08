@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import cats.effect._
-import dev.profunktor.fs2redis.domain.DefaultRedisCodec
+import dev.profunktor.redis4cats.domain.DefaultRedisCodec
 import org.scalatest.FunSuite
 
 class Fs2RedisClusterSpec extends FunSuite with RedisClusterTest with Fs2TestScenarios {

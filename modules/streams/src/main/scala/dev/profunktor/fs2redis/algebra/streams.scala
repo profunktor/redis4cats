@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.algebra
+package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.fs2redis.streams._
+import dev.profunktor.redis4cats.streams._
 
 // format: off
 trait RawStreaming[F[_], K, V] {

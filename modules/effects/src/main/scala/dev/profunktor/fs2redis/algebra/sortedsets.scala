@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.algebra
+package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.fs2redis.effects.{ RangeLimit, ScoreWithValue, ZRange }
+import dev.profunktor.redis4cats.effects.{ RangeLimit, ScoreWithValue, ZRange }
 import io.lettuce.core.{ ZAddArgs, ZStoreArgs }
 
 trait SortedSetCommands[F[_], K, V] extends SortedSetGetter[F, K, V] with SortedSetSetter[F, K, V]

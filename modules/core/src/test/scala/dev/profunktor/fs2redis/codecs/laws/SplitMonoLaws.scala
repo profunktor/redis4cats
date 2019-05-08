@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.codecs.laws
+package dev.profunktor.redis4cats.codecs.laws
 
 import cats.laws._
-import dev.profunktor.fs2redis.codecs.splits.SplitMono
+import dev.profunktor.redis4cats.codecs.splits.SplitMono
 
 final case class SplitMonoLaws[A, B](
     mono: SplitMono[A, B]

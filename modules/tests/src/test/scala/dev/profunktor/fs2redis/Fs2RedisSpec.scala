@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
-import dev.profunktor.fs2redis.domain.DefaultRedisCodec
+import dev.profunktor.redis4cats.domain.DefaultRedisCodec
 import io.lettuce.core.codec.{ RedisCodec, StringCodec, ToByteBufEncoder }
 import io.netty.buffer.ByteBuf
 import org.scalatest.FunSuite

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.interpreter.pubsub
+package dev.profunktor.redis4cats.interpreter.pubsub
 
 import cats.effect.{ ConcurrentEffect, ContextShift, Sync }
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
-import dev.profunktor.fs2redis.algebra.{ PubSubCommands, PublishCommands, SubscribeCommands }
-import dev.profunktor.fs2redis.domain._
-import dev.profunktor.fs2redis.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.algebra.{ PubSubCommands, PublishCommands, SubscribeCommands }
+import dev.profunktor.redis4cats.domain._
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import fs2.Stream
 import fs2.concurrent.Topic
 import io.lettuce.core.RedisURI
@@ -29,7 +29,7 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 object Fs2PubSub {
 
-  private[fs2redis] def acquireAndRelease[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI

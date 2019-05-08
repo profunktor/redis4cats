@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 import cats.Functor
 import cats.effect.{ Clock, Sync }
 import cats.syntax.all._
-import dev.profunktor.fs2redis.effect.Log
+import dev.profunktor.redis4cats.effect.Log
 
 object testLogger {
 

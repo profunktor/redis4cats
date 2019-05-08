@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
-import dev.profunktor.fs2redis.domain.Fs2RedisChannel
+import dev.profunktor.redis4cats.domain.Fs2RedisChannel
 import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands
 
 object streams {

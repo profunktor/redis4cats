@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.connection
+package dev.profunktor.redis4cats.connection
 
 import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
 import cats.syntax.apply._
 import cats.syntax.functor._
-import dev.profunktor.fs2redis.domain.{ DefaultRedisClient, Fs2RedisClient }
-import dev.profunktor.fs2redis.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.domain.{ DefaultRedisClient, Fs2RedisClient }
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import io.lettuce.core.{ RedisClient, RedisURI }
 
 object Fs2RedisClient {
 
-  private[fs2redis] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
       uri: => RedisURI
   ): (F[Fs2RedisClient], Fs2RedisClient => F[Unit]) = {
     val acquire: F[Fs2RedisClient] = Sync[F].delay { DefaultRedisClient(RedisClient.create(uri)) }
@@ -37,7 +37,7 @@ object Fs2RedisClient {
     (acquire, release)
   }
 
-  private[fs2redis] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log]
+  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log]
     : F[(F[Fs2RedisClient], Fs2RedisClient => F[Unit])] = Sync[F].delay(new RedisURI()).map(acquireAndRelease(_))
 
   def apply[F[_]: Concurrent: ContextShift: Log](uri: => RedisURI): Resource[F, Fs2RedisClient] = {

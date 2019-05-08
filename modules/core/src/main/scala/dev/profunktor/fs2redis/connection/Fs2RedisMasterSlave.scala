@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.connection
+package dev.profunktor.redis4cats.connection
 
 import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
 import cats.syntax.all._
-import dev.profunktor.fs2redis.domain._
-import dev.profunktor.fs2redis.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.domain._
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import io.lettuce.core.masterslave.{ MasterSlave, StatefulRedisMasterSlaveConnection }
 import io.lettuce.core.{ ReadFrom, RedisURI }
 
@@ -27,7 +27,7 @@ import scala.collection.JavaConverters._
 
 object Fs2RedisMasterSlave {
 
-  private[fs2redis] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       readFrom: Option[ReadFrom],

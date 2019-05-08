@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.algebra
+package dev.profunktor.redis4cats.algebra
 
 trait RedisCommands[F[_], K, V]
     extends StringCommands[F, K, V]

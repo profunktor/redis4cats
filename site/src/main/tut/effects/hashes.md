@@ -11,9 +11,9 @@ Purely functional interface for the [Hashes API](https://redis.io/commands#hash)
 ```tut:book:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
-import dev.profunktor.fs2redis.algebra.HashCommands
-import dev.profunktor.fs2redis.interpreter.Fs2Redis
-import dev.profunktor.fs2redis.log4cats._
+import dev.profunktor.redis4cats.algebra.HashCommands
+import dev.profunktor.redis4cats.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 

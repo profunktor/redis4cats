@@ -11,9 +11,9 @@ Purely functional interface for the [Geo API](https://redis.io/commands#geo).
 ```tut:book:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
-import dev.profunktor.fs2redis.algebra.GeoCommands
-import dev.profunktor.fs2redis.interpreter.Fs2Redis
-import dev.profunktor.fs2redis.log4cats._
+import dev.profunktor.redis4cats.algebra.GeoCommands
+import dev.profunktor.redis4cats.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
@@ -32,7 +32,7 @@ Once you have acquired a connection you can start using it:
 ```tut:book:silent
 import cats.effect.IO
 import cats.syntax.all._
-import dev.profunktor.fs2redis.effects._
+import dev.profunktor.redis4cats.effects._
 import io.lettuce.core.GeoArgs
 
 val testKey = "location"

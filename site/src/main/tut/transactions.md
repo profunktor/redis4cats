@@ -21,9 +21,9 @@ Note that every command has to be forked (`.start`) because the commands need to
 
 ```tut:book:invisible
 import cats.effect.{IO, Resource}
-import dev.profunktor.fs2redis.algebra._
-import dev.profunktor.fs2redis.interpreter.Fs2Redis
-import dev.profunktor.fs2redis.log4cats._
+import dev.profunktor.redis4cats.algebra._
+import dev.profunktor.redis4cats.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
@@ -38,7 +38,7 @@ val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
 ```tut:book:silent
 import cats.effect.IO
 import cats.implicits._
-import dev.profunktor.fs2redis._
+import dev.profunktor.redis4cats._
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 

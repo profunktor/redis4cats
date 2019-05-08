@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.interpreter.streams
+package dev.profunktor.redis4cats.interpreter.streams
 
 import cats.effect.{ Concurrent, ContextShift, Sync }
 import cats.effect.concurrent.Ref
 import cats.instances.list._
 import cats.syntax.all._
-import dev.profunktor.fs2redis.algebra.Streaming
-import dev.profunktor.fs2redis.connection.Fs2RedisMasterSlave
-import dev.profunktor.fs2redis.domain._
-import dev.profunktor.fs2redis.effect.{ JRFuture, Log }
-import dev.profunktor.fs2redis.streams._
+import dev.profunktor.redis4cats.algebra.Streaming
+import dev.profunktor.redis4cats.connection.Fs2RedisMasterSlave
+import dev.profunktor.redis4cats.domain._
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.streams._
 import fs2.Stream
 import io.lettuce.core.{ ReadFrom, RedisURI }
 

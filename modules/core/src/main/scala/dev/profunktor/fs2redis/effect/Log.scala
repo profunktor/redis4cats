@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.effect
+package dev.profunktor.redis4cats.effect
 
 /**
   * Typeclass used for internal logging such as acquiring and releasing connections.

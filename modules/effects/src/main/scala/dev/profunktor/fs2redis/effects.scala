@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import io.lettuce.core.GeoArgs
 

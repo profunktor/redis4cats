@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.interpreter
+package dev.profunktor.redis4cats.interpreter
 import java.util.concurrent.TimeUnit
 
 import cats.effect._
 import cats.implicits._
-import dev.profunktor.fs2redis.algebra._
-import dev.profunktor.fs2redis.connection._
-import dev.profunktor.fs2redis.domain._
-import dev.profunktor.fs2redis.effect.{ JRFuture, Log }
-import dev.profunktor.fs2redis.effects._
+import dev.profunktor.redis4cats.algebra._
+import dev.profunktor.redis4cats.connection._
+import dev.profunktor.redis4cats.domain._
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.effects._
 import io.lettuce.core._
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 
@@ -31,7 +31,7 @@ import scala.concurrent.duration.FiniteDuration
 
 object Fs2Redis {
 
-  private[fs2redis] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
       client: Fs2RedisClient,
       codec: Fs2RedisCodec[K, V],
       uri: RedisURI
@@ -47,7 +47,7 @@ object Fs2Redis {
     (acquire, release)
   }
 
-  private[fs2redis] def acquireAndReleaseCluster[F[_]: Concurrent: ContextShift: Log, K, V](
+  private[redis4cats] def acquireAndReleaseCluster[F[_]: Concurrent: ContextShift: Log, K, V](
       client: Fs2RedisClusterClient,
       codec: Fs2RedisCodec[K, V]
   ): (F[Fs2RedisCluster[F, K, V]], Fs2RedisCluster[F, K, V] => F[Unit]) = {
@@ -87,7 +87,7 @@ object Fs2Redis {
 
 }
 
-private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
+private[redis4cats] class BaseFs2Redis[F[_]: ContextShift, K, V](
     val conn: Fs2RedisConnection[F, K, V],
     val cluster: Boolean
 )(implicit F: Concurrent[F])
@@ -830,9 +830,9 @@ private[fs2redis] class BaseFs2Redis[F[_]: ContextShift, K, V](
     }.void
 }
 
-private[fs2redis] trait Fs2RedisConversionOps {
+private[redis4cats] trait Fs2RedisConversionOps {
 
-  private[fs2redis] implicit class GeoRadiusResultOps[V](v: GeoWithin[V]) {
+  private[redis4cats] implicit class GeoRadiusResultOps[V](v: GeoWithin[V]) {
     def asGeoRadiusResult: GeoRadiusResult[V] =
       GeoRadiusResult[V](
         v.getMember,
@@ -842,7 +842,7 @@ private[fs2redis] trait Fs2RedisConversionOps {
       )
   }
 
-  private[fs2redis] implicit class GeoRadiusKeyStorageOps[K](v: GeoRadiusKeyStorage[K]) {
+  private[redis4cats] implicit class GeoRadiusKeyStorageOps[K](v: GeoRadiusKeyStorage[K]) {
     def asGeoRadiusStoreArgs: GeoRadiusStoreArgs[K] = {
       val store: GeoRadiusStoreArgs[_] = GeoRadiusStoreArgs.Builder
         .store[K](v.key)
@@ -851,7 +851,7 @@ private[fs2redis] trait Fs2RedisConversionOps {
     }
   }
 
-  private[fs2redis] implicit class GeoRadiusDistStorageOps[K](v: GeoRadiusDistStorage[K]) {
+  private[redis4cats] implicit class GeoRadiusDistStorageOps[K](v: GeoRadiusDistStorage[K]) {
     def asGeoRadiusStoreArgs: GeoRadiusStoreArgs[K] = {
       val store: GeoRadiusStoreArgs[_] = GeoRadiusStoreArgs.Builder
         .withStoreDist[K](v.key)
@@ -860,7 +860,7 @@ private[fs2redis] trait Fs2RedisConversionOps {
     }
   }
 
-  private[fs2redis] implicit class ZRangeOps[T: Numeric](range: ZRange[T]) {
+  private[redis4cats] implicit class ZRangeOps[T: Numeric](range: ZRange[T]) {
     def asJavaRange: Range[Number] = {
       val start: Number = range.start.asInstanceOf[java.lang.Number]
       val end: Number   = range.end.asInstanceOf[java.lang.Number]
@@ -868,16 +868,16 @@ private[fs2redis] trait Fs2RedisConversionOps {
     }
   }
 
-  private[fs2redis] implicit class ScoredValuesOps[V](v: ScoredValue[V]) {
+  private[redis4cats] implicit class ScoredValuesOps[V](v: ScoredValue[V]) {
     def asScoreWithValues: ScoreWithValue[V] = ScoreWithValue[V](Score(v.getScore), v.getValue)
   }
 
 }
 
-private[fs2redis] class Fs2Redis[F[_]: Concurrent: ContextShift, K, V](
+private[redis4cats] class Fs2Redis[F[_]: Concurrent: ContextShift, K, V](
     connection: Fs2RedisStatefulConnection[F, K, V]
 ) extends BaseFs2Redis[F, K, V](connection, cluster = false)
 
-private[fs2redis] class Fs2RedisCluster[F[_]: Concurrent: ContextShift, K, V](
+private[redis4cats] class Fs2RedisCluster[F[_]: Concurrent: ContextShift, K, V](
     connection: Fs2RedisStatefulClusterConnection[F, K, V]
 ) extends BaseFs2Redis[F, K, V](connection, cluster = true)

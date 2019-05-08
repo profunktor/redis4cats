@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
 import cats.instances.list._
 import cats.syntax.all._
-import dev.profunktor.fs2redis.algebra.RedisCommands
-import dev.profunktor.fs2redis.connection._
-import dev.profunktor.fs2redis.effect.Log
-import dev.profunktor.fs2redis.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.algebra.RedisCommands
+import dev.profunktor.redis4cats.connection._
+import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.interpreter.Fs2Redis
 
 object Fs2RedisTransactionsDemo extends LoggerIOApp {
 

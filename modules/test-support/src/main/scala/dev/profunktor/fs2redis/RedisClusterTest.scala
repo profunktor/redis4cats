@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import cats.effect.{ Clock, ContextShift, IO, Timer }
 import cats.syntax.apply._
 import cats.syntax.functor._
-import dev.profunktor.fs2redis.algebra._
-import dev.profunktor.fs2redis.connection.Fs2RedisClusterClient
-import dev.profunktor.fs2redis.domain.{ DefaultRedisCodec, Fs2RedisCodec }
-import dev.profunktor.fs2redis.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.algebra._
+import dev.profunktor.redis4cats.connection.Fs2RedisClusterClient
+import dev.profunktor.redis4cats.domain.{ DefaultRedisCodec, Fs2RedisCodec }
+import dev.profunktor.redis4cats.interpreter.Fs2Redis
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.StringCodec
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.connection
+package dev.profunktor.redis4cats.connection
 
 import cats.effect.Sync
 import io.lettuce.core.RedisURI

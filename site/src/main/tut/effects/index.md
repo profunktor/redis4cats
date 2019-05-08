@@ -28,9 +28,9 @@ def apply[F[_]](uri: RedisURI): Resource[F, Fs2RedisClient]
 
 ### Logger
 
-In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either create your own or use `log4cats` (recommended). `fs2-redis` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to add the extra dependency `fs2-redis-log4cats` and `import dev.profunktor.fs2redis.log4cats._`.
+In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either create your own or use `log4cats` (recommended). `fs2-redis` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to add the extra dependency `fs2-redis-log4cats` and `import dev.profunktor.redis4cats.log4cats._`.
 
-Take a look at the [examples](https://github.com/gvolpe/fs2-redis/blob/master/modules/examples/src/main/scala/dev.profunktor/fs2redis/LoggerIOApp.scala) to find out more.
+Take a look at the [examples](https://github.com/gvolpe/fs2-redis/blob/master/modules/examples/src/main/scala/dev.profunktor.redis4cats/LoggerIOApp.scala) to find out more.
 
 ### Establishing connection
 
@@ -39,11 +39,11 @@ Here's an example of acquiring a client and a connection to the `Strings API`:
 ```tut:book:silent
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
-import dev.profunktor.fs2redis.algebra.StringCommands
-import dev.profunktor.fs2redis.connection.{Fs2RedisClient, Fs2RedisURI}
-import dev.profunktor.fs2redis.domain.{DefaultRedisCodec, Fs2RedisCodec}
-import dev.profunktor.fs2redis.interpreter.Fs2Redis
-import dev.profunktor.fs2redis.log4cats._
+import dev.profunktor.redis4cats.algebra.StringCommands
+import dev.profunktor.redis4cats.connection.{Fs2RedisClient, Fs2RedisURI}
+import dev.profunktor.redis4cats.domain.{DefaultRedisCodec, Fs2RedisCodec}
+import dev.profunktor.redis4cats.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.log4cats._
 import io.lettuce.core.RedisURI
 import io.lettuce.core.codec.{RedisCodec, StringCodec}
 import io.chrisdavenport.log4cats.Logger
@@ -63,7 +63,7 @@ val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
 ```
 
 The only difference with other APIs will be the `Commands` type. For the `Strings API` is `StringCommands`, for `Sorted Sets API` is `SortedSetCommands` and so on. For a complete list please take a look at the
-[algebras](https://github.com/gvolpe/fs2-redis/tree/master/modules/core/src/main/scala/dev.profunktor/fs2redis/algebra).
+[algebras](https://github.com/gvolpe/fs2-redis/tree/master/modules/core/src/main/scala/dev.profunktor.redis4cats/algebra).
 
 ### Standalone, Sentinel or Cluster
 
@@ -97,10 +97,10 @@ def apply[F[_], K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
 ```tut:book:silent
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
-import dev.profunktor.fs2redis.algebra.StringCommands
-import dev.profunktor.fs2redis.connection.Fs2RedisMasterSlave
-import dev.profunktor.fs2redis.interpreter.Fs2Redis
-import dev.profunktor.fs2redis.domain.Fs2RedisMasterSlaveConnection
+import dev.profunktor.redis4cats.algebra.StringCommands
+import dev.profunktor.redis4cats.connection.Fs2RedisMasterSlave
+import dev.profunktor.redis4cats.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.domain.Fs2RedisMasterSlaveConnection
 import io.lettuce.core.{ReadFrom, RedisURI}
 import io.lettuce.core.codec.{RedisCodec, StringCodec}
 

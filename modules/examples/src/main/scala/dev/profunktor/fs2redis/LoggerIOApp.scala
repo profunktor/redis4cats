@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import cats.effect.{ ExitCode, IO, IOApp }
 import cats.syntax.functor._
-import dev.profunktor.fs2redis.effect.Log
-import dev.profunktor.fs2redis.log4cats._
+import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
