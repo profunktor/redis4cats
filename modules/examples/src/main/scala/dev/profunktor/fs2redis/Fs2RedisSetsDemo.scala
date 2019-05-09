@@ -20,7 +20,7 @@ import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.SetCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
-import dev.profunktor.redis4cats.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.interpreter.Redis
 
 object Fs2RedisSetsDemo extends LoggerIOApp {
 
@@ -33,9 +33,9 @@ object Fs2RedisSetsDemo extends LoggerIOApp {
 
     val commandsApi: Resource[IO, SetCommands[IO, String, String]] =
       for {
-        uri <- Resource.liftF(Fs2RedisURI.make[IO](redisURI))
-        client <- Fs2RedisClient[IO](uri)
-        redis <- Fs2Redis[IO, String, String](client, stringCodec, uri)
+        uri <- Resource.liftF(RedisURI.make[IO](redisURI))
+        client <- RedisClient[IO](uri)
+        redis <- Redis[IO, String, String](client, stringCodec, uri)
       } yield redis
 
     commandsApi

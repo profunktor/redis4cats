@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats.interpreter.pubsub
 import cats.effect.{ ConcurrentEffect, ContextShift, Sync }
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.algebra.{ PubSubStats, PublishCommands }
-import dev.profunktor.redis4cats.domain.Fs2RedisChannel
+import dev.profunktor.redis4cats.domain.RedisChannel
 import dev.profunktor.redis4cats.streams.Subscription
 import dev.profunktor.redis4cats.effect.JRFuture
 import fs2.Stream
@@ -30,7 +30,7 @@ class Fs2Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](pubConnection: St
 
   private[redis4cats] val pubSubStats: PubSubStats[Stream[F, ?], K] = new Fs2PubSubStats(pubConnection)
 
-  override def publish(channel: Fs2RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
+  override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
     _.evalMap { message =>
       JRFuture { Sync[F].delay(pubConnection.async().publish(channel.value, message)) }.void
     }
@@ -38,10 +38,10 @@ class Fs2Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](pubConnection: St
   override def pubSubChannels: Stream[F, List[K]] =
     pubSubStats.pubSubChannels
 
-  override def pubSubSubscriptions(channel: Fs2RedisChannel[K]): Stream[F, Subscription[K]] =
+  override def pubSubSubscriptions(channel: RedisChannel[K]): Stream[F, Subscription[K]] =
     pubSubStats.pubSubSubscriptions(channel)
 
-  override def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
+  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
     pubSubStats.pubSubSubscriptions(channels)
 
 }

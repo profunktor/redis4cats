@@ -21,43 +21,44 @@ import cats.effect.concurrent.Ref
 import cats.instances.list._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.Streaming
-import dev.profunktor.redis4cats.connection.Fs2RedisMasterSlave
+import dev.profunktor.redis4cats.connection.RedisMasterSlave
 import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.streams._
 import fs2.Stream
-import io.lettuce.core.{ ReadFrom, RedisURI }
+import io.lettuce.core.{ ReadFrom => JReadFrom, RedisURI => JRedisURI }
 
-object Fs2Streaming {
+object RedisStream {
 
   def mkStreamingConnection[F[_]: Concurrent: ContextShift: Log, K, V](
-      client: Fs2RedisClient,
-      codec: Fs2RedisCodec[K, V],
-      uri: RedisURI
+      client: RedisClient,
+      codec: RedisCodec[K, V],
+      uri: JRedisURI
   ): Stream[F, Streaming[Stream[F, ?], K, V]] = {
     val acquire = JRFuture
       .fromConnectionFuture {
         Sync[F].delay(client.underlying.connectAsync[K, V](codec.underlying, uri))
       }
-      .map(c => new Fs2RawStreaming(c))
+      .map(c => new RedisRawStreaming(c))
 
-    val release: Fs2RawStreaming[F, K, V] => F[Unit] = c =>
+    val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
       JRFuture.fromCompletableFuture(Sync[F].delay(c.client.closeAsync())) *>
         Log[F].info(s"Releasing Streaming connection: $uri")
 
-    Stream.bracket(acquire)(release).map(rs => new Fs2Streaming(rs))
+    Stream.bracket(acquire)(release).map(rs => new RedisStream(rs))
   }
 
-  def mkMasterSlaveConnection[F[_]: Concurrent: ContextShift: Log, K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
-      readFrom: Option[ReadFrom] = None
-  ): Stream[F, Streaming[Stream[F, ?], K, V]] =
-    Stream.resource(Fs2RedisMasterSlave[F, K, V](codec, uris: _*)(readFrom)).map { conn =>
-      new Fs2Streaming(new Fs2RawStreaming(conn.underlying))
+  def mkMasterSlaveConnection[F[_]: Concurrent: ContextShift: Log, K, V](
+      codec: RedisCodec[K, V],
+      uris: JRedisURI*
+  )(readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]] =
+    Stream.resource(RedisMasterSlave[F, K, V](codec, uris: _*)(readFrom)).map { conn =>
+      new RedisStream(new RedisRawStreaming(conn.underlying))
     }
 
 }
 
-class Fs2Streaming[F[_]: Concurrent, K, V](rawStreaming: Fs2RawStreaming[F, K, V])
+class RedisStream[F[_]: Concurrent, K, V](rawStreaming: RedisRawStreaming[F, K, V])
     extends Streaming[Stream[F, ?], K, V] {
 
   private[streams] val nextOffset: K => StreamingMessageWithId[K, V] => StreamingOffset[K] =

@@ -20,11 +20,11 @@ import cats.effect.{ Clock, ContextShift, IO, Timer }
 import cats.syntax.apply._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.algebra._
-import dev.profunktor.redis4cats.connection.Fs2RedisClient
-import dev.profunktor.redis4cats.domain.{ DefaultRedisCodec, Fs2RedisCodec }
-import dev.profunktor.redis4cats.interpreter.Fs2Redis
-import io.lettuce.core.RedisURI
-import io.lettuce.core.codec.StringCodec
+import dev.profunktor.redis4cats.connection.RedisClient
+import dev.profunktor.redis4cats.domain.{ LiveRedisCodec, RedisCodec }
+import dev.profunktor.redis4cats.interpreter.Redis
+import io.lettuce.core.{ RedisURI => JRedisURI }
+import io.lettuce.core.codec.{ StringCodec => JStringCodec }
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }
 
 import scala.concurrent.{ ExecutionContext, SyncVar }
@@ -44,7 +44,7 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
 
   lazy val redisPort: Int = 6379
 
-  lazy val redisUri: RedisURI = RedisURI.create("redis://localhost")
+  lazy val redisUri: JRedisURI = JRedisURI.create("redis://localhost")
 
   private var dockerInstanceId: Option[String] = None
 
@@ -71,15 +71,15 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
     dockerInstanceId.foreach(stopRedis(_, clearContainers))
   }
 
-  private val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
+  private val stringCodec = LiveRedisCodec(JStringCodec.UTF8)
 
-  private def mkRedis[K, V](codec: Fs2RedisCodec[K, V]) =
-    Fs2RedisClient[IO](redisUri)
+  private def mkRedis[K, V](codec: RedisCodec[K, V]) =
+    RedisClient[IO](redisUri)
       .flatMap { client =>
-        Fs2Redis[IO, K, V](client, codec, redisUri)
+        Redis[IO, K, V](client, codec, redisUri)
       }
 
-  def withAbstractRedis[A, K, V](f: RedisCommands[IO, K, V] => IO[A])(codec: Fs2RedisCodec[K, V]): Unit =
+  def withAbstractRedis[A, K, V](f: RedisCommands[IO, K, V] => IO[A])(codec: RedisCodec[K, V]): Unit =
     mkRedis(codec).use(f).void.unsafeRunSync()
 
   def withRedis[A](f: RedisCommands[IO, String, String] => IO[A]): Unit =

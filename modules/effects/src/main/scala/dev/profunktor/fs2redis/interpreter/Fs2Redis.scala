@@ -24,75 +24,79 @@ import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effects._
-import io.lettuce.core._
+import io.lettuce.core.{ Limit => JLimit, Range => JRange, RedisURI => JRedisURI }
+import io.lettuce.core.{ GeoRadiusStoreArgs, GeoWithin, ScoredValue }
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 
 import scala.concurrent.duration.FiniteDuration
+import io.lettuce.core.GeoArgs
+import io.lettuce.core.ZAddArgs
+import io.lettuce.core.ZStoreArgs
 
-object Fs2Redis {
+object Redis {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
-      client: Fs2RedisClient,
-      codec: Fs2RedisCodec[K, V],
-      uri: RedisURI
-  ): (F[Fs2Redis[F, K, V]], Fs2Redis[F, K, V] => F[Unit]) = {
+      client: RedisClient,
+      codec: RedisCodec[K, V],
+      uri: JRedisURI
+  ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromConnectionFuture {
         Sync[F].delay(client.underlying.connectAsync(codec.underlying, uri))
       }
-      .map(c => new Fs2Redis(new Fs2RedisStatefulConnection(c)))
+      .map(c => new Redis(new RedisStatefulConnection(c)))
 
-    val release: Fs2Redis[F, K, V] => F[Unit] = c => Log[F].info(s"Releasing Commands connection: $uri") *> c.conn.close
+    val release: Redis[F, K, V] => F[Unit] = c => Log[F].info(s"Releasing Commands connection: $uri") *> c.conn.close
 
     (acquire, release)
   }
 
   private[redis4cats] def acquireAndReleaseCluster[F[_]: Concurrent: ContextShift: Log, K, V](
-      client: Fs2RedisClusterClient,
-      codec: Fs2RedisCodec[K, V]
-  ): (F[Fs2RedisCluster[F, K, V]], Fs2RedisCluster[F, K, V] => F[Unit]) = {
+      client: RedisClusterClient,
+      codec: RedisCodec[K, V]
+  ): (F[RedisCluster[F, K, V]], RedisCluster[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture {
         Sync[F].delay(client.underlying.connectAsync[K, V](codec.underlying))
       }
-      .map(c => new Fs2RedisCluster(new Fs2RedisStatefulClusterConnection(c)))
+      .map(c => new RedisCluster(new RedisStatefulClusterConnection(c)))
 
-    val release: Fs2RedisCluster[F, K, V] => F[Unit] = c =>
+    val release: RedisCluster[F, K, V] => F[Unit] = c =>
       Log[F].info(s"Releasing cluster Commands connection: ${client.underlying}") *> c.conn.close
 
     (acquire, release)
   }
 
   def apply[F[_]: Concurrent: ContextShift: Log, K, V](
-      client: Fs2RedisClient,
-      codec: Fs2RedisCodec[K, V],
-      uri: RedisURI
+      client: RedisClient,
+      codec: RedisCodec[K, V],
+      uri: JRedisURI
   ): Resource[F, RedisCommands[F, K, V]] = {
     val (acquire, release) = acquireAndRelease(client, codec, uri)
     Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
   }
 
   def cluster[F[_]: Concurrent: ContextShift: Log, K, V](
-      clusterClient: Fs2RedisClusterClient,
-      codec: Fs2RedisCodec[K, V]
+      clusterClient: RedisClusterClient,
+      codec: RedisCodec[K, V]
   ): Resource[F, RedisCommands[F, K, V]] = {
     val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec)
     Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
   }
 
   def masterSlave[F[_]: Concurrent: ContextShift: Log, K, V](
-      conn: Fs2RedisMasterSlaveConnection[K, V]
+      conn: RedisMasterSlaveConnection[K, V]
   ): F[RedisCommands[F, K, V]] =
-    new Fs2Redis[F, K, V](new Fs2RedisStatefulConnection(conn.underlying)).asInstanceOf[RedisCommands[F, K, V]].pure[F]
+    new Redis[F, K, V](new RedisStatefulConnection(conn.underlying)).asInstanceOf[RedisCommands[F, K, V]].pure[F]
 
 }
 
-private[redis4cats] class BaseFs2Redis[F[_]: ContextShift, K, V](
-    val conn: Fs2RedisConnection[F, K, V],
+private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
+    val conn: RedisConnection[F, K, V],
     val cluster: Boolean
 )(implicit F: Concurrent[F])
     extends RedisCommands[F, K, V]
-    with Fs2RedisConversionOps {
+    with RedisConversionOps {
 
   import scala.collection.JavaConverters._
 
@@ -670,7 +674,7 @@ private[redis4cats] class BaseFs2Redis[F[_]: ContextShift, K, V](
 
   override def zRemRangeByLex(key: K, range: ZRange[V]): F[Unit] =
     JRFuture {
-      async.flatMap(c => F.delay(c.zremrangebylex(key, Range.create[V](range.start, range.end))))
+      async.flatMap(c => F.delay(c.zremrangebylex(key, JRange.create[V](range.start, range.end))))
     }.void
 
   override def zRemRangeByRank(key: K, start: Long, stop: Long): F[Unit] =
@@ -703,7 +707,7 @@ private[redis4cats] class BaseFs2Redis[F[_]: ContextShift, K, V](
 
   override def zLexCount(key: K, range: ZRange[V]): F[Option[Long]] =
     JRFuture {
-      async.flatMap(c => F.delay(c.zlexcount(key, Range.create[V](range.start, range.end))))
+      async.flatMap(c => F.delay(c.zlexcount(key, JRange.create[V](range.start, range.end))))
     }.map(x => Option(Long.unbox(x)))
 
   override def zRange(key: K, start: Long, stop: Long): F[List[V]] =
@@ -716,9 +720,9 @@ private[redis4cats] class BaseFs2Redis[F[_]: ContextShift, K, V](
       limit match {
         case Some(x) =>
           async.flatMap(
-            c => F.delay(c.zrangebylex(key, Range.create[V](range.start, range.end), Limit.create(x.offset, x.count)))
+            c => F.delay(c.zrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
           )
-        case None => async.flatMap(c => F.delay(c.zrangebylex(key, Range.create[V](range.start, range.end))))
+        case None => async.flatMap(c => F.delay(c.zrangebylex(key, JRange.create[V](range.start, range.end))))
       }
     }.map(_.asScala.toList)
 
@@ -726,7 +730,7 @@ private[redis4cats] class BaseFs2Redis[F[_]: ContextShift, K, V](
     JRFuture {
       limit match {
         case Some(x) =>
-          async.flatMap(c => F.delay(c.zrangebyscore(key, range.asJavaRange, Limit.create(x.offset, x.count))))
+          async.flatMap(c => F.delay(c.zrangebyscore(key, range.asJavaRange, JLimit.create(x.offset, x.count))))
         case None => async.flatMap(c => F.delay(c.zrangebyscore(key, range.asJavaRange)))
       }
     }.map(_.asScala.toList)
@@ -740,7 +744,7 @@ private[redis4cats] class BaseFs2Redis[F[_]: ContextShift, K, V](
       limit match {
         case Some(x) =>
           async.flatMap(
-            c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, Limit.create(x.offset, x.count)))
+            c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
           )
         case None => async.flatMap(c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange)))
       }
@@ -767,9 +771,9 @@ private[redis4cats] class BaseFs2Redis[F[_]: ContextShift, K, V](
         case Some(x) =>
           async.flatMap(
             c =>
-              F.delay(c.zrevrangebylex(key, Range.create[V](range.start, range.end), Limit.create(x.offset, x.count)))
+              F.delay(c.zrevrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
           )
-        case None => async.flatMap(c => F.delay(c.zrevrangebylex(key, Range.create[V](range.start, range.end))))
+        case None => async.flatMap(c => F.delay(c.zrevrangebylex(key, JRange.create[V](range.start, range.end))))
       }
     }.map(_.asScala.toList)
 
@@ -777,7 +781,7 @@ private[redis4cats] class BaseFs2Redis[F[_]: ContextShift, K, V](
     JRFuture {
       limit match {
         case Some(x) =>
-          async.flatMap(c => F.delay(c.zrevrangebyscore(key, range.asJavaRange, Limit.create(x.offset, x.count))))
+          async.flatMap(c => F.delay(c.zrevrangebyscore(key, range.asJavaRange, JLimit.create(x.offset, x.count))))
         case None => async.flatMap(c => F.delay(c.zrevrangebyscore(key, range.asJavaRange)))
       }
     }.map(_.asScala.toList)
@@ -791,7 +795,7 @@ private[redis4cats] class BaseFs2Redis[F[_]: ContextShift, K, V](
       limit match {
         case Some(x) =>
           async.flatMap(
-            c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, Limit.create(x.offset, x.count)))
+            c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
           )
         case None => async.flatMap(c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange)))
       }
@@ -830,7 +834,7 @@ private[redis4cats] class BaseFs2Redis[F[_]: ContextShift, K, V](
     }.void
 }
 
-private[redis4cats] trait Fs2RedisConversionOps {
+private[redis4cats] trait RedisConversionOps {
 
   private[redis4cats] implicit class GeoRadiusResultOps[V](v: GeoWithin[V]) {
     def asGeoRadiusResult: GeoRadiusResult[V] =
@@ -861,10 +865,10 @@ private[redis4cats] trait Fs2RedisConversionOps {
   }
 
   private[redis4cats] implicit class ZRangeOps[T: Numeric](range: ZRange[T]) {
-    def asJavaRange: Range[Number] = {
+    def asJavaRange: JRange[Number] = {
       val start: Number = range.start.asInstanceOf[java.lang.Number]
       val end: Number   = range.end.asInstanceOf[java.lang.Number]
-      Range.create(start, end)
+      JRange.create(start, end)
     }
   }
 
@@ -874,10 +878,10 @@ private[redis4cats] trait Fs2RedisConversionOps {
 
 }
 
-private[redis4cats] class Fs2Redis[F[_]: Concurrent: ContextShift, K, V](
-    connection: Fs2RedisStatefulConnection[F, K, V]
-) extends BaseFs2Redis[F, K, V](connection, cluster = false)
+private[redis4cats] class Redis[F[_]: Concurrent: ContextShift, K, V](
+    connection: RedisStatefulConnection[F, K, V]
+) extends BaseRedis[F, K, V](connection, cluster = false)
 
-private[redis4cats] class Fs2RedisCluster[F[_]: Concurrent: ContextShift, K, V](
-    connection: Fs2RedisStatefulClusterConnection[F, K, V]
-) extends BaseFs2Redis[F, K, V](connection, cluster = true)
+private[redis4cats] class RedisCluster[F[_]: Concurrent: ContextShift, K, V](
+    connection: RedisStatefulClusterConnection[F, K, V]
+) extends BaseRedis[F, K, V](connection, cluster = true)

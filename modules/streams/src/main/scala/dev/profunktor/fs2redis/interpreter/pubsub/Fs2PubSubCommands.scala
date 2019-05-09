@@ -20,7 +20,7 @@ import cats.effect.{ ConcurrentEffect, ContextShift, Sync }
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.{ PubSubCommands, PubSubStats, SubscribeCommands }
-import dev.profunktor.redis4cats.domain.Fs2RedisChannel
+import dev.profunktor.redis4cats.domain.RedisChannel
 import dev.profunktor.redis4cats.interpreter.pubsub.internals.{ Fs2PubSubInternals, PubSubState }
 import dev.profunktor.redis4cats.streams.Subscription
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
@@ -37,13 +37,13 @@ class Fs2PubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     new Fs2Subscriber[F, K, V](state, subConnection)
   private[redis4cats] val pubSubStats: PubSubStats[Stream[F, ?], K] = new Fs2PubSubStats(pubConnection)
 
-  override def subscribe(channel: Fs2RedisChannel[K]): Stream[F, V] =
+  override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     subCommands.subscribe(channel)
 
-  override def unsubscribe(channel: Fs2RedisChannel[K]): Stream[F, Unit] =
+  override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
     subCommands.unsubscribe(channel)
 
-  override def publish(channel: Fs2RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
+  override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
     _.evalMap { message =>
       val getOrCreateTopicListener = Fs2PubSubInternals[F, K, V](state, subConnection)
       for {
@@ -56,10 +56,10 @@ class Fs2PubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
   override def pubSubChannels: Stream[F, List[K]] =
     pubSubStats.pubSubChannels
 
-  override def pubSubSubscriptions(channel: Fs2RedisChannel[K]): Stream[F, Subscription[K]] =
+  override def pubSubSubscriptions(channel: RedisChannel[K]): Stream[F, Subscription[K]] =
     pubSubStats.pubSubSubscriptions(channel)
 
-  override def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
+  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
     pubSubStats.pubSubSubscriptions(channels)
 
 }

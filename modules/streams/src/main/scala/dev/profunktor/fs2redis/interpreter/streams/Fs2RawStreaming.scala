@@ -26,7 +26,7 @@ import io.lettuce.core.api.StatefulRedisConnection
 
 import scala.collection.JavaConverters._
 
-private[streams] class Fs2RawStreaming[F[_]: Concurrent: ContextShift, K, V](
+private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
     val client: StatefulRedisConnection[K, V]
 ) extends RawStreaming[F, K, V] {
 

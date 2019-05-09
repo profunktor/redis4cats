@@ -18,37 +18,37 @@ package dev.profunktor.redis4cats.connection
 
 import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
 import cats.implicits._
-import dev.profunktor.redis4cats.domain.{ DefaultRedisClusterClient, Fs2RedisClusterClient }
+import dev.profunktor.redis4cats.domain.{ LiveRedisClusterClient, RedisClusterClient }
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
-import io.lettuce.core.RedisURI
-import io.lettuce.core.cluster.RedisClusterClient
+import io.lettuce.core.{ RedisURI => JRedisURI }
+import io.lettuce.core.cluster.{ RedisClusterClient => JClusterClient }
 
 import scala.collection.JavaConverters._
 
-object Fs2RedisClusterClient {
+object RedisClusterClient {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
-      uri: RedisURI*
-  ): (F[Fs2RedisClusterClient], Fs2RedisClusterClient => F[Unit]) = {
+      uri: JRedisURI*
+  ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
 
-    val acquire: F[Fs2RedisClusterClient] =
+    val acquire: F[RedisClusterClient] =
       Log[F].info(s"Acquire Redis Cluster client") *>
         Sync[F]
-          .delay(RedisClusterClient.create(uri.asJava))
+          .delay(JClusterClient.create(uri.asJava))
           .flatTap(initializeClusterPartitions[F])
-          .map(DefaultRedisClusterClient)
+          .map(LiveRedisClusterClient)
 
-    val release: Fs2RedisClusterClient => F[Unit] = client =>
+    val release: RedisClusterClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *>
         JRFuture.fromCompletableFuture(Sync[F].delay(client.underlying.shutdownAsync())).void
 
     (acquire, release)
   }
 
-  private[redis4cats] def initializeClusterPartitions[F[_]: Sync](client: RedisClusterClient): F[Unit] =
+  private[redis4cats] def initializeClusterPartitions[F[_]: Sync](client: JClusterClient): F[Unit] =
     Sync[F].delay(client.getPartitions).void
 
-  def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI*): Resource[F, Fs2RedisClusterClient] = {
+  def apply[F[_]: Concurrent: ContextShift: Log](uri: JRedisURI*): Resource[F, RedisClusterClient] = {
     val (acquire, release) = acquireAndRelease(uri: _*)
     Resource.make(acquire)(release)
   }

@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
-import dev.profunktor.redis4cats.domain.DefaultRedisCodec
+import dev.profunktor.redis4cats.domain.LiveRedisCodec
 import org.scalatest.FunSuite
 
 class Fs2RedisClusterSpec extends FunSuite with RedisClusterTest with Fs2TestScenarios {
@@ -33,7 +33,7 @@ class Fs2RedisClusterSpec extends FunSuite with RedisClusterTest with Fs2TestSce
   test("cluster: sets api")(withRedisCluster(setsScenario))
 
   test("cluster: sorted sets api")(
-    withAbstractRedisCluster[Unit, String, Long](sortedSetsScenario)(DefaultRedisCodec(LongCodec))
+    withAbstractRedisCluster[Unit, String, Long](sortedSetsScenario)(LiveRedisCodec(LongCodec))
   )
 
   test("cluster: strings api")(withRedisCluster(stringsClusterScenario))

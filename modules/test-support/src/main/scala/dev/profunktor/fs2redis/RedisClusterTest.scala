@@ -20,11 +20,11 @@ import cats.effect.{ Clock, ContextShift, IO, Timer }
 import cats.syntax.apply._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.algebra._
-import dev.profunktor.redis4cats.connection.Fs2RedisClusterClient
-import dev.profunktor.redis4cats.domain.{ DefaultRedisCodec, Fs2RedisCodec }
-import dev.profunktor.redis4cats.interpreter.Fs2Redis
-import io.lettuce.core.RedisURI
-import io.lettuce.core.codec.StringCodec
+import dev.profunktor.redis4cats.connection.RedisClusterClient
+import dev.profunktor.redis4cats.domain.{ LiveRedisCodec, RedisCodec }
+import dev.profunktor.redis4cats.interpreter.Redis
+import io.lettuce.core.{ RedisURI => JRedisURI }
+import io.lettuce.core.codec.{ StringCodec => JStringCodec }
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }
 
 import scala.concurrent.ExecutionContext
@@ -42,17 +42,17 @@ trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self:
   lazy val firstPort = 30001
   lazy val lastPort  = 30006
 
-  lazy val redisUri: List[RedisURI] = List(
+  lazy val redisUri: List[JRedisURI] = List(
     "redis://localhost:30001",
     "redis://localhost:30002",
     "redis://localhost:30003"
-  ).map(RedisURI.create)
+  ).map(JRedisURI.create)
 
   implicit val cts: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
   implicit val timer: Timer[IO]      = IO.timer(ExecutionContext.global)
   implicit val clock: Clock[IO]      = timer.clock
 
-  private val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
+  private val stringCodec = LiveRedisCodec(JStringCodec.UTF8)
 
   private var dockerInstanceId: Option[String] = None
 
@@ -75,15 +75,15 @@ trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self:
     dockerInstanceId.foreach(stopRedis(_, clearContainers))
   }
 
-  private def mkRedisCluster[K, V](codec: Fs2RedisCodec[K, V]) =
-    Fs2RedisClusterClient[IO](redisUri: _*)
+  private def mkRedisCluster[K, V](codec: RedisCodec[K, V]) =
+    RedisClusterClient[IO](redisUri: _*)
       .flatMap { client =>
-        Fs2Redis.cluster[IO, K, V](client, codec)
+        Redis.cluster[IO, K, V](client, codec)
       }
 
   def withAbstractRedisCluster[A, K, V](
       f: RedisCommands[IO, K, V] => IO[A]
-  )(codec: Fs2RedisCodec[K, V]): Unit =
+  )(codec: RedisCodec[K, V]): Unit =
     mkRedisCluster(codec).use(f).void.unsafeRunSync()
 
   def withRedisCluster[A](f: RedisCommands[IO, String, String] => IO[A]): Unit =

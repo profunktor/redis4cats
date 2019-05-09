@@ -20,7 +20,7 @@ import cats.effect.ConcurrentEffect
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
 import cats.syntax.all._
-import dev.profunktor.redis4cats.domain.Fs2RedisChannel
+import dev.profunktor.redis4cats.domain.RedisChannel
 import dev.profunktor.redis4cats.effect.Log
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnection }
@@ -28,13 +28,13 @@ import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnecti
 object Fs2PubSubInternals {
 
   private[redis4cats] def defaultListener[F[_]: ConcurrentEffect, K, V](
-      fs2RedisChannel: Fs2RedisChannel[K],
+      channel: RedisChannel[K],
       topic: Topic[F, Option[V]]
   ): RedisPubSubListener[K, V] =
     new RedisPubSubListener[K, V] {
-      override def message(channel: K, message: V): Unit =
-        if (channel == fs2RedisChannel.value) {
-          topic.publish1(Option(message)).toIO.unsafeRunAsync(_ => ())
+      override def message(ch: K, msg: V): Unit =
+        if (ch == channel.value) {
+          topic.publish1(Option(msg)).toIO.unsafeRunAsync(_ => ())
         }
       override def message(pattern: K, channel: K, message: V): Unit = this.message(channel, message)
       override def psubscribed(pattern: K, count: Long): Unit        = ()

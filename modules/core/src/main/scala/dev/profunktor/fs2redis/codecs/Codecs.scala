@@ -16,11 +16,11 @@
 
 package dev.profunktor.redis4cats.codecs
 
-import dev.profunktor.redis4cats.domain.{ DefaultRedisCodec, Fs2RedisCodec }
+import dev.profunktor.redis4cats.domain.{ LiveRedisCodec, RedisCodec }
 import java.nio.ByteBuffer
 
 import dev.profunktor.redis4cats.codecs.splits.SplitEpi
-import io.lettuce.core.codec.{ RedisCodec, ToByteBufEncoder }
+import io.lettuce.core.codec.{ RedisCodec => JRedisCodec, ToByteBufEncoder }
 import io.netty.buffer.ByteBuf
 
 object Codecs {
@@ -30,12 +30,12 @@ object Codecs {
     * a new `Fs2RedisCodec[K, V]` can be derived.
     * */
   def derive[K, V](
-      baseCodec: Fs2RedisCodec[K, K],
+      baseCodec: RedisCodec[K, K],
       epi: SplitEpi[K, V]
-  ): Fs2RedisCodec[K, V] = {
+  ): RedisCodec[K, V] = {
     val codec = baseCodec.underlying
-    DefaultRedisCodec(
-      new RedisCodec[K, V] with ToByteBufEncoder[K, V] {
+    LiveRedisCodec(
+      new JRedisCodec[K, V] with ToByteBufEncoder[K, V] {
         override def decodeKey(bytes: ByteBuffer): K              = codec.decodeKey(bytes)
         override def encodeKey(key: K): ByteBuffer                = codec.encodeKey(key)
         override def encodeValue(value: V): ByteBuffer            = codec.encodeValue(epi.reverseGet(value))

@@ -21,7 +21,7 @@ import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.SubscribeCommands
 import dev.profunktor.redis4cats.interpreter.pubsub.internals.{ Fs2PubSubInternals, PubSubState }
-import dev.profunktor.redis4cats.domain.Fs2RedisChannel
+import dev.profunktor.redis4cats.domain.RedisChannel
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import fs2.Stream
 import fs2.concurrent.Topic
@@ -32,7 +32,7 @@ class Fs2Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     subConnection: StatefulRedisPubSubConnection[K, V]
 ) extends SubscribeCommands[Stream[F, ?], K, V] {
 
-  override def subscribe(channel: Fs2RedisChannel[K]): Stream[F, V] = {
+  override def subscribe(channel: RedisChannel[K]): Stream[F, V] = {
     val getOrCreateTopicListener = Fs2PubSubInternals[F, K, V](state, subConnection)
     val setup: F[Topic[F, Option[V]]] =
       for {
@@ -44,7 +44,7 @@ class Fs2Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     Stream.eval(setup).flatMap(_.subscribe(500).unNone)
   }
 
-  override def unsubscribe(channel: Fs2RedisChannel[K]): Stream[F, Unit] =
+  override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
     Stream.eval {
       JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.value))).void
     }

@@ -39,14 +39,14 @@ class Fs2PubSubStats[F[_]: Concurrent: ContextShift, K, V](
       }
       .map(_.asScala.toList)
 
-  override def pubSubSubscriptions(channel: Fs2RedisChannel[K]): Stream[F, Subscription[K]] =
+  override def pubSubSubscriptions(channel: RedisChannel[K]): Stream[F, Subscription[K]] =
     pubSubSubscriptions(List(channel)).map(_.headOption).unNone
 
-  override def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
+  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
     Stream.eval {
       for {
         kv <- JRFuture(Sync[F].delay(pubConnection.async().pubsubNumsub(channels.map(_.value): _*)))
-        rs <- Sync[F].delay(kv.asScala.toList.map { case (k, n) => Subscription(DefaultChannel[K](k), n) })
+        rs <- Sync[F].delay(kv.asScala.toList.map { case (k, n) => Subscription(LiveChannel[K](k), n) })
       } yield rs
     }
 
