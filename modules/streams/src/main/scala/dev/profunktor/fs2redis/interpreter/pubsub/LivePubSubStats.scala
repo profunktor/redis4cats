@@ -28,7 +28,7 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 import scala.collection.JavaConverters._
 
-class Fs2PubSubStats[F[_]: Concurrent: ContextShift, K, V](
+class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
 ) extends PubSubStats[Stream[F, ?], K] {
 

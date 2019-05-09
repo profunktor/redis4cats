@@ -20,7 +20,7 @@ import cats.effect.IO
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.domain.LiveChannel
 import dev.profunktor.redis4cats.effect.Log
-import dev.profunktor.redis4cats.interpreter.pubsub.Fs2PubSub
+import dev.profunktor.redis4cats.interpreter.pubsub.PubSub
 import fs2.{ Pipe, Stream }
 
 import scala.concurrent.duration._
@@ -40,7 +40,7 @@ object Fs2PubSubDemo extends LoggerIOApp {
     for {
       uri <- Stream.eval(RedisURI.make[IO](redisURI))
       client <- Stream.resource(RedisClient[IO](uri))
-      pubSub <- Fs2PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, uri)
+      pubSub <- PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, uri)
       sub1 = pubSub.subscribe(eventsChannel)
       sub2 = pubSub.subscribe(gamesChannel)
       pub1 = pubSub.publish(eventsChannel)

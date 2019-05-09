@@ -25,7 +25,7 @@ import dev.profunktor.redis4cats.effect.Log
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnection }
 
-object Fs2PubSubInternals {
+object PubSubInternals {
 
   private[redis4cats] def defaultListener[F[_]: ConcurrentEffect, K, V](
       channel: RedisChannel[K],

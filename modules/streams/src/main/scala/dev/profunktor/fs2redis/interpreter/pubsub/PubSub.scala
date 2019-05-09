@@ -27,7 +27,7 @@ import fs2.concurrent.Topic
 import io.lettuce.core.{ RedisURI => JRedisURI }
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-object Fs2PubSub {
+object PubSub {
 
   private[redis4cats] def acquireAndRelease[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: RedisClient,
@@ -62,7 +62,7 @@ object Fs2PubSub {
       state <- Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]]))
       sConn <- Stream.bracket(acquire)(release)
       pConn <- Stream.bracket(acquire)(release)
-      subs <- Stream.emit(new Fs2PubSubCommands[F, K, V](state, sConn, pConn))
+      subs <- Stream.emit(new LivePubSubCommands[F, K, V](state, sConn, pConn))
     } yield subs
 
   }
@@ -78,7 +78,7 @@ object Fs2PubSub {
       uri: JRedisURI
   ): Stream[F, PublishCommands[Stream[F, ?], K, V]] = {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec, uri)
-    Stream.bracket(acquire)(release).map(c => new Fs2Publisher[F, K, V](c))
+    Stream.bracket(acquire)(release).map(c => new Publisher[F, K, V](c))
   }
 
   /**
@@ -96,7 +96,7 @@ object Fs2PubSub {
     for {
       state <- Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]]))
       sConn <- Stream.bracket(acquire)(release)
-    } yield new Fs2Subscriber[F, K, V](state, sConn)
+    } yield new Subscriber[F, K, V](state, sConn)
   }
 
 }

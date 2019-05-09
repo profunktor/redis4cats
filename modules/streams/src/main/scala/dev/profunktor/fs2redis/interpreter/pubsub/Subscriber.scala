@@ -20,20 +20,20 @@ import cats.effect.{ ConcurrentEffect, ContextShift, Sync }
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.SubscribeCommands
-import dev.profunktor.redis4cats.interpreter.pubsub.internals.{ Fs2PubSubInternals, PubSubState }
+import dev.profunktor.redis4cats.interpreter.pubsub.internals.{ PubSubInternals, PubSubState }
 import dev.profunktor.redis4cats.domain.RedisChannel
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import fs2.Stream
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-class Fs2Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
+class Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V]
 ) extends SubscribeCommands[Stream[F, ?], K, V] {
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] = {
-    val getOrCreateTopicListener = Fs2PubSubInternals[F, K, V](state, subConnection)
+    val getOrCreateTopicListener = PubSubInternals[F, K, V](state, subConnection)
     val setup: F[Topic[F, Option[V]]] =
       for {
         st <- state.get
