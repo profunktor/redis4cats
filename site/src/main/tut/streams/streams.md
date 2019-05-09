@@ -10,23 +10,23 @@ High-level, safe and pure functional API on top of [Redis Streams](https://redis
 
 ### Establishing a connection
 
-There are two ways of establishing a connection using the `Fs2Streaming` companion object:
+There are two ways of establishing a connection using the `RedisStream` interpreter:
 
 #### Single connection
 
 ```scala
 def mkStreamingConnection[F[_], K, V](
-  client: Fs2RedisClient,
-  codec: Fs2RedisCodec[K, V],
-  uri: RedisURI
+  client: RedisClient,
+  codec: RedisCodec[K, V],
+  uri: JRedisURI
 ): Stream[F, Streaming[Stream[F, ?], K, V]]
 ```
 
 #### Master / Slave connection
 
 ```scala
-def mkMasterSlaveConnection[F[_], K, V](codec: Fs2RedisCodec[K, V], uris: RedisURI*)(
-  readFrom: Option[ReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]]
+def mkMasterSlaveConnection[F[_], K, V](codec: RedisCodec[K, V], uris: JRedisURI*)(
+  readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]]
 ```
 
 #### Cluster connection
@@ -51,16 +51,15 @@ trait Streaming[F[_], K, V] {
 ```tut:silent
 import cats.effect.IO
 import cats.syntax.parallel._
-import dev.profunktor.redis4cats.connection.Fs2RedisClient
+import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
 import dev.profunktor.redis4cats.domain._
-import dev.profunktor.redis4cats.interpreter.streams.Fs2Streaming
+import dev.profunktor.redis4cats.interpreter.streams.RedisStream
 import dev.profunktor.redis4cats.log4cats._
 import dev.profunktor.redis4cats.streams._
 import fs2.Stream
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
-import io.lettuce.core.RedisURI
-import io.lettuce.core.codec.StringCodec
+import io.lettuce.core.codec.{ StringCodec => JStringCodec }
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -70,8 +69,7 @@ implicit val timer = IO.timer(ExecutionContext.global)
 implicit val cs    = IO.contextShift(ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
-val redisURI    = RedisURI.create("redis://localhost")
-val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
+val stringCodec = LiveRedisCodec(JStringCodec.UTF8)
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 
@@ -88,8 +86,9 @@ def randomMessage: Stream[IO, StreamingMessage[String, String]] = Stream.eval {
 }
 
 for {
-  client    <- Stream.resource(Fs2RedisClient[IO](redisURI))
-  streaming <- Fs2Streaming.mkStreamingConnection[IO, String, String](client, stringCodec, redisURI)
+  redisURI  <- Stream.eval(RedisURI.make[IO]("redis://localhost"))
+  client    <- Stream.resource(RedisClient[IO](redisURI))
+  streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec, redisURI)
   source    = streaming.read(Set(streamKey1, streamKey2))
   appender  = streaming.append
   rs <- Stream(

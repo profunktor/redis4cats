@@ -12,7 +12,7 @@ Purely functional interface for the [Sorted Sets API](https://redis.io/commands#
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.SortedSetCommands
-import dev.profunktor.redis4cats.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
@@ -21,7 +21,7 @@ implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
 val commandsApi: Resource[IO, SortedSetCommands[IO, String, Long]] = {
-  Fs2Redis[IO, String, String](null, null, null).map(_.asInstanceOf[SortedSetCommands[IO, String, Long]])
+  Redis[IO, String, String](null, null, null).map(_.asInstanceOf[SortedSetCommands[IO, String, Long]])
 }
 ```
 

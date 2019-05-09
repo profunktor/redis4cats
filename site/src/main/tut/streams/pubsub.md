@@ -10,15 +10,15 @@ Simple, safe and pure functional streaming client to interact with [Redis PubSub
 
 ### Establishing a connection
 
-There are three options available in the `Fs2PubSub` interpreter:
+There are three options available in the `PubSub` interpreter:
 
 - `mkPubSubConnection`: Whenever you need one or more subscribers and publishers / stats.
 - `mkSubscriberConnection`: When all you need is one or more subscribers but no publishing / stats.
 - `mkPublisherConnection`: When all you need is to publish / stats.
 
 ```tut:invisible
-trait Fs2RedisChannel[K] { def value: K }
-case class Subscription[K](channel: Fs2RedisChannel[K], number: Long)
+trait RedisChannel[K] { def value: K }
+case class Subscription[K](channel: RedisChannel[K], number: Long)
 ```
 
 Note: cluster support is not implemented yet.
@@ -27,63 +27,62 @@ Note: cluster support is not implemented yet.
 
 ```tut:silent
 trait SubscribeCommands[F[_], K, V] {
-  def subscribe(channel: Fs2RedisChannel[K]): F[V]
-  def unsubscribe(channel: Fs2RedisChannel[K]): F[Unit]
+  def subscribe(channel: RedisChannel[K]): F[V]
+  def unsubscribe(channel: RedisChannel[K]): F[Unit]
 }
 ```
 
-When using the `Fs2PubSub` interpreter the types will be `Stream[F, V]` and `Stream[F, Unit]` respectively.
+When using the `PubSub` interpreter the types will be `Stream[F, V]` and `Stream[F, Unit]` respectively.
 
 ### Publisher / PubSubStats
 
 ```tut:silent
 trait PubSubStats[F[_], K] {
   def pubSubChannels: F[List[K]]
-  def pubSubSubscriptions(channel: Fs2RedisChannel[K]): F[Subscription[K]]
-  def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): F[List[Subscription[K]]]
+  def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]
+  def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
 }
 
 trait PublishCommands[F[_], K, V] extends PubSubStats[F, K] {
-  def publish(channel: Fs2RedisChannel[K]): F[V] => F[Unit]
+  def publish(channel: RedisChannel[K]): F[V] => F[Unit]
 }
 ```
 
-When using the `Fs2PubSub` interpreter the `publish` function will be defined as a `Sink[F, V]` that can be connected to a `Stream[F, ?]` source.
+When using the `PubSub` interpreter the `publish` function will be defined as a `Sink[F, V]` that can be connected to a `Stream[F, ?]` source.
 
 ### PubSub example
 
 ```tut:book:silent
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.apply._
-import dev.profunktor.redis4cats.connection.Fs2RedisClient
-import dev.profunktor.redis4cats.domain.{DefaultChannel, DefaultRedisCodec}
-import dev.profunktor.redis4cats.interpreter.pubsub.Fs2PubSub
+import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
+import dev.profunktor.redis4cats.domain.{ LiveChannel, LiveRedisCodec }
+import dev.profunktor.redis4cats.interpreter.pubsub.PubSub
 import dev.profunktor.redis4cats.log4cats._
 import fs2.{Sink, Stream}
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
-import io.lettuce.core.RedisURI
-import io.lettuce.core.codec.StringCodec
+import io.lettuce.core.codec.{ StringCodec => JStringCodec }
 
 import scala.concurrent.duration._
 import scala.util.Random
 
-object Fs2PubSubDemo extends IOApp {
+object PubSubDemo extends IOApp {
 
   implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
-  private val redisURI    = RedisURI.create("redis://localhost")
-  private val stringCodec = DefaultRedisCodec(StringCodec.UTF8)
+  private val stringCodec = LiveRedisCodec(JStringCodec.UTF8)
 
-  private val eventsChannel = DefaultChannel("events")
-  private val gamesChannel  = DefaultChannel("games")
+  private val eventsChannel = LiveChannel("events")
+  private val gamesChannel  = LiveChannel("games")
 
   def sink(name: String): Sink[IO, String] = _.evalMap(x => IO(println(s"Subscriber: $name >> $x")))
 
   def stream(args: List[String]): Stream[IO, Unit] =
     for {
-      client <- Stream.resource(Fs2RedisClient[IO](redisURI))
-      pubSub <- Fs2PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, redisURI)
+      redisURI <- Stream.eval(RedisURI.make[IO]("redis://localhost"))
+      client <- Stream.resource(RedisClient[IO](redisURI))
+      pubSub <- PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, redisURI)
       sub1   = pubSub.subscribe(eventsChannel)
       sub2   = pubSub.subscribe(gamesChannel)
       pub1   = pubSub.publish(eventsChannel)
