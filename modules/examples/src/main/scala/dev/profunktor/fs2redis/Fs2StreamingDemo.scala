@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import cats.effect.IO
 import cats.syntax.parallel._
-import dev.profunktor.fs2redis.connection._
-import dev.profunktor.fs2redis.effect.Log
-import dev.profunktor.fs2redis.interpreter.streams.Fs2Streaming
-import dev.profunktor.fs2redis.streams.StreamingMessage
+import dev.profunktor.redis4cats.connection._
+import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.interpreter.streams.RedisStream
+import dev.profunktor.redis4cats.streams.StreamingMessage
 import fs2.Stream
 
 import scala.concurrent.duration._
@@ -45,9 +45,9 @@ object Fs2StreamingDemo extends LoggerIOApp {
 
   def stream(implicit log: Log[IO]): Stream[IO, Unit] =
     for {
-      uri <- Stream.eval(Fs2RedisURI.make[IO](redisURI))
-      client <- Stream.resource(Fs2RedisClient[IO](uri))
-      streaming <- Fs2Streaming.mkStreamingConnection[IO, String, String](client, stringCodec, uri)
+      uri <- Stream.eval(RedisURI.make[IO](redisURI))
+      client <- Stream.resource(RedisClient[IO](uri))
+      streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec, uri)
       source   = streaming.read(Set(streamKey1, streamKey2))
       appender = streaming.append
       rs <- Stream(

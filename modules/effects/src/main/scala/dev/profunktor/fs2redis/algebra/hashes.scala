@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.algebra
+package dev.profunktor.redis4cats.algebra
 
 trait HashCommands[F[_], K, V] extends HashGetter[F, K, V] with HashSetter[F, K, V] with HashIncrement[F, K, V] {
   def hDel(key: K, fields: K*): F[Unit]

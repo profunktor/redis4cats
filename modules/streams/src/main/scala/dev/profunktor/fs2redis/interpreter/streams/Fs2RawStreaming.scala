@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.interpreter.streams
+package dev.profunktor.redis4cats.interpreter.streams
 
 import cats.effect.{ Concurrent, ContextShift, Sync }
 import cats.syntax.functor._
-import dev.profunktor.fs2redis.algebra.RawStreaming
-import dev.profunktor.fs2redis.streams._
-import dev.profunktor.fs2redis.effect.JRFuture
+import dev.profunktor.redis4cats.algebra.RawStreaming
+import dev.profunktor.redis4cats.streams._
+import dev.profunktor.redis4cats.effect.JRFuture
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
 
 import scala.collection.JavaConverters._
 
-private[streams] class Fs2RawStreaming[F[_]: Concurrent: ContextShift, K, V](
+private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
     val client: StatefulRedisConnection[K, V]
 ) extends RawStreaming[F, K, V] {
 

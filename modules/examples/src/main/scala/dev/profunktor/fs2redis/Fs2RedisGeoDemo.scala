@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
-import dev.profunktor.fs2redis.algebra.GeoCommands
-import dev.profunktor.fs2redis.connection._
-import dev.profunktor.fs2redis.effect.Log
-import dev.profunktor.fs2redis.effects._
-import dev.profunktor.fs2redis.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.algebra.GeoCommands
+import dev.profunktor.redis4cats.connection._
+import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effects._
+import dev.profunktor.redis4cats.interpreter.Redis
 import io.lettuce.core.GeoArgs
 
 object Fs2RedisGeoDemo extends LoggerIOApp {
@@ -33,9 +33,9 @@ object Fs2RedisGeoDemo extends LoggerIOApp {
 
     val commandsApi: Resource[IO, GeoCommands[IO, String, String]] =
       for {
-        uri <- Resource.liftF(Fs2RedisURI.make[IO](redisURI))
-        client <- Fs2RedisClient[IO](uri)
-        redis <- Fs2Redis[IO, String, String](client, stringCodec, uri)
+        uri <- Resource.liftF(RedisURI.make[IO](redisURI))
+        client <- RedisClient[IO](uri)
+        redis <- Redis[IO, String, String](client, stringCodec, uri)
       } yield redis
 
     val _BuenosAires  = GeoLocation(Longitude(-58.3816), Latitude(-34.6037), "Buenos Aires")

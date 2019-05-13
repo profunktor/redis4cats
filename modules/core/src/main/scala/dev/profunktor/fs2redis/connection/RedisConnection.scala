@@ -14,33 +14,34 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.connection
+package dev.profunktor.redis4cats.connection
+
 import cats.effect.{ Concurrent, ContextShift, Sync }
 import cats.syntax.all._
-import dev.profunktor.fs2redis.effect.JRFuture
+import dev.profunktor.redis4cats.effect.JRFuture
 import io.lettuce.core.api.StatefulRedisConnection
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 
-private[fs2redis] trait Fs2RedisConnection[F[_], K, V] {
+private[redis4cats] trait RedisConnection[F[_], K, V] {
   def async: F[RedisAsyncCommands[K, V]]
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]]
   def close: F[Unit]
 }
 
-private[fs2redis] class Fs2RedisStatefulConnection[F[_]: Concurrent: ContextShift, K, V](
+private[redis4cats] class RedisStatefulConnection[F[_]: Concurrent: ContextShift, K, V](
     conn: StatefulRedisConnection[K, V]
-) extends Fs2RedisConnection[F, K, V] {
+) extends RedisConnection[F, K, V] {
   override def async: F[RedisAsyncCommands[K, V]] = Sync[F].delay(conn.async())
   override def clusterAsync: F[RedisClusterAsyncCommands[K, V]] =
     Sync[F].raiseError(new Exception("Operation not supported"))
   override def close: F[Unit] = JRFuture.fromCompletableFuture(Sync[F].delay(conn.closeAsync())).void
 }
 
-private[fs2redis] class Fs2RedisStatefulClusterConnection[F[_]: Concurrent: ContextShift, K, V](
+private[redis4cats] class RedisStatefulClusterConnection[F[_]: Concurrent: ContextShift, K, V](
     conn: StatefulRedisClusterConnection[K, V]
-) extends Fs2RedisConnection[F, K, V] {
+) extends RedisConnection[F, K, V] {
   override def async: F[RedisAsyncCommands[K, V]] =
     Sync[F].raiseError(new Exception("Transactions are not supported on a cluster"))
   override def clusterAsync: F[RedisClusterAsyncCommands[K, V]] = Sync[F].delay(conn.async())

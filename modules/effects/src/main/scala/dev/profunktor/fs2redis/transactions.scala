@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._
-import dev.profunktor.fs2redis.algebra._
-import dev.profunktor.fs2redis.effect.Log
+import dev.profunktor.redis4cats.algebra._
+import dev.profunktor.redis4cats.effect.Log
 
 object transactions {
 

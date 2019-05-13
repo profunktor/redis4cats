@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.connection
+package dev.profunktor.redis4cats.connection
 
 import cats.effect.Sync
-import io.lettuce.core.RedisURI
+import io.lettuce.core.{ RedisURI => JRedisURI }
 
-object Fs2RedisURI {
-  def make[F[_]: Sync](uri: => String): F[RedisURI] =
-    Sync[F].delay(RedisURI.create(uri))
+object RedisURI {
+  def make[F[_]: Sync](uri: => String): F[JRedisURI] =
+    Sync[F].delay(JRedisURI.create(uri))
 }

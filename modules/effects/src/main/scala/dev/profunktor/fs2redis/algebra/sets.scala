@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.algebra
+package dev.profunktor.redis4cats.algebra
 
 trait SetCommands[F[_], K, V] extends SetGetter[F, K, V] with SetSetter[F, K, V] with SetDeletion[F, K, V] {
   def sIsMember(key: K, value: V): F[Boolean]

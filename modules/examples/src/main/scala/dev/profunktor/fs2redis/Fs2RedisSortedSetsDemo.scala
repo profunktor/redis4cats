@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
-import dev.profunktor.fs2redis.algebra.SortedSetCommands
-import dev.profunktor.fs2redis.connection._
-import dev.profunktor.fs2redis.effect.Log
-import dev.profunktor.fs2redis.effects.{ Score, ScoreWithValue, ZRange }
-import dev.profunktor.fs2redis.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.algebra.SortedSetCommands
+import dev.profunktor.redis4cats.connection._
+import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effects.{ Score, ScoreWithValue, ZRange }
+import dev.profunktor.redis4cats.interpreter.Redis
 
 object Fs2RedisSortedSetsDemo extends LoggerIOApp {
 
@@ -32,9 +32,9 @@ object Fs2RedisSortedSetsDemo extends LoggerIOApp {
 
     val commandsApi: Resource[IO, SortedSetCommands[IO, String, Long]] =
       for {
-        uri <- Resource.liftF(Fs2RedisURI.make[IO](redisURI))
-        client <- Fs2RedisClient[IO](uri)
-        redis <- Fs2Redis[IO, String, Long](client, longCodec, uri)
+        uri <- Resource.liftF(RedisURI.make[IO](redisURI))
+        client <- RedisClient[IO](uri)
+        redis <- Redis[IO, String, Long](client, longCodec, uri)
       } yield redis
 
     commandsApi

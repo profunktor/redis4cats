@@ -14,41 +14,41 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
-import io.lettuce.core.RedisClient
-import io.lettuce.core.cluster.RedisClusterClient
-import io.lettuce.core.codec.{ RedisCodec, ToByteBufEncoder }
+import io.lettuce.core.{ RedisClient => JRedisClient }
+import io.lettuce.core.cluster.{ RedisClusterClient => JClusterClient }
+import io.lettuce.core.codec.{ RedisCodec => JRedisCodec, ToByteBufEncoder }
 import io.lettuce.core.masterslave.StatefulRedisMasterSlaveConnection
 
 object domain {
 
-  trait Fs2RedisClient {
-    def underlying: RedisClient
+  trait RedisClient {
+    def underlying: JRedisClient
   }
-  case class DefaultRedisClient(underlying: RedisClient) extends Fs2RedisClient
+  case class LiveRedisClient(underlying: JRedisClient) extends RedisClient
 
-  trait Fs2RedisClusterClient {
-    def underlying: RedisClusterClient
+  trait RedisClusterClient {
+    def underlying: JClusterClient
   }
-  case class DefaultRedisClusterClient(underlying: RedisClusterClient) extends Fs2RedisClusterClient
+  case class LiveRedisClusterClient(underlying: JClusterClient) extends RedisClusterClient
 
-  trait Fs2RedisMasterSlaveConnection[K, V] {
+  trait RedisMasterSlaveConnection[K, V] {
     def underlying: StatefulRedisMasterSlaveConnection[K, V]
   }
-  case class DefaultRedisMasterSlaveConnection[K, V](underlying: StatefulRedisMasterSlaveConnection[K, V])
-      extends Fs2RedisMasterSlaveConnection[K, V]
+  case class LiveRedisMasterSlaveConnection[K, V](underlying: StatefulRedisMasterSlaveConnection[K, V])
+      extends RedisMasterSlaveConnection[K, V]
 
-  trait Fs2RedisChannel[K] {
+  trait RedisChannel[K] {
     def value: K
   }
-  case class DefaultChannel[K](value: K) extends Fs2RedisChannel[K]
+  case class LiveChannel[K](value: K) extends RedisChannel[K]
 
-  type JCodec[K, V] = RedisCodec[K, V] with ToByteBufEncoder[K, V]
+  type JCodec[K, V] = JRedisCodec[K, V] with ToByteBufEncoder[K, V]
 
-  trait Fs2RedisCodec[K, V] {
+  trait RedisCodec[K, V] {
     def underlying: JCodec[K, V]
   }
-  case class DefaultRedisCodec[K, V](underlying: JCodec[K, V]) extends Fs2RedisCodec[K, V]
+  case class LiveRedisCodec[K, V](underlying: JCodec[K, V]) extends RedisCodec[K, V]
 
 }

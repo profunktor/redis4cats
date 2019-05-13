@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.algebra
+package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.fs2redis.domain._
-import dev.profunktor.fs2redis.streams.Subscription
+import dev.profunktor.redis4cats.domain._
+import dev.profunktor.redis4cats.streams.Subscription
 
 trait PubSubStats[F[_], K] {
   def pubSubChannels: F[List[K]]
-  def pubSubSubscriptions(channel: Fs2RedisChannel[K]): F[Subscription[K]]
-  def pubSubSubscriptions(channels: List[Fs2RedisChannel[K]]): F[List[Subscription[K]]]
+  def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]
+  def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
 }
 
 trait PublishCommands[F[_], K, V] extends PubSubStats[F, K] {
-  def publish(channel: Fs2RedisChannel[K]): F[V] => F[Unit]
+  def publish(channel: RedisChannel[K]): F[V] => F[Unit]
 }
 
 trait SubscribeCommands[F[_], K, V] {
-  def subscribe(channel: Fs2RedisChannel[K]): F[V]
-  def unsubscribe(channel: Fs2RedisChannel[K]): F[Unit]
+  def subscribe(channel: RedisChannel[K]): F[V]
+  def unsubscribe(channel: RedisChannel[K]): F[Unit]
 }
 
 trait PubSubCommands[F[_], K, V] extends PublishCommands[F, K, V] with SubscribeCommands[F, K, V]

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
-import dev.profunktor.fs2redis.effect.Log
+import dev.profunktor.redis4cats.effect.Log
 import io.chrisdavenport.log4cats.Logger
 
 object log4cats {

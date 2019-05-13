@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.codecs.splits
+package dev.profunktor.redis4cats.codecs.splits
 
 // Credits to Rob Norris (@tpolecat) -> https://skillsmatter.com/skillscasts/11626-keynote-pushing-types-and-gazing-at-the-stars
 final case class SplitMono[A, B](

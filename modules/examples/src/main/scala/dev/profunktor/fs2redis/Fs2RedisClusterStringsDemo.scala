@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
-import dev.profunktor.fs2redis.algebra.StringCommands
-import dev.profunktor.fs2redis.connection._
-import dev.profunktor.fs2redis.effect.Log
-import dev.profunktor.fs2redis.interpreter.Fs2Redis
+import dev.profunktor.redis4cats.algebra.StringCommands
+import dev.profunktor.redis4cats.connection._
+import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.interpreter.Redis
 
 object Fs2RedisClusterStringsDemo extends LoggerIOApp {
 
@@ -34,9 +34,9 @@ object Fs2RedisClusterStringsDemo extends LoggerIOApp {
 
     val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
       for {
-        uri <- Resource.liftF(Fs2RedisURI.make[IO](redisClusterURI))
-        client <- Fs2RedisClusterClient[IO](uri)
-        redis <- Fs2Redis.cluster[IO, String, String](client, stringCodec)
+        uri <- Resource.liftF(RedisURI.make[IO](redisClusterURI))
+        client <- RedisClusterClient[IO](uri)
+        redis <- Redis.cluster[IO, String, String](client, stringCodec)
       } yield redis
 
     commandsApi

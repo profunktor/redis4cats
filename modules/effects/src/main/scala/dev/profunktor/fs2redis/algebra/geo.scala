@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.algebra
+package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.fs2redis.effects._
+import dev.profunktor.redis4cats.effects._
 import io.lettuce.core.GeoArgs
 
 // format: off

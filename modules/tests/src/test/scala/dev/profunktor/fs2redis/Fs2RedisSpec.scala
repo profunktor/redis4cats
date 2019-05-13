@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis
+package dev.profunktor.redis4cats
 
-import dev.profunktor.fs2redis.domain.DefaultRedisCodec
-import io.lettuce.core.codec.{ RedisCodec, StringCodec, ToByteBufEncoder }
+import dev.profunktor.redis4cats.domain.LiveRedisCodec
+import io.lettuce.core.codec.{ RedisCodec => JRedisCodec, StringCodec => JStringCodec, ToByteBufEncoder }
 import io.netty.buffer.ByteBuf
 import org.scalatest.FunSuite
 
@@ -31,7 +31,7 @@ class Fs2RedisSpec extends FunSuite with DockerRedis with Fs2TestScenarios {
 
   test("sets api")(withRedis(setsScenario))
 
-  test("sorted sets api")(withAbstractRedis(sortedSetsScenario)(DefaultRedisCodec(LongCodec)))
+  test("sorted sets api")(withAbstractRedis(sortedSetsScenario)(LiveRedisCodec(LongCodec)))
 
   test("strings api")(withRedis(stringsScenario))
 
@@ -40,11 +40,11 @@ class Fs2RedisSpec extends FunSuite with DockerRedis with Fs2TestScenarios {
   test("transactions")(withRedis(transactionScenario))
 }
 
-object LongCodec extends RedisCodec[String, Long] with ToByteBufEncoder[String, Long] {
+object LongCodec extends JRedisCodec[String, Long] with ToByteBufEncoder[String, Long] {
 
   import java.nio.ByteBuffer
 
-  private val codec = StringCodec.UTF8
+  private val codec = JStringCodec.UTF8
 
   override def decodeKey(bytes: ByteBuffer): String            = codec.decodeKey(bytes)
   override def encodeKey(key: String): ByteBuffer              = codec.encodeKey(key)

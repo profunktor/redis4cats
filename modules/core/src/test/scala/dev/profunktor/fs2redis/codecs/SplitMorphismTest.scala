@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.codecs
+package dev.profunktor.redis4cats.codecs
 
 import cats.tests.CatsSuite
-import dev.profunktor.fs2redis.codecs.splits._
+import dev.profunktor.redis4cats.codecs.splits._
 
 import scala.util.Try
 

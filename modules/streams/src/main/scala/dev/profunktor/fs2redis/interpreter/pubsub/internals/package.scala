@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.interpreter.pubsub
+package dev.profunktor.redis4cats.interpreter.pubsub
 
-import dev.profunktor.fs2redis.domain.Fs2RedisChannel
+import dev.profunktor.redis4cats.domain.RedisChannel
 import fs2.concurrent.Topic
 
 package object internals {
   private[pubsub] type PubSubState[F[_], K, V] = Map[K, Topic[F, Option[V]]]
   private[pubsub] type GetOrCreateTopicListener[F[_], K, V] =
-    Fs2RedisChannel[K] => PubSubState[F, K, V] => F[Topic[F, Option[V]]]
+    RedisChannel[K] => PubSubState[F, K, V] => F[Topic[F, Option[V]]]
 }

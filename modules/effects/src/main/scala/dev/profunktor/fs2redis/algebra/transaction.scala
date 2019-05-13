@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.algebra
+package dev.profunktor.redis4cats.algebra
 
 trait TransactionalCommands[F[_], K] extends Transaction[F] with Watcher[F, K]
 

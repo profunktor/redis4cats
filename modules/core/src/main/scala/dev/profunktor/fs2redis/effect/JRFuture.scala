@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.effect
+package dev.profunktor.redis4cats.effect
 
 import java.util.concurrent.{ CompletableFuture, CompletionStage, Future }
 
@@ -26,7 +26,7 @@ object JRFuture {
 
   case class EmptyValue(msg: String = "Empty value") extends Throwable(msg)
 
-  private[fs2redis] type JFuture[A] = CompletionStage[A] with Future[A]
+  private[redis4cats] type JFuture[A] = CompletionStage[A] with Future[A]
 
   def apply[F[_]: Async: ContextShift, A](fa: F[RedisFuture[A]]): F[A] =
     liftJFuture[F, RedisFuture[A], A](fa)
@@ -37,7 +37,7 @@ object JRFuture {
   def fromCompletableFuture[F[_]: Async: ContextShift, A](fa: F[CompletableFuture[A]]): F[A] =
     liftJFuture[F, CompletableFuture[A], A](fa)
 
-  private[fs2redis] def liftJFuture[F[_], G <: JFuture[A], A](
+  private[redis4cats] def liftJFuture[F[_], G <: JFuture[A], A](
       fa: F[G]
   )(implicit F: Async[F], cs: ContextShift[F]): F[A] =
     fa.flatMap { f =>

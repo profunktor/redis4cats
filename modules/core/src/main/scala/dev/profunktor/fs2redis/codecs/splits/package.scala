@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.fs2redis.codecs
+package dev.profunktor.redis4cats.codecs
 
 import scala.util.Try
 
