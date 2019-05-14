@@ -18,10 +18,9 @@ package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.connection._
-import dev.profunktor.redis4cats.domain.RedisMasterSlaveConnection
+import dev.profunktor.redis4cats.domain.{ ReadFrom, RedisMasterSlaveConnection }
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.Redis
-import io.lettuce.core.{ ReadFrom => JReadFrom }
 
 object Fs2RedisMasterSlaveStringsDemo extends LoggerIOApp {
 
@@ -35,7 +34,7 @@ object Fs2RedisMasterSlaveStringsDemo extends LoggerIOApp {
 
     val connection: Resource[IO, RedisMasterSlaveConnection[String, String]] =
       Resource.liftF(RedisURI.make[IO](redisURI)).flatMap { uri =>
-        RedisMasterSlave[IO, String, String](stringCodec, uri)(Some(JReadFrom.MASTER_PREFERRED))
+        RedisMasterSlave[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
       }
 
     connection

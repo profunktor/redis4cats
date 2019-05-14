@@ -39,6 +39,7 @@ val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
 import cats.effect.IO
 import cats.implicits._
 import dev.profunktor.redis4cats._
+import dev.profunktor.redis4cats.transactions._
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 

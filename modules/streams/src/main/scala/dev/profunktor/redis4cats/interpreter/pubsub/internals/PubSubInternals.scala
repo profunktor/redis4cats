@@ -33,7 +33,7 @@ object PubSubInternals {
   ): RedisPubSubListener[K, V] =
     new RedisPubSubListener[K, V] {
       override def message(ch: K, msg: V): Unit =
-        if (ch == channel.value) {
+        if (ch == channel.underlying) {
           topic.publish1(Option(msg)).toIO.unsafeRunAsync(_ => ())
         }
       override def message(pattern: K, channel: K, message: V): Unit = this.message(channel, message)
@@ -47,15 +47,14 @@ object PubSubInternals {
       state: Ref[F, PubSubState[F, K, V]],
       subConnection: StatefulRedisPubSubConnection[K, V]
   )(implicit F: ConcurrentEffect[F], L: Log[F]): GetOrCreateTopicListener[F, K, V] = { channel => st =>
-    st.get(channel.value)
+    st.get(channel.underlying)
       .fold {
-        for {
-          topic <- Topic[F, Option[V]](None)
-          listener = defaultListener(channel, topic)
-          _ <- L.info(s"Creating listener for channel: $channel")
-          _ <- F.delay(subConnection.addListener(listener))
-          _ <- state.update(_.updated(channel.value, topic))
-        } yield topic
+        Topic[F, Option[V]](None).flatTap { topic =>
+          val listener = defaultListener(channel, topic)
+          L.info(s"Creating listener for channel: $channel") *>
+            F.delay(subConnection.addListener(listener)) *>
+            state.update(_.updated(channel.underlying, topic))
+        }
       }(F.pure)
   }
 

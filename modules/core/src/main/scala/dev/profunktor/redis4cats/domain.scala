@@ -16,9 +16,9 @@
 
 package dev.profunktor.redis4cats
 
-import io.lettuce.core.{ RedisClient => JRedisClient }
+import io.lettuce.core.{ RedisClient => JRedisClient, ReadFrom => JReadFrom }
 import io.lettuce.core.cluster.{ RedisClusterClient => JClusterClient }
-import io.lettuce.core.codec.{ RedisCodec => JRedisCodec, ToByteBufEncoder }
+import io.lettuce.core.codec.{ RedisCodec => JRedisCodec, StringCodec, ToByteBufEncoder }
 import io.lettuce.core.masterslave.StatefulRedisMasterSlaveConnection
 
 object domain {
@@ -40,9 +40,9 @@ object domain {
       extends RedisMasterSlaveConnection[K, V]
 
   trait RedisChannel[K] {
-    def value: K
+    def underlying: K
   }
-  case class LiveChannel[K](value: K) extends RedisChannel[K]
+  case class LiveChannel[K](underlying: K) extends RedisChannel[K]
 
   type JCodec[K, V] = JRedisCodec[K, V] with ToByteBufEncoder[K, V]
 
@@ -50,5 +50,18 @@ object domain {
     def underlying: JCodec[K, V]
   }
   case class LiveRedisCodec[K, V](underlying: JCodec[K, V]) extends RedisCodec[K, V]
+
+  object RedisCodec {
+    val Ascii = LiveRedisCodec(StringCodec.ASCII)
+    val Utf8  = LiveRedisCodec(StringCodec.UTF8)
+  }
+
+  object ReadFrom {
+    val Master          = JReadFrom.MASTER
+    val MasterPreferred = JReadFrom.MASTER_PREFERRED
+    val Nearest         = JReadFrom.NEAREST
+    val Slave           = JReadFrom.SLAVE
+    val SlavePreferred  = JReadFrom.SLAVE_PREFERRED
+  }
 
 }

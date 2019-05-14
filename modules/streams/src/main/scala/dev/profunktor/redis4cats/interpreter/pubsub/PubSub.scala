@@ -92,11 +92,9 @@ object PubSub {
       uri: JRedisURI
   ): Stream[F, SubscribeCommands[Stream[F, ?], K, V]] = {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec, uri)
-
-    for {
-      state <- Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]]))
-      sConn <- Stream.bracket(acquire)(release)
-    } yield new Subscriber[F, K, V](state, sConn)
+    Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]])).flatMap { st =>
+      Stream.bracket(acquire)(release).map(new Subscriber(st, _))
+    }
   }
 
 }

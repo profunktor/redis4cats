@@ -33,7 +33,7 @@ private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
   override def xAdd(key: K, body: Map[K, V]): F[MessageId] =
     JRFuture {
       Sync[F].delay(client.async().xadd(key, body.asJava))
-    }.map(MessageId.apply)
+    }.map(MessageId)
 
   override def xRead(streams: Set[StreamingOffset[K]]): F[List[StreamingMessageWithId[K, V]]] = {
     val offsets = streams.map(s => StreamOffset.from(s.key, s.offset)).toSeq

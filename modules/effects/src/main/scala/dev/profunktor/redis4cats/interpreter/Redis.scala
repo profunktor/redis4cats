@@ -15,7 +15,6 @@
  */
 
 package dev.profunktor.redis4cats.interpreter
-import java.util.concurrent.TimeUnit
 
 import cats.effect._
 import cats.implicits._
@@ -25,13 +24,10 @@ import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effects._
 import io.lettuce.core.{ Limit => JLimit, Range => JRange, RedisURI => JRedisURI }
-import io.lettuce.core.{ GeoRadiusStoreArgs, GeoWithin, ScoredValue }
+import io.lettuce.core.{ GeoArgs, GeoRadiusStoreArgs, GeoWithin, ScoredValue, ZAddArgs, ZStoreArgs }
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
-
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
-import io.lettuce.core.GeoArgs
-import io.lettuce.core.ZAddArgs
-import io.lettuce.core.ZStoreArgs
 
 object Redis {
 

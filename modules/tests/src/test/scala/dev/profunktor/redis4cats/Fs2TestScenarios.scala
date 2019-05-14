@@ -21,6 +21,7 @@ import cats.implicits._
 import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.effects._
+import dev.profunktor.redis4cats.transactions._
 import io.lettuce.core.GeoArgs
 
 trait Fs2TestScenarios {

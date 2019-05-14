@@ -28,7 +28,7 @@ def apply[F[_]](uri: RedisURI): Resource[F, RedisClient]
 
 ### Logger
 
-In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either create your own or use `log4cats` (recommended). `fs2-redis` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to add the extra dependency `fs2-redis-log4cats` and `import dev.profunktor.redis4cats.log4cats._`.
+In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either create your own or use `log4cats` (recommended). `redis4cats` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to add the extra dependency `redis4cats-log4cats` and `import dev.profunktor.redis4cats.log4cats._`.
 
 Take a look at the [examples](https://github.com/gvolpe/fs2-redis/blob/master/modules/examples/src/main/scala/dev.profunktor.redis4cats/LoggerIOApp.scala) to find out more.
 
@@ -41,18 +41,16 @@ import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.StringCommands
 import dev.profunktor.redis4cats.connection.{RedisClient, RedisURI}
-import dev.profunktor.redis4cats.domain.{LiveRedisCodec, RedisCodec}
+import dev.profunktor.redis4cats.domain.RedisCodec
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.log4cats._
-import io.lettuce.core.{ RedisURI => JRedisURI }
-import io.lettuce.core.codec.{RedisCodec => JRedisCodec, StringCodec => JStringCodec}
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
 implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
-val stringCodec: RedisCodec[String, String] = LiveRedisCodec(JStringCodec.UTF8)
+val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
 val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
@@ -89,7 +87,7 @@ The process is a bit different. First of all, you don't need to create a `RedisC
 
 ```scala
 def apply[F[_], K, V](codec: RedisCodec[K, V], uris: JRedisURI*)(
-  readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterSlaveConnection[K, V]]
+  readFrom: Option[ReadFrom] = None): Resource[F, RedisMasterSlaveConnection[K, V]]
 ```
 
 #### Example using the Strings API
@@ -100,15 +98,13 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.StringCommands
 import dev.profunktor.redis4cats.connection.RedisMasterSlave
 import dev.profunktor.redis4cats.interpreter.Redis
-import dev.profunktor.redis4cats.domain.RedisMasterSlaveConnection
-import io.lettuce.core.{ReadFrom => JReadFrom, RedisURI => JRedisURI}
-import io.lettuce.core.codec.{RedisCodec => JRedisCodec, StringCodec => JStringCodec}
+import dev.profunktor.redis4cats.domain.{ RedisMasterSlaveConnection, ReadFrom }
 
-val stringCodec: RedisCodec[String, String] = LiveRedisCodec(JStringCodec.UTF8)
+val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
 val connection: Resource[IO, RedisMasterSlaveConnection[String, String]] =
   Resource.liftF(RedisURI.make[IO]("redis://localhost")).flatMap { uri =>
-    RedisMasterSlave[IO, String, String](stringCodec, uri)(Some(JReadFrom.MASTER_PREFERRED))
+    RedisMasterSlave[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
   }
 
 connection.use { conn =>
