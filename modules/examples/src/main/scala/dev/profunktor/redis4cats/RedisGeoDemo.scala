@@ -24,7 +24,7 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.interpreter.Redis
 import io.lettuce.core.GeoArgs
 
-object Fs2RedisGeoDemo extends LoggerIOApp {
+object RedisGeoDemo extends LoggerIOApp {
 
   import Demo._
 

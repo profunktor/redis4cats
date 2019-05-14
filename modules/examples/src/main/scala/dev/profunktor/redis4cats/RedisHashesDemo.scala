@@ -22,7 +22,7 @@ import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.Redis
 
-object Fs2RedisHashesDemo extends LoggerIOApp {
+object RedisHashesDemo extends LoggerIOApp {
 
   import Demo._
 

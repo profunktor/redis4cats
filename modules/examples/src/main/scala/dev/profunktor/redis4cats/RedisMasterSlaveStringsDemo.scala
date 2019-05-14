@@ -22,7 +22,7 @@ import dev.profunktor.redis4cats.domain.{ ReadFrom, RedisMasterSlaveConnection }
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.Redis
 
-object Fs2RedisMasterSlaveStringsDemo extends LoggerIOApp {
+object RedisMasterSlaveStringsDemo extends LoggerIOApp {
 
   import Demo._
 

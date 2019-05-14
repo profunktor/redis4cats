@@ -17,8 +17,7 @@
 package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
-import cats.instances.list._
-import cats.syntax.all._
+import cats.implicits._
 import dev.profunktor.redis4cats.algebra.RedisCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log

@@ -26,7 +26,7 @@ import fs2.{ Pipe, Stream }
 import scala.concurrent.duration._
 import scala.util.Random
 
-object Fs2PubSubDemo extends LoggerIOApp {
+object PubSubDemo extends LoggerIOApp {
 
   import Demo._
 

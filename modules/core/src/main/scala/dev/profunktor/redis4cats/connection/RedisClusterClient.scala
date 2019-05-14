@@ -18,10 +18,11 @@ package dev.profunktor.redis4cats.connection
 
 import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
 import cats.implicits._
-import dev.profunktor.redis4cats.domain.{ LiveRedisClusterClient, RedisClusterClient }
+import dev.profunktor.redis4cats.domain.{ LiveRedisClusterClient, NodeId, RedisClusterClient }
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import io.lettuce.core.{ RedisURI => JRedisURI }
-import io.lettuce.core.cluster.{ RedisClusterClient => JClusterClient }
+import io.lettuce.core.cluster.{ SlotHash, RedisClusterClient => JClusterClient }
+import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
 
 import scala.collection.JavaConverters._
 
@@ -52,5 +53,16 @@ object RedisClusterClient {
     val (acquire, release) = acquireAndRelease(uri: _*)
     Resource.make(acquire)(release)
   }
+
+  def nodeId[F[_]: Sync](
+      client: RedisClusterClient,
+      keyName: String
+  ): F[NodeId] =
+    Sync[F].delay(SlotHash.getSlot(keyName)).flatMap { slot =>
+      partitions(client).map(_.getPartitionBySlot(slot).getNodeId).map(NodeId)
+    }
+
+  def partitions[F[_]: Sync](client: RedisClusterClient): F[JPartitions] =
+    Sync[F].delay(client.underlying.getPartitions())
 
 }
