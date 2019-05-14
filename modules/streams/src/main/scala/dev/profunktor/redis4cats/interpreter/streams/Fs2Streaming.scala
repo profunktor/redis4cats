@@ -39,7 +39,7 @@ object RedisStream {
       .fromConnectionFuture {
         Sync[F].delay(client.underlying.connectAsync[K, V](codec.underlying, uri))
       }
-      .map(c => new RedisRawStreaming(c))
+      .map(new RedisRawStreaming(_))
 
     val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
       JRFuture.fromCompletableFuture(Sync[F].delay(c.client.closeAsync())) *>

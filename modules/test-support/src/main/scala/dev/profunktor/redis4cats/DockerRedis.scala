@@ -16,17 +16,15 @@
 
 package dev.profunktor.redis4cats
 
-import cats.effect.{ Clock, ContextShift, IO, Timer }
+import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.algebra._
-import dev.profunktor.redis4cats.connection.RedisClient
+import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
 import dev.profunktor.redis4cats.domain.{ LiveRedisCodec, RedisCodec }
 import dev.profunktor.redis4cats.interpreter.Redis
-import io.lettuce.core.{ RedisURI => JRedisURI }
 import io.lettuce.core.codec.{ StringCodec => JStringCodec }
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }
-
 import scala.concurrent.{ ExecutionContext, SyncVar }
 import scala.sys.process.{ Process, ProcessLogger }
 import scala.util.Random
@@ -43,8 +41,6 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
   lazy val clearContainers: Boolean = false
 
   lazy val redisPort: Int = 6379
-
-  lazy val redisUri: JRedisURI = JRedisURI.create("redis://localhost")
 
   private var dockerInstanceId: Option[String] = None
 
@@ -74,10 +70,11 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
   private val stringCodec = LiveRedisCodec(JStringCodec.UTF8)
 
   private def mkRedis[K, V](codec: RedisCodec[K, V]) =
-    RedisClient[IO](redisUri)
-      .flatMap { client =>
-        Redis[IO, K, V](client, codec, redisUri)
-      }
+    for {
+      uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
+      client <- RedisClient[IO](uri)
+      redis <- Redis[IO, K, V](client, codec, uri)
+    } yield redis
 
   def withAbstractRedis[A, K, V](f: RedisCommands[IO, K, V] => IO[A])(codec: RedisCodec[K, V]): Unit =
     mkRedis(codec).use(f).void.unsafeRunSync()

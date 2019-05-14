@@ -26,7 +26,7 @@ def mkStreamingConnection[F[_], K, V](
 
 ```scala
 def mkMasterSlaveConnection[F[_], K, V](codec: RedisCodec[K, V], uris: JRedisURI*)(
-  readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]]
+  readFrom: Option[ReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]]
 ```
 
 #### Cluster connection
@@ -59,8 +59,6 @@ import dev.profunktor.redis4cats.streams._
 import fs2.Stream
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
-import io.lettuce.core.codec.{ StringCodec => JStringCodec }
-
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.Random
@@ -69,7 +67,7 @@ implicit val timer = IO.timer(ExecutionContext.global)
 implicit val cs    = IO.contextShift(ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
-val stringCodec = LiveRedisCodec(JStringCodec.UTF8)
+val stringCodec = RedisCodec.Utf8
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 

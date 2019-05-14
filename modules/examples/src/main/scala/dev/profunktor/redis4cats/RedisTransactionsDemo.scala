@@ -23,8 +23,9 @@ import dev.profunktor.redis4cats.algebra.RedisCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.Redis
+import dev.profunktor.redis4cats.transactions._
 
-object Fs2RedisTransactionsDemo extends LoggerIOApp {
+object RedisTransactionsDemo extends LoggerIOApp {
 
   import Demo._
 

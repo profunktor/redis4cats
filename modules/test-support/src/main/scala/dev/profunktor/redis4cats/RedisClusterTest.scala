@@ -17,17 +17,16 @@
 package dev.profunktor.redis4cats
 
 import cats.effect.{ Clock, ContextShift, IO, Timer }
-import cats.syntax.apply._
-import cats.syntax.functor._
+import cats.implicits._
 import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.connection.RedisClusterClient
-import dev.profunktor.redis4cats.domain.{ LiveRedisCodec, RedisCodec }
+import dev.profunktor.redis4cats.domain.RedisCodec
 import dev.profunktor.redis4cats.interpreter.Redis
-import io.lettuce.core.{ RedisURI => JRedisURI }
-import io.lettuce.core.codec.{ StringCodec => JStringCodec }
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }
 
 import scala.concurrent.ExecutionContext
+import cats.effect.Resource
+import dev.profunktor.redis4cats.connection.RedisURI
 
 trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suite =>
   import DockerRedis._, testLogger._
@@ -42,17 +41,17 @@ trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self:
   lazy val firstPort = 30001
   lazy val lastPort  = 30006
 
-  lazy val redisUri: List[JRedisURI] = List(
+  lazy val redisUri = List(
     "redis://localhost:30001",
     "redis://localhost:30002",
     "redis://localhost:30003"
-  ).map(JRedisURI.create)
+  ).traverse(RedisURI.make[IO](_))
 
   implicit val cts: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
   implicit val timer: Timer[IO]      = IO.timer(ExecutionContext.global)
   implicit val clock: Clock[IO]      = timer.clock
 
-  private val stringCodec = LiveRedisCodec(JStringCodec.UTF8)
+  private val stringCodec = RedisCodec.Utf8
 
   private var dockerInstanceId: Option[String] = None
 
@@ -75,11 +74,12 @@ trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self:
     dockerInstanceId.foreach(stopRedis(_, clearContainers))
   }
 
-  private def mkRedisCluster[K, V](codec: RedisCodec[K, V]) =
-    RedisClusterClient[IO](redisUri: _*)
-      .flatMap { client =>
-        Redis.cluster[IO, K, V](client, codec)
-      }
+  private def mkRedisCluster[K, V](codec: RedisCodec[K, V]): Resource[IO, RedisCommands[IO, K, V]] =
+    for {
+      uris <- Resource.liftF(redisUri)
+      client <- RedisClusterClient[IO](uris: _*)
+      cluster <- Redis.cluster[IO, K, V](client, codec)
+    } yield cluster
 
   def withAbstractRedisCluster[A, K, V](
       f: RedisCommands[IO, K, V] => IO[A]

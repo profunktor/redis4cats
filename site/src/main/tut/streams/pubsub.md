@@ -56,13 +56,12 @@ When using the `PubSub` interpreter the `publish` function will be defined as a 
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.apply._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
-import dev.profunktor.redis4cats.domain.{ LiveChannel, LiveRedisCodec }
+import dev.profunktor.redis4cats.domain.{ LiveChannel, RedisCodec }
 import dev.profunktor.redis4cats.interpreter.pubsub.PubSub
 import dev.profunktor.redis4cats.log4cats._
 import fs2.{Sink, Stream}
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
-import io.lettuce.core.codec.{ StringCodec => JStringCodec }
 
 import scala.concurrent.duration._
 import scala.util.Random
@@ -71,7 +70,7 @@ object PubSubDemo extends IOApp {
 
   implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
-  private val stringCodec = LiveRedisCodec(JStringCodec.UTF8)
+  private val stringCodec = RedisCodec.Utf8
 
   private val eventsChannel = LiveChannel("events")
   private val gamesChannel  = LiveChannel("games")

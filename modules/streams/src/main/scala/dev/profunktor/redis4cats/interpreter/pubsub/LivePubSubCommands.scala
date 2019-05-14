@@ -17,22 +17,38 @@
 package dev.profunktor.redis4cats.interpreter.pubsub
 
 import cats.effect.{ ConcurrentEffect, ContextShift, Sync }
-import cats.syntax.functor._
-import dev.profunktor.redis4cats.algebra.{ PubSubStats, PublishCommands }
+import cats.effect.concurrent.Ref
+import cats.syntax.all._
+import dev.profunktor.redis4cats.algebra.{ PubSubCommands, PubSubStats, SubscribeCommands }
 import dev.profunktor.redis4cats.domain.RedisChannel
+import dev.profunktor.redis4cats.interpreter.pubsub.internals.{ PubSubInternals, PubSubState }
 import dev.profunktor.redis4cats.streams.Subscription
-import dev.profunktor.redis4cats.effect.JRFuture
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-class Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](pubConnection: StatefulRedisPubSubConnection[K, V])
-    extends PublishCommands[Stream[F, ?], K, V] {
+class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
+    state: Ref[F, PubSubState[F, K, V]],
+    subConnection: StatefulRedisPubSubConnection[K, V],
+    pubConnection: StatefulRedisPubSubConnection[K, V]
+) extends PubSubCommands[Stream[F, ?], K, V] {
 
+  private[redis4cats] val subCommands: SubscribeCommands[Stream[F, ?], K, V] =
+    new Subscriber[F, K, V](state, subConnection)
   private[redis4cats] val pubSubStats: PubSubStats[Stream[F, ?], K] = new LivePubSubStats(pubConnection)
+
+  override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
+    subCommands.subscribe(channel)
+
+  override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
+    subCommands.unsubscribe(channel)
 
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
     _.evalMap { message =>
-      JRFuture { Sync[F].delay(pubConnection.async().publish(channel.value, message)) }.void
+      state.get.flatMap { st =>
+        PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) *>
+          JRFuture { Sync[F].delay(pubConnection.async().publish(channel.underlying, message)) }
+      }.void
     }
 
   override def pubSubChannels: Stream[F, List[K]] =

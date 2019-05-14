@@ -19,14 +19,13 @@ package dev.profunktor.redis4cats
 import cats.effect.IO
 import dev.profunktor.redis4cats.codecs.Codecs
 import dev.profunktor.redis4cats.codecs.splits._
-import dev.profunktor.redis4cats.domain.{ LiveRedisCodec, RedisCodec }
-import io.lettuce.core.codec.StringCodec
+import dev.profunktor.redis4cats.domain.RedisCodec
 
 object Demo {
 
   val redisURI: String                        = "redis://localhost"
   val redisClusterURI: String                 = "redis://localhost:30001"
-  val stringCodec: RedisCodec[String, String] = LiveRedisCodec(StringCodec.UTF8)
+  val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
   val longCodec: RedisCodec[String, Long]     = Codecs.derive[String, Long](stringCodec, stringLongEpi)
 
   def putStrLn[A](a: A): IO[Unit] = IO(println(a))
