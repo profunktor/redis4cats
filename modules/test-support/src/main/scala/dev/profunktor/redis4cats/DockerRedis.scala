@@ -21,9 +21,8 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
-import dev.profunktor.redis4cats.domain.{ LiveRedisCodec, RedisCodec }
+import dev.profunktor.redis4cats.domain.RedisCodec
 import dev.profunktor.redis4cats.interpreter.Redis
-import io.lettuce.core.codec.{ StringCodec => JStringCodec }
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }
 import scala.concurrent.{ ExecutionContext, SyncVar }
 import scala.sys.process.{ Process, ProcessLogger }
@@ -67,7 +66,7 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
     dockerInstanceId.foreach(stopRedis(_, clearContainers))
   }
 
-  private val stringCodec = LiveRedisCodec(JStringCodec.UTF8)
+  private val stringCodec = RedisCodec.Utf8
 
   private def mkRedis[K, V](codec: RedisCodec[K, V]) =
     for {

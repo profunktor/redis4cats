@@ -16,17 +16,15 @@
 
 package dev.profunktor.redis4cats
 
-import cats.effect.{ Clock, ContextShift, IO, Timer }
+import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.algebra._
-import dev.profunktor.redis4cats.connection.RedisClusterClient
+import dev.profunktor.redis4cats.connection.{ RedisClusterClient, RedisURI }
 import dev.profunktor.redis4cats.domain.RedisCodec
 import dev.profunktor.redis4cats.interpreter.Redis
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }
 
 import scala.concurrent.ExecutionContext
-import cats.effect.Resource
-import dev.profunktor.redis4cats.connection.RedisURI
 
 trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suite =>
   import DockerRedis._, testLogger._
