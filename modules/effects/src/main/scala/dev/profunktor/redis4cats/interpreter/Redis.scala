@@ -25,6 +25,7 @@ import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effects._
 import io.lettuce.core.{ Limit => JLimit, Range => JRange, RedisURI => JRedisURI }
 import io.lettuce.core.{ GeoArgs, GeoRadiusStoreArgs, GeoWithin, ScoredValue, ZAddArgs, ZStoreArgs }
+import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
@@ -63,6 +64,29 @@ object Redis {
     (acquire, release)
   }
 
+  private[redis4cats] def acquireAndReleaseClusterByNode[F[_]: Concurrent: ContextShift: Log, K, V](
+      client: RedisClusterClient,
+      codec: RedisCodec[K, V],
+      nodeId: NodeId
+  ): (F[BaseRedis[F, K, V]], BaseRedis[F, K, V] => F[Unit]) = {
+    val acquire = JRFuture
+      .fromCompletableFuture {
+        Sync[F].delay(client.underlying.connectAsync[K, V](codec.underlying))
+      }
+      .map { c =>
+        new BaseRedis[F, K, V](new RedisStatefulClusterConnection(c), cluster = true) {
+          override def async: F[RedisClusterAsyncCommands[K, V]] =
+            if (cluster) conn.byNode(nodeId).widen[RedisClusterAsyncCommands[K, V]]
+            else conn.async.widen[RedisClusterAsyncCommands[K, V]]
+        }
+      }
+
+    val release: BaseRedis[F, K, V] => F[Unit] = c =>
+      Log[F].info(s"Releasing single-shard cluster Commands connection: ${client.underlying}") *> c.conn.close
+
+    (acquire, release)
+  }
+
   def apply[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V],
@@ -77,6 +101,15 @@ object Redis {
       codec: RedisCodec[K, V]
   ): Resource[F, RedisCommands[F, K, V]] = {
     val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec)
+    Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
+  }
+
+  def clusterByNode[F[_]: Concurrent: ContextShift: Log, K, V](
+      clusterClient: RedisClusterClient,
+      codec: RedisCodec[K, V],
+      nodeId: NodeId
+  ): Resource[F, RedisCommands[F, K, V]] = {
+    val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, nodeId)
     Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
   }
 
@@ -96,15 +129,15 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
 
   import scala.collection.JavaConverters._
 
-  private val async: F[RedisClusterAsyncCommands[K, V]] =
+  def async: F[RedisClusterAsyncCommands[K, V]] =
     if (cluster) conn.clusterAsync else conn.async.widen[RedisClusterAsyncCommands[K, V]]
 
-  override def del(key: K*): F[Unit] =
+  def del(key: K*): F[Unit] =
     JRFuture {
       async.flatMap(c => F.delay(c.del(key: _*)))
     }.void
 
-  override def expire(key: K, expiresIn: FiniteDuration): F[Unit] =
+  def expire(key: K, expiresIn: FiniteDuration): F[Unit] =
     JRFuture {
       async.flatMap(c => F.delay(c.expire(key, expiresIn.toSeconds)))
     }.void
@@ -112,29 +145,44 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
   /******************************* Transactions API **********************************/
   // When in a cluster, transactions should run against a single node, therefore we use `conn.async` instead of `conn.clusterAsync`.
 
-  override def multi: F[Unit] =
+  def multi: F[Unit] =
     JRFuture {
-      conn.async.flatMap(c => F.delay(c.multi()))
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.multi())
+        case _                           => conn.async.flatMap(c => F.delay(c.multi()))
+      }
     }.void
 
   def exec: F[Unit] =
     JRFuture {
-      conn.async.flatMap(c => F.delay(c.exec()))
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.exec())
+        case _                           => conn.async.flatMap(c => F.delay(c.exec()))
+      }
     }.void
 
   def discard: F[Unit] =
     JRFuture {
-      conn.async.flatMap(c => F.delay(c.discard()))
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.discard())
+        case _                           => conn.async.flatMap(c => F.delay(c.discard()))
+      }
     }.void
 
   def watch(keys: K*): F[Unit] =
     JRFuture {
-      conn.async.flatMap(c => F.delay(c.watch(keys: _*)))
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.watch(keys: _*))
+        case _                           => conn.async.flatMap(c => F.delay(c.watch(keys: _*)))
+      }
     }.void
 
   def unwatch: F[Unit] =
     JRFuture {
-      conn.async.flatMap(c => F.delay(c.unwatch()))
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.unwatch())
+        case _                           => conn.async.flatMap(c => F.delay(c.unwatch()))
+      }
     }.void
 
   /******************************* Strings API **********************************/

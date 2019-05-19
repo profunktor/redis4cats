@@ -51,6 +51,8 @@ object domain {
   }
   case class LiveRedisCodec[K, V](underlying: JCodec[K, V]) extends RedisCodec[K, V]
 
+  case class NodeId(value: String) extends AnyVal
+
   object RedisCodec {
     val Ascii = LiveRedisCodec(StringCodec.ASCII)
     val Utf8  = LiveRedisCodec(StringCodec.UTF8)
