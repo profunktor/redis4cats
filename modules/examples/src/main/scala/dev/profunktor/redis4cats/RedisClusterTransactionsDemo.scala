@@ -52,22 +52,29 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
               nodeCmd <- Redis.clusterByNode[IO, String, String](client, stringCodec, nodeId)
             } yield nodeCmd
 
-          // Transaction runs in a single shard, where "key1" is stored
-          nodeCmdResource.use { nodeCmd =>
-            val tx = RedisTransaction(nodeCmd)
+          // Transactions are only supported on a single node
+          val notAllowed =
+            cmd.multi.bracket(_ => cmd.set(key1, "nope") *> cmd.exec)(_ => cmd.discard).handleErrorWith {
+              case e: OperationNotSupported => putStrLn(e)
+            }
 
-            val getter = cmd.get(key1).flatTap(showResult(key1))
-            val setter = cmd.set(key1, "foo").start
+          notAllowed *>
+            // Transaction runs in a single shard, where "key1" is stored
+            nodeCmdResource.use { nodeCmd =>
+              val tx = RedisTransaction(nodeCmd)
 
-            val failedSetter =
-              cmd.set(key1, "qwe").start *>
-                IO.raiseError(new Exception("boom"))
+              val getter = cmd.get(key1).flatTap(showResult(key1))
+              val setter = cmd.set(key1, "foo").start
 
-            val tx1 = tx.run(setter)
-            val tx2 = tx.run(failedSetter)
+              val failedSetter =
+                cmd.set(key1, "qwe").start *>
+                  IO.raiseError(new Exception("boom"))
 
-            getter *> tx1 *> tx2.attempt *> getter.void
-          }
+              val tx1 = tx.run(setter)
+              val tx2 = tx.run(failedSetter)
+
+              getter *> tx1 *> tx2.attempt *> getter.void
+            }
       }
 
   }

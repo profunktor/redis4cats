@@ -147,27 +147,42 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
 
   def multi: F[Unit] =
     JRFuture {
-      async.flatMap(c => F.delay(c.asInstanceOf[RedisAsyncCommands[K, V]].multi()))
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.multi())
+        case _                           => conn.async.flatMap(c => F.delay(c.multi()))
+      }
     }.void
 
   def exec: F[Unit] =
     JRFuture {
-      async.flatMap(c => F.delay(c.asInstanceOf[RedisAsyncCommands[K, V]].exec()))
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.exec())
+        case _                           => conn.async.flatMap(c => F.delay(c.exec()))
+      }
     }.void
 
   def discard: F[Unit] =
     JRFuture {
-      async.flatMap(c => F.delay(c.asInstanceOf[RedisAsyncCommands[K, V]].discard()))
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.discard())
+        case _                           => conn.async.flatMap(c => F.delay(c.discard()))
+      }
     }.void
 
   def watch(keys: K*): F[Unit] =
     JRFuture {
-      async.flatMap(c => F.delay(c.asInstanceOf[RedisAsyncCommands[K, V]].watch(keys: _*)))
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.watch(keys: _*))
+        case _                           => conn.async.flatMap(c => F.delay(c.watch(keys: _*)))
+      }
     }.void
 
   def unwatch: F[Unit] =
     JRFuture {
-      async.flatMap(c => F.delay(c.asInstanceOf[RedisAsyncCommands[K, V]].unwatch()))
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.unwatch())
+        case _                           => conn.async.flatMap(c => F.delay(c.unwatch()))
+      }
     }.void
 
   /******************************* Strings API **********************************/
