@@ -6,6 +6,6 @@ docs: true
 collections:
   tut:
     output: true
-version: 0.8.0
+version: 0.8.1
 org: Redis client for Cats Effect & Fs2
 markdown: kramdown

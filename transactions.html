@@ -16,7 +16,8 @@
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">cats.effect.IO</span>
 <span class="k">import</span> <span class="nn">cats.implicits._</span>
-<span class="k">import</span> <span class="nn">dev.profunktor.fs2redis._</span>
+<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats._</span>
+<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.transactions._</span>
 
 <span class="k">def</span> <span class="n">putStrLn</span><span class="o">(</span><span class="n">str</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="nc">IO</span><span class="o">(</span><span class="n">println</span><span class="o">(</span><span class="n">str</span><span class="o">))</span>
 
