@@ -185,6 +185,16 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
       }
     }.void
 
+  /******************************* AutoFlush API **********************************/
+  override def enableAutoFlush: F[Unit] =
+    async.flatMap(c => F.delay(c.setAutoFlushCommands(true)))
+
+  override def disableAutoFlush: F[Unit] =
+    async.flatMap(c => F.delay(c.setAutoFlushCommands(false)))
+
+  override def flushCommands: F[Unit] =
+    async.flatMap(c => F.delay(c.flushCommands()))
+
   /******************************* Strings API **********************************/
   override def append(key: K, value: V): F[Unit] =
     JRFuture {
