@@ -16,13 +16,14 @@
 
 package dev.profunktor.redis4cats
 
-import cats.effect.{ IO, Resource }
+import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.algebra.RedisCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.pipeline._
+import scala.concurrent.duration._
 
 object RedisPipelineDemo extends LoggerIOApp {
 
@@ -31,8 +32,8 @@ object RedisPipelineDemo extends LoggerIOApp {
   def program(implicit log: Log[IO]): IO[Unit] = {
     val key = "testp"
 
-    val showResult: Option[String] => IO[Unit] =
-      _.fold(putStrLn(s"Not found key $key"))(s => putStrLn(s))
+    val showResult: Int => Option[String] => IO[Unit] = n =>
+      _.fold(putStrLn(s"Not found key $key-$n"))(s => putStrLn(s))
 
     val commandsApi: Resource[IO, RedisCommands[IO, String, String]] =
       for {
@@ -43,16 +44,16 @@ object RedisPipelineDemo extends LoggerIOApp {
 
     commandsApi
       .use { cmd =>
-        val commands: IO[Unit] =
-          List
-            .range(1, 50)
-            .traverse { n =>
-              cmd.set(s"$key-$n", (n * 2).toString).start
-            }
-            .void
+        def traversal(f: Int => IO[Unit]): IO[Unit] =
+          List.range(0, 50).traverse(f).void
 
-        RedisPipeline(cmd).run(commands) *>
-          cmd.get(s"$key-49").flatMap(showResult)
+        val setters: IO[Unit] =
+          traversal(n => cmd.set(s"$key-$n", (n * 2).toString).start.void)
+
+        val getters: IO[Unit] =
+          traversal(n => cmd.get(s"$key-$n").flatMap(showResult(n)))
+
+        RedisPipeline(cmd).run(setters) *> IO.sleep(2.seconds) *> getters
       }
   }
 
