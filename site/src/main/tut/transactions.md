@@ -7,7 +7,7 @@ position: 3
 
 # Transactions
 
-Redis supports [transactions](https://redis.io/topics/transactions) via the `MULTI`, `EXEC` and `DISCARD` commands. `fs2-redis` provides a `RedisTransaction` utility that models a transaction as a resource via the primitive `bracketCase`.
+Redis supports [transactions](https://redis.io/topics/transactions) via the `MULTI`, `EXEC` and `DISCARD` commands. `redis4cats` provides a `RedisTransaction` utility that models a transaction as a resource via the primitive `bracketCase`.
 
 - `acquire`: begin transaction
 - `use`: send transactional commands

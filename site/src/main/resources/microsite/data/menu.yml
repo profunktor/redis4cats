@@ -1,18 +1,5 @@
 options:
-  - title: Stream-based API
-    url: streams/
-    menu_section: streamapi
-
-    nested_options:
-      - title: PubSub
-        url: streams/pubsub.html
-        menu_section: streamapi
-
-      - title: Streams
-        url: streams/streams.html
-        menu_section: streamapi
-
-  - title: Effect-based API
+  - title: Effects API
     url: effects/
     menu_section: effectapi
 
@@ -49,7 +36,24 @@ options:
         url: effects/strings.html
         menu_section: effectapi
 
+  - title: Streams API
+    url: streams/
+    menu_section: streamapi
+
+    nested_options:
+      - title: PubSub
+        url: streams/pubsub.html
+        menu_section: streamapi
+
+      - title: Streams
+        url: streams/streams.html
+        menu_section: streamapi
+
   - title: Transactions
     url: transactions
     menu_section: transactions
+
+  - title: Pipelining
+    url: pipelining
+    menu_section: pipelining
 
