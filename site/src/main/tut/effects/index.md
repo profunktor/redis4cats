@@ -1,11 +1,11 @@
 ---
 layout: docs
-title:  "Effect-based API"
-number: 3
-position: 2
+title:  "Effects API"
+number: 1
+position: 1
 ---
 
-# Effect-based API
+# Effects API
 
 The API that operates at the effect level `F[_]` on top of `cats-effect`.
 

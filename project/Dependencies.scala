@@ -8,6 +8,7 @@ object Dependencies {
     val fs2        = "1.0.4"
     val lettuce    = "5.1.6.RELEASE"
     val log4cats   = "0.3.0"
+    val logback    = "1.2.3"
 
     val betterMonadicFor = "0.3.0"
     val kindProjector    = "0.9.10"
@@ -25,6 +26,8 @@ object Dependencies {
 
     lazy val log4CatsCore  = log4cats("core")
     lazy val log4CatsSlf4j = log4cats("slf4j")
+
+    lazy val logback = "ch.qos.logback" % "logback-classic" % Versions.logback
 
     // Compiler plugins
     lazy val betterMonadicFor = "com.olegpy"     %% "better-monadic-for" % Versions.betterMonadicFor

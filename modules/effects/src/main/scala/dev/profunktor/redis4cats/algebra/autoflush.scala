@@ -16,14 +16,10 @@
 
 package dev.profunktor.redis4cats.algebra
 
-trait RedisCommands[F[_], K, V]
-    extends StringCommands[F, K, V]
-    with HashCommands[F, K, V]
-    with SetCommands[F, K, V]
-    with SortedSetCommands[F, K, V]
-    with ListCommands[F, K, V]
-    with GeoCommands[F, K, V]
-    with ConnectionCommands[F]
-    with ServerCommands[F]
-    with TransactionalCommands[F, K]
-    with PipelineCommands[F]
+trait PipelineCommands[F[_]] extends AutoFlush[F]
+
+trait AutoFlush[F[_]] {
+  def enableAutoFlush: F[Unit]
+  def disableAutoFlush: F[Unit]
+  def flushCommands: F[Unit]
+}

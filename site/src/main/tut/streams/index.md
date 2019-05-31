@@ -1,11 +1,11 @@
 ---
 layout: docs
-title:  "Stream-based API"
-number: 0
-position: 1
+title:  "Streams API"
+number: 2
+position: 2
 ---
 
-# Stream-based API
+# Streams API
 
 The API that operates at the stream level `Stream[F[_], A]` on top of `fs2`.
 
