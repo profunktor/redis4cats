@@ -7,7 +7,7 @@ redis4cats
 
 Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async java client [Lettuce](https://lettuce.io/).
 
-`redis4cats` defines two types of API: the main one effect-based using [Cats Effect](https://typelevel.org/cats-effect/) and another one stream-based using [Fs2](http://fs2.io/).
+`redis4cats` defines two types of API: an effect-based using [Cats Effect](https://typelevel.org/cats-effect/) and a stream-based using [Fs2](http://fs2.io/).
 
 ### Effects
 
@@ -56,7 +56,7 @@ libraryDependencies += "dev.profunktor" %% "redis4cats-log4cats" % Version
 
 ## Running the tests locally
 
-Either change the `startContainer` boolean in the `DockerRedis.scala` file or start the `redis` client manually using `docker`:
+Either change the `startContainer` boolean in the `DockerRedis.scala` file or start the `redis` client manually using `docker` (recommended):
 
 ```bash
 # single server
