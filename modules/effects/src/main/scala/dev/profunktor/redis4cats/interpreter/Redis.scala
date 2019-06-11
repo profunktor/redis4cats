@@ -886,6 +886,11 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
     JRFuture {
       async.flatMap(c => F.delay(c.flushallAsync()))
     }.void
+
+  override def keys(pattern: K): F[List[K]] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.keys(pattern)))
+    }.map(_.asScala.toList)
 }
 
 private[redis4cats] trait RedisConversionOps {
