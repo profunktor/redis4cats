@@ -20,8 +20,8 @@ import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
-val commandsApi: Resource[IO, ServerCommands[IO]] = {
-  Redis[IO, String, String](null, null, null).widen[ServerCommands[IO]]
+val commandsApi: Resource[IO, ServerCommands[IO, String]] = {
+  Redis[IO, String, String](null, null, null).widen[ServerCommands[IO, String]]
 }
 ```
 

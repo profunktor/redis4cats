@@ -40,6 +40,8 @@ class Fs2RedisClusterSpec extends FunSuite with RedisClusterTest with Fs2TestSce
 
   test("cluster: connection api")(withRedisCluster(connectionScenario))
 
+  test("cluster: server api")(withRedisCluster(serverScenario))
+
   // FIXME: The Cluster impl cannot connect to a single node just yet
 //  test("cluster: transactions")(withRedisCluster(transactionScenario))
 
