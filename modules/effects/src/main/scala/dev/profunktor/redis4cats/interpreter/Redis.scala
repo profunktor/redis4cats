@@ -887,9 +887,9 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
       async.flatMap(c => F.delay(c.flushallAsync()))
     }.void
 
-  override def keys(pattern: K): F[List[K]] =
+  override def keys(key: K): F[List[K]] =
     JRFuture {
-      async.flatMap(c => F.delay(c.keys(pattern)))
+      async.flatMap(c => F.delay(c.keys(key)))
     }.map(_.asScala.toList)
 }
 

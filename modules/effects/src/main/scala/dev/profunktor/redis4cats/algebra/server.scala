@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats.algebra
 trait ServerCommands[F[_], K] extends Flush[F, K]
 
 trait Flush[F[_], K] {
-  def keys(pattern: K): F[List[K]]
+  def keys(key: K): F[List[K]]
   def flushAll: F[Unit]
   def flushAllAsync: F[Unit]
 }
