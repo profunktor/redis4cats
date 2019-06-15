@@ -3,15 +3,15 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val cats       = "1.6.1"
-    val catsEffect = "1.3.1"
-    val fs2        = "1.0.5"
+    val cats       = "2.0.0-M4"
+    val catsEffect = "2.0.0-M4"
+    val fs2        = "1.1.0-M1"
     val lettuce    = "5.1.7.RELEASE"
-    val log4cats   = "0.3.0"
+    val log4cats   = "0.4.0-M1"
     val logback    = "1.2.3"
 
     val betterMonadicFor = "0.3.0"
-    val kindProjector    = "0.9.10"
+    val kindProjector    = "0.10.3"
 
     val scalaTest  = "3.0.8"
     val scalaCheck = "1.14.0"
@@ -31,7 +31,7 @@ object Dependencies {
 
     // Compiler plugins
     lazy val betterMonadicFor = "com.olegpy"     %% "better-monadic-for" % Versions.betterMonadicFor
-    lazy val kindProjector    = "org.spire-math" %% "kind-projector"     % Versions.kindProjector
+    lazy val kindProjector    = "org.typelevel" %% "kind-projector"     % Versions.kindProjector
 
     // Scala test libraries
     lazy val catsLaws    = "org.typelevel"  %% "cats-core"    % Versions.cats

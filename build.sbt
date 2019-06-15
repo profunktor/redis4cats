@@ -7,7 +7,7 @@ name := """redis4cats-root"""
 
 organization in ThisBuild := "dev.profunktor"
 
-crossScalaVersions in ThisBuild := Seq("2.12.8")
+//crossScalaVersions in ThisBuild := Seq("2.12.8", "2.13.0")
 
 sonatypeProfileName := "dev.profunktor"
 
@@ -19,6 +19,7 @@ promptTheme := PromptTheme(List(
 val commonSettings = Seq(
   organizationName := "Redis client for Cats Effect & Fs2",
   startYear := Some(2018),
+  scalaVersion := "2.13.0",
   licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   homepage := Some(url("https://redis4cats.profunktor.dev/")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2019", "ProfunKtor")),
@@ -33,7 +34,7 @@ val commonSettings = Seq(
     Libraries.scalaCheck % Test
   ),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
-  scalacOptions ++= Seq("-Xmax-classfile-name", "80"),
+//  scalacOptions ++= Seq("-Xmax-classfile-name", "80"),
   scalafmtOnCompile := true,
   publishTo := {
     val sonatype = "https://oss.sonatype.org/"
@@ -78,7 +79,7 @@ lazy val `redis4cats-log4cats` = project.in(file("modules/log4cats"))
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
 
-  lazy val `redis4cats-effects` = project.in(file("modules/effects"))
+lazy val `redis4cats-effects` = project.in(file("modules/effects"))
   .settings(commonSettings: _*)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -101,7 +102,7 @@ lazy val examples = project.in(file("modules/examples"))
   .dependsOn(`redis4cats-effects`)
   .dependsOn(`redis4cats-streams`)
 
-  lazy val `redis4cats-test-support` = project.in(file("modules/test-support"))
+lazy val `redis4cats-test-support` = project.in(file("modules/test-support"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++= Seq(

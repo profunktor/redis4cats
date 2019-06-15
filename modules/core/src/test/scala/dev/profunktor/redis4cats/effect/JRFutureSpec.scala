@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture
 
 import cats.effect.{ ContextShift, IO }
 import cats.syntax.all._
-import org.scalatest.AsyncFunSuite
+import org.scalatest.funsuite.AsyncFunSuite
 
 class JRFutureSpec extends AsyncFunSuite {
 
