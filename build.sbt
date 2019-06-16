@@ -16,10 +16,12 @@ promptTheme := PromptTheme(List(
   text(_ => "redis4cats", fg(15)).padRight(" λ ")
  ))
 
-val compilerOptions = CrossVersion.partialVersion(scalaVersion.value) match {
-  case Some((2, 12)) => Seq("-Xmax-classfile-name", "80")
-  case _ => Seq.empty
-}
+def scalacOptionsVersion(scalaVersion: String) =
+  CrossVersion.partialVersion(scalaVersion) match {
+    case Some((2, 12)) => Seq("-Xmax-classfile-name", "80")
+    case _ => Seq.empty
+  }
+
 
 val commonSettings = Seq(
   organizationName := "Redis client for Cats Effect & Fs2",
@@ -38,7 +40,7 @@ val commonSettings = Seq(
     Libraries.scalaCheck % Test
   ),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
-  scalacOptions ++= compilerOptions,
+  scalacOptions ++= scalacOptionsVersion(scalaVersion.value),
   scalafmtOnCompile := true,
   publishTo := {
     val sonatype = "https://oss.sonatype.org/"

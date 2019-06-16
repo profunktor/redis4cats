@@ -24,7 +24,7 @@ import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
 import dev.profunktor.redis4cats.domain.RedisCodec
 import dev.profunktor.redis4cats.interpreter.Redis
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }
-import scala.concurrent.{ ExecutionContext, SyncVar }
+import scala.concurrent.ExecutionContext
 import scala.sys.process.{ Process, ProcessLogger }
 import scala.util.Random
 
