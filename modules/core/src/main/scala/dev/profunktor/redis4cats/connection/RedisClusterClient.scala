@@ -24,7 +24,7 @@ import io.lettuce.core.{ RedisURI => JRedisURI }
 import io.lettuce.core.cluster.{ SlotHash, RedisClusterClient => JClusterClient }
 import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
 
-import scala.jdk.CollectionConverters._
+import dev.profunktor.redis4cats.JavaConversions._
 
 object RedisClusterClient {
 

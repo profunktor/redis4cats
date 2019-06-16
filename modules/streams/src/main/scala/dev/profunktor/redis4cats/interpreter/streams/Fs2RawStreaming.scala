@@ -24,7 +24,7 @@ import dev.profunktor.redis4cats.effect.JRFuture
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
 
-import scala.jdk.CollectionConverters._
+import dev.profunktor.redis4cats.JavaConversions._
 
 private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
     val client: StatefulRedisConnection[K, V]

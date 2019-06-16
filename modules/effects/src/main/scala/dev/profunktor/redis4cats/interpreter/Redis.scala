@@ -127,7 +127,7 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
     extends RedisCommands[F, K, V]
     with RedisConversionOps {
 
-  import scala.jdk.CollectionConverters._
+  import dev.profunktor.redis4cats.JavaConversions._
 
   def async: F[RedisClusterAsyncCommands[K, V]] =
     if (cluster) conn.clusterAsync else conn.async.widen[RedisClusterAsyncCommands[K, V]]

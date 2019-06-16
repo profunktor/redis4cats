@@ -7,7 +7,7 @@ name := """redis4cats-root"""
 
 organization in ThisBuild := "dev.profunktor"
 
-//crossScalaVersions in ThisBuild := Seq("2.12.8", "2.13.0")
+crossScalaVersions in ThisBuild := Seq("2.12.8", "2.13.0")
 
 sonatypeProfileName := "dev.profunktor"
 
@@ -16,10 +16,14 @@ promptTheme := PromptTheme(List(
   text(_ => "redis4cats", fg(15)).padRight(" λ ")
  ))
 
+val compilerOptions = CrossVersion.partialVersion(scalaVersion.value) match {
+  case Some((2, 12)) => Seq("-Xmax-classfile-name", "80")
+  case _ => Seq.empty
+}
+
 val commonSettings = Seq(
   organizationName := "Redis client for Cats Effect & Fs2",
   startYear := Some(2018),
-  scalaVersion := "2.13.0",
   licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   homepage := Some(url("https://redis4cats.profunktor.dev/")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2019", "ProfunKtor")),
@@ -34,7 +38,7 @@ val commonSettings = Seq(
     Libraries.scalaCheck % Test
   ),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
-//  scalacOptions ++= Seq("-Xmax-classfile-name", "80"),
+  scalacOptions ++= compilerOptions,
   scalafmtOnCompile := true,
   publishTo := {
     val sonatype = "https://oss.sonatype.org/"
