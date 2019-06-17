@@ -16,12 +16,8 @@ promptTheme := PromptTheme(List(
   text(_ => "redis4cats", fg(15)).padRight(" λ ")
  ))
 
-def cond[A](condition: Boolean, t: => Seq[A], f: => Seq[A]): Seq[A] =
-  if (condition) {
-    t
-  } else {
-    f
-  }
+def pred[A](p: Boolean, t: => Seq[A], f: => Seq[A]): Seq[A] =
+  if (p) t else f
 
 def version(strVersion: String): Option[(Long, Long)] = CrossVersion.partialVersion(strVersion)
 
@@ -36,7 +32,7 @@ val commonSettings = Seq(
     compilerPlugin(Libraries.betterMonadicFor),
     Libraries.redisClient,
     Libraries.scalaCheck % Test
-  ) ++ cond(
+  ) ++ pred(
     version(scalaVersion.value) == Some(2, 12),
     t = Seq(
       Libraries212.catsEffect,
@@ -51,7 +47,7 @@ val commonSettings = Seq(
       Libraries213.catsTestKit % Test,
     )),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
-  scalacOptions ++= cond(
+  scalacOptions ++= pred(
     version(scalaVersion.value) == Some(2, 12),
     t = Seq("-Xmax-classfile-name", "80"),
     f = Seq.empty
@@ -96,7 +92,7 @@ lazy val `redis4cats-core` = project.in(file("modules/core"))
 lazy val `redis4cats-log4cats` = project.in(file("modules/log4cats"))
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++=
-    cond(
+    pred(
       version(scalaVersion.value) == Some(2, 12),
       t = Seq(Libraries212.log4CatsCore),
       f = Seq(Libraries213.log4CatsCore)
@@ -115,7 +111,7 @@ lazy val `redis4cats-effects` = project.in(file("modules/effects"))
 lazy val `redis4cats-streams` = project.in(file("modules/streams"))
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++=
-    cond(
+    pred(
       version(scalaVersion.value) == Some(2, 12),
       t = Seq(Libraries212.fs2Core),
       f = Seq(Libraries213.fs2Core)
@@ -129,7 +125,7 @@ lazy val examples = project.in(file("modules/examples"))
   .settings(commonSettings: _*)
   .settings(noPublish)
   .settings(libraryDependencies ++=
-    cond(
+    pred(
       version(scalaVersion.value) == Some(2, 12),
       t = Seq(Libraries212.log4CatsSlf4j),
       f = Seq(Libraries213.log4CatsSlf4j)
@@ -145,7 +141,7 @@ lazy val `redis4cats-test-support` = project.in(file("modules/test-support"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++=
-      cond(
+      pred(
         version(scalaVersion.value) == Some(2, 12),
         t = Seq(Libraries212.scalaTest),
         f = Seq(Libraries213.scalaTest)

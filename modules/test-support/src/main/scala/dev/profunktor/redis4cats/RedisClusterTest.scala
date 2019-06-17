@@ -88,7 +88,5 @@ trait RedisClusterTest extends BeforeAndAfterAll with BeforeAndAfterEach { self:
     withAbstractRedisCluster[A, String, String](f)(stringCodec)
 
   private def flushAll(): Unit =
-    withRedisCluster {
-      _.flushAll *> IO(println(">>>>>> CLUSTER FLUSHALL done <<<<<<<"))
-    }
+    withRedisCluster(_.flushAll)
 }

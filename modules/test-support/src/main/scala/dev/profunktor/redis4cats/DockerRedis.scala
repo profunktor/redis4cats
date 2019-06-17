@@ -17,7 +17,6 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
-import cats.syntax.apply._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
@@ -82,9 +81,7 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
     withAbstractRedis[A, String, String](f)(stringCodec)
 
   private def flushAll(): Unit =
-    withRedis {
-      _.flushAll *> IO(println(">>>>>> FLUSHALL done <<<<<<<"))
-    }
+    withRedis(_.flushAll)
 }
 
 object DockerRedis {

@@ -18,6 +18,4 @@ package dev.profunktor.redis4cats.testutils
 
 import org.scalatest.AsyncFunSuite
 
-class Redis4CatsAsyncFunSuite extends AsyncFunSuite {
-
-}
+class Redis4CatsAsyncFunSuite extends AsyncFunSuite {}
