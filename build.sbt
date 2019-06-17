@@ -16,12 +16,14 @@ promptTheme := PromptTheme(List(
   text(_ => "redis4cats", fg(15)).padRight(" λ ")
  ))
 
-def scalacOptionsVersion(scalaVersion: String) =
-  CrossVersion.partialVersion(scalaVersion) match {
-    case Some((2, 12)) => Seq("-Xmax-classfile-name", "80")
-    case _ => Seq.empty
+def cond[A](condition: Boolean, t: => Seq[A], f: => Seq[A]): Seq[A] =
+  if (condition) {
+    t
+  } else {
+    f
   }
 
+def version(strVersion: String): Option[(Long, Long)] = CrossVersion.partialVersion(strVersion)
 
 val commonSettings = Seq(
   organizationName := "Redis client for Cats Effect & Fs2",
@@ -33,14 +35,26 @@ val commonSettings = Seq(
     compilerPlugin(Libraries.kindProjector cross CrossVersion.binary),
     compilerPlugin(Libraries.betterMonadicFor),
     Libraries.redisClient,
-    Libraries.catsEffect,
-    Libraries.catsLaws % Test,
-    Libraries.catsTestKit % Test,
     Libraries.scalaTest % Test,
     Libraries.scalaCheck % Test
-  ),
+  ) ++ cond(
+    version(scalaVersion.value) == Some(2, 12),
+    t = Seq(
+      Libraries212.catsEffect,
+      Libraries212.catsLaws % Test,
+      Libraries212.catsTestKit % Test,
+    ),
+    f = Seq(
+      Libraries213.catsEffect,
+      Libraries213.catsLaws % Test,
+      Libraries213.catsTestKit % Test,
+    )),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
-  scalacOptions ++= scalacOptionsVersion(scalaVersion.value),
+  scalacOptions ++= cond(
+    version(scalaVersion.value) == Some(2, 12),
+    t = Seq("-Xmax-classfile-name", "80"),
+    f = Seq.empty
+  ),
   scalafmtOnCompile := true,
   publishTo := {
     val sonatype = "https://oss.sonatype.org/"
@@ -80,7 +94,13 @@ lazy val `redis4cats-core` = project.in(file("modules/core"))
 
 lazy val `redis4cats-log4cats` = project.in(file("modules/log4cats"))
   .settings(commonSettings: _*)
-  .settings(libraryDependencies += Libraries.log4CatsCore)
+  .settings(libraryDependencies ++= 
+    cond(
+      version(scalaVersion.value) == Some(2, 12),
+      t = Seq(Libraries212.log4CatsCore),
+      f = Seq(Libraries213.log4CatsCore)
+    )
+  )
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
@@ -93,7 +113,13 @@ lazy val `redis4cats-effects` = project.in(file("modules/effects"))
 
 lazy val `redis4cats-streams` = project.in(file("modules/streams"))
   .settings(commonSettings: _*)
-  .settings(libraryDependencies += Libraries.fs2Core)
+  .settings(libraryDependencies ++=
+    cond(
+      version(scalaVersion.value) == Some(2, 12),
+      t = Seq(Libraries212.fs2Core),
+      f = Seq(Libraries213.fs2Core)
+    )
+  )
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
@@ -101,7 +127,13 @@ lazy val `redis4cats-streams` = project.in(file("modules/streams"))
 lazy val examples = project.in(file("modules/examples"))
   .settings(commonSettings: _*)
   .settings(noPublish)
-  .settings(libraryDependencies += Libraries.log4CatsSlf4j)
+  .settings(libraryDependencies ++=
+    cond(
+      version(scalaVersion.value) == Some(2, 12),
+      t = Seq(Libraries212.log4CatsSlf4j),
+      f = Seq(Libraries213.log4CatsSlf4j)
+    )
+  )
   .settings(libraryDependencies += Libraries.logback % "runtime")
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-log4cats`)
