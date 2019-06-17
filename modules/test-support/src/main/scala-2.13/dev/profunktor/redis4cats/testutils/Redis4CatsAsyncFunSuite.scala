@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats
+package dev.profunktor.redis4cats.testutils
 
 import org.scalatest.funsuite.AsyncFunSuite
 
