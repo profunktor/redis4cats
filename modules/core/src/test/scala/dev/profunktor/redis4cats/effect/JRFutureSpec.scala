@@ -20,9 +20,9 @@ import java.util.concurrent.CompletableFuture
 
 import cats.effect.{ ContextShift, IO }
 import cats.syntax.all._
-import org.scalatest.AsyncFunSuite
+import dev.profunktor.redis4cats.testutils.Redis4CatsAsyncFunSuite
 
-class JRFutureSpec extends AsyncFunSuite {
+class JRFutureSpec extends Redis4CatsAsyncFunSuite {
 
   implicit val cs: ContextShift[IO] = IO.contextShift(scala.concurrent.ExecutionContext.global)
 

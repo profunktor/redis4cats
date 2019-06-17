@@ -23,7 +23,7 @@ import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import io.lettuce.core.masterslave.{ MasterSlave, StatefulRedisMasterSlaveConnection }
 import io.lettuce.core.{ ReadFrom => JReadFrom, RedisURI => JRedisURI }
 
-import scala.collection.JavaConverters._
+import dev.profunktor.redis4cats.JavaConversions._
 
 object RedisMasterSlave {
 

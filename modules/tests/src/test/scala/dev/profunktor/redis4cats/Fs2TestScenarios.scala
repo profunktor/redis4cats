@@ -180,7 +180,7 @@ trait Fs2TestScenarios {
   def connectionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] =
     cmd.ping.flatMap(pong => IO { assert(pong === "PONG") }).void
 
-  def serverScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def serverScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] =
     for {
       _ <- cmd.mSet(Map("firstname" -> "Jack", "lastname" -> "Stuntman", "age" -> "35"))
       names <- cmd.keys("*name*").map(_.toSet)
@@ -188,7 +188,6 @@ trait Fs2TestScenarios {
       age <- cmd.keys("a??")
       _ <- IO { assert(age == List("age")) }
     } yield ()
-  }
 
   def transactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key1 = "test1"

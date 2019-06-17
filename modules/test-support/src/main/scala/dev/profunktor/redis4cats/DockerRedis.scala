@@ -24,7 +24,7 @@ import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
 import dev.profunktor.redis4cats.domain.RedisCodec
 import dev.profunktor.redis4cats.interpreter.Redis
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Suite }
-import scala.concurrent.{ ExecutionContext, SyncVar }
+import scala.concurrent.ExecutionContext
 import scala.sys.process.{ Process, ProcessLogger }
 import scala.util.Random
 
@@ -109,7 +109,7 @@ object DockerRedis {
 
   def startRedis(image: String, firstPort: Int, lastPort: Option[Int] = None): String = {
 
-    val dockerId = new SyncVar[String]()
+    val dockerId = new java.util.concurrent.LinkedBlockingQueue[String](1)
     val ports    = lastPort.map(lp => s"$firstPort-$lp:$firstPort-$lp").getOrElse(s"$firstPort:$firstPort")
 
     val runCmd =
@@ -139,7 +139,7 @@ object DockerRedis {
       s"Redis $image startup observer"
     )
     thread.start()
-    val id = dockerId.get
+    val id = dockerId.poll()
     println(s"Redis ($image @ 127.0.0.1:($ports)) started successfully as $id ")
     id
   }
