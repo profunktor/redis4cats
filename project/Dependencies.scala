@@ -18,7 +18,7 @@ object Dependencies {
     val fs2        = "1.0.5"
     val log4cats   = "0.3.0"
 
-    val scalaTest  = "3.1.0-RC1"
+    val scalaTest  = "3.0.8"
   }
   
   object Versions213 {
