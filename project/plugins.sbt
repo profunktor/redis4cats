@@ -9,7 +9,7 @@ addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.1.2")
 
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.2.0")
 
-addSbtPlugin("com.lucidchart" %  "sbt-scalafmt" % "1.15")
+addSbtPlugin("com.lucidchart" %  "sbt-scalafmt" % "1.16")
 
 addSbtPlugin("com.47deg"  % "sbt-microsites" % "0.7.23")
 
