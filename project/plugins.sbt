@@ -11,7 +11,7 @@ addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.2.0")
 
 addSbtPlugin("com.lucidchart" %  "sbt-scalafmt" % "1.15")
 
-addSbtPlugin("com.47deg"  % "sbt-microsites" % "0.7.23")
+addSbtPlugin("com.47deg"  % "sbt-microsites" % "0.7.27")
 
 addSbtPlugin("org.tpolecat" % "tut-plugin" % "0.6.12")
 
