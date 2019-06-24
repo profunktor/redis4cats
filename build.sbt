@@ -31,18 +31,17 @@ val commonSettings = Seq(
     compilerPlugin(Libraries.kindProjector cross CrossVersion.binary),
     compilerPlugin(Libraries.betterMonadicFor),
     Libraries.redisClient,
-    Libraries.scalaCheck % Test
+    Libraries.scalaCheck % Test,
+    Libraries.scalaTest % Test,
   ) ++ pred(
     version(scalaVersion.value) == Some(2, 12),
     t = Seq(
       Libraries212.catsEffect,
-      Libraries212.scalaTest % Test,
       Libraries212.catsLaws % Test,
       Libraries212.catsTestKit % Test,
     ),
     f = Seq(
-      Libraries213.catsEffect,
-      Libraries213.scalaTest % Test,
+      Libraries213.catsEffect,,
       Libraries213.catsLaws % Test,
       Libraries213.catsTestKit % Test,
     )),
