@@ -41,7 +41,7 @@ val commonSettings = Seq(
       Libraries212.catsTestKit % Test,
     ),
     f = Seq(
-      Libraries213.catsEffect,,
+      Libraries213.catsEffect,
       Libraries213.catsLaws % Test,
       Libraries213.catsTestKit % Test,
     )),
@@ -200,4 +200,3 @@ lazy val microsite = project.in(file("site"))
 
 // CI build
 addCommandAlias("buildRedis4Cats", ";clean;+test;tut")
-
