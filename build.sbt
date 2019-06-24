@@ -138,14 +138,6 @@ lazy val examples = project.in(file("modules/examples"))
 
 lazy val `redis4cats-test-support` = project.in(file("modules/test-support"))
   .settings(commonSettings: _*)
-  .settings(
-    libraryDependencies ++=
-      pred(
-        version(scalaVersion.value) == Some(2, 12),
-        t = Seq(Libraries212.scalaTest),
-        f = Seq(Libraries213.scalaTest)
-      )
-  )
   .settings(libraryDependencies += Libraries.scalaCheck)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
