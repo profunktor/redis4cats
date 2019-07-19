@@ -6,7 +6,7 @@ object Dependencies {
     val lettuce    = "5.1.7.RELEASE"
     val logback    = "1.2.3"
 
-    val betterMonadicFor = "0.3.0"
+    val betterMonadicFor = "0.3.1"
     val kindProjector    = "0.10.3"
 
     val scalaCheck = "1.14.0"
