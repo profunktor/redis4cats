@@ -3,7 +3,7 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val lettuce    = "5.1.7.RELEASE"
+    val lettuce    = "5.1.8.RELEASE"
     val logback    = "1.2.3"
 
     val betterMonadicFor = "0.3.1"
