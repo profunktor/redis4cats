@@ -20,11 +20,10 @@ import java.util.concurrent.{ CompletableFuture, CompletionStage, Future }
 
 import cats.effect.{ Async, ContextShift }
 import cats.implicits._
+import cats.effect.implicits._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
 
 object JRFuture {
-
-  case class EmptyValue(msg: String = "Empty value") extends Throwable(msg)
 
   private[redis4cats] type JFuture[A] = CompletionStage[A] with Future[A]
 
@@ -42,12 +41,13 @@ object JRFuture {
   )(implicit F: Async[F], cs: ContextShift[F]): F[A] =
     fa.flatMap { f =>
       F.async[A] { cb =>
-        f.handle[Unit] { (value: A, t: Throwable) =>
-          if (t != null) cb(Left(t))
-          else cb(Right(value))
+          f.handle[Unit] { (value: A, t: Throwable) =>
+            if (t != null) cb(Left(t))
+            else cb(Right(value))
+          }
+          ()
         }
-        ()
-      } <* cs.shift
+        .guarantee(cs.shift)
     }
 
 }

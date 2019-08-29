@@ -45,4 +45,21 @@ class JRFutureSpec extends Redis4CatsAsyncFunSuite {
       .unsafeToFuture()
   }
 
+  test("it shifts back even when the CompletableFuture fails") {
+    val ioa =
+      JRFuture.fromCompletableFuture[IO, String] {
+        IO {
+          val jFuture = new CompletableFuture[String]()
+          jFuture.completeExceptionally(new RuntimeException("Purposely fail"))
+          jFuture
+        }
+      }
+
+    (ioa.attempt *> currentThread)
+      .flatMap { t =>
+        IO(assert(t.contains("scala-execution-context-global")))
+      }
+      .unsafeToFuture()
+  }
+
 }
