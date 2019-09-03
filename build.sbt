@@ -7,7 +7,8 @@ name := """redis4cats-root"""
 
 organization in ThisBuild := "dev.profunktor"
 
-crossScalaVersions in ThisBuild := Seq("2.12.8", "2.13.0")
+scalaVersion in ThisBuild := "2.12.9"
+crossScalaVersions in ThisBuild := Seq("2.12.9", "2.13.0")
 
 sonatypeProfileName := "dev.profunktor"
 
