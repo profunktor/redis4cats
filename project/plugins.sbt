@@ -3,7 +3,7 @@ resolvers += "Typesafe Repository" at "https://repo.typesafe.com/typesafe/releas
 
 addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat" % "0.1.7")
 
-addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "2.6")
+addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "3.4")
 
 addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.1.2")
 
