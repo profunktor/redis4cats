@@ -12,6 +12,9 @@ crossScalaVersions in ThisBuild := Seq("2.12.9", "2.13.0")
 
 sonatypeProfileName := "dev.profunktor"
 
+// Needed to not run out of memory (Metaspace) when running test suite
+ThisBuild / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.ScalaLibrary
+
 promptTheme := PromptTheme(List(
   text("[sbt] ", fg(105)),
   text(_ => "redis4cats", fg(15)).padRight(" λ ")
@@ -32,21 +35,13 @@ val commonSettings = Seq(
     compilerPlugin(Libraries.kindProjector cross CrossVersion.binary),
     compilerPlugin(Libraries.betterMonadicFor),
     Libraries.redisClient,
-    Libraries.scalaCheck % Test
-  ) ++ pred(
-    version(scalaVersion.value) == Some(2, 12),
-    t = Seq(
-      Libraries212.catsEffect,
-      Libraries212.scalaTest % Test,
-      Libraries212.catsLaws % Test,
-      Libraries212.catsTestKit % Test,
-    ),
-    f = Seq(
-      Libraries213.catsEffect,
-      Libraries213.scalaTest % Test,
-      Libraries213.catsLaws % Test,
-      Libraries213.catsTestKit % Test,
-    )),
+    Libraries.scalaCheck % Test,
+    Libraries.catsEffect,
+    Libraries.scalaTest % Test,
+    Libraries.catsLaws % Test,
+    Libraries.catsTestKit % Test,
+    Libraries.catsTestKitST % Test,
+  ),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
     version(scalaVersion.value) == Some(2, 12),
@@ -92,13 +87,7 @@ lazy val `redis4cats-core` = project.in(file("modules/core"))
 
 lazy val `redis4cats-log4cats` = project.in(file("modules/log4cats"))
   .settings(commonSettings: _*)
-  .settings(libraryDependencies ++=
-    pred(
-      version(scalaVersion.value) == Some(2, 12),
-      t = Seq(Libraries212.log4CatsCore),
-      f = Seq(Libraries213.log4CatsCore)
-    )
-  )
+  .settings(libraryDependencies += Libraries.log4CatsCore)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
@@ -111,13 +100,7 @@ lazy val `redis4cats-effects` = project.in(file("modules/effects"))
 
 lazy val `redis4cats-streams` = project.in(file("modules/streams"))
   .settings(commonSettings: _*)
-  .settings(libraryDependencies ++=
-    pred(
-      version(scalaVersion.value) == Some(2, 12),
-      t = Seq(Libraries212.fs2Core),
-      f = Seq(Libraries213.fs2Core)
-    )
-  )
+  .settings(libraryDependencies += Libraries.fs2Core)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
@@ -125,13 +108,7 @@ lazy val `redis4cats-streams` = project.in(file("modules/streams"))
 lazy val examples = project.in(file("modules/examples"))
   .settings(commonSettings: _*)
   .settings(noPublish)
-  .settings(libraryDependencies ++=
-    pred(
-      version(scalaVersion.value) == Some(2, 12),
-      t = Seq(Libraries212.log4CatsSlf4j),
-      f = Seq(Libraries213.log4CatsSlf4j)
-    )
-  )
+  .settings(libraryDependencies += Libraries.log4CatsSlf4j)
   .settings(libraryDependencies += Libraries.logback % "runtime")
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-log4cats`)
@@ -140,14 +117,7 @@ lazy val examples = project.in(file("modules/examples"))
 
 lazy val `redis4cats-test-support` = project.in(file("modules/test-support"))
   .settings(commonSettings: _*)
-  .settings(
-    libraryDependencies ++=
-      pred(
-        version(scalaVersion.value) == Some(2, 12),
-        t = Seq(Libraries212.scalaTest),
-        f = Seq(Libraries213.scalaTest)
-      )
-  )
+  .settings(libraryDependencies += Libraries.scalaTest)
   .settings(libraryDependencies += Libraries.scalaCheck)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
