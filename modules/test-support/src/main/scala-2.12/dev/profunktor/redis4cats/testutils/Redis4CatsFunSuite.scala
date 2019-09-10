@@ -16,6 +16,6 @@
 
 package dev.profunktor.redis4cats.testutils
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class Redis4CatsFunSuite extends FunSuite {}
+class Redis4CatsFunSuite extends AnyFunSuite {}
