@@ -46,7 +46,7 @@ trait SortedSetGetter[F[_], K, V] {
 
 trait SortedSetSetter[F[_], K, V] {
   def zAdd(key: K, args: Option[ZAddArgs], values: ScoreWithValue[V]*): F[Unit]
-  def zAddIncr(key: K, args: Option[ZAddArgs], value: ScoreWithValue[V])(implicit ev: Numeric[V]): F[Unit]
+  def zAddIncr(key: K, args: Option[ZAddArgs], value: ScoreWithValue[V]): F[Unit]
   def zIncrBy(key: K, member: V, amount: Double): F[Unit]
   def zInterStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Unit]
   def zRem(key: K, values: V*): F[Unit]
