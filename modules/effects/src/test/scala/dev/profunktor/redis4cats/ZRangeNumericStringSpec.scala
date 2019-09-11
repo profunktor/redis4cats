@@ -22,20 +22,7 @@ import dev.profunktor.redis4cats.interpreter.RedisConversionOps
 
 class ZRangeNumericStringSpec extends AnyFlatSpec with RedisConversionOps {
 
-  implicit val stringNumeric: Numeric[String] = new Numeric[String] {
-
-    private def d(s: String)                         = toDouble(s)
-    override def plus(x: String, y: String): String  = (d(x) + d(y)).toString
-    override def minus(x: String, y: String): String = (d(x) - d(y)).toString
-    override def times(x: String, y: String): String = (d(x) * d(y)).toString
-    override def negate(x: String): String           = (-d(x)).toString
-    override def fromInt(x: Int): String             = x.toString
-    override def toInt(x: String): Int               = Integer.parseInt(x)
-    override def toLong(x: String): Long             = java.lang.Long.parseLong(x)
-    override def toFloat(x: String): Float           = java.lang.Float.parseFloat(x)
-    override def toDouble(x: String): Double         = java.lang.Double.parseDouble(x)
-    override def compare(x: String, y: String): Int  = d(x) compare d(y)
-  }
+  import StringNumeric.instance
 
   "ZRange" should "not throw on Numeric[String]" in {
     ZRange("4", "20").asJavaRange
