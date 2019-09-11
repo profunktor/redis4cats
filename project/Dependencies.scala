@@ -5,7 +5,7 @@ object Dependencies {
   object Versions {
     val cats       = "2.0.0"
     val catsEffect = "2.0.0"
-    val fs2        = "1.1.0-M2"
+    val fs2        = "2.0.0"
     val log4cats   = "1.0.0"
 
     val lettuce    = "5.1.8.RELEASE"
