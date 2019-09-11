@@ -700,7 +700,7 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
       }
     }.void
 
-  override def zAddIncr(key: K, args: Option[ZAddArgs], member: ScoreWithValue[V])(implicit ev: Numeric[V]): F[Unit] =
+  override def zAddIncr(key: K, args: Option[ZAddArgs], member: ScoreWithValue[V]): F[Unit] =
     JRFuture {
       args match {
         case Some(x) => async.flatMap(c => F.delay(c.zaddincr(key, x, member.score.value, member.value)))
@@ -923,10 +923,18 @@ private[redis4cats] trait RedisConversionOps {
     }
   }
 
-  private[redis4cats] implicit class ZRangeOps[T: Numeric](range: ZRange[T]) {
+  private[redis4cats] implicit class ZRangeOps[T](range: ZRange[T])(implicit numeric: Numeric[T]) {
     def asJavaRange: JRange[Number] = {
-      val start: Number = range.start.asInstanceOf[java.lang.Number]
-      val end: Number   = range.end.asInstanceOf[java.lang.Number]
+      def toJavaNumber(t: T): java.lang.Number = t match {
+        case b: Byte  => b
+        case s: Short => s
+        case i: Int   => i
+        case l: Long  => l
+        case f: Float => f
+        case _        => numeric.toDouble(t)
+      }
+      val start: Number = toJavaNumber(range.start)
+      val end: Number   = toJavaNumber(range.end)
       JRange.create(start, end)
     }
   }
