@@ -38,7 +38,7 @@ object Dependencies {
     // Scala test libraries
     lazy val catsLaws      = cats("core")
     lazy val catsTestKit   = cats("testkit")
-    lazy val catsTestKitST = "org.typelevel" %% "cats-testkit-scalatest" % "1.0.0-M1"
+    lazy val catsTestKitST = "org.typelevel" %% "cats-testkit-scalatest" % "1.0.0-M2"
 
     lazy val scalaTest   = "org.scalatest"  %% "scalatest"  % Versions.scalaTest
     lazy val scalaCheck  = "org.scalacheck" %% "scalacheck" % Versions.scalaCheck
