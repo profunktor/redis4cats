@@ -47,3 +47,4 @@ worker*.log
 tags
 tq:q
 *DoNotCommit*
+.sbtopts
