@@ -21,7 +21,7 @@ import cats.effect.concurrent.Ref
 import cats.instances.list._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.Streaming
-import dev.profunktor.redis4cats.connection.RedisMasterSlave
+import dev.profunktor.redis4cats.connection.RedisMasterReplica
 import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.streams._
@@ -52,7 +52,7 @@ object RedisStream {
       codec: RedisCodec[K, V],
       uris: JRedisURI*
   )(readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]] =
-    Stream.resource(RedisMasterSlave[F, K, V](codec, uris: _*)(readFrom)).map { conn =>
+    Stream.resource(RedisMasterReplica[F, K, V](codec, uris: _*)(readFrom)).map { conn =>
       new RedisStream(new RedisRawStreaming(conn.underlying))
     }
 

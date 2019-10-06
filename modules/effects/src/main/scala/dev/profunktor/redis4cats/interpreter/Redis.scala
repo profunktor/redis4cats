@@ -113,8 +113,8 @@ object Redis {
     Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
   }
 
-  def masterSlave[F[_]: Concurrent: ContextShift: Log, K, V](
-      conn: RedisMasterSlaveConnection[K, V]
+  def masterReplica[F[_]: Concurrent: ContextShift: Log, K, V](
+      conn: RedisMasterReplicaConnection[K, V]
   ): F[RedisCommands[F, K, V]] =
     new Redis[F, K, V](new RedisStatefulConnection(conn.underlying)).asInstanceOf[RedisCommands[F, K, V]].pure[F]
 

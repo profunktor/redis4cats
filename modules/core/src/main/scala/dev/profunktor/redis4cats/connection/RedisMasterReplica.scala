@@ -20,34 +20,34 @@ import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
 import cats.syntax.all._
 import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
-import io.lettuce.core.masterslave.{ MasterSlave, StatefulRedisMasterSlaveConnection }
+import io.lettuce.core.masterreplica.{ MasterReplica, StatefulRedisMasterReplicaConnection }
 import io.lettuce.core.{ ReadFrom => JReadFrom, RedisURI => JRedisURI }
 
 import dev.profunktor.redis4cats.JavaConversions._
 
-object RedisMasterSlave {
+object RedisMasterReplica {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
       uris: JRedisURI*
-  ): (F[RedisMasterSlaveConnection[K, V]], RedisMasterSlaveConnection[K, V] => F[Unit]) = {
+  ): (F[RedisMasterReplicaConnection[K, V]], RedisMasterReplicaConnection[K, V] => F[Unit]) = {
 
-    val acquire: F[RedisMasterSlaveConnection[K, V]] = {
+    val acquire: F[RedisMasterReplicaConnection[K, V]] = {
 
-      val connection: F[RedisMasterSlaveConnection[K, V]] =
+      val connection: F[RedisMasterReplicaConnection[K, V]] =
         JRFuture
-          .fromCompletableFuture[F, StatefulRedisMasterSlaveConnection[K, V]] {
-            Sync[F].delay { MasterSlave.connectAsync[K, V](client.underlying, codec.underlying, uris.asJava) }
+          .fromCompletableFuture[F, StatefulRedisMasterReplicaConnection[K, V]] {
+            Sync[F].delay { MasterReplica.connectAsync[K, V](client.underlying, codec.underlying, uris.asJava) }
           }
           .map(LiveRedisMasterSlaveConnection.apply)
 
       readFrom.fold(connection)(rf => connection.flatMap(c => Sync[F].delay(c.underlying.setReadFrom(rf)) *> c.pure[F]))
     }
 
-    val release: RedisMasterSlaveConnection[K, V] => F[Unit] = connection =>
-      Log[F].info(s"Releasing Redis Master/Slave connection: ${connection.underlying}") *>
+    val release: RedisMasterReplicaConnection[K, V] => F[Unit] = connection =>
+      Log[F].info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>
         JRFuture.fromCompletableFuture(Sync[F].delay(connection.underlying.closeAsync())).void
 
     (acquire, release)
@@ -56,7 +56,7 @@ object RedisMasterSlave {
   def apply[F[_]: Concurrent: ContextShift: Log, K, V](
       codec: RedisCodec[K, V],
       uris: JRedisURI*
-  )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterSlaveConnection[K, V]] =
+  )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplicaConnection[K, V]] =
     Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F]).flatMap {
       case (acquireClient, releaseClient) =>
         Resource.make(acquireClient)(releaseClient).flatMap { client =>

@@ -81,13 +81,13 @@ val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
   } yield redis
 ```
 
-### Master / Slave connection
+### Master / Replica connection
 
-The process is a bit different. First of all, you don't need to create a `RedisClient`, it'll be created for you. All you need is `RedisMasterSlave` that exposes in a similar way one method `apply` that returns a `Resource`.
+The process is a bit different. First of all, you don't need to create a `RedisClient`, it'll be created for you. All you need is `RedisMasterReplica` that exposes in a similar way one method `apply` that returns a `Resource`.
 
 ```scala
 def apply[F[_], K, V](codec: RedisCodec[K, V], uris: JRedisURI*)(
-  readFrom: Option[ReadFrom] = None): Resource[F, RedisMasterSlaveConnection[K, V]]
+  readFrom: Option[ReadFrom] = None): Resource[F, RedisMasterReplicaConnection[K, V]]
 ```
 
 #### Example using the Strings API
@@ -96,19 +96,19 @@ def apply[F[_], K, V](codec: RedisCodec[K, V], uris: JRedisURI*)(
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.StringCommands
-import dev.profunktor.redis4cats.connection.RedisMasterSlave
+import dev.profunktor.redis4cats.connection.RedisMasterReplica
 import dev.profunktor.redis4cats.interpreter.Redis
-import dev.profunktor.redis4cats.domain.{ RedisMasterSlaveConnection, ReadFrom }
+import dev.profunktor.redis4cats.domain.{ ReadFrom, RedisMasterReplicaConnection }
 
 val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
-val connection: Resource[IO, RedisMasterSlaveConnection[String, String]] =
+val connection: Resource[IO, RedisMasterReplicaConnection[String, String]] =
   Resource.liftF(RedisURI.make[IO]("redis://localhost")).flatMap { uri =>
-    RedisMasterSlave[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
+    RedisMasterReplica[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
   }
 
 connection.use { conn =>
-  Redis.masterSlave[IO, String, String](conn).flatMap { cmd =>
+  Redis.masterReplica[IO, String, String](conn).flatMap { cmd =>
     IO.unit  // do something
   }
 }
