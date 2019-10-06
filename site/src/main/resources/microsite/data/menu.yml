@@ -16,6 +16,10 @@ options:
         url: effects/hashes.html
         menu_section: effectapi
 
+      - title: Keys
+        url: effects/keys.html
+        menu_section: effectapi
+
       - title: Lists
         url: effects/lists.html
         menu_section: effectapi

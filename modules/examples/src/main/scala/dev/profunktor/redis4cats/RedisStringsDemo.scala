@@ -50,9 +50,6 @@ object RedisStringsDemo extends LoggerIOApp {
           _ <- cmd.setNx(usernameKey, "should not happen")
           w <- cmd.get(usernameKey)
           _ <- showResult(w)
-          _ <- cmd.del(usernameKey)
-          z <- cmd.get(usernameKey)
-          _ <- showResult(z)
         } yield ()
       }
   }

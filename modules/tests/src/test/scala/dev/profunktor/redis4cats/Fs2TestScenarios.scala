@@ -129,17 +129,35 @@ trait Fs2TestScenarios {
     } yield ()
   }
 
+  def keysScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val key1 = "key1"
+    val key2 = "key2"
+    for {
+      x <- cmd.get(key1)
+      _ <- IO { assert(x.isEmpty) }
+      exist1 <- cmd.exists(key1)
+      _ <- IO { assert(!exist1) }
+      _ <- cmd.set(key1, "some value")
+      exist2 <- cmd.exists(key1)
+      _ <- IO { assert(exist2) }
+      _ <- cmd.mSet(Map(key2 -> "some value 2"))
+      exist3 <- cmd.exists(key1, key2)
+      _ <- IO { assert(exist3) }
+      exist4 <- cmd.exists(key1, key2, "_not_existing_key_")
+      _ <- IO { assert(!exist4) }
+      _ <- cmd.del(key1)
+      exist5 <- cmd.exists(key1)
+      _ <- IO { assert(!exist5) }
+    } yield ()
+  }
+
   def stringsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key = "test"
     for {
       x <- cmd.get(key)
       _ <- IO { assert(x.isEmpty) }
-      exist1 <- cmd.exists(key)
-      _ <- IO { assert(!exist1) }
       isSet1 <- cmd.setNx(key, "some value")
       _ <- IO { assert(isSet1) }
-      exist2 <- cmd.exists(key)
-      _ <- IO { assert(exist2) }
       y <- cmd.get(key)
       _ <- IO { assert(y.contains("some value")) }
       isSet2 <- cmd.setNx(key, "should not happen")
@@ -154,17 +172,11 @@ trait Fs2TestScenarios {
       _ <- IO { assert(val3.isEmpty) }
       isSet5 <- cmd.mSetNx(Map("multikey1" -> "someVal1", "multikey2" -> "someVal2"))
       _ <- IO { assert(!isSet5) }
-      exist3 <- cmd.exists(key, "multikey1", "multikey2")
-      _ <- IO { assert(exist3) }
-      exist4 <- cmd.exists(key, "multikey1", "_not_existing_key_")
-      _ <- IO { assert(!exist4) }
       w <- cmd.get(key)
       _ <- IO { assert(w.contains("some value")) }
       _ <- cmd.del(key)
       z <- cmd.get(key)
       _ <- IO { assert(z.isEmpty) }
-      exist5 <- cmd.exists(key)
-      _ <- IO { assert(!exist5) }
     } yield ()
   }
 

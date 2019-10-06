@@ -132,6 +132,7 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
   def async: F[RedisClusterAsyncCommands[K, V]] =
     if (cluster) conn.clusterAsync else conn.async.widen[RedisClusterAsyncCommands[K, V]]
 
+  /******************************* Keys API *************************************/
   def del(key: K*): F[Unit] =
     JRFuture {
       async.flatMap(c => F.delay(c.del(key: _*)))

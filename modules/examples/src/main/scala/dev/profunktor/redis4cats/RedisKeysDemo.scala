@@ -17,12 +17,12 @@
 package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
-import dev.profunktor.redis4cats.algebra.StringCommands
+import dev.profunktor.redis4cats.algebra.{ KeyCommands, StringCommands }
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.Redis
 
-object RedisClusterStringsDemo extends LoggerIOApp {
+object RedisKeysDemo extends LoggerIOApp {
 
   import Demo._
 
@@ -32,11 +32,11 @@ object RedisClusterStringsDemo extends LoggerIOApp {
     val showResult: Option[String] => IO[Unit] =
       _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
-    val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
+    val commandsApi: Resource[IO, KeyCommands[IO, String] with StringCommands[IO, String, String]] =
       for {
-        uri <- Resource.liftF(RedisURI.make[IO](redisClusterURI))
-        client <- RedisClusterClient[IO](uri)
-        redis <- Redis.cluster[IO, String, String](client, stringCodec)
+        uri <- Resource.liftF(RedisURI.make[IO](redisURI))
+        client <- RedisClient[IO](uri)
+        redis <- Redis[IO, String, String](client, stringCodec, uri)
       } yield redis
 
     commandsApi
@@ -49,6 +49,9 @@ object RedisClusterStringsDemo extends LoggerIOApp {
           _ <- showResult(y)
           _ <- cmd.setNx(usernameKey, "should not happen")
           w <- cmd.get(usernameKey)
+          _ <- cmd.del(usernameKey)
+          z <- cmd.get(usernameKey)
+          _ <- showResult(z)
           _ <- showResult(w)
         } yield ()
       }

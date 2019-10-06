@@ -24,11 +24,7 @@ trait StringCommands[F[_], K, V]
     with MultiKey[F, K, V]
     with Decrement[F, K, V]
     with Increment[F, K, V]
-    with Bits[F, K, V] {
-  def del(key: K*): F[Unit]
-  def exists(key: K*): F[Boolean]
-  def expire(k: K, seconds: FiniteDuration): F[Unit]
-}
+    with Bits[F, K, V]
 
 trait Getter[F[_], K, V] {
   def get(key: K): F[Option[V]]
