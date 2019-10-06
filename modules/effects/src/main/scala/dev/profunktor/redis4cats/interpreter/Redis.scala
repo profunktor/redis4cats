@@ -137,6 +137,11 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
       async.flatMap(c => F.delay(c.del(key: _*)))
     }.void
 
+  def exists(key: K*): F[Boolean] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.exists(key: _*)))
+    }.map(x => x == key.size.toLong)
+
   def expire(key: K, expiresIn: FiniteDuration): F[Unit] =
     JRFuture {
       async.flatMap(c => F.delay(c.expire(key, expiresIn.toSeconds)))

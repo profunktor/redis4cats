@@ -26,6 +26,7 @@ trait StringCommands[F[_], K, V]
     with Increment[F, K, V]
     with Bits[F, K, V] {
   def del(key: K*): F[Unit]
+  def exists(key: K*): F[Boolean]
   def expire(k: K, seconds: FiniteDuration): F[Unit]
 }
 
