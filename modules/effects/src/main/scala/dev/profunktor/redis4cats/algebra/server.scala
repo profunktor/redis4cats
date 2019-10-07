@@ -16,10 +16,19 @@
 
 package dev.profunktor.redis4cats.algebra
 
-trait ServerCommands[F[_], K] extends Flush[F, K]
+import java.time.Instant
+
+trait ServerCommands[F[_], K] extends Flush[F, K] with Diagnostic[F]
 
 trait Flush[F[_], K] {
   def keys(key: K): F[List[K]]
   def flushAll: F[Unit]
   def flushAllAsync: F[Unit]
+}
+
+trait Diagnostic[F[_]] {
+  def info: F[Map[String, String]]
+  def dbsize: F[Long]
+  def lastSave: F[Instant]
+  def slowLogLen: F[Long]
 }

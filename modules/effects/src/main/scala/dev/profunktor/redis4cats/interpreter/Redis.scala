@@ -16,6 +16,8 @@
 
 package dev.profunktor.redis4cats.interpreter
 
+import java.time.Instant
+
 import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.algebra._
@@ -28,6 +30,7 @@ import io.lettuce.core.{ GeoArgs, GeoRadiusStoreArgs, GeoWithin, ScoredValue, ZA
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import java.util.concurrent.TimeUnit
+
 import scala.concurrent.duration.FiniteDuration
 
 object Redis {
@@ -897,6 +900,31 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
     JRFuture {
       async.flatMap(c => F.delay(c.keys(key)))
     }.map(_.asScala.toList)
+
+  override def info: F[Map[String, String]] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.info))
+    }.map(
+      _.split("\\r?\\n").toList
+        .map(_.split(":", 2).toList)
+        .collect { case k :: v :: Nil => (k, v) }
+        .toMap
+    )
+
+  override def dbsize: F[Long] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.dbsize))
+    }.map(Long.unbox)
+
+  override def lastSave: F[Instant] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.lastsave))
+    }.map(_.toInstant)
+
+  override def slowLogLen: F[Long] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.slowlogLen))
+    }.map(Long.unbox)
 }
 
 private[redis4cats] trait RedisConversionOps {
