@@ -41,7 +41,7 @@ object RedisMasterReplica {
           .fromCompletableFuture[F, StatefulRedisMasterReplicaConnection[K, V]] {
             Sync[F].delay { MasterReplica.connectAsync[K, V](client.underlying, codec.underlying, uris.asJava) }
           }
-          .map(LiveRedisMasterSlaveConnection.apply)
+          .map(LiveRedisMasterReplicaConnection.apply)
 
       readFrom.fold(connection)(rf => connection.flatMap(c => Sync[F].delay(c.underlying.setReadFrom(rf)) *> c.pure[F]))
     }

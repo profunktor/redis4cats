@@ -36,7 +36,7 @@ object domain {
   trait RedisMasterReplicaConnection[K, V] {
     def underlying: StatefulRedisMasterReplicaConnection[K, V]
   }
-  case class LiveRedisMasterSlaveConnection[K, V](underlying: StatefulRedisMasterReplicaConnection[K, V])
+  case class LiveRedisMasterReplicaConnection[K, V](underlying: StatefulRedisMasterReplicaConnection[K, V])
       extends RedisMasterReplicaConnection[K, V]
 
   trait RedisChannel[K] {
