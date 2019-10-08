@@ -16,6 +16,8 @@
 
 package dev.profunktor.redis4cats
 
+import java.time.Instant
+
 import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.algebra._
@@ -209,6 +211,14 @@ trait Fs2TestScenarios {
       _ <- IO { assert(names == Set("firstname", "lastname")) }
       age <- cmd.keys("a??")
       _ <- IO { assert(age == List("age")) }
+      info <- cmd.info
+      _ <- IO { assert(info.contains("role")) }
+      dbsize <- cmd.dbsize
+      _ <- IO { assert(dbsize > 0) }
+      lastSave <- cmd.lastSave
+      _ <- IO { assert(lastSave.isBefore(Instant.now)) }
+      slowLogLen <- cmd.slowLogLen
+      _ <- IO { assert(slowLogLen.isValidLong) }
     } yield ()
 
   def transactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
