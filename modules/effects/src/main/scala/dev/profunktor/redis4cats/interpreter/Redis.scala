@@ -904,11 +904,16 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
   override def info: F[Map[String, String]] =
     JRFuture {
       async.flatMap(c => F.delay(c.info))
-    }.map(
-      _.split("\\r?\\n").toList
-        .map(_.split(":", 2).toList)
-        .collect { case k :: v :: Nil => (k, v) }
-        .toMap
+    }.flatMap(
+      info =>
+        F.delay(
+          info
+            .split("\\r?\\n")
+            .toList
+            .map(_.split(":", 2).toList)
+            .collect { case k :: v :: Nil => (k, v) }
+            .toMap
+      )
     )
 
   override def dbsize: F[Long] =
