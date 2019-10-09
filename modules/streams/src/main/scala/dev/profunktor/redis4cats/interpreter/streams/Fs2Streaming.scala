@@ -43,12 +43,12 @@ object RedisStream {
 
     val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
       JRFuture.fromCompletableFuture(Sync[F].delay(c.client.closeAsync())) *>
-        Log[F].info(s"Releasing Streaming connection: $uri")
+          Log[F].info(s"Releasing Streaming connection: $uri")
 
     Stream.bracket(acquire)(release).map(rs => new RedisStream(rs))
   }
 
-  def mkMasterSlaveConnection[F[_]: Concurrent: ContextShift: Log, K, V](
+  def mkMasterReplicaConnection[F[_]: Concurrent: ContextShift: Log, K, V](
       codec: RedisCodec[K, V],
       uris: JRedisURI*
   )(readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]] =

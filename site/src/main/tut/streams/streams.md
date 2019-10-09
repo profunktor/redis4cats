@@ -22,10 +22,10 @@ def mkStreamingConnection[F[_], K, V](
 ): Stream[F, Streaming[Stream[F, ?], K, V]]
 ```
 
-#### Master / Slave connection
+#### Master / Replica connection
 
 ```scala
-def mkMasterSlaveConnection[F[_], K, V](codec: RedisCodec[K, V], uris: JRedisURI*)(
+def mkMasterReplicaConnection[F[_], K, V](codec: RedisCodec[K, V], uris: JRedisURI*)(
   readFrom: Option[ReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]]
 ```
 
