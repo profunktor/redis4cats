@@ -96,7 +96,7 @@ object Redis {
       uri: JRedisURI
   ): Resource[F, RedisCommands[F, K, V]] = {
     val (acquire, release) = acquireAndRelease(client, codec, uri)
-    Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
+    Resource.make(acquire)(release).widen
   }
 
   def cluster[F[_]: Concurrent: ContextShift: Log, K, V](
@@ -104,7 +104,7 @@ object Redis {
       codec: RedisCodec[K, V]
   ): Resource[F, RedisCommands[F, K, V]] = {
     val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec)
-    Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
+    Resource.make(acquire)(release).widen
   }
 
   def clusterByNode[F[_]: Concurrent: ContextShift: Log, K, V](
@@ -113,14 +113,17 @@ object Redis {
       nodeId: NodeId
   ): Resource[F, RedisCommands[F, K, V]] = {
     val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, nodeId)
-    Resource.make(acquire)(release).map(_.asInstanceOf[RedisCommands[F, K, V]])
+    Resource.make(acquire)(release).widen
   }
 
-  def masterSlave[F[_]: Concurrent: ContextShift: Log, K, V](
-      conn: RedisMasterSlaveConnection[K, V]
+  def masterReplica[F[_]: Concurrent: ContextShift: Log, K, V](
+      conn: RedisMasterReplicaConnection[K, V]
   ): F[RedisCommands[F, K, V]] =
-    new Redis[F, K, V](new RedisStatefulConnection(conn.underlying)).asInstanceOf[RedisCommands[F, K, V]].pure[F]
-
+    Sync[F]
+      .delay {
+        new RedisStatefulConnection(conn.underlying)
+      }
+      .map(new Redis[F, K, V](_))
 }
 
 private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](

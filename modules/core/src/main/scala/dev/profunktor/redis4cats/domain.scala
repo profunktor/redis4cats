@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats
 import io.lettuce.core.{ RedisClient => JRedisClient, ReadFrom => JReadFrom }
 import io.lettuce.core.cluster.{ RedisClusterClient => JClusterClient }
 import io.lettuce.core.codec.{ RedisCodec => JRedisCodec, StringCodec, ToByteBufEncoder }
-import io.lettuce.core.masterslave.StatefulRedisMasterSlaveConnection
+import io.lettuce.core.masterreplica.StatefulRedisMasterReplicaConnection
 
 object domain {
 
@@ -33,11 +33,11 @@ object domain {
   }
   case class LiveRedisClusterClient(underlying: JClusterClient) extends RedisClusterClient
 
-  trait RedisMasterSlaveConnection[K, V] {
-    def underlying: StatefulRedisMasterSlaveConnection[K, V]
+  trait RedisMasterReplicaConnection[K, V] {
+    def underlying: StatefulRedisMasterReplicaConnection[K, V]
   }
-  case class LiveRedisMasterSlaveConnection[K, V](underlying: StatefulRedisMasterSlaveConnection[K, V])
-      extends RedisMasterSlaveConnection[K, V]
+  case class LiveRedisMasterReplicaConnection[K, V](underlying: StatefulRedisMasterReplicaConnection[K, V])
+      extends RedisMasterReplicaConnection[K, V]
 
   trait RedisChannel[K] {
     def underlying: K
@@ -59,11 +59,11 @@ object domain {
   }
 
   object ReadFrom {
-    val Master          = JReadFrom.MASTER
-    val MasterPreferred = JReadFrom.MASTER_PREFERRED
-    val Nearest         = JReadFrom.NEAREST
-    val Slave           = JReadFrom.SLAVE
-    val SlavePreferred  = JReadFrom.SLAVE_PREFERRED
+    val Master           = JReadFrom.MASTER
+    val MasterPreferred  = JReadFrom.MASTER_PREFERRED
+    val Nearest          = JReadFrom.NEAREST
+    val Replica          = JReadFrom.REPLICA
+    val ReplicaPreferred = JReadFrom.REPLICA_PREFERRED
   }
 
 }

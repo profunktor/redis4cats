@@ -8,7 +8,7 @@ object Dependencies {
     val fs2        = "2.0.1"
     val log4cats   = "1.0.0"
 
-    val lettuce    = "5.1.8.RELEASE"
+    val lettuce    = "5.2.0.RELEASE"
     val logback    = "1.2.3"
 
     val betterMonadicFor = "0.3.1"

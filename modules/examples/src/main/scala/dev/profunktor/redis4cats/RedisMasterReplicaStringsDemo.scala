@@ -18,11 +18,11 @@ package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.connection._
-import dev.profunktor.redis4cats.domain.{ ReadFrom, RedisMasterSlaveConnection }
+import dev.profunktor.redis4cats.domain.{ ReadFrom, RedisMasterReplicaConnection }
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.Redis
 
-object RedisMasterSlaveStringsDemo extends LoggerIOApp {
+object RedisMasterReplicaStringsDemo extends LoggerIOApp {
 
   import Demo._
 
@@ -32,14 +32,14 @@ object RedisMasterSlaveStringsDemo extends LoggerIOApp {
     val showResult: Option[String] => IO[Unit] =
       _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
-    val connection: Resource[IO, RedisMasterSlaveConnection[String, String]] =
+    val connection: Resource[IO, RedisMasterReplicaConnection[String, String]] =
       Resource.liftF(RedisURI.make[IO](redisURI)).flatMap { uri =>
-        RedisMasterSlave[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
+        RedisMasterReplica[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
       }
 
     connection
       .use { conn =>
-        Redis.masterSlave[IO, String, String](conn).flatMap { cmd =>
+        Redis.masterReplica[IO, String, String](conn).flatMap { cmd =>
           for {
             x <- cmd.get(usernameKey)
             _ <- showResult(x)
