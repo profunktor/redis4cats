@@ -114,4 +114,4 @@ connection.use { conn =>
 }
 ```
 
-Find more information [here](https://github.com/lettuce-io/lettuce-core/wiki/Master-Slave#examples).
+Find more information [here](https://github.com/lettuce-io/lettuce-core/wiki/Master-Replica#examples).

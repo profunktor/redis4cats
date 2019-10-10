@@ -48,7 +48,7 @@ object RedisStream {
     Stream.bracket(acquire)(release).map(rs => new RedisStream(rs))
   }
 
-  def mkMasterSlaveConnection[F[_]: Concurrent: ContextShift: Log, K, V](
+  def mkMasterReplicaConnection[F[_]: Concurrent: ContextShift: Log, K, V](
       codec: RedisCodec[K, V],
       uris: JRedisURI*
   )(readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]] =

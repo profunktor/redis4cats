@@ -116,8 +116,11 @@ object Redis {
   def masterReplica[F[_]: Concurrent: ContextShift: Log, K, V](
       conn: RedisMasterReplicaConnection[K, V]
   ): F[RedisCommands[F, K, V]] =
-    Sync[F].delay(new Redis[F, K, V](new RedisStatefulConnection(conn.underlying))).widen
-
+    Sync[F]
+      .delay {
+        new RedisStatefulConnection(conn.underlying)
+      }
+      .map(new Redis[F, K, V](_))
 }
 
 private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
