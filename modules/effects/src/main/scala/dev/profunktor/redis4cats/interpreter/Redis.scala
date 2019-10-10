@@ -116,7 +116,7 @@ object Redis {
   def masterReplica[F[_]: Concurrent: ContextShift: Log, K, V](
       conn: RedisMasterReplicaConnection[K, V]
   ): F[RedisCommands[F, K, V]] =
-    new Redis[F, K, V](new RedisStatefulConnection(conn.underlying)).pure[F].widen
+    Sync[F].delay(new Redis[F, K, V](new RedisStatefulConnection(conn.underlying))).widen
 
 }
 
