@@ -25,7 +25,7 @@ import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effects._
-import io.lettuce.core.{ Limit => JLimit, Range => JRange, RedisURI => JRedisURI }
+import io.lettuce.core.{ Limit => JLimit, Range => JRange, RedisURI => JRedisURI, SetArgs => JSetArgs }
 import io.lettuce.core.{ GeoArgs, GeoRadiusStoreArgs, GeoWithin, ScoredValue, ZAddArgs, ZStoreArgs }
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
@@ -222,6 +222,24 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
     JRFuture {
       async.flatMap(c => F.delay(c.set(key, value)))
     }.void
+
+  override def set(key: K, value: V, setArgs: SetArgs): F[Boolean] = {
+    val jSetArgs = new JSetArgs()
+
+    setArgs.existence.foreach {
+      case SetArg.Existence.Nx => jSetArgs.nx()
+      case SetArg.Existence.Xx => jSetArgs.xx()
+    }
+
+    setArgs.ttl.foreach {
+      case SetArg.Ttl.Px(d) => jSetArgs.px(d.toMillis)
+      case SetArg.Ttl.Ex(d) => jSetArgs.ex(d.toSeconds)
+    }
+
+    JRFuture {
+      async.flatMap(c => F.delay(c.set(key, value, jSetArgs)))
+    }.map(_ == "OK")
+  }
 
   override def setNx(key: K, value: V): F[Boolean] =
     JRFuture {

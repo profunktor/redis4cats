@@ -176,6 +176,23 @@ trait Fs2TestScenarios {
       _ <- IO { assert(!isSet5) }
       w <- cmd.get(key)
       _ <- IO { assert(w.contains("some value")) }
+      isSet6 <- cmd.set(key, "some value", SetArgs(SetArg.Existence.Nx))
+      _ <- IO { assert(!isSet6) }
+      isSet7 <- cmd.set(key, "some value 2", SetArgs(SetArg.Existence.Xx))
+      _ <- IO { assert(isSet7) }
+      val4 <- cmd.get(key)
+      _ <- IO { assert(val4.contains("some value 2")) }
+      _ <- cmd.del(key)
+      isSet8 <- cmd.set(key, "some value", SetArgs(SetArg.Existence.Xx))
+      _ <- IO { assert(!isSet8) }
+      isSet9 <- cmd.set(key, "some value", SetArgs(SetArg.Existence.Nx))
+      _ <- IO { assert(isSet9) }
+      val5 <- cmd.get(key)
+      _ <- IO { assert(val5.contains("some value")) }
+      isSet10 <- cmd.set(key, "some value 2", SetArgs(None, None))
+      _ <- IO { assert(isSet10) }
+      val6 <- cmd.get(key)
+      _ <- IO { assert(val6.contains("some value 2")) }
       _ <- cmd.del(key)
       z <- cmd.get(key)
       _ <- IO { assert(z.isEmpty) }
