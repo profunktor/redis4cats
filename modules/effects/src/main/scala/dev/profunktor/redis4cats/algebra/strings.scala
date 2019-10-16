@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import io.lettuce.core.SetArgs
+import dev.profunktor.redis4cats.effects.SetArgs
 
 import scala.concurrent.duration.FiniteDuration
 

@@ -18,6 +18,8 @@ package dev.profunktor.redis4cats
 
 import io.lettuce.core.GeoArgs
 
+import scala.concurrent.duration.FiniteDuration
+
 object effects {
 
   case class Distance(value: Double) extends AnyVal
@@ -38,4 +40,24 @@ object effects {
   case class ZRange[V](start: V, end: V)
   case class RangeLimit(offset: Long, count: Long)
 
+  sealed trait SetArg
+  object SetArg {
+    sealed trait Existence extends SetArg
+    object Existence {
+      case object Nx extends Existence
+      case object Xx extends Existence
+    }
+
+    sealed trait Ttl extends SetArg
+    object Ttl {
+      case class Px(duration: FiniteDuration) extends Ttl
+      case class Ex(duration: FiniteDuration) extends Ttl
+    }
+  }
+  case class SetArgs(existence: Option[SetArg.Existence], ttl: Option[SetArg.Ttl])
+  object SetArgs {
+    def apply(ex: SetArg.Existence): SetArgs = SetArgs(Some(ex), None)
+    def apply(ttl: SetArg.Ttl): SetArgs = SetArgs(None, Some(ttl))
+    def apply(ex: SetArg.Existence, ttl: SetArg.Ttl): SetArgs = SetArgs(Some(ex), Some(ttl))
+  }
 }
