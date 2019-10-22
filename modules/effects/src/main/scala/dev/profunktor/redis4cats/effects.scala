@@ -56,8 +56,8 @@ object effects {
   }
   case class SetArgs(existence: Option[SetArg.Existence], ttl: Option[SetArg.Ttl])
   object SetArgs {
-    def apply(ex: SetArg.Existence): SetArgs = SetArgs(Some(ex), None)
-    def apply(ttl: SetArg.Ttl): SetArgs = SetArgs(None, Some(ttl))
+    def apply(ex: SetArg.Existence): SetArgs                  = SetArgs(Some(ex), None)
+    def apply(ttl: SetArg.Ttl): SetArgs                       = SetArgs(None, Some(ttl))
     def apply(ex: SetArg.Existence, ttl: SetArg.Ttl): SetArgs = SetArgs(Some(ex), Some(ttl))
   }
 }

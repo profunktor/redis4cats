@@ -16,10 +16,10 @@
 
 package dev.profunktor.redis4cats.connection
 
-import cats.effect.Sync
+import cats.ApplicativeError
 import io.lettuce.core.{ RedisURI => JRedisURI }
 
 object RedisURI {
-  def make[F[_]: Sync](uri: => String): F[JRedisURI] =
-    Sync[F].delay(JRedisURI.create(uri))
+  def make[F[_]](uri: => String)(implicit F: ApplicativeError[F, Throwable]): F[JRedisURI] =
+    F.catchNonFatal(JRedisURI.create(uri))
 }
