@@ -25,6 +25,7 @@ import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.transactions._
 import io.lettuce.core.GeoArgs
+import scala.concurrent.duration._
 
 trait Fs2TestScenarios {
 
@@ -150,6 +151,16 @@ trait Fs2TestScenarios {
       _ <- cmd.del(key1)
       exist5 <- cmd.exists(key1)
       _ <- IO { assert(!exist5) }
+      a <- cmd.ttl("whatever+")
+      _ <- IO { assert(a.isEmpty) }
+      b <- cmd.pttl("whatever+")
+      _ <- IO { assert(b.isEmpty) }
+      _ <- cmd.set("f1", "bar")
+      _ <- cmd.expire("f1", 10.seconds)
+      c <- cmd.ttl("f1")
+      _ <- IO { assert(c.isDefined) }
+      d <- cmd.pttl("f1")
+      _ <- IO { assert(d.isDefined) }
     } yield ()
   }
 

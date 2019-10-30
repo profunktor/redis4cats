@@ -31,7 +31,7 @@ import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 object Redis {
 
@@ -153,6 +153,22 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
     JRFuture {
       async.flatMap(c => F.delay(c.expire(key, expiresIn.toSeconds)))
     }.void
+
+  def ttl(key: K): F[Option[FiniteDuration]] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.ttl(key)))
+    }.map {
+      case d if d == -2 || d == -1 => none[FiniteDuration]
+      case d                       => FiniteDuration(d, TimeUnit.SECONDS).some
+    }
+
+  def pttl(key: K): F[Option[FiniteDuration]] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.pttl(key)))
+    }.map {
+      case d if d == -2 || d == -1 => none[FiniteDuration]
+      case d                       => FiniteDuration(d, TimeUnit.MILLISECONDS).some
+    }
 
   /******************************* Transactions API **********************************/
   // When in a cluster, transactions should run against a single node, therefore we use `conn.async` instead of `conn.clusterAsync`.
