@@ -7,7 +7,7 @@ addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "3.8")
 
 addSbtPlugin("com.jsuereth" % "sbt-pgp" % "2.0.0")
 
-addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.2.0")
+addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.3.0")
 
 addSbtPlugin("com.lucidchart" %  "sbt-scalafmt" % "1.16")
 
