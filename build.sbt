@@ -7,8 +7,8 @@ name := """redis4cats-root"""
 
 organization in ThisBuild := "dev.profunktor"
 
-scalaVersion in ThisBuild := "2.12.9"
-crossScalaVersions in ThisBuild := Seq("2.12.9", "2.13.0")
+scalaVersion in ThisBuild := "2.13.1"
+crossScalaVersions in ThisBuild := Seq(scalaVersion.value, "2.12.10")
 
 sonatypeProfileName := "dev.profunktor"
 
@@ -32,7 +32,7 @@ val commonSettings = Seq(
   homepage := Some(url("https://redis4cats.profunktor.dev/")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2019", "ProfunKtor")),
   libraryDependencies ++= Seq(
-    compilerPlugin(Libraries.kindProjector cross CrossVersion.binary),
+    compilerPlugin(Libraries.kindProjector cross CrossVersion.full),
     compilerPlugin(Libraries.betterMonadicFor),
     Libraries.redisClient,
     Libraries.scalaCheck % Test,

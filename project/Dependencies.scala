@@ -5,14 +5,14 @@ object Dependencies {
   object Versions {
     val cats       = "2.0.0"
     val catsEffect = "2.0.0"
-    val fs2        = "2.0.1"
+    val fs2        = "2.1.0"
     val log4cats   = "1.0.1"
 
     val lettuce    = "5.2.1.RELEASE"
     val logback    = "1.2.3"
 
     val betterMonadicFor = "0.3.1"
-    val kindProjector    = "0.10.3"
+    val kindProjector    = "0.11.0"
 
     val scalaCheck = "1.14.2"
     val scalaTest  = "3.1.0"
