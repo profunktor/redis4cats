@@ -18,26 +18,27 @@ package dev.profunktor.redis4cats.connection
 
 import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
 import cats.implicits._
-import dev.profunktor.redis4cats.domain.{ LiveRedisClusterClient, NodeId, RedisClusterClient }
+import dev.profunktor.redis4cats.domain.{ NodeId }
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
-import io.lettuce.core.{ RedisURI => JRedisURI }
 import io.lettuce.core.cluster.{ SlotHash, RedisClusterClient => JClusterClient }
 import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
 
 import dev.profunktor.redis4cats.JavaConversions._
 
+sealed abstract case class RedisClusterClient private (underlying: JClusterClient)
+
 object RedisClusterClient {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
-      uri: JRedisURI*
+      uri: RedisURI*
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
 
     val acquire: F[RedisClusterClient] =
       Log[F].info(s"Acquire Redis Cluster client") *>
         Sync[F]
-          .delay(JClusterClient.create(uri.asJava))
+          .delay(JClusterClient.create(uri.map(_.underlying).asJava))
           .flatTap(initializeClusterPartitions[F])
-          .map(LiveRedisClusterClient)
+          .map(new RedisClusterClient(_) {})
 
     val release: RedisClusterClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *>
@@ -49,10 +50,13 @@ object RedisClusterClient {
   private[redis4cats] def initializeClusterPartitions[F[_]: Sync](client: JClusterClient): F[Unit] =
     Sync[F].delay(client.getPartitions).void
 
-  def apply[F[_]: Concurrent: ContextShift: Log](uri: JRedisURI*): Resource[F, RedisClusterClient] = {
+  def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI*): Resource[F, RedisClusterClient] = {
     val (acquire, release) = acquireAndRelease(uri: _*)
     Resource.make(acquire)(release)
   }
+
+  def fromUnderlying(underlying: JClusterClient): RedisClusterClient =
+    new RedisClusterClient(underlying) {}
 
   def nodeId[F[_]: Sync](
       client: RedisClusterClient,

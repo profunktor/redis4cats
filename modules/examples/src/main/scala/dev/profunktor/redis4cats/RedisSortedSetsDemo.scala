@@ -34,7 +34,7 @@ object RedisSortedSetsDemo extends LoggerIOApp {
       for {
         uri <- Resource.liftF(RedisURI.make[IO](redisURI))
         client <- RedisClient[IO](uri)
-        redis <- Redis[IO, String, Long](client, longCodec, uri)
+        redis <- Redis[IO, String, Long](client, longCodec)
       } yield redis
 
     commandsApi

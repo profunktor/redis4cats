@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats
 
 import cats.effect.IO
 import dev.profunktor.redis4cats.connection._
-import dev.profunktor.redis4cats.domain.LiveChannel
+import dev.profunktor.redis4cats.domain.RedisChannel
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.pubsub.PubSub
 import fs2.Stream
@@ -30,13 +30,13 @@ object PublisherDemo extends LoggerIOApp {
 
   import Demo._
 
-  private val eventsChannel = LiveChannel("events")
+  private val eventsChannel = RedisChannel("events")
 
   def stream(implicit log: Log[IO]): Stream[IO, Unit] =
     for {
       uri <- Stream.eval(RedisURI.make[IO](redisURI))
       client <- Stream.resource(RedisClient[IO](uri))
-      pubSub <- PubSub.mkPublisherConnection[IO, String, String](client, stringCodec, uri)
+      pubSub <- PubSub.mkPublisherConnection[IO, String, String](client, stringCodec)
       pub1 = pubSub.publish(eventsChannel)
       rs <- Stream(
              Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),

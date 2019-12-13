@@ -36,7 +36,7 @@ object RedisStringsDemo extends LoggerIOApp {
       for {
         uri <- Resource.liftF(RedisURI.make[IO](redisURI))
         client <- RedisClient[IO](uri)
-        redis <- Redis[IO, String, String](client, stringCodec, uri)
+        redis <- Redis[IO, String, String](client, stringCodec)
       } yield redis
 
     commandsApi

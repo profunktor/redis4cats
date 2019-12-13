@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats
 
 import cats.effect.IO
 import dev.profunktor.redis4cats.connection._
-import dev.profunktor.redis4cats.domain.LiveChannel
+import dev.profunktor.redis4cats.domain.RedisChannel
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.pubsub.PubSub
 import fs2.{ Pipe, Stream }
@@ -30,8 +30,8 @@ object PubSubDemo extends LoggerIOApp {
 
   import Demo._
 
-  private val eventsChannel = LiveChannel("events")
-  private val gamesChannel  = LiveChannel("games")
+  private val eventsChannel = RedisChannel("events")
+  private val gamesChannel  = RedisChannel("games")
 
   def sink(name: String): Pipe[IO, String, Unit] =
     _.evalMap(x => putStrLn(s"Subscriber: $name >> $x"))
@@ -40,7 +40,7 @@ object PubSubDemo extends LoggerIOApp {
     for {
       uri <- Stream.eval(RedisURI.make[IO](redisURI))
       client <- Stream.resource(RedisClient[IO](uri))
-      pubSub <- PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, uri)
+      pubSub <- PubSub.mkPubSubConnection[IO, String, String](client, stringCodec)
       sub1 = pubSub.subscribe(eventsChannel)
       sub2 = pubSub.subscribe(gamesChannel)
       pub1 = pubSub.publish(eventsChannel)

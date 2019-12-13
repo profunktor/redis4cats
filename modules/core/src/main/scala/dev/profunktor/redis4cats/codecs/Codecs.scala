@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.codecs
 
-import dev.profunktor.redis4cats.domain.{ LiveRedisCodec, RedisCodec }
+import dev.profunktor.redis4cats.domain.RedisCodec
 import java.nio.ByteBuffer
 
 import dev.profunktor.redis4cats.codecs.splits.SplitEpi
@@ -34,7 +34,7 @@ object Codecs {
       epi: SplitEpi[K, V]
   ): RedisCodec[K, V] = {
     val codec = baseCodec.underlying
-    LiveRedisCodec(
+    RedisCodec(
       new JRedisCodec[K, V] with ToByteBufEncoder[K, V] {
         override def decodeKey(bytes: ByteBuffer): K              = codec.decodeKey(bytes)
         override def encodeKey(key: K): ByteBuffer                = codec.encodeKey(key)

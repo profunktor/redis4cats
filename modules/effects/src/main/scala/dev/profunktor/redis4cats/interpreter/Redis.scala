@@ -25,7 +25,7 @@ import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effects._
-import io.lettuce.core.{ Limit => JLimit, Range => JRange, RedisURI => JRedisURI, SetArgs => JSetArgs }
+import io.lettuce.core.{ Limit => JLimit, Range => JRange, SetArgs => JSetArgs }
 import io.lettuce.core.{ GeoArgs, GeoRadiusStoreArgs, GeoWithin, ScoredValue, ZAddArgs, ZStoreArgs }
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
@@ -37,16 +37,16 @@ object Redis {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClient,
-      codec: RedisCodec[K, V],
-      uri: JRedisURI
+      codec: RedisCodec[K, V]
   ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromConnectionFuture {
-        Sync[F].delay(client.underlying.connectAsync(codec.underlying, uri))
+        Sync[F].delay(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
       }
       .map(c => new Redis(new RedisStatefulConnection(c)))
 
-    val release: Redis[F, K, V] => F[Unit] = c => Log[F].info(s"Releasing Commands connection: $uri") *> c.conn.close
+    val release: Redis[F, K, V] => F[Unit] = c =>
+      Log[F].info(s"Releasing Commands connection: ${client.uri.underlying}") *> c.conn.close
 
     (acquire, release)
   }
@@ -93,9 +93,8 @@ object Redis {
   def apply[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V],
-      uri: JRedisURI
   ): Resource[F, RedisCommands[F, K, V]] = {
-    val (acquire, release) = acquireAndRelease(client, codec, uri)
+    val (acquire, release) = acquireAndRelease(client, codec)
     Resource.make(acquire)(release).widen
   }
 
@@ -117,7 +116,7 @@ object Redis {
   }
 
   def masterReplica[F[_]: Concurrent: ContextShift: Log, K, V](
-      conn: RedisMasterReplicaConnection[K, V]
+      conn: RedisMasterReplica[K, V]
   ): F[RedisCommands[F, K, V]] =
     Sync[F]
       .delay {

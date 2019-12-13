@@ -19,16 +19,20 @@ package dev.profunktor.redis4cats.connection
 import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
 import cats.syntax.apply._
 import cats.syntax.functor._
-import dev.profunktor.redis4cats.domain.{ LiveRedisClient, RedisClient }
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import io.lettuce.core.{ RedisClient => JRedisClient, RedisURI => JRedisURI }
+
+sealed abstract case class RedisClient private (underlying: JRedisClient, uri: RedisURI)
 
 object RedisClient {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
-      uri: => JRedisURI
+      uri: => RedisURI
   ): (F[RedisClient], RedisClient => F[Unit]) = {
-    val acquire: F[RedisClient] = Sync[F].delay { LiveRedisClient(JRedisClient.create(uri)) }
+    val acquire: F[RedisClient] = Sync[F].delay {
+      val jClient: JRedisClient = JRedisClient.create(uri.underlying)
+      new RedisClient(jClient, uri) {}
+    }
 
     val release: RedisClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis connection: $uri") *>
@@ -38,11 +42,15 @@ object RedisClient {
   }
 
   private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log]
-    : F[(F[RedisClient], RedisClient => F[Unit])] = Sync[F].delay(new JRedisURI()).map(acquireAndRelease(_))
+    : F[(F[RedisClient], RedisClient => F[Unit])] =
+    Sync[F].delay(RedisURI.fromUnderlying(new JRedisURI())).map(acquireAndRelease(_))
 
-  def apply[F[_]: Concurrent: ContextShift: Log](uri: => JRedisURI): Resource[F, RedisClient] = {
+  def apply[F[_]: Concurrent: ContextShift: Log](uri: => RedisURI): Resource[F, RedisClient] = {
     val (acquire, release) = acquireAndRelease(uri)
     Resource.make(acquire)(release)
   }
+
+  def fromUnderlyingWithUri(underlying: JRedisClient, uri: RedisURI): RedisClient =
+    new RedisClient(underlying, uri) {}
 
 }

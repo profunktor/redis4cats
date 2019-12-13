@@ -20,7 +20,7 @@ import cats.effect.{ IO, Resource }
 import cats.implicits._
 import dev.profunktor.redis4cats.algebra.RedisCommands
 import dev.profunktor.redis4cats.connection._
-import dev.profunktor.redis4cats.domain.RedisClusterClient
+import dev.profunktor.redis4cats.connection.RedisClusterClient
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.transactions._
