@@ -8,7 +8,7 @@ number: 10
 
 Purely functional interface for the [Keys API](https://redis.io/commands#generic).
 
-```tut:book:invisible
+```scala mdoc:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.KeyCommands
@@ -31,7 +31,7 @@ val commandsApi: Resource[IO, KeyCommands[IO, String]] = {
 
 Once you have acquired a connection you can start using it:
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.IO
 import cats.syntax.all._
 

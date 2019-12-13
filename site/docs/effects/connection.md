@@ -8,7 +8,7 @@ number: 11
 
 Purely functional interface for the [Connection API](https://redis.io/commands#connection).
 
-```tut:book:invisible
+```scala mdoc:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.ConnectionCommands
@@ -30,7 +30,7 @@ val commandsApi: Resource[IO, ConnectionCommands[IO]] = {
 
 Once you have acquired a connection you can start using it:
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.IO
 import cats.syntax.all._
 

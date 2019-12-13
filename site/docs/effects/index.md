@@ -36,7 +36,7 @@ Take a look at the [examples](https://github.com/gvolpe/fs2-redis/blob/master/mo
 
 Here's an example of acquiring a client and a connection to the `Strings API`:
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.StringCommands
@@ -92,7 +92,7 @@ def apply[F[_], K, V](codec: RedisCodec[K, V], uris: RedisURI*)(
 
 #### Example using the Strings API
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.StringCommands
@@ -100,7 +100,8 @@ import dev.profunktor.redis4cats.connection.RedisMasterReplica
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.domain.{ ReadFrom}
 
-val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
+// Already Imported Above, but if copying from this block is necessary
+// val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
 val connection: Resource[IO, RedisMasterReplica[String, String]] =
   Resource.liftF(RedisURI.make[IO]("redis://localhost")).flatMap { uri =>

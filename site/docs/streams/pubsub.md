@@ -16,7 +16,7 @@ There are three options available in the `PubSub` interpreter:
 - `mkSubscriberConnection`: When all you need is one or more subscribers but no publishing / stats.
 - `mkPublisherConnection`: When all you need is to publish / stats.
 
-```tut:invisible
+```scala mdoc:invisible
 trait RedisChannel[K] { def value: K }
 case class Subscription[K](channel: RedisChannel[K], number: Long)
 ```
@@ -52,7 +52,7 @@ When using the `PubSub` interpreter the `publish` function will be defined as a 
 
 ### PubSub example
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.apply._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
@@ -87,10 +87,10 @@ object PubSubDemo extends IOApp {
       pub1   = pubSub.publish(eventsChannel)
       pub2   = pubSub.publish(gamesChannel)
       _  <- Stream(
-             sub1 to sink("#events"),
-             sub2 to sink("#games"),
-             Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
-             Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!") to pub2,
+             sub1.through(sink("#events")),
+             sub2.through(sink("#games")),
+             Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
+             Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
              Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
              Stream.awakeEvery[IO](6.seconds) >> pubSub
                .pubSubSubscriptions(List(eventsChannel, gamesChannel))

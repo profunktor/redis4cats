@@ -7,8 +7,8 @@ name := """redis4cats-root"""
 
 organization in ThisBuild := "dev.profunktor"
 
-scalaVersion in ThisBuild := "2.12.9"
-crossScalaVersions in ThisBuild := Seq("2.12.9", "2.13.0")
+scalaVersion in ThisBuild := "2.13.1"
+crossScalaVersions in ThisBuild := Seq(scalaVersion.value, "2.12.10")
 
 sonatypeProfileName := "dev.profunktor"
 
@@ -32,7 +32,7 @@ val commonSettings = Seq(
   homepage := Some(url("https://redis4cats.profunktor.dev/")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2019", "ProfunKtor")),
   libraryDependencies ++= Seq(
-    compilerPlugin(Libraries.kindProjector cross CrossVersion.binary),
+    compilerPlugin(Libraries.kindProjector cross CrossVersion.full),
     compilerPlugin(Libraries.betterMonadicFor),
     Libraries.redisClient,
     Libraries.scalaCheck % Test,
@@ -134,6 +134,7 @@ lazy val tests = project.in(file("modules/tests"))
 
 lazy val microsite = project.in(file("site"))
   .enablePlugins(MicrositesPlugin)
+  .enablePlugins(MdocPlugin)
   .settings(commonSettings: _*)
   .settings(noPublish)
   .settings(
@@ -159,17 +160,18 @@ lazy val microsite = project.in(file("site"))
     micrositeGitterChannelUrl := "profunktor-dev/redis4cats",
     micrositePushSiteWith := GitHub4s,
     micrositeGithubToken := sys.env.get("GITHUB_TOKEN"),
-    fork in tut := true,
-    scalacOptions in Tut --= Seq(
+
+    scalacOptions --= Seq(
+      "-Werror",
       "-Xfatal-warnings",
       "-Ywarn-unused-import",
       "-Ywarn-numeric-widen",
       "-Ywarn-dead-code",
       "-Xlint:-missing-interpolator,_",
-    )
+    ),
   )
   .dependsOn(`redis4cats-effects`, `redis4cats-streams`, `examples`)
 
 // CI build
-addCommandAlias("buildRedis4Cats", ";clean;+test;tut")
+addCommandAlias("buildRedis4Cats", ";clean;+test;mdoc")
 

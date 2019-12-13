@@ -48,7 +48,7 @@ trait Streaming[F[_], K, V] {
 
 ### Streaming Example
 
-```tut:silent
+```scala mdoc:silent
 import cats.effect.IO
 import cats.syntax.parallel._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
@@ -91,7 +91,7 @@ for {
   appender  = streaming.append
   rs <- Stream(
          source.evalMap(x => putStrLn(x.toString)),
-         Stream.awakeEvery[IO](3.seconds) >> randomMessage.to(appender)
+         Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
        ).parJoin(2).drain
 } yield rs
 ```

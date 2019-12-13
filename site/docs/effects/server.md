@@ -8,7 +8,7 @@ number: 12
 
 Purely functional interface for the [Server API](https://redis.io/commands#server).
 
-```tut:book:invisible
+```scala mdoc:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.ServerCommands
@@ -30,7 +30,7 @@ val commandsApi: Resource[IO, ServerCommands[IO, String]] = {
 
 Once you have acquired a connection you can start using it:
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.IO
 import cats.syntax.all._
 
