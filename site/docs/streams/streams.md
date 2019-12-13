@@ -91,7 +91,7 @@ for {
   appender  = streaming.append
   rs <- Stream(
          source.evalMap(x => putStrLn(x.toString)),
-         Stream.awakeEvery[IO](3.seconds) >> randomMessage.to(appender)
+         Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
        ).parJoin(2).drain
 } yield rs
 ```

@@ -25,7 +25,7 @@ Note: cluster support is not implemented yet.
 
 ### Subscriber
 
-```scala mdoc:silent
+```tut:silent
 trait SubscribeCommands[F[_], K, V] {
   def subscribe(channel: RedisChannel[K]): F[V]
   def unsubscribe(channel: RedisChannel[K]): F[Unit]
@@ -36,7 +36,7 @@ When using the `PubSub` interpreter the types will be `Stream[F, V]` and `Stream
 
 ### Publisher / PubSubStats
 
-```scala mdoc:silent
+```tut:silent
 trait PubSubStats[F[_], K] {
   def pubSubChannels: F[List[K]]
   def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]
@@ -87,10 +87,10 @@ object PubSubDemo extends IOApp {
       pub1   = pubSub.publish(eventsChannel)
       pub2   = pubSub.publish(gamesChannel)
       _  <- Stream(
-             sub1 to sink("#events"),
-             sub2 to sink("#games"),
-             Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)) to pub1,
-             Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!") to pub2,
+             sub1.through(sink("#events")),
+             sub2.through(sink("#games")),
+             Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
+             Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
              Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
              Stream.awakeEvery[IO](6.seconds) >> pubSub
                .pubSubSubscriptions(List(eventsChannel, gamesChannel))

@@ -100,7 +100,8 @@ import dev.profunktor.redis4cats.connection.RedisMasterReplica
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.domain.{ ReadFrom, RedisMasterReplicaConnection }
 
-val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
+// Already Imported Above, but if copying from this block is necessary
+// val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
 val connection: Resource[IO, RedisMasterReplicaConnection[String, String]] =
   Resource.liftF(RedisURI.make[IO]("redis://localhost")).flatMap { uri =>
