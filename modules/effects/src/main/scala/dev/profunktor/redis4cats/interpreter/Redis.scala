@@ -92,7 +92,7 @@ object Redis {
 
   def apply[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClient,
-      codec: RedisCodec[K, V],
+      codec: RedisCodec[K, V]
   ): Resource[F, RedisCommands[F, K, V]] = {
     val (acquire, release) = acquireAndRelease(client, codec)
     Resource.make(acquire)(release).widen

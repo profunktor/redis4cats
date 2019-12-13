@@ -35,7 +35,7 @@ implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
 val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
-  Redis[IO, String, String](null, null, null)
+  Redis[IO, String, String](null, null)
 }
 ```
 

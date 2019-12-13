@@ -56,7 +56,7 @@ val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
     client <- RedisClient[IO](uri)
-    redis  <- Redis[IO, String, String](client, stringCodec, uri)
+    redis  <- Redis[IO, String, String](client, stringCodec)
   } yield redis
 ```
 
@@ -77,7 +77,7 @@ val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost:30001"))
     client <- RedisClusterClient[IO](uri)
-    redis  <- Redis.cluster[IO, String, String](client, stringCodec, uri)
+    redis  <- Redis.cluster[IO, String, String](client, stringCodec)
   } yield redis
 ```
 
@@ -86,8 +86,8 @@ val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
 The process is a bit different. First of all, you don't need to create a `RedisClient`, it'll be created for you. All you need is `RedisMasterReplica` that exposes in a similar way one method `apply` that returns a `Resource`.
 
 ```scala
-def apply[F[_], K, V](codec: RedisCodec[K, V], uris: JRedisURI*)(
-  readFrom: Option[ReadFrom] = None): Resource[F, RedisMasterReplicaConnection[K, V]]
+def apply[F[_], K, V](codec: RedisCodec[K, V], uris: RedisURI*)(
+  readFrom: Option[ReadFrom] = None): Resource[F, RedisMasterReplica[K, V]]
 ```
 
 #### Example using the Strings API
@@ -98,11 +98,11 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.StringCommands
 import dev.profunktor.redis4cats.connection.RedisMasterReplica
 import dev.profunktor.redis4cats.interpreter.Redis
-import dev.profunktor.redis4cats.domain.{ ReadFrom, RedisMasterReplicaConnection }
+import dev.profunktor.redis4cats.domain.{ ReadFrom}
 
 val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
-val connection: Resource[IO, RedisMasterReplicaConnection[String, String]] =
+val connection: Resource[IO, RedisMasterReplica[String, String]] =
   Resource.liftF(RedisURI.make[IO]("redis://localhost")).flatMap { uri =>
     RedisMasterReplica[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
   }

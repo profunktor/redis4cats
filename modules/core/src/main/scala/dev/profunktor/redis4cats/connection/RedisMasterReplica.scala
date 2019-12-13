@@ -69,7 +69,7 @@ object RedisMasterReplica {
         }
     }
 
-  def fromUnderlying[K, V](underlying: StatefulRedisMasterReplicaConnection[K, V]) =  
-    new RedisMasterReplica[K, V](underlying){}
+  def fromUnderlying[K, V](underlying: StatefulRedisMasterReplicaConnection[K, V]) =
+    new RedisMasterReplica[K, V](underlying) {}
 
 }
