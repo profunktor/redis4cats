@@ -14,6 +14,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.HashCommands
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.log4cats._
+import dev.profunktor.redis4cats.domain._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
@@ -21,7 +22,7 @@ implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
 val commandsApi: Resource[IO, HashCommands[IO, String, String]] = {
-  Redis[IO, String, String](null, null).map(_.asInstanceOf[HashCommands[IO, String, String]])
+  Redis[IO, String, String](null, null.asInstanceOf[RedisCodec[String, String]]).map(_.asInstanceOf[HashCommands[IO, String, String]])
 }
 ```
 
