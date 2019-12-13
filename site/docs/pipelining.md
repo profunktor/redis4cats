@@ -39,7 +39,7 @@ val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
 }
 ```
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.IO
 import cats.implicits._
 import dev.profunktor.redis4cats._

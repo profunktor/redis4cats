@@ -16,7 +16,7 @@ There are three options available in the `PubSub` interpreter:
 - `mkSubscriberConnection`: When all you need is one or more subscribers but no publishing / stats.
 - `mkPublisherConnection`: When all you need is to publish / stats.
 
-```tut:invisible
+```scala mdoc:invisible
 trait RedisChannel[K] { def value: K }
 case class Subscription[K](channel: RedisChannel[K], number: Long)
 ```
@@ -25,7 +25,7 @@ Note: cluster support is not implemented yet.
 
 ### Subscriber
 
-```tut:silent
+```scala mdoc:silent
 trait SubscribeCommands[F[_], K, V] {
   def subscribe(channel: RedisChannel[K]): F[V]
   def unsubscribe(channel: RedisChannel[K]): F[Unit]
@@ -36,7 +36,7 @@ When using the `PubSub` interpreter the types will be `Stream[F, V]` and `Stream
 
 ### Publisher / PubSubStats
 
-```tut:silent
+```scala mdoc:silent
 trait PubSubStats[F[_], K] {
   def pubSubChannels: F[List[K]]
   def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]
@@ -52,7 +52,7 @@ When using the `PubSub` interpreter the `publish` function will be defined as a 
 
 ### PubSub example
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.apply._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }

@@ -36,7 +36,7 @@ Take a look at the [examples](https://github.com/gvolpe/fs2-redis/blob/master/mo
 
 Here's an example of acquiring a client and a connection to the `Strings API`:
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.StringCommands
@@ -92,7 +92,7 @@ def apply[F[_], K, V](codec: RedisCodec[K, V], uris: JRedisURI*)(
 
 #### Example using the Strings API
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.StringCommands

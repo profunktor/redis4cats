@@ -29,7 +29,7 @@ val commandsApi: Resource[IO, GeoCommands[IO, String, String]] = {
 
 Once you have acquired a connection you can start using it:
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.IO
 import cats.syntax.all._
 import dev.profunktor.redis4cats.effects._

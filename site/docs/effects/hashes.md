@@ -29,7 +29,7 @@ val commandsApi: Resource[IO, HashCommands[IO, String, String]] = {
 
 Once you have acquired a connection you can start using it:
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.IO
 import cats.syntax.all._
 
