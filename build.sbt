@@ -166,7 +166,8 @@ lazy val microsite = project.in(file("site"))
       "-Ywarn-numeric-widen",
       "-Ywarn-dead-code",
       "-Xlint:-missing-interpolator,_",
-    )
+    ),
+    micrositeCompilingDocsTool := WithTut
   )
   .dependsOn(`redis4cats-effects`, `redis4cats-streams`, `examples`)
 
