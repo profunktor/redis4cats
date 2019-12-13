@@ -8,7 +8,7 @@ number: 6
 
 Purely functional interface for the [Hashes API](https://redis.io/commands#hash).
 
-```tut:book:invisible
+```scala mdoc:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.HashCommands
@@ -29,7 +29,7 @@ val commandsApi: Resource[IO, HashCommands[IO, String, String]] = {
 
 Once you have acquired a connection you can start using it:
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.IO
 import cats.syntax.all._
 

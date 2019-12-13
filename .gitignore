@@ -48,3 +48,5 @@ tags
 tq:q
 *DoNotCommit*
 .sbtopts
+.metals
+.bloop

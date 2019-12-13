@@ -23,7 +23,7 @@ is so common it is recommended to just use `RedisPipeline`. You can create a pip
 
 Note that every command has to be forked (`.start`) because the commands need to be sent to the server in an asynchronous way but no response will be received until the commands are successfully flushed. Also, it is not possible to sequence commands (`flatMap`) that are part of a pipeline. Every command has to be atomic and independent of previous results.
 
-```tut:book:invisible
+```scala mdoc:invisible
 import cats.effect.{IO, Resource}
 import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.interpreter.Redis
@@ -39,7 +39,7 @@ val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
 }
 ```
 
-```tut:book:silent
+```scala mdoc:silent
 import cats.effect.IO
 import cats.implicits._
 import dev.profunktor.redis4cats._
