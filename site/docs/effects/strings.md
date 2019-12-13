@@ -8,7 +8,7 @@ number: 10
 
 Purely functional interface for the [Strings API](https://redis.io/commands#string).
 
-```tut:book:invisible
+```scala mdoc:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.StringCommands

@@ -19,7 +19,7 @@ The most common way is to create a `RedisTransaction` once by passing the comman
 
 Note that every command has to be forked (`.start`) because the commands need to be sent to the server in an asynchronous way but no response will be received until either an `EXEC` or a `DISCARD` command is sent, which is handled by `RedisTransaction`. Also, it is not possible to sequence commands (`flatMap`) that are part of a transaction. Every command has to be atomic and independent of previous results.
 
-```tut:book:invisible
+```scala mdoc:invisible
 import cats.effect.{IO, Resource}
 import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.interpreter.Redis

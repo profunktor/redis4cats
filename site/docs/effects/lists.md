@@ -8,7 +8,7 @@ number: 7
 
 Purely functional interface for the [Lists API](https://redis.io/commands#list).
 
-```tut:book:invisible
+```scala mdoc:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.ListCommands

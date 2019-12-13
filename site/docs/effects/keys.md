@@ -1,31 +1,32 @@
 ---
 layout: docs
-title:  "Connection"
-number: 11
+title:  "Keys"
+number: 10
 ---
 
-# Connection API
+# Keys API
 
-Purely functional interface for the [Connection API](https://redis.io/commands#connection).
+Purely functional interface for the [Keys API](https://redis.io/commands#generic).
 
-```tut:book:invisible
+```scala mdoc:invisible
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
-import dev.profunktor.redis4cats.algebra.ConnectionCommands
+import dev.profunktor.redis4cats.algebra.KeyCommands
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
+import scala.concurrent.duration._
 
 implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
-val commandsApi: Resource[IO, ConnectionCommands[IO]] = {
-  Redis[IO, String, String](null, null, null).widen[ConnectionCommands[IO]]
+val commandsApi: Resource[IO, KeyCommands[IO, String]] = {
+  Redis[IO, String, String](null, null, null).map(_.asInstanceOf[KeyCommands[IO, String]])
 }
 ```
 
-### Connection Commands usage
+### key Commands usage
 
 Once you have acquired a connection you can start using it:
 
@@ -33,12 +34,13 @@ Once you have acquired a connection you can start using it:
 import cats.effect.IO
 import cats.syntax.all._
 
-def putStrLn(str: String): IO[Unit] = IO(println(str))
+val key = "users"
 
-commandsApi.use { cmd => // ConnectionCommands[IO]
+commandsApi.use { cmd => // KeyCommands[IO, String]
   for {
-    pong <- cmd.ping
-    _ <- putStrLn(pong) //"pong"
+    _ <- cmd.del(key)
+    _ <- cmd.exists(key)
+    _ <- cmd.expire(key, Duration(5, SECONDS))
   } yield ()
 }
 ```

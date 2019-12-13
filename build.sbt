@@ -134,6 +134,7 @@ lazy val tests = project.in(file("modules/tests"))
 
 lazy val microsite = project.in(file("site"))
   .enablePlugins(MicrositesPlugin)
+  .enablePlugins(MdocPlugin)
   .settings(commonSettings: _*)
   .settings(noPublish)
   .settings(
@@ -159,18 +160,18 @@ lazy val microsite = project.in(file("site"))
     micrositeGitterChannelUrl := "profunktor-dev/redis4cats",
     micrositePushSiteWith := GitHub4s,
     micrositeGithubToken := sys.env.get("GITHUB_TOKEN"),
-    fork in tut := true,
-    scalacOptions in Tut --= Seq(
+
+    scalacOptions --= Seq(
+      "-Werror",
       "-Xfatal-warnings",
       "-Ywarn-unused-import",
       "-Ywarn-numeric-widen",
       "-Ywarn-dead-code",
       "-Xlint:-missing-interpolator,_",
     ),
-    micrositeCompilingDocsTool := WithTut
   )
   .dependsOn(`redis4cats-effects`, `redis4cats-streams`, `examples`)
 
 // CI build
-addCommandAlias("buildRedis4Cats", ";clean;+test;tut")
+addCommandAlias("buildRedis4Cats", ";clean;+test;mdoc")
 
