@@ -44,7 +44,7 @@ object transactions {
         }
 
       Log[F].info("Transaction started") *>
-        commands.flatTap(_ => tx).use(_.traverse(_.join)).void
+        commands.flatTap(_ => tx).use(_.traverse_(_.join))
     }
 
   }
