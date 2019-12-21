@@ -24,16 +24,29 @@ import dev.profunktor.redis4cats.effect.Log
 
 object transactions {
 
-  case class RedisTransaction[F[_]: Log: Sync, K, V](
+  case class RedisTransaction[F[_]: Concurrent: Log, K, V](
       cmd: RedisCommands[F, K, V]
   ) {
-    def run[A](fa: F[A]): F[A] =
-      Log[F].info("Transaction started") *>
-        cmd.multi.bracketCase(_ => fa) {
+
+    def run(fas: F[Any]*): F[Unit] = {
+      val tx =
+        Resource.makeCase(cmd.multi) {
           case (_, ExitCase.Completed) => cmd.exec *> Log[F].info("Transaction completed")
           case (_, ExitCase.Error(e))  => cmd.discard *> Log[F].error(s"Transaction failed: ${e.getMessage}")
           case (_, ExitCase.Canceled)  => cmd.discard *> Log[F].error("Transaction canceled")
         }
+
+      val commands =
+        Resource.makeCase(fas.toList.traverse(_.start)) {
+          case (_, ExitCase.Completed) => ().pure[F]
+          case (fb, ExitCase.Error(_)) => fb.traverse_(_.cancel)
+          case (fb, ExitCase.Canceled) => fb.traverse_(_.cancel)
+        }
+
+      Log[F].info("Transaction started") *>
+        commands.flatTap(_ => tx).use(_.traverse(_.join)).void
+    }
+
   }
 
 }

@@ -44,16 +44,20 @@ object effects {
   object SetArg {
     sealed trait Existence extends SetArg
     object Existence {
+
       /** Only set key if it does not exist */
       case object Nx extends Existence
+
       /** Only set key if it already exists */
       case object Xx extends Existence
     }
 
     sealed trait Ttl extends SetArg
     object Ttl {
+
       /** Set Expiration in Millis */
       case class Px(duration: FiniteDuration) extends Ttl
+
       /** Set Expiration in Seconds */
       case class Ex(duration: FiniteDuration) extends Ttl
     }
