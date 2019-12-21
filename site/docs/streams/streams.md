@@ -18,14 +18,14 @@ There are two ways of establishing a connection using the `RedisStream` interpre
 def mkStreamingConnection[F[_], K, V](
   client: RedisClient,
   codec: RedisCodec[K, V],
-  uri: JRedisURI
+  uri: RedisURI
 ): Stream[F, Streaming[Stream[F, ?], K, V]]
 ```
 
 #### Master / Replica connection
 
 ```scala
-def mkMasterReplicaConnection[F[_], K, V](codec: RedisCodec[K, V], uris: JRedisURI*)(
+def mkMasterReplicaConnection[F[_], K, V](codec: RedisCodec[K, V], uris: RedisURI*)(
   readFrom: Option[ReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]]
 ```
 
@@ -86,7 +86,7 @@ def randomMessage: Stream[IO, StreamingMessage[String, String]] = Stream.eval {
 for {
   redisURI  <- Stream.eval(RedisURI.make[IO]("redis://localhost"))
   client    <- Stream.resource(RedisClient[IO](redisURI))
-  streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec, redisURI)
+  streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
   source    = streaming.read(Set(streamKey1, streamKey2))
   appender  = streaming.append
   rs <- Stream(

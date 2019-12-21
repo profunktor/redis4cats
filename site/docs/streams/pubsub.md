@@ -56,7 +56,7 @@ When using the `PubSub` interpreter the `publish` function will be defined as a 
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.apply._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
-import dev.profunktor.redis4cats.domain.{ LiveChannel, RedisCodec }
+import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.interpreter.pubsub.PubSub
 import dev.profunktor.redis4cats.log4cats._
 import fs2.{Sink, Stream}
@@ -72,8 +72,8 @@ object PubSubDemo extends IOApp {
 
   private val stringCodec = RedisCodec.Utf8
 
-  private val eventsChannel = LiveChannel("events")
-  private val gamesChannel  = LiveChannel("games")
+  private val eventsChannel = RedisChannel("events")
+  private val gamesChannel  = RedisChannel("games")
 
   def sink(name: String): Sink[IO, String] = _.evalMap(x => IO(println(s"Subscriber: $name >> $x")))
 
@@ -81,7 +81,7 @@ object PubSubDemo extends IOApp {
     for {
       redisURI <- Stream.eval(RedisURI.make[IO]("redis://localhost"))
       client <- Stream.resource(RedisClient[IO](redisURI))
-      pubSub <- PubSub.mkPubSubConnection[IO, String, String](client, stringCodec, redisURI)
+      pubSub <- PubSub.mkPubSubConnection[IO, String, String](client, stringCodec)
       sub1   = pubSub.subscribe(eventsChannel)
       sub2   = pubSub.subscribe(gamesChannel)
       pub1   = pubSub.publish(eventsChannel)

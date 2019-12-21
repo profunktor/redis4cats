@@ -35,7 +35,7 @@ object RedisGeoDemo extends LoggerIOApp {
       for {
         uri <- Resource.liftF(RedisURI.make[IO](redisURI))
         client <- RedisClient[IO](uri)
-        redis <- Redis[IO, String, String](client, stringCodec, uri)
+        redis <- Redis[IO, String, String](client, stringCodec)
       } yield redis
 
     val _BuenosAires  = GeoLocation(Longitude(-58.3816), Latitude(-34.6037), "Buenos Aires")

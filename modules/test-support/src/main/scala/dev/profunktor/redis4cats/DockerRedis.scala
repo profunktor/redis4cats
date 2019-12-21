@@ -71,7 +71,7 @@ trait DockerRedis extends BeforeAndAfterAll with BeforeAndAfterEach { self: Suit
     for {
       uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
       client <- RedisClient[IO](uri)
-      redis <- Redis[IO, K, V](client, codec, uri)
+      redis <- Redis[IO, K, V](client, codec)
     } yield redis
 
   def withAbstractRedis[A, K, V](f: RedisCommands[IO, K, V] => IO[A])(codec: RedisCodec[K, V]): Unit =

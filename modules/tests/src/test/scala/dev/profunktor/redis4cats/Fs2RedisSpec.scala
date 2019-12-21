@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats
 
-import dev.profunktor.redis4cats.domain.LiveRedisCodec
+import dev.profunktor.redis4cats.domain.RedisCodec
 import dev.profunktor.redis4cats.testutils.Redis4CatsFunSuite
 import io.lettuce.core.codec.{ ToByteBufEncoder, RedisCodec => JRedisCodec, StringCodec => JStringCodec }
 import io.netty.buffer.ByteBuf
@@ -31,7 +31,7 @@ class Fs2RedisSpec extends Redis4CatsFunSuite with DockerRedis with Fs2TestScena
 
   test("sets api")(withRedis(setsScenario))
 
-  test("sorted sets api")(withAbstractRedis(sortedSetsScenario)(LiveRedisCodec(LongCodec)))
+  test("sorted sets api")(withAbstractRedis(sortedSetsScenario)(RedisCodec(LongCodec)))
 
   test("strings api")(withRedis(stringsScenario))
 
