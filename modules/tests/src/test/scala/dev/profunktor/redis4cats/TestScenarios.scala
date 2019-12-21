@@ -27,7 +27,7 @@ import dev.profunktor.redis4cats.transactions._
 import io.lettuce.core.GeoArgs
 import scala.concurrent.duration._
 
-trait Fs2TestScenarios {
+trait TestScenarios {
 
   implicit def cs: ContextShift[IO]
   implicit def timer: Timer[IO]
@@ -255,21 +255,9 @@ trait Fs2TestScenarios {
 
     val tx = RedisTransaction(cmd)
 
-    val setters =
-      List(
-        cmd.set(key1, "foo"),
-        cmd.set(key2, "bar")
-      ).traverse_(_.start)
-
-    val failedSetters =
-      List(
-        cmd.set(key1, "qwe"),
-        cmd.set(key2, "asd")
-      ).traverse(_.start) *> IO.raiseError(new Exception("boom"))
-
     val successfulTx =
       for {
-        _ <- tx.run(setters)
+        _ <- tx.run(cmd.set(key1, "foo"), cmd.set(key2, "bar"))(IO.unit)
         x <- cmd.get(key1)
         _ <- IO { assert(x.contains("foo")) }
         y <- cmd.get(key2)
@@ -278,7 +266,7 @@ trait Fs2TestScenarios {
 
     val failedTx =
       for {
-        _ <- tx.run(failedSetters).attempt
+        _ <- tx.run(cmd.set(key1, "qwe"), cmd.set(key2, "asd"))(IO.raiseError(new Exception("boom"))).attempt
         x <- cmd.get(key1)
         _ <- IO { assert(x.contains("foo")) } // Value did not change
         y <- cmd.get(key2)

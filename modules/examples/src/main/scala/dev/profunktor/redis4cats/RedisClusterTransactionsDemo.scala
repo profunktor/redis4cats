@@ -64,14 +64,9 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
               val tx = RedisTransaction(nodeCmd)
 
               val getter = cmd.get(key1).flatTap(showResult(key1))
-              val setter = cmd.set(key1, "foo").start
 
-              val failedSetter =
-                cmd.set(key1, "qwe").start *>
-                  IO.raiseError(new Exception("boom"))
-
-              val tx1 = tx.run(setter)
-              val tx2 = tx.run(failedSetter)
+              val tx1 = tx.run(cmd.set(key1, "foo"))(IO.unit)
+              val tx2 = tx.run(cmd.set(key1, "qwe"))(IO.raiseError(new Exception("boom")))
 
               getter *> tx1 *> tx2.attempt *> getter.void
             }

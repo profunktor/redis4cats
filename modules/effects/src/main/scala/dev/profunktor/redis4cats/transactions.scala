@@ -28,23 +28,27 @@ object transactions {
       cmd: RedisCommands[F, K, V]
   ) {
 
-    def run(fas: F[Any]*): F[Unit] = {
+    def run(instructions: F[Any]*)(strictFas: F[Any]*): F[Unit] = {
+
       val tx =
         Resource.makeCase(cmd.multi) {
-          case (_, ExitCase.Completed) => cmd.exec *> Log[F].info("Transaction completed")
-          case (_, ExitCase.Error(e))  => cmd.discard *> Log[F].error(s"Transaction failed: ${e.getMessage}")
-          case (_, ExitCase.Canceled)  => cmd.discard *> Log[F].error("Transaction canceled")
+          case (_, ExitCase.Completed) =>
+            cmd.exec *> Log[F].info("Transaction completed")
+          case (_, ExitCase.Error(e)) =>
+            cmd.discard *> Log[F].error(s"Transaction failed: ${e.getMessage}")
+          case (_, ExitCase.Canceled) =>
+            cmd.discard *> Log[F].error("Transaction canceled")
         }
 
       val commands =
-        Resource.makeCase(fas.toList.traverse(_.start)) {
+        Resource.makeCase(strictFas.toList.sequence_ >> instructions.toList.traverse(_.start)) {
           case (_, ExitCase.Completed) => ().pure[F]
-          case (fb, ExitCase.Error(_)) => fb.traverse_(_.cancel)
-          case (fb, ExitCase.Canceled) => fb.traverse_(_.cancel)
+          case (f, ExitCase.Error(_))  => f.traverse_(_.cancel)
+          case (f, ExitCase.Canceled)  => f.traverse_(_.cancel)
         }
 
       Log[F].info("Transaction started") *>
-        commands.flatTap(_ => tx).use(_.traverse_(_.join))
+        (tx >> commands).use(_.pure[F]).bracket(_.traverse_(_.join))(_.traverse_(_.cancel)).void
     }
 
   }
