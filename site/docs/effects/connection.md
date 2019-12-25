@@ -10,7 +10,7 @@ Purely functional interface for the [Connection API](https://redis.io/commands#c
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
-import cats.syntax.all._
+import cats.implicits._
 import dev.profunktor.redis4cats.algebra.ConnectionCommands
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.domain._
@@ -32,7 +32,6 @@ Once you have acquired a connection you can start using it:
 
 ```scala mdoc:silent
 import cats.effect.IO
-import cats.syntax.all._
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 

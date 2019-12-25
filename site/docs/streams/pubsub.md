@@ -54,12 +54,12 @@ When using the `PubSub` interpreter the `publish` function will be defined as a 
 
 ```scala mdoc:silent
 import cats.effect.{ExitCode, IO, IOApp}
-import cats.syntax.apply._
+import cats.implicits._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
 import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.interpreter.pubsub.PubSub
 import dev.profunktor.redis4cats.log4cats._
-import fs2.{Sink, Stream}
+import fs2.{Pipe, Stream}
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
@@ -75,9 +75,9 @@ object PubSubDemo extends IOApp {
   private val eventsChannel = RedisChannel("events")
   private val gamesChannel  = RedisChannel("games")
 
-  def sink(name: String): Sink[IO, String] = _.evalMap(x => IO(println(s"Subscriber: $name >> $x")))
+  def sink(name: String): Pipe[IO, String, Unit] = _.evalMap(x => IO(println(s"Subscriber: $name >> $x")))
 
-  def stream(args: List[String]): Stream[IO, Unit] =
+  val program: Stream[IO, Unit] =
     for {
       redisURI <- Stream.eval(RedisURI.make[IO]("redis://localhost"))
       client <- Stream.resource(RedisClient[IO](redisURI))
@@ -86,7 +86,7 @@ object PubSubDemo extends IOApp {
       sub2   = pubSub.subscribe(gamesChannel)
       pub1   = pubSub.publish(eventsChannel)
       pub2   = pubSub.publish(gamesChannel)
-      _  <- Stream(
+      rs  <- Stream(
              sub1.through(sink("#events")),
              sub2.through(sink("#games")),
              Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
@@ -96,10 +96,10 @@ object PubSubDemo extends IOApp {
                .pubSubSubscriptions(List(eventsChannel, gamesChannel))
                .evalMap(x => IO(println(x)))
            ).parJoin(6).drain
-    } yield ()
+    } yield rs
 
   override def run(args: List[String]): IO[ExitCode] =
-    stream(args).compile.drain *> IO.pure(ExitCode.Success)
+    program.compile.drain.as(ExitCode.Success)
 
 }
 ```

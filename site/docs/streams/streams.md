@@ -69,7 +69,7 @@ implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
 
 val stringCodec = RedisCodec.Utf8
 
-def putStrLn(str: String): IO[Unit] = IO(println(str))
+def putStrLn[A](a: A): IO[Unit] = IO(println(a))
 
 val streamKey1 = "demo"
 val streamKey2 = "users"
@@ -90,7 +90,7 @@ for {
   source    = streaming.read(Set(streamKey1, streamKey2))
   appender  = streaming.append
   rs <- Stream(
-         source.evalMap(x => putStrLn(x.toString)),
+         source.evalMap(putStrLn(_)),
          Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
        ).parJoin(2).drain
 } yield rs
