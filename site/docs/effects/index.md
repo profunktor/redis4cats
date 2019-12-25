@@ -9,14 +9,14 @@ position: 1
 
 The API that operates at the effect level `F[_]` on top of `cats-effect`.
 
-- **[Connection API](./connection)**
-- **[Geo API](./geo)**
-- **[Hashes API](./hashes)**
-- **[Lists API](./lists)**
-- **[Server API](./server)**
-- **[Sets API](./sets)**
-- **[Sorted SetsAPI](./sortedsets)**
-- **[Strings API](./strings)**
+- **[Connection API](./connection.html)**
+- **[Geo API](./geo.html)**
+- **[Hashes API](./hashes.html)**
+- **[Lists API](./lists.html)**
+- **[Server API](./server.html)**
+- **[Sets API](./sets.html)**
+- **[Sorted SetsAPI](./sortedsets.html)**
+- **[Strings API](./strings.html)**
 
 ### Acquiring client and connection
 
@@ -38,7 +38,6 @@ Here's an example of acquiring a client and a connection to the `Strings API`:
 
 ```scala mdoc:silent
 import cats.effect.{IO, Resource}
-import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.StringCommands
 import dev.profunktor.redis4cats.connection.{RedisClient, RedisURI}
 import dev.profunktor.redis4cats.domain.RedisCodec
@@ -94,7 +93,7 @@ def apply[F[_], K, V](codec: RedisCodec[K, V], uris: RedisURI*)(
 
 ```scala mdoc:silent
 import cats.effect.{IO, Resource}
-import cats.syntax.all._
+import cats.implicits._
 import dev.profunktor.redis4cats.algebra.StringCommands
 import dev.profunktor.redis4cats.connection.RedisMasterReplica
 import dev.profunktor.redis4cats.interpreter.Redis
@@ -110,7 +109,7 @@ val connection: Resource[IO, RedisMasterReplica[String, String]] =
 
 connection.use { conn =>
   Redis.masterReplica[IO, String, String](conn).flatMap { cmd =>
-    IO.unit  // do something
+    cmd.set("foo", "123") >> IO.unit  // do something
   }
 }
 ```

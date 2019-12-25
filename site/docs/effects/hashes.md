@@ -10,7 +10,6 @@ Purely functional interface for the [Hashes API](https://redis.io/commands#hash)
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
-import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.HashCommands
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.log4cats._
@@ -32,7 +31,6 @@ Once you have acquired a connection you can start using it:
 
 ```scala mdoc:silent
 import cats.effect.IO
-import cats.syntax.all._
 
 val testKey   = "foo"
 val testField = "bar"
