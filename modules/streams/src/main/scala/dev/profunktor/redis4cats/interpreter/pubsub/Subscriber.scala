@@ -43,7 +43,8 @@ class Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
 
   override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
     Stream.eval {
-      JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying))).void
+      state.update(_ - channel.underlying) *>
+        JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying))).void
     }
 
 }
