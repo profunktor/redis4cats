@@ -178,7 +178,6 @@ lazy val microsite = project
               )
         ),
     micrositeExtraMdFilesOutput := (resourceManaged in Compile).value / "jekyll",
-    micrositeTheme := "pattern",
     micrositeGitterChannel := true,
     micrositeGitterChannelUrl := "profunktor-dev/redis4cats",
     micrositePushSiteWith := GitHub4s,
