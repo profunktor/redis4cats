@@ -18,6 +18,7 @@ package dev.profunktor.redis4cats.interpreter.pubsub
 
 import cats.effect.{ ConcurrentEffect, ContextShift, Sync }
 import cats.effect.concurrent.Ref
+import cats.implicits.none
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.SubscribeCommands
 import dev.profunktor.redis4cats.interpreter.pubsub.internals.{ PubSubInternals, PubSubState }
@@ -43,8 +44,10 @@ class Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
 
   override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
     Stream.eval {
-      state.update(_ - channel.underlying) *>
-        JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying))).void
+      JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying))).void *>
+        state.get.flatMap { st =>
+          st.get(channel.underlying).fold(().pure)(_.publish1(none[V])) *> state.update(_ - channel.underlying)
+        }
     }
 
 }
