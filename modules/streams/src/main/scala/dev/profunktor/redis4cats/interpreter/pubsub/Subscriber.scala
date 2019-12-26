@@ -26,6 +26,7 @@ import dev.profunktor.redis4cats.domain.RedisChannel
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
+import cats.effect.implicits._
 
 class Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
@@ -44,10 +45,10 @@ class Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
 
   override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
     Stream.eval {
-      JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying))).void *>
+      JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying))).void.guarantee(
         state.get.flatMap { st =>
           st.get(channel.underlying).fold(().pure)(_.publish1(none[V])) *> state.update(_ - channel.underlying)
-        }
+        })
     }
 
 }
