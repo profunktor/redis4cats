@@ -1,0 +1,21 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: olafurpg/setup-scala@v5
+    - name: Starting up Redis
+      run: docker-compose up -d
+    - name: Tests
+      run: sbt -J-Xms4G -J-Xmx4G buildRedis4Cats
+    - name: Shutting down Redis
+      run: docker-compose down

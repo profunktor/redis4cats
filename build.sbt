@@ -15,10 +15,12 @@ sonatypeProfileName := "dev.profunktor"
 // Needed to not run out of memory (Metaspace) when running test suite
 ThisBuild / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.ScalaLibrary
 
-promptTheme := PromptTheme(List(
-  text("[sbt] ", fg(105)),
-  text(_ => "redis4cats", fg(15)).padRight(" λ ")
- ))
+promptTheme := PromptTheme(
+  List(
+    text("[sbt] ", fg(105)),
+    text(_ => "redis4cats", fg(15)).padRight(" λ ")
+  )
+)
 
 def pred[A](p: Boolean, t: => Seq[A], f: => Seq[A]): Seq[A] =
   if (p) t else f
@@ -32,22 +34,22 @@ val commonSettings = Seq(
   homepage := Some(url("https://redis4cats.profunktor.dev/")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2019", "ProfunKtor")),
   libraryDependencies ++= Seq(
-    compilerPlugin(Libraries.kindProjector cross CrossVersion.full),
-    compilerPlugin(Libraries.betterMonadicFor),
-    Libraries.redisClient,
-    Libraries.scalaCheck % Test,
-    Libraries.catsEffect,
-    Libraries.scalaTest % Test,
-    Libraries.catsLaws % Test,
-    Libraries.catsTestKit % Test,
-    Libraries.catsTestKitST % Test,
-  ),
+        CompilerPlugins.kindProjector,
+        CompilerPlugins.betterMonadicFor,
+        Libraries.redisClient,
+        Libraries.scalaCheck % Test,
+        Libraries.catsEffect,
+        Libraries.scalaTest     % Test,
+        Libraries.catsLaws      % Test,
+        Libraries.catsTestKit   % Test,
+        Libraries.catsTestKitST % Test
+      ),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
-    version(scalaVersion.value) == Some(2, 12),
-    t = Seq("-Xmax-classfile-name", "80"),
-    f = Seq.empty
-  ),
+        version(scalaVersion.value) == Some(2, 12),
+        t = Seq("-Xmax-classfile-name", "80"),
+        f = Seq.empty
+      ),
   scalafmtOnCompile := true,
   publishTo := {
     val sonatype = "https://oss.sonatype.org/"
@@ -58,7 +60,9 @@ val commonSettings = Seq(
   },
   publishMavenStyle := true,
   publishArtifact in Test := false,
-  pomIncludeRepository := { _ => false },
+  pomIncludeRepository := { _ =>
+    false
+  },
   pomExtra :=
       <developers>
         <developer>
@@ -76,36 +80,51 @@ lazy val noPublish = Seq(
   skip in publish := true
 )
 
-lazy val `redis4cats-root` = project.in(file("."))
-  .aggregate(`redis4cats-core`, `redis4cats-effects`, `redis4cats-streams`, `redis4cats-log4cats`, examples, `redis4cats-test-support`, tests, microsite)
+lazy val `redis4cats-root` = project
+  .in(file("."))
+  .aggregate(
+    `redis4cats-core`,
+    `redis4cats-effects`,
+    `redis4cats-streams`,
+    `redis4cats-log4cats`,
+    examples,
+    `redis4cats-test-support`,
+    tests,
+    microsite
+  )
   .settings(noPublish)
 
-lazy val `redis4cats-core` = project.in(file("modules/core"))
+lazy val `redis4cats-core` = project
+  .in(file("modules/core"))
   .settings(commonSettings: _*)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `redis4cats-log4cats` = project.in(file("modules/log4cats"))
+lazy val `redis4cats-log4cats` = project
+  .in(file("modules/log4cats"))
   .settings(commonSettings: _*)
   .settings(libraryDependencies += Libraries.log4CatsCore)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
 
-lazy val `redis4cats-effects` = project.in(file("modules/effects"))
+lazy val `redis4cats-effects` = project
+  .in(file("modules/effects"))
   .settings(commonSettings: _*)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
 
-lazy val `redis4cats-streams` = project.in(file("modules/streams"))
+lazy val `redis4cats-streams` = project
+  .in(file("modules/streams"))
   .settings(commonSettings: _*)
   .settings(libraryDependencies += Libraries.fs2Core)
   .settings(parallelExecution in Test := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
 
-lazy val examples = project.in(file("modules/examples"))
+lazy val examples = project
+  .in(file("modules/examples"))
   .settings(commonSettings: _*)
   .settings(noPublish)
   .settings(libraryDependencies += Libraries.log4CatsSlf4j)
@@ -115,7 +134,8 @@ lazy val examples = project.in(file("modules/examples"))
   .dependsOn(`redis4cats-effects`)
   .dependsOn(`redis4cats-streams`)
 
-lazy val `redis4cats-test-support` = project.in(file("modules/test-support"))
+lazy val `redis4cats-test-support` = project
+  .in(file("modules/test-support"))
   .settings(commonSettings: _*)
   .settings(libraryDependencies += Libraries.scalaTest)
   .settings(libraryDependencies += Libraries.scalaCheck)
@@ -125,16 +145,17 @@ lazy val `redis4cats-test-support` = project.in(file("modules/test-support"))
   .dependsOn(`redis4cats-effects`)
   .dependsOn(`redis4cats-streams`)
 
-lazy val tests = project.in(file("modules/tests"))
+lazy val tests = project
+  .in(file("modules/tests"))
   .settings(commonSettings: _*)
   .settings(noPublish)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-test-support` % Test)
   .dependsOn(`redis4cats-core`)
 
-lazy val microsite = project.in(file("site"))
+lazy val microsite = project
+  .in(file("site"))
   .enablePlugins(MicrositesPlugin)
-  .enablePlugins(MdocPlugin)
   .settings(commonSettings: _*)
   .settings(noPublish)
   .settings(
@@ -145,33 +166,32 @@ lazy val microsite = project.in(file("site"))
     micrositeGithubRepo := "redis4cats",
     micrositeBaseUrl := "",
     micrositeExtraMdFiles := Map(
-      file("README.md") -> ExtraMdFileConfig(
-        "index.md",
-        "home",
-        Map("title" -> "Home", "position" -> "0")
-      ),
-      file("CODE_OF_CONDUCT.md") -> ExtraMdFileConfig(
-        "CODE_OF_CONDUCT.md",
-        "page",
-        Map("title" -> "Code of Conduct")
-      )
-    ),
+          file("README.md") -> ExtraMdFileConfig(
+                "index.md",
+                "home",
+                Map("title" -> "Home", "position" -> "0")
+              ),
+          file("CODE_OF_CONDUCT.md") -> ExtraMdFileConfig(
+                "CODE_OF_CONDUCT.md",
+                "page",
+                Map("title" -> "Code of Conduct")
+              )
+        ),
+    micrositeExtraMdFilesOutput := (resourceManaged in Compile).value / "jekyll",
     micrositeGitterChannel := true,
     micrositeGitterChannelUrl := "profunktor-dev/redis4cats",
     micrositePushSiteWith := GitHub4s,
     micrositeGithubToken := sys.env.get("GITHUB_TOKEN"),
-
     scalacOptions --= Seq(
-      "-Werror",
-      "-Xfatal-warnings",
-      "-Ywarn-unused-import",
-      "-Ywarn-numeric-widen",
-      "-Ywarn-dead-code",
-      "-Xlint:-missing-interpolator,_",
-    ),
+          "-Werror",
+          "-Xfatal-warnings",
+          "-Ywarn-unused-import",
+          "-Ywarn-numeric-widen",
+          "-Ywarn-dead-code",
+          "-Xlint:-missing-interpolator,_"
+        )
   )
   .dependsOn(`redis4cats-effects`, `redis4cats-streams`, `examples`)
 
 // CI build
 addCommandAlias("buildRedis4Cats", ";clean;+test;mdoc")
-
