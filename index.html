@@ -1,6 +1,6 @@
 <html><head><title>Redis4Cats: Home</title><meta charset="utf-8" /><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="ProfunKtor" /><meta name="description" content="Redis client for Cats Effect &amp; Fs2" /><meta name="og:image" content="/img/poster.png" /><meta name="image" property="og:image" content="/img/poster.png" /><meta name="og:title" content="Redis4Cats: Home" /><meta name="title" property="og:title" content="Redis4Cats: Home" /><meta name="og:site_name" content="Redis4Cats" /><meta name="og:url" content="https://redis4cats.profunktor.dev/" /><meta name="og:type" content="website" /><meta name="og:description" content="Redis client for Cats Effect &amp; Fs2" /><link rel="icon" type="image/png" href="/img/favicon.png" /><meta name="twitter:title" content="Redis4Cats: Home" /><meta name="twitter:image" content="/img/poster.png" /><meta name="twitter:description" content="Redis client for Cats Effect &amp; Fs2" /><meta name="twitter:card" content="summary_large_image" /><link rel="icon" type="image/png" sizes="16x16" href="/img/favicon16x16.png" /><link rel="icon" type="image/png" sizes="24x24" href="/img/favicon24x24.png" /><link rel="icon" type="image/png" sizes="32x32" href="/img/favicon32x32.png" /><link rel="icon" type="image/png" sizes="48x48" href="/img/favicon48x48.png" /><link rel="icon" type="image/png" sizes="57x57" href="/img/favicon57x57.png" /><link rel="icon" type="image/png" sizes="60x60" href="/img/favicon60x60.png" /><link rel="icon" type="image/png" sizes="64x64" href="/img/favicon64x64.png" /><link rel="icon" type="image/png" sizes="70x70" href="/img/favicon70x70.png" /><link rel="icon" type="image/png" sizes="72x72" href="/img/favicon72x72.png" /><link rel="icon" type="image/png" sizes="76x76" href="/img/favicon76x76.png" /><link rel="icon" type="image/png" sizes="96x96" href="/img/favicon96x96.png" /><link rel="icon" type="image/png" sizes="114x114" href="/img/favicon114x114.png" /><link rel="icon" type="image/png" sizes="120x120" href="/img/favicon120x120.png" /><link rel="icon" type="image/png" sizes="128x128" href="/img/favicon128x128.png" /><link rel="icon" type="image/png" sizes="144x144" href="/img/favicon144x144.png" /><link rel="icon" type="image/png" sizes="150x150" href="/img/favicon150x150.png" /><link rel="icon" type="image/png" sizes="152x152" href="/img/favicon152x152.png" /><link rel="icon" type="image/png" sizes="196x196" href="/img/favicon196x196.png" /><link rel="icon" type="image/png" sizes="310x310" href="/img/favicon310x310.png" /><link rel="icon" type="image/png" sizes="310x150" href="/img/favicon310x150.png" /><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" /><link rel="stylesheet" href="/highlight/styles/vs.css" /><link rel="stylesheet" href="/css/light-style.css" /></head><body class="home"><nav id="navigation" aria-labelledby="main-navigation"><div class="navbar-wrapper container"><div class="navigation-brand"><a href="/" class="brand custom-feature-icon"><div class="icon-wrapper"></div><span class="brand-title">Redis4Cats</span></a></div><div class="navigation-menu"><ul><li><a href="https://github.com/profunktor/redis4cats" target="_blank" rel="noopener noreferrer"><i class="nav-item-icon fa fa-lg fa-github" hidden="true"></i><span class="nav-item-text">GitHub</span></a></li></ul></div></div></nav><header id="masthead"><div class="container text-center"><h1 class="masthead-description">Redis client for Cats Effect &amp; Fs2</h1><a href="https://github.com/profunktor/redis4cats" target="_blank" rel="noopener noreferrer" class="masthead-button">View on GitHub</a></div></header><nav class="menu-container" aria-labelledby="section-navigation"><div id="horizontal-menu"><ul class="horizontal-nav"><li><a class=" active " href="/">Home</a></li><li><a class="" href="/effects/">Effects API</a></li><li><a class="" href="/streams/">Streams API</a></li><li><a class="" href="/transactions.html">Transactions</a></li><li><a class="" href="/pipelining.html">Pipelining</a></li></ul></div></nav><main id="site-main"><section class="main-content"><div class="container"><div id="content"><h1 id="redis4cats">redis4cats</h1>
 
-<p><a href="https://circleci.com/gh/profunktor/redis4cats"><img src="https://circleci.com/gh/profunktor/redis4cats.svg?style=svg" alt="CircleCI" /></a>
+<p><img src="https://github.com/profunktor/redis4cats/workflows/Build/badge.svg" alt="CI Status" />
 <a href="https://gitter.im/profunktor-dev/redis4cats"><img src="https://badges.gitter.im/profunktor-dev/redis4cats.svg" alt="Gitter Chat" /></a>
 <a href="http://search.maven.org/#search%7Cga%7C1%7Credis4cats-effects"><img src="https://img.shields.io/maven-central/v/dev.profunktor/redis4cats-effects_2.12.svg" alt="Maven Central" /></a> <a href="https://typelevel.org/cats/"><img src="https://typelevel.org/cats/img/cats-badge.svg" height="40px" align="right" alt="Cats friendly" /></a>
 <a href="https://mergify.io"><img src="https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/profunktor/redis4cats&amp;style=flat" alt="MergifyStatus" /></a>
@@ -9,6 +9,10 @@
 <p>Redis client built on top of <a href="https://typelevel.org/cats-effect/">Cats Effect</a>, <a href="http://fs2.io/">Fs2</a> and the async java client <a href="https://lettuce.io/">Lettuce</a>.</p>
 
 <p><code class="highlighter-rouge">redis4cats</code> defines two types of API: an effect-based using <a href="https://typelevel.org/cats-effect/">Cats Effect</a> and a stream-based using <a href="http://fs2.io/">Fs2</a>.</p>
+
+<blockquote>
+  <p><strong>NOTE</strong>: Neither binary compatibility nor API stability are guaranteed between releases.</p>
+</blockquote>
 
 <h3 id="effects">Effects</h3>
 
@@ -62,13 +66,10 @@ guide</a>).</p>
 
 <h2 id="running-the-tests-locally">Running the tests locally</h2>
 
-<p>Either change the <code class="highlighter-rouge">startContainer</code> boolean in the <code class="highlighter-rouge">DockerRedis.scala</code> file or start the <code class="highlighter-rouge">redis</code> client manually using <code class="highlighter-rouge">docker</code> (recommended):</p>
+<p>Start both a single Redis node and a cluster using <code class="highlighter-rouge">docker-compose</code>:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># single server</span>
-docker run <span class="nt">-p</span> 6379:6379 redis:5.0.0
-
-<span class="c"># cluster server</span>
-docker run <span class="nt">-p</span> 30001:30001 <span class="nt">-p</span> 30002:30002 <span class="nt">-p</span> 30003:30003 <span class="nt">-p</span> 30004:30004 <span class="nt">-p</span> 30005:30005 <span class="nt">-p</span> 30006:30006 m0stwanted/redis-cluster:latest
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;</span> docker-compose up
+<span class="o">&gt;</span> sbt +test
 </code></pre></div></div>
 
 <h2 id="code-of-conduct">Code of Conduct</h2>
