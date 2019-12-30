@@ -1,7 +1,7 @@
 redis4cats
 ==========
 
-[![CircleCI](https://circleci.com/gh/profunktor/redis4cats.svg?style=svg)](https://circleci.com/gh/profunktor/redis4cats)
+![CI Status](https://github.com/profunktor/redis4cats/workflows/Build/badge.svg)
 [![Gitter Chat](https://badges.gitter.im/profunktor-dev/redis4cats.svg)](https://gitter.im/profunktor-dev/redis4cats)
 [![Maven Central](https://img.shields.io/maven-central/v/dev.profunktor/redis4cats-effects_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Credis4cats-effects) <a href="https://typelevel.org/cats/"><img src="https://typelevel.org/cats/img/cats-badge.svg" height="40px" align="right" alt="Cats friendly" /></a>
 [![MergifyStatus](https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/profunktor/redis4cats&style=flat)](https://mergify.io)
@@ -10,6 +10,8 @@ redis4cats
 Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async java client [Lettuce](https://lettuce.io/).
 
 `redis4cats` defines two types of API: an effect-based using [Cats Effect](https://typelevel.org/cats-effect/) and a stream-based using [Fs2](http://fs2.io/).
+
+> **NOTE**: Neither binary compatibility nor API stability are guaranteed between releases.
 
 ### Effects
 
@@ -59,14 +61,11 @@ libraryDependencies += "dev.profunktor" %% "redis4cats-log4cats" % Version
 
 ## Running the tests locally
 
-Either change the `startContainer` boolean in the `DockerRedis.scala` file or start the `redis` client manually using `docker` (recommended):
+Start both a single Redis node and a cluster using `docker-compose`:
 
 ```bash
-# single server
-docker run -p 6379:6379 redis:5.0.0
-
-# cluster server
-docker run -p 30001:30001 -p 30002:30002 -p 30003:30003 -p 30004:30004 -p 30005:30005 -p 30006:30006 m0stwanted/redis-cluster:latest
+> docker-compose up
+> sbt +test
 ```
 
 ## Code of Conduct
