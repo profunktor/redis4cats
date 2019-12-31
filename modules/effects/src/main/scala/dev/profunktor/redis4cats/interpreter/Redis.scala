@@ -41,12 +41,12 @@ object Redis {
   ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromConnectionFuture {
-        Sync[F].delay(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
+        F.delay(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
       }
       .map(c => new Redis(new RedisStatefulConnection(c)))
 
     val release: Redis[F, K, V] => F[Unit] = c =>
-      Log[F].info(s"Releasing Commands connection: ${client.uri.underlying}") *> c.conn.close
+      F.info(s"Releasing Commands connection: ${client.uri.underlying}") *> c.conn.close
 
     (acquire, release)
   }

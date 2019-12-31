@@ -34,8 +34,9 @@ val commonSettings = Seq(
   homepage := Some(url("https://redis4cats.profunktor.dev/")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2019", "ProfunKtor")),
   libraryDependencies ++= Seq(
-        CompilerPlugins.kindProjector,
         CompilerPlugins.betterMonadicFor,
+        CompilerPlugins.contextApplied,
+        CompilerPlugins.kindProjector,
         Libraries.redisClient,
         Libraries.scalaCheck % Test,
         Libraries.catsEffect,
