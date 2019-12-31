@@ -71,7 +71,7 @@ It should be exclusively used to run Redis commands as part of a transaction, no
 
 For example, the following transaction will result in a dead-lock:
 
-```scala mdoc
+```scala mdoc:silent
 commandsApi.use { cmd =>
   val tx = RedisTransaction(cmd)
 
@@ -93,7 +93,7 @@ You should never pass a transactional command: `MULTI`, `EXEC` or `DISCARD`.
 
 The following example will result in a successful transaction that raises an error (resulting in a failed computation):
 
-```scala mdoc
+```scala mdoc:silent
 commandsApi.use { cmd =>
   val tx = RedisTransaction(cmd)
 
