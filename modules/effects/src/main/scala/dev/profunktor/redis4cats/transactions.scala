@@ -17,6 +17,7 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
+import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.implicits._
 import dev.profunktor.redis4cats.algebra._
@@ -28,29 +29,42 @@ object transactions {
       cmd: RedisCommands[F, K, V]
   ) {
 
-    def run(instructions: F[Any]*)(strictFas: F[Any]*): F[Unit] = {
+    /***
+      * Exclusively run Redis commands as part of a transaction.
+      *
+      * Every command needs to be forked (`.start`) to be sent to the server asynchronously.
+      * After a transaction is complete, either successfully or with a failure, the spawned
+      * fibers will be treated accordingly.
+      *
+      * It should not be used to run other computations, only Redis commands. Fail to do so
+      * may end in unexpected results such as a dead lock.
+      */
+    def run(commands: F[Any]*): F[Unit] =
+      Ref.of[F, List[Fiber[F, Any]]](List.empty).flatMap { fibers =>
+        Ref.of[F, Boolean](false).flatMap { txFailed =>
+          val tx =
+            Resource.makeCase(cmd.multi) {
+              case (_, ExitCase.Completed) =>
+                cmd.exec *> Log[F].info("Transaction completed")
+              case (_, ExitCase.Error(e)) =>
+                cmd.discard.guarantee(txFailed.set(true)) *> Log[F].error(s"Transaction failed: ${e.getMessage}")
+              case (_, ExitCase.Canceled) =>
+                cmd.discard.guarantee(txFailed.set(true)) *> Log[F].error("Transaction canceled")
+            }
 
-      val tx =
-        Resource.makeCase(cmd.multi) {
-          case (_, ExitCase.Completed) =>
-            cmd.exec *> Log[F].info("Transaction completed")
-          case (_, ExitCase.Error(e)) =>
-            cmd.discard *> Log[F].error(s"Transaction failed: ${e.getMessage}")
-          case (_, ExitCase.Canceled) =>
-            cmd.discard *> Log[F].error("Transaction canceled")
+          val joinOrCancelFibers =
+            fibers.get.flatMap { fbs =>
+              txFailed.get.ifA(
+                fbs.traverse(_.cancel).void,
+                fbs.traverse(_.join).void
+              )
+            }
+
+          Log[F].info("Transaction started") *>
+            tx.use(_ => commands.toList.traverse(_.start).flatMap(fibers.set))
+              .guarantee(joinOrCancelFibers)
         }
-
-      val commands =
-        Resource.makeCase(strictFas.toList.sequence_ >> instructions.toList.traverse(_.start)) {
-          case (_, ExitCase.Completed) => ().pure[F]
-          case (f, ExitCase.Error(_))  => f.traverse_(_.cancel)
-          case (f, ExitCase.Canceled)  => f.traverse_(_.cancel)
-        }
-
-      Log[F].info("Transaction started") *>
-        (tx >> commands).use(_.pure[F]).bracket(_.traverse_(_.join))(_.traverse_(_.cancel)).void
-    }
-
+      }
   }
 
 }

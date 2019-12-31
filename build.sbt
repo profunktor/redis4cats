@@ -188,6 +188,7 @@ lazy val microsite = project
           "-Ywarn-unused-import",
           "-Ywarn-numeric-widen",
           "-Ywarn-dead-code",
+          "-deprecation",
           "-Xlint:-missing-interpolator,_"
         )
   )

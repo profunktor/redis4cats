@@ -17,7 +17,7 @@ Redis supports [transactions](https://redis.io/topics/transactions) via the `MUL
 
 The most common way is to create a `RedisTransaction` once by passing the commands API as a parameter and invoke the `run` function every time you want to run the given commands as part of a new transaction.
 
-Note that every command has to be forked (`.start`) because the commands need to be sent to the server in an asynchronous way but no response will be received until either an `EXEC` or a `DISCARD` command is sent, which is handled by `RedisTransaction`. Also, it is not possible to sequence commands (`flatMap`) that are part of a transaction. Every command has to be atomic and independent of previous results.
+Note that every command has to be forked (`.start`) because the commands need to be sent to the server asynchronously and no response will be received until either an `EXEC` or a `DISCARD` command is sent. Both forking and sending the final command is handled by `RedisTransaction`. Also, it is not possible to sequence commands (`flatMap`) that are part of a transaction. Every command has to be atomic and independent of previous results.
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
@@ -54,24 +54,59 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
   val tx = RedisTransaction(cmd)
 
   val getters =
-    cmd.get(key1).flatTap(showResult(key1)) *> cmd.get(key2).flatTap(showResult(key2))
+    cmd.get(key1).flatTap(showResult(key1)) *>
+      cmd.get(key2).flatTap(showResult(key2))
 
-  val setters =
-    List(
-      cmd.set(key1, "foo"),
-      cmd.set(key2, "bar")
-    ).traverse_(_.start)
+  val setters = tx.run(
+    cmd.set(key1, "foo"),
+    cmd.set(key2, "bar"),
+    // .. more transactional commands ..
+  )
 
-  val failedSetters =
-    List(
-      cmd.set(key1, "qwe"),
-      cmd.set(key2, "asd")
-    ).traverse(_.start) *> IO.raiseError(new Exception("boom"))
-
-  val tx1 = tx.run(setters)
-  val tx2 = tx.run(failedSetters)
-
-  getters *> tx1 *> tx2.attempt *> getters.void
+  getters *> setters *> getters.void
 }
 ```
 
+It should be exclusively used to run Redis commands as part of a transaction, not any other computations. Fail to do so, may result in unexpected behavior.
+
+For example, the following transaction will result in a dead-lock:
+
+```scala mdoc
+commandsApi.use { cmd =>
+  val tx = RedisTransaction(cmd)
+
+  val getters =
+    cmd.get(key1).flatTap(showResult(key1)) *>
+      cmd.get(key2).flatTap(showResult(key2))
+
+  val setters = tx.run(
+    cmd.set(key1, "foo"),
+    cmd.set(key2, "bar"),
+    cmd.discard
+  )
+
+  getters *> setters *> getters.void
+}
+```
+
+You should never pass a transactional command: `MULTI`, `EXEC` or `DISCARD`.
+
+The following example will result in a successful transaction that raises an error (resulting in a failed computation):
+
+```scala mdoc
+commandsApi.use { cmd =>
+  val tx = RedisTransaction(cmd)
+
+  val getters =
+    cmd.get(key1).flatTap(showResult(key1)) *>
+      cmd.get(key2).flatTap(showResult(key2))
+
+  val failedTx = tx.run(
+    cmd.set(key1, "foo"),
+    cmd.set(key2, "bar"),
+    IO.raiseError(new Exception("boom"))
+  )
+
+  getters *> failedTx *> getters.void
+}
+```

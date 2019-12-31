@@ -255,25 +255,14 @@ trait TestScenarios {
 
     val tx = RedisTransaction(cmd)
 
-    val successfulTx =
-      for {
-        _ <- tx.run(cmd.set(key1, "foo"), cmd.set(key2, "bar"))(IO.unit)
-        x <- cmd.get(key1)
-        _ <- IO { assert(x.contains("foo")) }
-        y <- cmd.get(key2)
-        _ <- IO { assert(y.contains("bar")) }
-      } yield ()
+    for {
+      _ <- tx.run(cmd.set(key1, "foo"), cmd.set(key2, "bar"))
+      x <- cmd.get(key1)
+      _ <- IO { assert(x.contains("foo")) }
+      y <- cmd.get(key2)
+      _ <- IO { assert(y.contains("bar")) }
+    } yield ()
 
-    val failedTx =
-      for {
-        _ <- tx.run(cmd.set(key1, "qwe"), cmd.set(key2, "asd"))(IO.raiseError(new Exception("boom"))).attempt
-        x <- cmd.get(key1)
-        _ <- IO { assert(x.contains("foo")) } // Value did not change
-        y <- cmd.get(key2)
-        _ <- IO { assert(y.contains("bar")) } // Value did not change
-      } yield ()
-
-    successfulTx *> failedTx
   }
 
 }
