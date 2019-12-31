@@ -12,7 +12,7 @@
 
 <p>The most common way is to create a <code class="highlighter-rouge">RedisTransaction</code> once by passing the commands API as a parameter and invoke the <code class="highlighter-rouge">run</code> function every time you want to run the given commands as part of a new transaction.</p>
 
-<p>Note that every command has to be forked (<code class="highlighter-rouge">.start</code>) because the commands need to be sent to the server in an asynchronous way but no response will be received until either an <code class="highlighter-rouge">EXEC</code> or a <code class="highlighter-rouge">DISCARD</code> command is sent, which is handled by <code class="highlighter-rouge">RedisTransaction</code>. Also, it is not possible to sequence commands (<code class="highlighter-rouge">flatMap</code>) that are part of a transaction. Every command has to be atomic and independent of previous results.</p>
+<p>Note that every command has to be forked (<code class="highlighter-rouge">.start</code>) because the commands need to be sent to the server asynchronously and no response will be received until either an <code class="highlighter-rouge">EXEC</code> or a <code class="highlighter-rouge">DISCARD</code> command is sent. Both forking and sending the final command is handled by <code class="highlighter-rouge">RedisTransaction</code>. Also, it is not possible to sequence commands (<code class="highlighter-rouge">flatMap</code>) that are part of a transaction. Every command has to be atomic and independent of previous results.</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">cats.effect.IO</span>
 <span class="k">import</span> <span class="nn">cats.implicits._</span>
@@ -31,27 +31,68 @@
 </span>  <span class="k">val</span> <span class="nv">tx</span> <span class="k">=</span> <span class="nc">RedisTransaction</span><span class="o">(</span><span class="n">cmd</span><span class="o">)</span>
 
   <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
-    <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
+    <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span>
+      <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
 
-  <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span>
-    <span class="nc">List</span><span class="o">(</span>
-      <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span>
-      <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">)</span>
-    <span class="o">).</span><span class="py">traverse_</span><span class="o">(</span><span class="nv">_</span><span class="o">.</span><span class="py">start</span><span class="o">)</span>
+  <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">tx</span><span class="o">.</span><span class="py">run</span><span class="o">(</span>
+    <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span>
+    <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">),</span>
+    <span class="c1">// .. more transactional commands ..
+</span>  <span class="o">)</span>
 
-  <span class="k">val</span> <span class="nv">failedSetters</span> <span class="k">=</span>
-    <span class="nc">List</span><span class="o">(</span>
-      <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"qwe"</span><span class="o">),</span>
-      <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"asd"</span><span class="o">)</span>
-    <span class="o">).</span><span class="py">traverse</span><span class="o">(</span><span class="nv">_</span><span class="o">.</span><span class="py">start</span><span class="o">)</span> <span class="o">*&gt;</span> <span class="nv">IO</span><span class="o">.</span><span class="py">raiseError</span><span class="o">(</span><span class="k">new</span> <span class="nc">Exception</span><span class="o">(</span><span class="s">"boom"</span><span class="o">))</span>
-
-  <span class="k">val</span> <span class="nv">tx1</span> <span class="k">=</span> <span class="nv">tx</span><span class="o">.</span><span class="py">run</span><span class="o">(</span><span class="n">setters</span><span class="o">)</span>
-  <span class="k">val</span> <span class="nv">tx2</span> <span class="k">=</span> <span class="nv">tx</span><span class="o">.</span><span class="py">run</span><span class="o">(</span><span class="n">failedSetters</span><span class="o">)</span>
-
-  <span class="n">getters</span> <span class="o">*&gt;</span> <span class="n">tx1</span> <span class="o">*&gt;</span> <span class="nv">tx2</span><span class="o">.</span><span class="py">attempt</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
+  <span class="n">getters</span> <span class="o">*&gt;</span> <span class="n">setters</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
 <span class="o">}</span>
 </code></pre></div></div>
 
+<p>It should be exclusively used to run Redis commands as part of a transaction, not any other computations. Fail to do so, may result in unexpected behavior.</p>
+
+<p>For example, the following transaction will result in a dead-lock:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">cmd</span> <span class="k">=&gt;</span>
+  <span class="k">val</span> <span class="nv">tx</span> <span class="k">=</span> <span class="nc">RedisTransaction</span><span class="o">(</span><span class="n">cmd</span><span class="o">)</span>
+
+  <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
+    <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span>
+      <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
+
+  <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">tx</span><span class="o">.</span><span class="py">run</span><span class="o">(</span>
+    <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span>
+    <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">),</span>
+    <span class="nv">cmd</span><span class="o">.</span><span class="py">discard</span>
+  <span class="o">)</span>
+
+  <span class="n">getters</span> <span class="o">*&gt;</span> <span class="n">setters</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
+<span class="o">}</span>
+<span class="c1">// res1: IO[Unit] = Async(
+//   cats.effect.internals.IOBracket$$$Lambda$11655/148771596@572355f3,
+//   false
+// )
+</span></code></pre></div></div>
+
+<p>You should never pass a transactional command: <code class="highlighter-rouge">MULTI</code>, <code class="highlighter-rouge">EXEC</code> or <code class="highlighter-rouge">DISCARD</code>.</p>
+
+<p>The following example will result in a successful transaction that raises an error (resulting in a failed computation):</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">cmd</span> <span class="k">=&gt;</span>
+  <span class="k">val</span> <span class="nv">tx</span> <span class="k">=</span> <span class="nc">RedisTransaction</span><span class="o">(</span><span class="n">cmd</span><span class="o">)</span>
+
+  <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
+    <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span>
+      <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
+
+  <span class="k">val</span> <span class="nv">failedTx</span> <span class="k">=</span> <span class="nv">tx</span><span class="o">.</span><span class="py">run</span><span class="o">(</span>
+    <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span>
+    <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">),</span>
+    <span class="nv">IO</span><span class="o">.</span><span class="py">raiseError</span><span class="o">(</span><span class="k">new</span> <span class="nc">Exception</span><span class="o">(</span><span class="s">"boom"</span><span class="o">))</span>
+  <span class="o">)</span>
+
+  <span class="n">getters</span> <span class="o">*&gt;</span> <span class="n">failedTx</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
+<span class="o">}</span>
+<span class="c1">// res2: IO[Unit] = Async(
+//   cats.effect.internals.IOBracket$$$Lambda$11655/148771596@1566408b,
+//   false
+// )
+</span></code></pre></div></div>
 </section></div></div></div></div><script src="/highlight/highlight.pack.js"></script><script>hljs.configure({languages:['scala','java','bash']});
 hljs.initHighlightingOnLoad();
               </script><script>console.info('\x57\x65\x62\x73\x69\x74\x65\x20\x62\x75\x69\x6c\x74\x20\x77\x69\x74\x68\x3a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x5f\x5f\x20\x20\x20\x20\x5f\x5f\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x5f\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x5f\x20\x5f\x5f\x0a\x20\x20\x20\x5f\x5f\x5f\x5f\x5f\x2f\x20\x2f\x5f\x20\x20\x2f\x20\x2f\x5f\x20\x20\x20\x20\x20\x20\x5f\x5f\x5f\x5f\x20\x5f\x5f\x5f\x20\x20\x28\x5f\x29\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x20\x20\x5f\x5f\x5f\x5f\x5f\x28\x5f\x29\x20\x2f\x5f\x5f\x5f\x5f\x20\x20\x5f\x5f\x5f\x5f\x5f\x0a\x20\x20\x2f\x20\x5f\x5f\x5f\x2f\x20\x5f\x5f\x20\x5c\x2f\x20\x5f\x5f\x2f\x5f\x5f\x5f\x5f\x5f\x2f\x20\x5f\x5f\x20\x60\x5f\x5f\x20\x5c\x2f\x20\x2f\x20\x5f\x5f\x5f\x2f\x20\x5f\x5f\x5f\x2f\x20\x5f\x5f\x20\x5c\x2f\x20\x5f\x5f\x5f\x2f\x20\x2f\x20\x5f\x5f\x2f\x20\x5f\x20\x5c\x2f\x20\x5f\x5f\x5f\x2f\x0a\x20\x28\x5f\x5f\x20\x20\x29\x20\x2f\x5f\x2f\x20\x2f\x20\x2f\x5f\x2f\x5f\x5f\x5f\x5f\x5f\x2f\x20\x2f\x20\x2f\x20\x2f\x20\x2f\x20\x2f\x20\x2f\x20\x2f\x5f\x5f\x2f\x20\x2f\x20\x20\x2f\x20\x2f\x5f\x2f\x20\x28\x5f\x5f\x20\x20\x29\x20\x2f\x20\x2f\x5f\x2f\x20\x20\x5f\x5f\x28\x5f\x5f\x20\x20\x29\x0a\x2f\x5f\x5f\x5f\x5f\x2f\x5f\x2e\x5f\x5f\x5f\x2f\x5c\x5f\x5f\x2f\x20\x20\x20\x20\x20\x2f\x5f\x2f\x20\x2f\x5f\x2f\x20\x2f\x5f\x2f\x5f\x2f\x5c\x5f\x5f\x5f\x2f\x5f\x2f\x20\x20\x20\x5c\x5f\x5f\x5f\x5f\x2f\x5f\x5f\x5f\x5f\x2f\x5f\x2f\x5c\x5f\x5f\x2f\x5c\x5f\x5f\x5f\x2f\x5f\x5f\x5f\x5f\x2f\x0a\x0a\x68\x74\x74\x70\x73\x3a\x2f\x2f\x34\x37\x64\x65\x67\x2e\x67\x69\x74\x68\x75\x62\x2e\x69\x6f\x2f\x73\x62\x74\x2d\x6d\x69\x63\x72\x6f\x73\x69\x74\x65\x73')</script><script>((window.gitter = {}).chat = {}).options = {
