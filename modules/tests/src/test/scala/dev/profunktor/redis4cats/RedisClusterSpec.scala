@@ -20,7 +20,7 @@ import cats.effect._
 import dev.profunktor.redis4cats.domain.RedisCodec
 import dev.profunktor.redis4cats.testutils.Redis4CatsFunSuite
 
-class Fs2RedisClusterSpec extends Redis4CatsFunSuite with RedisClusterTest with Fs2TestScenarios {
+class RedisClusterSpec extends Redis4CatsFunSuite with RedisClusterTest with TestScenarios {
 
   implicit val cs: ContextShift[IO] = IO.contextShift(scala.concurrent.ExecutionContext.global)
 

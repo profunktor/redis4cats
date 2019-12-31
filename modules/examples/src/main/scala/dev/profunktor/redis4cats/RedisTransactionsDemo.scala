@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats
 
-import cats.effect.{ IO, Resource }
+import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.algebra.RedisCommands
 import dev.profunktor.redis4cats.connection._
@@ -50,22 +50,12 @@ object RedisTransactionsDemo extends LoggerIOApp {
           cmd.get(key1).flatTap(showResult(key1)) *>
             cmd.get(key2).flatTap(showResult(key2))
 
-        val setters =
-          List(
-            cmd.set(key1, "foo"),
-            cmd.set(key2, "bar")
-          ).traverse_(_.start)
+        val tx1 = tx.run(
+          cmd.set(key1, "foo"),
+          cmd.set(key2, "bar")
+        )
 
-        val failedSetters =
-          List(
-            cmd.set(key1, "qwe"),
-            cmd.set(key2, "asd")
-          ).traverse(_.start) *> IO.raiseError(new Exception("boom"))
-
-        val tx1 = tx.run(setters)
-        val tx2 = tx.run(failedSetters)
-
-        getters *> tx1 *> tx2.attempt *> getters.void
+        getters *> tx1 *> getters.void
       }
   }
 
