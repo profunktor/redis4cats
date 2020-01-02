@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.interpreter.pubsub
 
-import cats.effect.{ Concurrent, ContextShift, Sync }
+import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.PubSubStats
 import dev.profunktor.redis4cats.domain._
@@ -34,7 +34,7 @@ class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
   override def pubSubChannels: Stream[F, List[K]] =
     Stream
       .eval {
-        JRFuture(Sync[F].delay(pubConnection.async().pubsubChannels()))
+        JRFuture(F.delay(pubConnection.async().pubsubChannels()))
       }
       .map(_.asScala.toList)
 
@@ -43,8 +43,8 @@ class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
     Stream.eval {
-      JRFuture(Sync[F].delay(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*))).flatMap { kv =>
-        Sync[F].delay(kv.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), n) })
+      JRFuture(F.delay(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*))).flatMap { kv =>
+        F.delay(kv.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), n) })
       }
     }
 

@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.interpreter.pubsub
 
-import cats.effect.{ ConcurrentEffect, ContextShift, Sync }
+import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.{ PubSubCommands, PubSubStats, SubscribeCommands }
@@ -47,7 +47,7 @@ class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     _.evalMap { message =>
       state.get.flatMap { st =>
         PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) *>
-          JRFuture { Sync[F].delay(pubConnection.async().publish(channel.underlying, message)) }
+          JRFuture { F.delay(pubConnection.async().publish(channel.underlying, message)) }
       }.void
     }
 

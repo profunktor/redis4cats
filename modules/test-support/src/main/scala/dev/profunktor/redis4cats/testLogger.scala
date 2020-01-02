@@ -26,7 +26,7 @@ import dev.profunktor.redis4cats.effect.Log
 
 object testLogger {
 
-  private def putStrLn[F[_]: Sync, A](a: A): F[Unit] = Sync[F].delay(println(a))
+  private def putStrLn[F[_]: Sync, A](a: A): F[Unit] = F.delay(println(a))
 
   private def timestamp[F[_]: Clock: Functor]: F[String] =
     Clock[F].realTime(TimeUnit.MILLISECONDS).map(Instant.ofEpochMilli(_).toString)

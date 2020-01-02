@@ -24,16 +24,16 @@ import dev.profunktor.redis4cats.effect.Log
 
 object pipeline {
 
-  case class RedisPipeline[F[_]: Log: Sync, K, V](
+  case class RedisPipeline[F[_]: Log: Bracket[*[_], Throwable], K, V](
       cmd: RedisCommands[F, K, V]
   ) {
     def run[A](fa: F[A]): F[A] =
-      Log[F].info("Pipeline started") *>
+      F.info("Pipeline started") *>
         cmd.disableAutoFlush
           .bracketCase(_ => fa) {
-            case (_, ExitCase.Completed) => cmd.flushCommands *> Log[F].info("Pipeline completed")
-            case (_, ExitCase.Error(e))  => Log[F].error(s"Pipeline failed: ${e.getMessage}")
-            case (_, ExitCase.Canceled)  => Log[F].error("Pipeline canceled")
+            case (_, ExitCase.Completed) => cmd.flushCommands *> F.info("Pipeline completed")
+            case (_, ExitCase.Error(e))  => F.error(s"Pipeline failed: ${e.getMessage}")
+            case (_, ExitCase.Canceled)  => F.error("Pipeline canceled")
           }
           .guarantee(cmd.enableAutoFlush)
   }

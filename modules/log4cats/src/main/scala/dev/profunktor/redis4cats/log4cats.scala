@@ -21,10 +21,10 @@ import io.chrisdavenport.log4cats.Logger
 
 object log4cats {
 
-  implicit def log4CatsInstance[F[_]](implicit L: Logger[F]): Log[F] =
+  implicit def log4CatsInstance[F[_]: Logger]: Log[F] =
     new Log[F] {
-      def info(msg: => String): F[Unit]  = L.info(msg)
-      def error(msg: => String): F[Unit] = L.error(msg)
+      def info(msg: => String): F[Unit]  = F.info(msg)
+      def error(msg: => String): F[Unit] = F.error(msg)
     }
 
 }
