@@ -24,9 +24,9 @@ import dev.profunktor.redis4cats.domain.RedisCodec
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.interpreter.Redis
 import org.scalatest.BeforeAndAfterEach
+import org.scalatest.compatible.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
 import scala.concurrent.ExecutionContext
-import org.scalatest.compatible.Assertion
 
 class Redis4CatsFunSuite(isCluster: Boolean) extends AsyncFunSuite with BeforeAndAfterEach {
 
