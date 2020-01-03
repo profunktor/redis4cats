@@ -16,6 +16,8 @@
 
 package dev.profunktor.redis4cats.effect
 
+import cats.Applicative
+
 /**
   * Typeclass used for internal logging such as acquiring and releasing connections.
   *
@@ -28,4 +30,12 @@ trait Log[F[_]] {
 
 object Log {
   def apply[F[_]](implicit ev: Log[F]): Log[F] = ev
+
+  object NoOp {
+    implicit def instance[F[_]: Applicative]: Log[F] =
+      new Log[F] {
+        def info(msg: => String): F[Unit]  = F.unit
+        def error(msg: => String): F[Unit] = F.unit
+      }
+  }
 }

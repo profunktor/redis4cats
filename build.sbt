@@ -37,9 +37,9 @@ val commonSettings = Seq(
         CompilerPlugins.betterMonadicFor,
         CompilerPlugins.contextApplied,
         CompilerPlugins.kindProjector,
-        Libraries.redisClient,
-        Libraries.scalaCheck % Test,
         Libraries.catsEffect,
+        Libraries.redisClient,
+        Libraries.scalaCheck    % Test,
         Libraries.scalaTest     % Test,
         Libraries.catsLaws      % Test,
         Libraries.catsTestKit   % Test,
@@ -89,7 +89,6 @@ lazy val `redis4cats-root` = project
     `redis4cats-streams`,
     `redis4cats-log4cats`,
     examples,
-    `redis4cats-test-support`,
     tests,
     microsite
   )
@@ -135,24 +134,14 @@ lazy val examples = project
   .dependsOn(`redis4cats-effects`)
   .dependsOn(`redis4cats-streams`)
 
-lazy val `redis4cats-test-support` = project
-  .in(file("modules/test-support"))
-  .settings(commonSettings: _*)
-  .settings(libraryDependencies += Libraries.scalaTest)
-  .settings(libraryDependencies += Libraries.scalaCheck)
-  .settings(parallelExecution in Test := false)
-  .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`redis4cats-core`)
-  .dependsOn(`redis4cats-effects`)
-  .dependsOn(`redis4cats-streams`)
-
 lazy val tests = project
   .in(file("modules/tests"))
   .settings(commonSettings: _*)
   .settings(noPublish)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`redis4cats-test-support` % Test)
   .dependsOn(`redis4cats-core`)
+  .dependsOn(`redis4cats-effects`)
+  .dependsOn(`redis4cats-streams`)
 
 lazy val microsite = project
   .in(file("site"))
