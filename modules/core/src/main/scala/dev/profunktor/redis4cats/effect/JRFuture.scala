@@ -36,9 +36,11 @@ object JRFuture {
   def fromCompletableFuture[F[_]: Async: ContextShift, A](fa: F[CompletableFuture[A]]): F[A] =
     liftJFuture[F, CompletableFuture[A], A](fa)
 
-  private[redis4cats] def liftJFuture[F[_], G <: JFuture[A], A](
-      fa: F[G]
-  )(implicit F: Async[F], cs: ContextShift[F]): F[A] =
+  private[redis4cats] def liftJFuture[
+      F[_]: Async: ContextShift,
+      G <: JFuture[A],
+      A
+  ](fa: F[G]): F[A] =
     fa.flatMap { f =>
       F.async[A] { cb =>
           f.handle[Unit] { (value: A, t: Throwable) =>
@@ -47,7 +49,7 @@ object JRFuture {
           }
           ()
         }
-        .guarantee(cs.shift)
+        .guarantee(F.shift)
     }
 
 }

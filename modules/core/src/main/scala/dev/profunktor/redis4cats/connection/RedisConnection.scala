@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.connection
 
-import cats.effect.{ Concurrent, ContextShift, Sync }
+import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.domain.NodeId
 import dev.profunktor.redis4cats.effect.JRFuture
@@ -40,26 +40,26 @@ private[redis4cats] trait RedisConnection[F[_], K, V] {
 private[redis4cats] class RedisStatefulConnection[F[_]: Concurrent: ContextShift, K, V](
     conn: StatefulRedisConnection[K, V]
 ) extends RedisConnection[F, K, V] {
-  def async: F[RedisAsyncCommands[K, V]] = Sync[F].delay(conn.async())
+  def async: F[RedisAsyncCommands[K, V]] = F.delay(conn.async())
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]] =
-    Sync[F].raiseError(OperationNotSupported("Running in a single node"))
-  def close: F[Unit] = JRFuture.fromCompletableFuture(Sync[F].delay(conn.closeAsync())).void
+    F.raiseError(OperationNotSupported("Running in a single node"))
+  def close: F[Unit] = JRFuture.fromCompletableFuture(F.delay(conn.closeAsync())).void
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
-    Sync[F].raiseError(OperationNotSupported("Running in a single node"))
+    F.raiseError(OperationNotSupported("Running in a single node"))
 }
 
 private[redis4cats] class RedisStatefulClusterConnection[F[_]: Concurrent: ContextShift, K, V](
     conn: StatefulRedisClusterConnection[K, V]
 ) extends RedisConnection[F, K, V] {
   def async: F[RedisAsyncCommands[K, V]] =
-    Sync[F].raiseError(
+    F.raiseError(
       OperationNotSupported("Transactions are not supported in a cluster. You must select a single node.")
     )
-  def clusterAsync: F[RedisClusterAsyncCommands[K, V]] = Sync[F].delay(conn.async())
+  def clusterAsync: F[RedisClusterAsyncCommands[K, V]] = F.delay(conn.async())
   def close: F[Unit] =
-    JRFuture.fromCompletableFuture(Sync[F].delay(conn.closeAsync())).void
+    JRFuture.fromCompletableFuture(F.delay(conn.closeAsync())).void
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
-    JRFuture.fromCompletableFuture(Sync[F].delay(conn.getConnectionAsync(nodeId.value))).flatMap { stateful =>
-      Sync[F].delay(stateful.async())
+    JRFuture.fromCompletableFuture(F.delay(conn.getConnectionAsync(nodeId.value))).flatMap { stateful =>
+      F.delay(stateful.async())
     }
 }

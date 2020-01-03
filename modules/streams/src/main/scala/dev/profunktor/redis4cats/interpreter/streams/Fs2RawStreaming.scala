@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.interpreter.streams
 
-import cats.effect.{ Concurrent, ContextShift, Sync }
+import cats.effect._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.algebra.RawStreaming
 import dev.profunktor.redis4cats.streams._
@@ -32,13 +32,13 @@ private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
 
   override def xAdd(key: K, body: Map[K, V]): F[MessageId] =
     JRFuture {
-      Sync[F].delay(client.async().xadd(key, body.asJava))
+      F.delay(client.async().xadd(key, body.asJava))
     }.map(MessageId)
 
   override def xRead(streams: Set[StreamingOffset[K]]): F[List[StreamingMessageWithId[K, V]]] = {
     val offsets = streams.map(s => StreamOffset.from(s.key, s.offset)).toSeq
     JRFuture {
-      Sync[F].delay(client.async().xread(offsets: _*))
+      F.delay(client.async().xread(offsets: _*))
     }.map { list =>
       list.asScala.toList.map { msg =>
         StreamingMessageWithId[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap)

@@ -41,12 +41,12 @@ object Redis {
   ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromConnectionFuture {
-        Sync[F].delay(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
+        F.delay(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
       }
       .map(c => new Redis(new RedisStatefulConnection(c)))
 
     val release: Redis[F, K, V] => F[Unit] = c =>
-      Log[F].info(s"Releasing Commands connection: ${client.uri.underlying}") *> c.conn.close
+      F.info(s"Releasing Commands connection: ${client.uri.underlying}") *> c.conn.close
 
     (acquire, release)
   }
@@ -57,12 +57,12 @@ object Redis {
   ): (F[RedisCluster[F, K, V]], RedisCluster[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture {
-        Sync[F].delay(client.underlying.connectAsync[K, V](codec.underlying))
+        F.delay(client.underlying.connectAsync[K, V](codec.underlying))
       }
       .map(c => new RedisCluster(new RedisStatefulClusterConnection(c)))
 
     val release: RedisCluster[F, K, V] => F[Unit] = c =>
-      Log[F].info(s"Releasing cluster Commands connection: ${client.underlying}") *> c.conn.close
+      F.info(s"Releasing cluster Commands connection: ${client.underlying}") *> c.conn.close
 
     (acquire, release)
   }
@@ -74,7 +74,7 @@ object Redis {
   ): (F[BaseRedis[F, K, V]], BaseRedis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture {
-        Sync[F].delay(client.underlying.connectAsync[K, V](codec.underlying))
+        F.delay(client.underlying.connectAsync[K, V](codec.underlying))
       }
       .map { c =>
         new BaseRedis[F, K, V](new RedisStatefulClusterConnection(c), cluster = true) {
@@ -85,7 +85,7 @@ object Redis {
       }
 
     val release: BaseRedis[F, K, V] => F[Unit] = c =>
-      Log[F].info(s"Releasing single-shard cluster Commands connection: ${client.underlying}") *> c.conn.close
+      F.info(s"Releasing single-shard cluster Commands connection: ${client.underlying}") *> c.conn.close
 
     (acquire, release)
   }
@@ -118,18 +118,14 @@ object Redis {
   def masterReplica[F[_]: Concurrent: ContextShift: Log, K, V](
       conn: RedisMasterReplica[K, V]
   ): F[RedisCommands[F, K, V]] =
-    Sync[F]
-      .delay {
-        new RedisStatefulConnection(conn.underlying)
-      }
+    F.delay(new RedisStatefulConnection(conn.underlying))
       .map(new Redis[F, K, V](_))
 }
 
-private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
+private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     val conn: RedisConnection[F, K, V],
     val cluster: Boolean
-)(implicit F: Concurrent[F])
-    extends RedisCommands[F, K, V]
+) extends RedisCommands[F, K, V]
     with RedisConversionOps {
 
   import dev.profunktor.redis4cats.JavaConversions._
@@ -737,9 +733,7 @@ private[redis4cats] class BaseRedis[F[_]: ContextShift, K, V](
     JRFuture {
       args match {
         case Some(x) =>
-          async.flatMap(
-            c => F.delay(c.zadd(key, x, values.map(s => ScoredValue.just(s.score.value, s.value)): _*))
-          )
+          async.flatMap(c => F.delay(c.zadd(key, x, values.map(s => ScoredValue.just(s.score.value, s.value)): _*)))
         case None =>
           async.flatMap(c => F.delay(c.zadd(key, values.map(s => ScoredValue.just(s.score.value, s.value)): _*)))
       }
@@ -998,7 +992,7 @@ private[redis4cats] trait RedisConversionOps {
     }
   }
 
-  private[redis4cats] implicit class ZRangeOps[T](range: ZRange[T])(implicit numeric: Numeric[T]) {
+  private[redis4cats] implicit class ZRangeOps[T: Numeric](range: ZRange[T]) {
     def asJavaRange: JRange[Number] = {
       def toJavaNumber(t: T): java.lang.Number = t match {
         case b: Byte  => b
@@ -1006,7 +1000,7 @@ private[redis4cats] trait RedisConversionOps {
         case i: Int   => i
         case l: Long  => l
         case f: Float => f
-        case _        => numeric.toDouble(t)
+        case _        => T.toDouble(t)
       }
       val start: Number = toJavaNumber(range.start)
       val end: Number   = toJavaNumber(range.end)

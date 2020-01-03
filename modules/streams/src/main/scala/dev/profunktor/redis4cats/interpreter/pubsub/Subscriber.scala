@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.interpreter.pubsub
 
-import cats.effect.{ ConcurrentEffect, ContextShift, Sync }
+import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.syntax.all._
@@ -30,23 +30,22 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 class Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V]
-) extends SubscribeCommands[Stream[F, ?], K, V] {
+) extends SubscribeCommands[Stream[F, *], K, V] {
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     Stream
       .eval(
         state.get.flatMap { st =>
           PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) <*
-            JRFuture(Sync[F].delay(subConnection.async().subscribe(channel.underlying)))
+            JRFuture(F.delay(subConnection.async().subscribe(channel.underlying)))
         }
       )
       .flatMap(_.subscribe(500).unNone)
 
   override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
     Stream.eval {
-      JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying))).void.guarantee(state.get.flatMap {
-        st =>
-          st.get(channel.underlying).fold(().pure)(_.publish1(none[V])) *> state.update(_ - channel.underlying)
+      JRFuture(F.delay(subConnection.async().unsubscribe(channel.underlying))).void.guarantee(state.get.flatMap { st =>
+        st.get(channel.underlying).fold(().pure)(_.publish1(none[V])) *> state.update(_ - channel.underlying)
       })
     }
 

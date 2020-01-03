@@ -45,11 +45,11 @@ object transactions {
           val tx =
             Resource.makeCase(cmd.multi) {
               case (_, ExitCase.Completed) =>
-                cmd.exec *> Log[F].info("Transaction completed")
+                cmd.exec *> F.info("Transaction completed")
               case (_, ExitCase.Error(e)) =>
-                cmd.discard.guarantee(txFailed.set(true)) *> Log[F].error(s"Transaction failed: ${e.getMessage}")
+                cmd.discard.guarantee(txFailed.set(true)) *> F.error(s"Transaction failed: ${e.getMessage}")
               case (_, ExitCase.Canceled) =>
-                cmd.discard.guarantee(txFailed.set(true)) *> Log[F].error("Transaction canceled")
+                cmd.discard.guarantee(txFailed.set(true)) *> F.error("Transaction canceled")
             }
 
           val joinOrCancelFibers =
@@ -60,7 +60,7 @@ object transactions {
               )
             }
 
-          Log[F].info("Transaction started") *>
+          F.info("Transaction started") *>
             tx.use(_ => commands.toList.traverse(_.start).flatMap(fibers.set))
               .guarantee(joinOrCancelFibers)
         }

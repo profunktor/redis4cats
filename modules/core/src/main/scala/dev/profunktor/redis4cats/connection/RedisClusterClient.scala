@@ -16,9 +16,9 @@
 
 package dev.profunktor.redis4cats.connection
 
-import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
+import cats.effect._
 import cats.implicits._
-import dev.profunktor.redis4cats.domain.{ NodeId }
+import dev.profunktor.redis4cats.domain.NodeId
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import io.lettuce.core.cluster.{ SlotHash, RedisClusterClient => JClusterClient }
 import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
@@ -34,21 +34,20 @@ object RedisClusterClient {
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
 
     val acquire: F[RedisClusterClient] =
-      Log[F].info(s"Acquire Redis Cluster client") *>
-        Sync[F]
-          .delay(JClusterClient.create(uri.map(_.underlying).asJava))
+      F.info(s"Acquire Redis Cluster client") *>
+        F.delay(JClusterClient.create(uri.map(_.underlying).asJava))
           .flatTap(initializeClusterPartitions[F])
           .map(new RedisClusterClient(_) {})
 
     val release: RedisClusterClient => F[Unit] = client =>
-      Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *>
-        JRFuture.fromCompletableFuture(Sync[F].delay(client.underlying.shutdownAsync())).void
+      F.info(s"Releasing Redis Cluster client: ${client.underlying}") *>
+        JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())).void
 
     (acquire, release)
   }
 
   private[redis4cats] def initializeClusterPartitions[F[_]: Sync](client: JClusterClient): F[Unit] =
-    Sync[F].delay(client.getPartitions).void
+    F.delay(client.getPartitions).void
 
   def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI*): Resource[F, RedisClusterClient] = {
     val (acquire, release) = acquireAndRelease(uri: _*)
@@ -62,11 +61,11 @@ object RedisClusterClient {
       client: RedisClusterClient,
       keyName: String
   ): F[NodeId] =
-    Sync[F].delay(SlotHash.getSlot(keyName)).flatMap { slot =>
+    F.delay(SlotHash.getSlot(keyName)).flatMap { slot =>
       partitions(client).map(_.getPartitionBySlot(slot).getNodeId).map(NodeId)
     }
 
   def partitions[F[_]: Sync](client: RedisClusterClient): F[JPartitions] =
-    Sync[F].delay(client.underlying.getPartitions())
+    F.delay(client.underlying.getPartitions())
 
 }

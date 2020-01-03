@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.interpreter.streams
 
-import cats.effect.{ Concurrent, ContextShift, Sync }
+import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.instances.list._
 import cats.syntax.all._
@@ -34,16 +34,16 @@ object RedisStream {
   def mkStreamingConnection[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Stream[F, Streaming[Stream[F, ?], K, V]] = {
+  ): Stream[F, Streaming[Stream[F, *], K, V]] = {
     val acquire = JRFuture
       .fromConnectionFuture {
-        Sync[F].delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying))
+        F.delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying))
       }
       .map(new RedisRawStreaming(_))
 
     val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
-      JRFuture.fromCompletableFuture(Sync[F].delay(c.client.closeAsync())) *>
-        Log[F].info(s"Releasing Streaming connection: ${client.uri.underlying}")
+      JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync())) *>
+        F.info(s"Releasing Streaming connection: ${client.uri.underlying}")
 
     Stream.bracket(acquire)(release).map(rs => new RedisStream(rs))
   }
@@ -51,7 +51,7 @@ object RedisStream {
   def mkMasterReplicaConnection[F[_]: Concurrent: ContextShift: Log, K, V](
       codec: RedisCodec[K, V],
       uris: RedisURI*
-  )(readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, ?], K, V]] =
+  )(readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, *], K, V]] =
     Stream.resource(RedisMasterReplica[F, K, V](codec, uris: _*)(readFrom)).map { conn =>
       new RedisStream(new RedisRawStreaming(conn.underlying))
     }
@@ -59,7 +59,7 @@ object RedisStream {
 }
 
 class RedisStream[F[_]: Concurrent, K, V](rawStreaming: RedisRawStreaming[F, K, V])
-    extends Streaming[Stream[F, ?], K, V] {
+    extends Streaming[Stream[F, *], K, V] {
 
   private[streams] val nextOffset: K => StreamingMessageWithId[K, V] => StreamingOffset[K] =
     key => msg => StreamingOffset.Custom(key, (msg.id.value.dropRight(2).toLong + 1).toString)

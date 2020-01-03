@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.connection
 
-import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
+import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
@@ -41,18 +41,18 @@ object RedisMasterReplica {
       val connection: F[RedisMasterReplica[K, V]] =
         JRFuture
           .fromCompletableFuture[F, StatefulRedisMasterReplicaConnection[K, V]] {
-            Sync[F].delay {
+            F.delay {
               MasterReplica.connectAsync[K, V](client.underlying, codec.underlying, uris.map(_.underlying).asJava)
             }
           }
           .map(new RedisMasterReplica(_) {})
 
-      readFrom.fold(connection)(rf => connection.flatMap(c => Sync[F].delay(c.underlying.setReadFrom(rf)) *> c.pure[F]))
+      readFrom.fold(connection)(rf => connection.flatMap(c => F.delay(c.underlying.setReadFrom(rf)) *> c.pure[F]))
     }
 
     val release: RedisMasterReplica[K, V] => F[Unit] = connection =>
-      Log[F].info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>
-        JRFuture.fromCompletableFuture(Sync[F].delay(connection.underlying.closeAsync())).void
+      F.info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>
+        JRFuture.fromCompletableFuture(F.delay(connection.underlying.closeAsync())).void
 
     (acquire, release)
   }

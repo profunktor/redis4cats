@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.connection
 
-import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
+import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
@@ -29,21 +29,21 @@ object RedisClient {
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
       uri: => RedisURI
   ): (F[RedisClient], RedisClient => F[Unit]) = {
-    val acquire: F[RedisClient] = Sync[F].delay {
+    val acquire: F[RedisClient] = F.delay {
       val jClient: JRedisClient = JRedisClient.create(uri.underlying)
       new RedisClient(jClient, uri) {}
     }
 
     val release: RedisClient => F[Unit] = client =>
-      Log[F].info(s"Releasing Redis connection: $uri") *>
-        JRFuture.fromCompletableFuture(Sync[F].delay(client.underlying.shutdownAsync())).void
+      F.info(s"Releasing Redis connection: $uri") *>
+          JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())).void
 
     (acquire, release)
   }
 
   private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log]
-    : F[(F[RedisClient], RedisClient => F[Unit])] =
-    Sync[F].delay(RedisURI.fromUnderlying(new JRedisURI())).map(acquireAndRelease(_))
+      : F[(F[RedisClient], RedisClient => F[Unit])] =
+    F.delay(RedisURI.fromUnderlying(new JRedisURI())).map(acquireAndRelease(_))
 
   def apply[F[_]: Concurrent: ContextShift: Log](uri: => RedisURI): Resource[F, RedisClient] = {
     val (acquire, release) = acquireAndRelease(uri)
