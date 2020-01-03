@@ -31,11 +31,11 @@ class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V],
     pubConnection: StatefulRedisPubSubConnection[K, V]
-) extends PubSubCommands[Stream[F, ?], K, V] {
+) extends PubSubCommands[Stream[F, *], K, V] {
 
-  private[redis4cats] val subCommands: SubscribeCommands[Stream[F, ?], K, V] =
+  private[redis4cats] val subCommands: SubscribeCommands[Stream[F, *], K, V] =
     new Subscriber[F, K, V](state, subConnection)
-  private[redis4cats] val pubSubStats: PubSubStats[Stream[F, ?], K] = new LivePubSubStats(pubConnection)
+  private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection)
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     subCommands.subscribe(channel)

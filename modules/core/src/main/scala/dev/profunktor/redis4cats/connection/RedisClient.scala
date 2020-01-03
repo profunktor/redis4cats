@@ -29,20 +29,20 @@ object RedisClient {
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
       uri: => RedisURI
   ): (F[RedisClient], RedisClient => F[Unit]) = {
-    val acquire: F[RedisClient] = Sync[F].delay {
+    val acquire: F[RedisClient] = F.delay {
       val jClient: JRedisClient = JRedisClient.create(uri.underlying)
       new RedisClient(jClient, uri) {}
     }
 
     val release: RedisClient => F[Unit] = client =>
       F.info(s"Releasing Redis connection: $uri") *>
-        JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())).void
+          JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())).void
 
     (acquire, release)
   }
 
   private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log]
-    : F[(F[RedisClient], RedisClient => F[Unit])] =
+      : F[(F[RedisClient], RedisClient => F[Unit])] =
     F.delay(RedisURI.fromUnderlying(new JRedisURI())).map(acquireAndRelease(_))
 
   def apply[F[_]: Concurrent: ContextShift: Log](uri: => RedisURI): Resource[F, RedisClient] = {

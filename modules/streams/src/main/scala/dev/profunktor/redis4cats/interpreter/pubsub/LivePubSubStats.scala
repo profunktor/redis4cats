@@ -29,7 +29,7 @@ import dev.profunktor.redis4cats.JavaConversions._
 
 class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
-) extends PubSubStats[Stream[F, ?], K] {
+) extends PubSubStats[Stream[F, *], K] {
 
   override def pubSubChannels: Stream[F, List[K]] =
     Stream

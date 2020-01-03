@@ -24,7 +24,7 @@ import dev.profunktor.redis4cats.effect.Log
 
 object pipeline {
 
-  case class RedisPipeline[F[_]: Log: Bracket[*[_], Throwable], K, V](
+  case class RedisPipeline[F[_]: Bracket[*[_], Throwable]: Log, K, V](
       cmd: RedisCommands[F, K, V]
   ) {
     def run[A](fa: F[A]): F[A] =

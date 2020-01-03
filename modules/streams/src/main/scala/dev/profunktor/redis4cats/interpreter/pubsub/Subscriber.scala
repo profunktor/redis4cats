@@ -30,7 +30,7 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 class Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V]
-) extends SubscribeCommands[Stream[F, ?], K, V] {
+) extends SubscribeCommands[Stream[F, *], K, V] {
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     Stream

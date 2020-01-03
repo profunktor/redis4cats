@@ -43,15 +43,15 @@ object PubSubInternals {
       override def punsubscribed(pattern: K, count: Long): Unit      = ()
     }
 
-  private[redis4cats] def apply[F[_], K, V](
+  private[redis4cats] def apply[F[_]: ConcurrentEffect: Log, K, V](
       state: Ref[F, PubSubState[F, K, V]],
       subConnection: StatefulRedisPubSubConnection[K, V]
-  )(implicit F: ConcurrentEffect[F], L: Log[F]): GetOrCreateTopicListener[F, K, V] = { channel => st =>
+  ): GetOrCreateTopicListener[F, K, V] = { channel => st =>
     st.get(channel.underlying)
       .fold {
         Topic[F, Option[V]](None).flatTap { topic =>
           val listener = defaultListener(channel, topic)
-          L.info(s"Creating listener for channel: $channel") *>
+          F.info(s"Creating listener for channel: $channel") *>
             F.delay(subConnection.addListener(listener)) *>
             state.update(_.updated(channel.underlying, topic))
         }
