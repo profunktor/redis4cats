@@ -7,7 +7,7 @@ redis4cats
 [![MergifyStatus](https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/profunktor/redis4cats&style=flat)](https://mergify.io)
 [![Scala Steward badge](https://img.shields.io/badge/Scala_Steward-helping-brightgreen.svg?style=flat&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAQCAMAAAARSr4IAAAAVFBMVEUAAACHjojlOy5NWlrKzcYRKjGFjIbp293YycuLa3pYY2LSqql4f3pCUFTgSjNodYRmcXUsPD/NTTbjRS+2jomhgnzNc223cGvZS0HaSD0XLjbaSjElhIr+AAAAAXRSTlMAQObYZgAAAHlJREFUCNdNyosOwyAIhWHAQS1Vt7a77/3fcxxdmv0xwmckutAR1nkm4ggbyEcg/wWmlGLDAA3oL50xi6fk5ffZ3E2E3QfZDCcCN2YtbEWZt+Drc6u6rlqv7Uk0LdKqqr5rk2UCRXOk0vmQKGfc94nOJyQjouF9H/wCc9gECEYfONoAAAAASUVORK5CYII=)](https://scala-steward.org)
 
-Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async java client [Lettuce](https://lettuce.io/).
+Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async Java client [Lettuce](https://lettuce.io/).
 
 > **NOTE**: Neither binary compatibility nor API stability are guaranteed between releases.
 
@@ -28,7 +28,7 @@ Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), 
 ### Streams
 
 - [PubSub API](https://redis.io/topics/pubsub) implemented on top of `fs2` streams.
-- [Streams API](https://redis.io/topics/streams-intro) experimental API, subject to changes (WIP).
+- [Streams API](https://redis.io/topics/streams-intro) experimental API, subject to changes.
   + High-level API offers `read` and `append` using the underlying commands `XREAD` and `XADD` respectively.
   + Consumer Groups are yet not implemented.
 

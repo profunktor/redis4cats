@@ -17,11 +17,10 @@
 package dev.profunktor.redis4cats
 
 import dev.profunktor.redis4cats.domain.RedisCodec
-import dev.profunktor.redis4cats.testutils.Redis4CatsFunSuite
 import io.lettuce.core.codec.{ ToByteBufEncoder, RedisCodec => JRedisCodec, StringCodec => JStringCodec }
 import io.netty.buffer.ByteBuf
 
-class RedisSpec extends Redis4CatsFunSuite with DockerRedis with TestScenarios {
+class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("geo api")(withRedis(locationScenario))
 

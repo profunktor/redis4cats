@@ -16,13 +16,9 @@
 
 package dev.profunktor.redis4cats
 
-import cats.effect._
 import dev.profunktor.redis4cats.domain.RedisCodec
-import dev.profunktor.redis4cats.testutils.Redis4CatsFunSuite
 
-class RedisClusterSpec extends Redis4CatsFunSuite with RedisClusterTest with TestScenarios {
-
-  implicit val cs: ContextShift[IO] = IO.contextShift(scala.concurrent.ExecutionContext.global)
+class RedisClusterSpec extends Redis4CatsFunSuite(true) with TestScenarios {
 
   test("cluster: geo api")(withRedisCluster(locationScenario))
 
