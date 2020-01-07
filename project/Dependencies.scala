@@ -42,7 +42,7 @@ object Dependencies {
   }
 
   object CompilerPlugins {
-    val betterMonadicFor = compilerPlugin("com.olegpy" %% "better-monadic-for" % Versions.betterMonadicFor)
+    val betterMonadicFor = compilerPlugin("com.olegpy"     %% "better-monadic-for" % Versions.betterMonadicFor)
     val contextApplied   = compilerPlugin("org.augustjune" %% "context-applied"    % Versions.contextApplied)
     val kindProjector = compilerPlugin(
       "org.typelevel" % "kind-projector" % Versions.kindProjector cross CrossVersion.full
