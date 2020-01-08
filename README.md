@@ -1,7 +1,8 @@
 redis4cats
 ==========
 
-![CI Status](https://github.com/profunktor/redis4cats/workflows/Build/badge.svg)
+[![CI
+Status](https://github.com/profunktor/redis4cats/workflows/Build/badge.svg)](https://github.com/profunktor/redis4cats/actions)
 [![Gitter Chat](https://badges.gitter.im/profunktor-dev/redis4cats.svg)](https://gitter.im/profunktor-dev/redis4cats)
 [![Maven Central](https://img.shields.io/maven-central/v/dev.profunktor/redis4cats-effects_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Credis4cats-effects) <a href="https://typelevel.org/cats/"><img src="https://typelevel.org/cats/img/cats-badge.svg" height="40px" align="right" alt="Cats friendly" /></a>
 [![MergifyStatus](https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/profunktor/redis4cats&style=flat)](https://mergify.io)
