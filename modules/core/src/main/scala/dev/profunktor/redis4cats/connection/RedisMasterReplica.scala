@@ -52,7 +52,7 @@ object RedisMasterReplica {
 
     val release: RedisMasterReplica[K, V] => F[Unit] = connection =>
       F.info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>
-        JRFuture.fromCompletableFuture(F.delay(connection.underlying.closeAsync())).void
+          JRFuture.fromCompletableFuture(F.delay(connection.underlying.closeAsync())).void
 
     (acquire, release)
   }

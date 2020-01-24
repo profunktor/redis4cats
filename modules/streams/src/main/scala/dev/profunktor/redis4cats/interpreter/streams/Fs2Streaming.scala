@@ -43,7 +43,7 @@ object RedisStream {
 
     val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
       JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync())) *>
-        F.info(s"Releasing Streaming connection: ${client.uri.underlying}")
+          F.info(s"Releasing Streaming connection: ${client.uri.underlying}")
 
     Stream.bracket(acquire)(release).map(rs => new RedisStream(rs))
   }

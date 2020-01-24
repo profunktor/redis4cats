@@ -16,6 +16,6 @@
 
 package dev.profunktor.redis4cats
 
-import scala.collection.convert.{AsJavaExtensions, AsScalaExtensions}
+import scala.collection.convert.{ AsJavaExtensions, AsScalaExtensions }
 
 object JavaConversions extends AsJavaExtensions with AsScalaExtensions

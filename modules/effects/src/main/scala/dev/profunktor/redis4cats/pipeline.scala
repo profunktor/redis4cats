@@ -29,13 +29,13 @@ object pipeline {
   ) {
     def run[A](fa: F[A]): F[A] =
       F.info("Pipeline started") *>
-        cmd.disableAutoFlush
-          .bracketCase(_ => fa) {
-            case (_, ExitCase.Completed) => cmd.flushCommands *> F.info("Pipeline completed")
-            case (_, ExitCase.Error(e))  => F.error(s"Pipeline failed: ${e.getMessage}")
-            case (_, ExitCase.Canceled)  => F.error("Pipeline canceled")
-          }
-          .guarantee(cmd.enableAutoFlush)
+          cmd.disableAutoFlush
+            .bracketCase(_ => fa) {
+              case (_, ExitCase.Completed) => cmd.flushCommands *> F.info("Pipeline completed")
+              case (_, ExitCase.Error(e))  => F.error(s"Pipeline failed: ${e.getMessage}")
+              case (_, ExitCase.Canceled)  => F.error("Pipeline canceled")
+            }
+            .guarantee(cmd.enableAutoFlush)
   }
 
 }
