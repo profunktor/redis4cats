@@ -35,13 +35,13 @@ object RedisClusterClient {
 
     val acquire: F[RedisClusterClient] =
       F.info(s"Acquire Redis Cluster client") *>
-        F.delay(JClusterClient.create(uri.map(_.underlying).asJava))
-          .flatTap(initializeClusterPartitions[F])
-          .map(new RedisClusterClient(_) {})
+          F.delay(JClusterClient.create(uri.map(_.underlying).asJava))
+            .flatTap(initializeClusterPartitions[F])
+            .map(new RedisClusterClient(_) {})
 
     val release: RedisClusterClient => F[Unit] = client =>
       F.info(s"Releasing Redis Cluster client: ${client.underlying}") *>
-        JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())).void
+          JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())).void
 
     (acquire, release)
   }

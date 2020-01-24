@@ -640,15 +640,14 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit): F[Set[V]] =
     JRFuture {
-      async.flatMap(
-        c => F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit))
+      async.flatMap(c => F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit))
       )
     }.map(_.asScala.toSet)
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, args: GeoArgs): F[List[GeoRadiusResult[V]]] =
     JRFuture {
-      async.flatMap(
-        c => F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit, args))
+      async.flatMap(c =>
+        F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit, args))
       )
     }.map(_.asScala.toList.map(_.asGeoRadiusResult))
 
@@ -814,8 +813,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     JRFuture {
       limit match {
         case Some(x) =>
-          async.flatMap(
-            c => F.delay(c.zrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
+          async.flatMap(c =>
+            F.delay(c.zrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
           )
         case None => async.flatMap(c => F.delay(c.zrangebylex(key, JRange.create[V](range.start, range.end))))
       }
@@ -838,8 +837,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     JRFuture {
       limit match {
         case Some(x) =>
-          async.flatMap(
-            c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
+          async.flatMap(c =>
+            F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
           )
         case None => async.flatMap(c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange)))
       }
@@ -864,9 +863,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     JRFuture {
       limit match {
         case Some(x) =>
-          async.flatMap(
-            c =>
-              F.delay(c.zrevrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
+          async.flatMap(c =>
+            F.delay(c.zrevrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
           )
         case None => async.flatMap(c => F.delay(c.zrevrangebylex(key, JRange.create[V](range.start, range.end))))
       }
@@ -889,8 +887,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     JRFuture {
       limit match {
         case Some(x) =>
-          async.flatMap(
-            c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
+          async.flatMap(c =>
+            F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
           )
         case None => async.flatMap(c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange)))
       }
@@ -936,15 +934,14 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
   override def info: F[Map[String, String]] =
     JRFuture {
       async.flatMap(c => F.delay(c.info))
-    }.flatMap(
-      info =>
-        F.delay(
-          info
-            .split("\\r?\\n")
-            .toList
-            .map(_.split(":", 2).toList)
-            .collect { case k :: v :: Nil => (k, v) }
-            .toMap
+    }.flatMap(info =>
+      F.delay(
+        info
+          .split("\\r?\\n")
+          .toList
+          .map(_.split(":", 2).toList)
+          .collect { case k :: v :: Nil => (k, v) }
+          .toMap
       )
     )
 

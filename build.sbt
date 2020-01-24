@@ -52,6 +52,7 @@ val commonSettings = Seq(
         f = Seq.empty
       ),
   scalafmtOnCompile := true,
+  scmInfo := Some(ScmInfo(url("https://github.com/profunktor/redis4cats"), "scm:git:git@github.com:profunktor/redis4cats.git")),
   publishTo := {
     val sonatype = "https://oss.sonatype.org/"
     if (isSnapshot.value)
