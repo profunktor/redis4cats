@@ -965,15 +965,15 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       async.flatMap(c => F.delay(c.eval[returnType.Underlying[V]](script, returnType.outputType, keys: _*)))
     }.map(returnType.convert(_))
 
-  override def eval(script: String, returnType: ScriptOutputType, keys: List[K], values: V*)(
-      implicit ev: K <:< Object
-  ): F[returnType.Return[V]] =
+  override def eval(script: String, returnType: ScriptOutputType, keys: List[K], values: V*): F[returnType.Return[V]] =
     JRFuture {
       async.flatMap(c =>
         F.delay(
           c.eval[returnType.Underlying[V]](
             script,
             returnType.outputType,
+            // The Object requirement comes from the limitations of Java Generics. It is safe to assume K <: Object as
+            // the underlying JRedisCodec would also only support K <: Object.
             keys.asInstanceOf[List[K with Object]].toArray,
             values: _*
           )
@@ -986,8 +986,11 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       async.flatMap(c => F.delay(c.evalsha[returnType.Underlying[V]](script, returnType.outputType, keys: _*)))
     }.map(returnType.convert(_))
 
-  override def evalSha(script: String, returnType: ScriptOutputType, keys: List[K], values: V*)(
-      implicit ev: K <:< Object
+  override def evalSha(
+      script: String,
+      returnType: ScriptOutputType,
+      keys: List[K],
+      values: V*
   ): F[returnType.Return[V]] =
     JRFuture {
       async.flatMap(c =>
@@ -995,6 +998,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
           c.evalsha[returnType.Underlying[V]](
             script,
             returnType.outputType,
+            // see comment in eval above
             keys.asInstanceOf[List[K with Object]].toArray,
             values: _*
           )
