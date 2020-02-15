@@ -40,39 +40,41 @@ object effects {
   final case class ZRange[V](start: V, end: V)
   final case class RangeLimit(offset: Long, count: Long)
 
-  sealed trait ScriptOutputType {
-    type Return[V]
-    private[redis4cats] type Underlying[V]
+  sealed trait ScriptOutputType[V, R] {
+    private[redis4cats] type Underlying[U]
     private[redis4cats] val outputType: JScriptOutputType
-    private[redis4cats] def convert[V](in: Underlying[V]): Return[V]
+    private[redis4cats] def convert[U](in: Underlying[U]): R
   }
   object ScriptOutputType {
     import dev.profunktor.redis4cats.JavaConversions._
 
-    case object Integer extends ScriptOutputType {
-      type Return[V]                         = Long
-      private[redis4cats] type Underlying[V] = java.lang.Long
+    def Boolean[V]: ScriptOutputType[V, Boolean] = new ScriptOutputType[V, Boolean] {
+      private[redis4cats] type Underlying[_] = java.lang.Boolean
+      override private[redis4cats] val outputType                                 = JScriptOutputType.BOOLEAN
+      override private[redis4cats] def convert[_](in: java.lang.Boolean): Boolean = scala.Boolean.box(in)
+    }
+
+    def Integer[V]: ScriptOutputType[V, Long] = new ScriptOutputType[V, Long] {
+      private[redis4cats] type Underlying[_] = java.lang.Long
       override private[redis4cats] val outputType                           = JScriptOutputType.INTEGER
       override private[redis4cats] def convert[_](in: java.lang.Long): Long = Long.box(in)
     }
 
-    case object Value extends ScriptOutputType {
-      type Return[V]                         = V
-      private[redis4cats] type Underlying[V] = V
-      override private[redis4cats] val outputType                               = JScriptOutputType.VALUE
-      override private[redis4cats] def convert[V](in: Underlying[V]): Return[V] = in
+    def Value[V]: ScriptOutputType[V, V] = new ScriptOutputType[V, V] {
+      private[redis4cats] type Underlying[U] = V
+      override private[redis4cats] val outputType                       = JScriptOutputType.VALUE
+      override private[redis4cats] def convert[U](in: Underlying[U]): V = in.asInstanceOf[V]
     }
 
-    case object Multi extends ScriptOutputType {
-      type Return[V]                         = List[V]
-      private[redis4cats] type Underlying[V] = java.util.List[V]
-      override private[redis4cats] val outputType                                 = JScriptOutputType.MULTI
-      override private[redis4cats] def convert[V](in: java.util.List[V]): List[V] = in.asScala.toList
+    def Multi[V]: ScriptOutputType[V, List[V]] = new ScriptOutputType[V, List[V]] {
+      private[redis4cats] type Underlying[U] = java.util.List[U]
+      override private[redis4cats] val outputType = JScriptOutputType.MULTI
+      override private[redis4cats] def convert[U](in: java.util.List[U]): List[V] =
+        in.asScala.toList.asInstanceOf[List[V]]
     }
 
-    case object Status extends ScriptOutputType {
-      type Return[V]                         = Unit
-      private[redis4cats] type Underlying[V] = String
+    def Status[V]: ScriptOutputType[V, Unit] = new ScriptOutputType[V, Unit] {
+      private[redis4cats] type Underlying[U] = String
       override private[redis4cats] val outputType                   = JScriptOutputType.STATUS
       override private[redis4cats] def convert[_](in: String): Unit = ()
     }

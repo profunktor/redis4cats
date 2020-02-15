@@ -38,9 +38,9 @@ object RedisScriptsDemo extends LoggerIOApp {
     commandsApi
       .use { cmd =>
         for {
-          greeting <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
+          greeting: String <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
           _ <- putStrLn(s"Greetings from Lua: $greeting")
-          fortyTwo <- cmd.eval("return 42", ScriptOutputType.Integer)
+          fortyTwo: Long <- cmd.eval("return 42", ScriptOutputType.Integer)
           _ <- putStrLn(s"Answer to the Ultimate Question of Life, the Universe, and Everything: $fortyTwo")
           list <- cmd.eval("return {'Let', 'us', ARGV[1], ARGV[2]}", ScriptOutputType.Multi, Nil, "have", "fun")
           _ <- putStrLn(s"We can even return lists: $list")

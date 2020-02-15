@@ -960,12 +960,12 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       async.flatMap(c => F.delay(c.slowlogLen))
     }.map(Long.unbox)
 
-  override def eval(script: String, returnType: ScriptOutputType, keys: K*): F[returnType.Return[V]] =
+  override def eval[R](script: String, returnType: ScriptOutputType[V, R], keys: K*): F[R] =
     JRFuture {
       async.flatMap(c => F.delay(c.eval[returnType.Underlying[V]](script, returnType.outputType, keys: _*)))
-    }.map(returnType.convert(_))
+    }.map(r => returnType.convert(r))
 
-  override def eval(script: String, returnType: ScriptOutputType, keys: List[K], values: V*): F[returnType.Return[V]] =
+  override def eval[R](script: String, returnType: ScriptOutputType[V, R], keys: List[K], values: V*): F[R] =
     JRFuture {
       async.flatMap(c =>
         F.delay(
@@ -981,17 +981,12 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       )
     }.map(returnType.convert(_))
 
-  override def evalSha(script: String, returnType: ScriptOutputType, keys: K*): F[returnType.Return[V]] =
+  override def evalSha[R](script: String, returnType: ScriptOutputType[V, R], keys: K*): F[R] =
     JRFuture {
       async.flatMap(c => F.delay(c.evalsha[returnType.Underlying[V]](script, returnType.outputType, keys: _*)))
     }.map(returnType.convert(_))
 
-  override def evalSha(
-      script: String,
-      returnType: ScriptOutputType,
-      keys: List[K],
-      values: V*
-  ): F[returnType.Return[V]] =
+  override def evalSha[R](script: String, returnType: ScriptOutputType[V, R], keys: List[K], values: V*): F[R] =
     JRFuture {
       async.flatMap(c =>
         F.delay(

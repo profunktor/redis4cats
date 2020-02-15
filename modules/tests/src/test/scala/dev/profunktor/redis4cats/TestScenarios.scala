@@ -273,15 +273,17 @@ trait TestScenarios {
         |return redis.status_reply('OK')""".stripMargin
     for {
       fortyTwo <- cmd.eval("return 42", ScriptOutputType.Integer)
-      _ <- IO { assert(fortyTwo == 42L) }
+      _ <- IO { assert(fortyTwo === 42L) }
       value <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
-      _ <- IO { assert(value == "Hello World") }
+      _ <- IO { assert(value === "Hello World") }
+      bool <- cmd.eval("return true", ScriptOutputType.Boolean)
+      _ <- IO { assert(bool) }
       list <- cmd.eval("return {'Let', 'us', ARGV[1], ARGV[2]}", ScriptOutputType.Multi, Nil, "have", "fun")
-      _ <- IO { assert(list == List("Let", "us", "have", "fun")) }
+      _ <- IO { assert(list === List("Let", "us", "have", "fun")) }
       () <- cmd.eval(statusScript, ScriptOutputType.Status, List("test"), "foo")
       sha42 <- cmd.scriptLoad("return 42")
       fortyTwoSha <- cmd.evalSha(sha42, ScriptOutputType.Integer)
-      _ <- IO { assert(fortyTwoSha == 42L) }
+      _ <- IO { assert(fortyTwoSha === 42L) }
       shaStatusScript <- cmd.scriptLoad(statusScript)
       () <- cmd.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), "foo")
       exists <- cmd.scriptExists(sha42, "foobar")

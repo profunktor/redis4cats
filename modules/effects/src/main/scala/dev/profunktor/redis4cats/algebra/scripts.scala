@@ -21,10 +21,10 @@ import dev.profunktor.redis4cats.effects.ScriptOutputType
 trait ScriptCommands[F[_], K, V] extends Scripting[F, K, V]
 
 trait Scripting[F[_], K, V] {
-  def eval(script: String, returnType: ScriptOutputType, keys: K*): F[returnType.Return[V]]
-  def eval(script: String, returnType: ScriptOutputType, keys: List[K], values: V*): F[returnType.Return[V]]
-  def evalSha(script: String, returnType: ScriptOutputType, keys: K*): F[returnType.Return[V]]
-  def evalSha(script: String, returnType: ScriptOutputType, keys: List[K], values: V*): F[returnType.Return[V]]
+  def eval[R](script: String, returnType: ScriptOutputType[V, R], keys: K*): F[R]
+  def eval[R](script: String, returnType: ScriptOutputType[V, R], keys: List[K], values: V*): F[R]
+  def evalSha[R](script: String, returnType: ScriptOutputType[V, R], keys: K*): F[R]
+  def evalSha[R](script: String, returnType: ScriptOutputType[V, R], keys: List[K], values: V*): F[R]
   // This unfortunately has to take a V instead of String due to a bug in lettuce:
   // https://github.com/lettuce-io/lettuce-core/issues/1010
   def scriptLoad(script: V): F[String]
