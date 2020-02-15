@@ -959,6 +959,63 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     JRFuture {
       async.flatMap(c => F.delay(c.slowlogLen))
     }.map(Long.unbox)
+
+  override def eval(script: String, returnType: ScriptOutputType, keys: K*): F[returnType.Return[V]] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.eval[returnType.Underlying[V]](script, returnType.outputType, keys: _*)))
+    }.map(returnType.convert(_))
+
+  override def eval(script: String, returnType: ScriptOutputType, keys: List[K], values: V*)(
+      implicit ev: K <:< Object
+  ): F[returnType.Return[V]] =
+    JRFuture {
+      async.flatMap(c =>
+        F.delay(
+          c.eval[returnType.Underlying[V]](
+            script,
+            returnType.outputType,
+            keys.asInstanceOf[List[K with Object]].toArray,
+            values: _*
+          )
+        )
+      )
+    }.map(returnType.convert(_))
+
+  override def evalSha(script: String, returnType: ScriptOutputType, keys: K*): F[returnType.Return[V]] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.evalsha[returnType.Underlying[V]](script, returnType.outputType, keys: _*)))
+    }.map(returnType.convert(_))
+
+  override def evalSha(script: String, returnType: ScriptOutputType, keys: List[K], values: V*)(
+      implicit ev: K <:< Object
+  ): F[returnType.Return[V]] =
+    JRFuture {
+      async.flatMap(c =>
+        F.delay(
+          c.evalsha[returnType.Underlying[V]](
+            script,
+            returnType.outputType,
+            keys.asInstanceOf[List[K with Object]].toArray,
+            values: _*
+          )
+        )
+      )
+    }.map(returnType.convert(_))
+
+  override def scriptLoad(script: V): F[String] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.scriptLoad(script)))
+    }
+
+  override def scriptExists(digests: String*): F[List[Boolean]] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.scriptExists(digests: _*)))
+    }.map(_.asScala.map(Boolean.unbox(_)).toList)
+
+  override def scriptFlush: F[Unit] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.scriptFlush()))
+    }.void
 }
 
 private[redis4cats] trait RedisConversionOps {

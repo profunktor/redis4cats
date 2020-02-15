@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats
 
-import io.lettuce.core.GeoArgs
+import io.lettuce.core.{ GeoArgs, ScriptOutputType => JScriptOutputType }
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -39,6 +39,44 @@ object effects {
   final case class ScoreWithValue[V](score: Score, value: V)
   final case class ZRange[V](start: V, end: V)
   final case class RangeLimit(offset: Long, count: Long)
+
+  sealed trait ScriptOutputType {
+    type Return[V]
+    private[redis4cats] type Underlying[V]
+    private[redis4cats] val outputType: JScriptOutputType
+    private[redis4cats] def convert[V](in: Underlying[V]): Return[V]
+  }
+  object ScriptOutputType {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    case object Integer extends ScriptOutputType {
+      type Return[V]                         = Long
+      private[redis4cats] type Underlying[V] = java.lang.Long
+      override private[redis4cats] val outputType                           = JScriptOutputType.INTEGER
+      override private[redis4cats] def convert[_](in: java.lang.Long): Long = Long.box(in)
+    }
+
+    case object Value extends ScriptOutputType {
+      type Return[V]                         = V
+      private[redis4cats] type Underlying[V] = V
+      override private[redis4cats] val outputType                               = JScriptOutputType.VALUE
+      override private[redis4cats] def convert[V](in: Underlying[V]): Return[V] = in
+    }
+
+    case object Multi extends ScriptOutputType {
+      type Return[V]                         = List[V]
+      private[redis4cats] type Underlying[V] = java.util.List[V]
+      override private[redis4cats] val outputType                                 = JScriptOutputType.MULTI
+      override private[redis4cats] def convert[V](in: java.util.List[V]): List[V] = in.asScala.toList
+    }
+
+    case object Status extends ScriptOutputType {
+      type Return[V]                         = Unit
+      private[redis4cats] type Underlying[V] = String
+      override private[redis4cats] val outputType                   = JScriptOutputType.STATUS
+      override private[redis4cats] def convert[_](in: String): Unit = ()
+    }
+  }
 
   sealed trait SetArg
   object SetArg {

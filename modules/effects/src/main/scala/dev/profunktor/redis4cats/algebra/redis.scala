@@ -29,6 +29,7 @@ trait RedisCommands[F[_], K, V]
     with ServerCommands[F, K]
     with TransactionalCommands[F, K]
     with PipelineCommands[F]
+    with ScriptCommands[F, K, V]
     with KeyCommands[F, K] {
   def liftK[G[_]: Concurrent: ContextShift]: RedisCommands[G, K, V]
 }
