@@ -42,7 +42,7 @@ object RedisScriptsDemo extends LoggerIOApp {
           _ <- putStrLn(s"Greetings from Lua: $greeting")
           fortyTwo: Long <- cmd.eval("return 42", ScriptOutputType.Integer)
           _ <- putStrLn(s"Answer to the Ultimate Question of Life, the Universe, and Everything: $fortyTwo")
-          list <- cmd.eval("return {'Let', 'us', ARGV[1], ARGV[2]}", ScriptOutputType.Multi, Nil, "have", "fun")
+          list <- cmd.eval("return {'Let', 'us', ARGV[1], ARGV[2]}", ScriptOutputType.Multi[String], Nil, "have", "fun")
           _ <- putStrLn(s"We can even return lists: $list")
           shaRandom <- cmd.scriptLoad("math.randomseed(tonumber(ARGV[1])); return math.random() * 1000")
           List(exists) <- cmd.scriptExists(shaRandom)

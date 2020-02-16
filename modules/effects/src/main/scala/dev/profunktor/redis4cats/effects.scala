@@ -40,7 +40,7 @@ object effects {
   final case class ZRange[V](start: V, end: V)
   final case class RangeLimit(offset: Long, count: Long)
 
-  sealed trait ScriptOutputType[V, R] {
+  sealed trait ScriptOutputType[-V, +R] {
     private[redis4cats] type Underlying[U]
     private[redis4cats] val outputType: JScriptOutputType
     private[redis4cats] def convert[U](in: Underlying[U]): R
@@ -74,7 +74,7 @@ object effects {
     }
 
     def Status[V]: ScriptOutputType[V, Unit] = new ScriptOutputType[V, Unit] {
-      private[redis4cats] type Underlying[U] = String
+      private[redis4cats] type Underlying[_] = String
       override private[redis4cats] val outputType                   = JScriptOutputType.STATUS
       override private[redis4cats] def convert[_](in: String): Unit = ()
     }
