@@ -640,14 +640,15 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit): F[Set[V]] =
     JRFuture {
-      async.flatMap(c => F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit))
+      async.flatMap(
+        c => F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit))
       )
     }.map(_.asScala.toSet)
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, args: GeoArgs): F[List[GeoRadiusResult[V]]] =
     JRFuture {
-      async.flatMap(c =>
-        F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit, args))
+      async.flatMap(
+        c => F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit, args))
       )
     }.map(_.asScala.toList.map(_.asGeoRadiusResult))
 
@@ -813,8 +814,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     JRFuture {
       limit match {
         case Some(x) =>
-          async.flatMap(c =>
-            F.delay(c.zrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
+          async.flatMap(
+            c => F.delay(c.zrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
           )
         case None => async.flatMap(c => F.delay(c.zrangebylex(key, JRange.create[V](range.start, range.end))))
       }
@@ -837,8 +838,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     JRFuture {
       limit match {
         case Some(x) =>
-          async.flatMap(c =>
-            F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
+          async.flatMap(
+            c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
           )
         case None => async.flatMap(c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange)))
       }
@@ -863,8 +864,9 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     JRFuture {
       limit match {
         case Some(x) =>
-          async.flatMap(c =>
-            F.delay(c.zrevrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
+          async.flatMap(
+            c =>
+              F.delay(c.zrevrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
           )
         case None => async.flatMap(c => F.delay(c.zrevrangebylex(key, JRange.create[V](range.start, range.end))))
       }
@@ -887,8 +889,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     JRFuture {
       limit match {
         case Some(x) =>
-          async.flatMap(c =>
-            F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
+          async.flatMap(
+            c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
           )
         case None => async.flatMap(c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange)))
       }
@@ -934,14 +936,15 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
   override def info: F[Map[String, String]] =
     JRFuture {
       async.flatMap(c => F.delay(c.info))
-    }.flatMap(info =>
-      F.delay(
-        info
-          .split("\\r?\\n")
-          .toList
-          .map(_.split(":", 2).toList)
-          .collect { case k :: v :: Nil => (k, v) }
-          .toMap
+    }.flatMap(
+      info =>
+        F.delay(
+          info
+            .split("\\r?\\n")
+            .toList
+            .map(_.split(":", 2).toList)
+            .collect { case k :: v :: Nil => (k, v) }
+            .toMap
       )
     )
 
@@ -960,53 +963,49 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       async.flatMap(c => F.delay(c.slowlogLen))
     }.map(Long.unbox)
 
-  override def eval[R](script: String, output: ScriptOutputType.Aux[V, R], keys: K*): F[R] =
+  override def eval[R](script: String, keys: K*)(implicit output: ScriptOutputType[V, R]): F[R] =
     JRFuture {
-      async.flatMap(c => F.delay(c.eval[output.Underlying[V]](script, output.outputType, keys: _*)))
+      async.flatMap(c => F.delay(c.eval[output.Underlying](script, output.outputType, keys: _*)))
     }.map(r => output.convert(r))
 
-  override def evalWithValues[R](
-      script: String,
-      output: ScriptOutputType.Aux[V, R],
-      keys: List[K],
-      values: V*
+  override def evalWithValues[R](script: String, keys: List[K], values: V*)(
+      implicit output: ScriptOutputType[V, R]
   ): F[R] =
     JRFuture {
-      async.flatMap(c =>
-        F.delay(
-          c.eval[output.Underlying[V]](
-            script,
-            output.outputType,
-            // The Object requirement comes from the limitations of Java Generics. It is safe to assume K <: Object as
-            // the underlying JRedisCodec would also only support K <: Object.
-            keys.asInstanceOf[List[K with Object]].toArray,
-            values: _*
-          )
+      async.flatMap(
+        c =>
+          F.delay(
+            c.eval[output.Underlying](
+              script,
+              output.outputType,
+              // The Object requirement comes from the limitations of Java Generics. It is safe to assume K <: Object as
+              // the underlying JRedisCodec would also only support K <: Object.
+              keys.asInstanceOf[List[K with Object]].toArray,
+              values: _*
+            )
         )
       )
     }.map(output.convert(_))
 
-  override def evalSha[R](script: String, output: ScriptOutputType.Aux[V, R], keys: K*): F[R] =
+  override def evalSha[R](script: String, keys: K*)(implicit output: ScriptOutputType[V, R]): F[R] =
     JRFuture {
-      async.flatMap(c => F.delay(c.evalsha[output.Underlying[V]](script, output.outputType, keys: _*)))
+      async.flatMap(c => F.delay(c.evalsha[output.Underlying](script, output.outputType, keys: _*)))
     }.map(output.convert(_))
 
-  override def evalShaWithValues[R](
-      script: String,
-      output: ScriptOutputType.Aux[V, R],
-      keys: List[K],
-      values: V*
+  override def evalShaWithValues[R](script: String, keys: List[K], values: V*)(
+      implicit output: ScriptOutputType[V, R]
   ): F[R] =
     JRFuture {
-      async.flatMap(c =>
-        F.delay(
-          c.evalsha[output.Underlying[V]](
-            script,
-            output.outputType,
-            // see comment in eval above
-            keys.asInstanceOf[List[K with Object]].toArray,
-            values: _*
-          )
+      async.flatMap(
+        c =>
+          F.delay(
+            c.evalsha[output.Underlying](
+              script,
+              output.outputType,
+              // see comment in eval above
+              keys.asInstanceOf[List[K with Object]].toArray,
+              values: _*
+            )
         )
       )
     }.map(output.convert(_))

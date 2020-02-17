@@ -20,7 +20,6 @@ import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.ScriptCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
-import dev.profunktor.redis4cats.effects.ScriptOutputType
 import dev.profunktor.redis4cats.interpreter.Redis
 
 object RedisScriptsDemo extends LoggerIOApp {
@@ -38,13 +37,12 @@ object RedisScriptsDemo extends LoggerIOApp {
     commandsApi
       .use { cmd =>
         for {
-          greeting: String <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
+          greeting: String <- cmd.eval[String]("return 'Hello World'")
           _ <- putStrLn(s"Greetings from Lua: $greeting")
-          fortyTwo: Long <- cmd.eval("return 42", ScriptOutputType.Integer)
+          fortyTwo: Long <- cmd.eval[Long]("return 42")
           _ <- putStrLn(s"Answer to the Ultimate Question of Life, the Universe, and Everything: $fortyTwo")
-          list <- cmd.evalWithValues(
+          list <- cmd.evalWithValues[List[String]](
                    "return {'Let', 'us', ARGV[1], ARGV[2]}",
-                   ScriptOutputType.Multi,
                    Nil,
                    "have",
                    "fun"
@@ -54,7 +52,7 @@ object RedisScriptsDemo extends LoggerIOApp {
           List(exists) <- cmd.scriptExists(shaRandom)
           _ <- putStrLn(s"Script is cached on Redis: $exists")
           // seeding the RNG with 7
-          random <- cmd.evalShaWithValues(shaRandom, ScriptOutputType.Integer, Nil, "7")
+          random <- cmd.evalShaWithValues[Long](shaRandom, Nil, "7")
           _ <- putStrLn(s"Execution of cached script returns a pseudo-random number: $random")
           () <- cmd.scriptFlush
           _ <- putStrLn("Flushed all cached scripts!")

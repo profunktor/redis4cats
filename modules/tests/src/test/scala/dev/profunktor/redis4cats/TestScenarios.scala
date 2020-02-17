@@ -272,20 +272,20 @@ trait TestScenarios {
         |redis.call('del',KEYS[1])
         |return redis.status_reply('OK')""".stripMargin
     for {
-      fortyTwo <- cmd.eval("return 42", ScriptOutputType.Integer)
+      fortyTwo <- cmd.eval[Long]("return 42")
       _ <- IO { assert(fortyTwo === 42L) }
-      value <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
+      value <- cmd.eval[String]("return 'Hello World'")
       _ <- IO { assert(value === "Hello World") }
-      bool <- cmd.eval("return true", ScriptOutputType.Boolean)
+      bool <- cmd.eval[Boolean]("return true")
       _ <- IO { assert(bool) }
-      list <- cmd.evalWithValues("return {'Let', 'us', ARGV[1], ARGV[2]}", ScriptOutputType.Multi, Nil, "have", "fun")
+      list <- cmd.evalWithValues[List[String]]("return {'Let', 'us', ARGV[1], ARGV[2]}", Nil, "have", "fun")
       _ <- IO { assert(list === List("Let", "us", "have", "fun")) }
-      () <- cmd.evalWithValues(statusScript, ScriptOutputType.Status, List("test"), "foo")
+      () <- cmd.evalWithValues[Unit](statusScript, List("test"), "foo")
       sha42 <- cmd.scriptLoad("return 42")
-      fortyTwoSha <- cmd.evalSha(sha42, ScriptOutputType.Integer)
+      fortyTwoSha <- cmd.evalSha[Long](sha42)
       _ <- IO { assert(fortyTwoSha === 42L) }
       shaStatusScript <- cmd.scriptLoad(statusScript)
-      () <- cmd.evalShaWithValues(shaStatusScript, ScriptOutputType.Status, List("test"), "foo")
+      () <- cmd.evalShaWithValues[Unit](shaStatusScript, List("test"), "foo")
       exists <- cmd.scriptExists(sha42, "foobar")
       _ <- IO { assert(exists == List(true, false)) }
       () <- cmd.scriptFlush
