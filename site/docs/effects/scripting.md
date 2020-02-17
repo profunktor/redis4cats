@@ -45,4 +45,4 @@ commandsApi.use { cmd => // ScriptCommands[IO, String, String]
 }
 ```
 
-The return type depends on the `ScriptOutputType` you pass and needs to suite the result of the Lua script itself. Possible values are `Integer`, `Value` (for decoding the result using the value codec), `Multi` (for many values) and `Status` (maps to `Unit` in Scala). On Scala 2.12, it might be necessary to pass the type of the value to the `ScriptOutputType`, e.g. `ScriptOutputType.Multi[String]` – otherwise the compiler might not be able to type check. Scripts can be cached for better performance using `scriptLoad` and then executed via `evalSha`, see the [redis docs]((https://redis.io/commands#scripting)) for details.
+The return type depends on the `ScriptOutputType` you pass and needs to suite the result of the Lua script itself. Possible values are `Integer`, `Value` (for decoding the result using the value codec), `Multi` (for many values) and `Status` (maps to `Unit` in Scala). Scripts can be cached for better performance using `scriptLoad` and then executed via `evalSha`, see the [redis docs]((https://redis.io/commands#scripting)) for details.

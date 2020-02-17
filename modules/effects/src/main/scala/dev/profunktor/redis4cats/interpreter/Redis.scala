@@ -960,18 +960,23 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       async.flatMap(c => F.delay(c.slowlogLen))
     }.map(Long.unbox)
 
-  override def eval[R](script: String, returnType: ScriptOutputType[V, R], keys: K*): F[R] =
+  override def eval[R](script: String, output: ScriptOutputType.Aux[V, R], keys: K*): F[R] =
     JRFuture {
-      async.flatMap(c => F.delay(c.eval[returnType.Underlying[V]](script, returnType.outputType, keys: _*)))
-    }.map(r => returnType.convert(r))
+      async.flatMap(c => F.delay(c.eval[output.Underlying[V]](script, output.outputType, keys: _*)))
+    }.map(r => output.convert(r))
 
-  override def eval[R](script: String, returnType: ScriptOutputType[V, R], keys: List[K], values: V*): F[R] =
+  override def evalWithValues[R](
+      script: String,
+      output: ScriptOutputType.Aux[V, R],
+      keys: List[K],
+      values: V*
+  ): F[R] =
     JRFuture {
       async.flatMap(c =>
         F.delay(
-          c.eval[returnType.Underlying[V]](
+          c.eval[output.Underlying[V]](
             script,
-            returnType.outputType,
+            output.outputType,
             // The Object requirement comes from the limitations of Java Generics. It is safe to assume K <: Object as
             // the underlying JRedisCodec would also only support K <: Object.
             keys.asInstanceOf[List[K with Object]].toArray,
@@ -979,27 +984,32 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
           )
         )
       )
-    }.map(returnType.convert(_))
+    }.map(output.convert(_))
 
-  override def evalSha[R](script: String, returnType: ScriptOutputType[V, R], keys: K*): F[R] =
+  override def evalSha[R](script: String, output: ScriptOutputType.Aux[V, R], keys: K*): F[R] =
     JRFuture {
-      async.flatMap(c => F.delay(c.evalsha[returnType.Underlying[V]](script, returnType.outputType, keys: _*)))
-    }.map(returnType.convert(_))
+      async.flatMap(c => F.delay(c.evalsha[output.Underlying[V]](script, output.outputType, keys: _*)))
+    }.map(output.convert(_))
 
-  override def evalSha[R](script: String, returnType: ScriptOutputType[V, R], keys: List[K], values: V*): F[R] =
+  override def evalShaWithValues[R](
+      script: String,
+      output: ScriptOutputType.Aux[V, R],
+      keys: List[K],
+      values: V*
+  ): F[R] =
     JRFuture {
       async.flatMap(c =>
         F.delay(
-          c.evalsha[returnType.Underlying[V]](
+          c.evalsha[output.Underlying[V]](
             script,
-            returnType.outputType,
+            output.outputType,
             // see comment in eval above
             keys.asInstanceOf[List[K with Object]].toArray,
             values: _*
           )
         )
       )
-    }.map(returnType.convert(_))
+    }.map(output.convert(_))
 
   override def scriptLoad(script: V): F[String] =
     JRFuture {

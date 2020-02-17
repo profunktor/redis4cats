@@ -278,14 +278,14 @@ trait TestScenarios {
       _ <- IO { assert(value === "Hello World") }
       bool <- cmd.eval("return true", ScriptOutputType.Boolean)
       _ <- IO { assert(bool) }
-      list <- cmd.eval("return {'Let', 'us', ARGV[1], ARGV[2]}", ScriptOutputType.Multi[String], Nil, "have", "fun")
+      list <- cmd.evalWithValues("return {'Let', 'us', ARGV[1], ARGV[2]}", ScriptOutputType.Multi, Nil, "have", "fun")
       _ <- IO { assert(list === List("Let", "us", "have", "fun")) }
-      () <- cmd.eval(statusScript, ScriptOutputType.Status, List("test"), "foo")
+      () <- cmd.evalWithValues(statusScript, ScriptOutputType.Status, List("test"), "foo")
       sha42 <- cmd.scriptLoad("return 42")
       fortyTwoSha <- cmd.evalSha(sha42, ScriptOutputType.Integer)
       _ <- IO { assert(fortyTwoSha === 42L) }
       shaStatusScript <- cmd.scriptLoad(statusScript)
-      () <- cmd.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), "foo")
+      () <- cmd.evalShaWithValues(shaStatusScript, ScriptOutputType.Status, List("test"), "foo")
       exists <- cmd.scriptExists(sha42, "foobar")
       _ <- IO { assert(exists == List(true, false)) }
       () <- cmd.scriptFlush
