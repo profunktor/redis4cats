@@ -278,11 +278,11 @@ trait TestScenarios {
       _ <- IO { assert(value === "Hello World") }
       bool: Boolean <- cmd.evalWithKeys("return true", ScriptOutputType.Boolean, List("Foo"))
       _ <- IO { assert(bool) }
-      list: List[String] <- cmd.evalWithKeys(
+      list: List[String] <- cmd.evalWithKeysAndValues(
                              "return {'Let', 'us', ARGV[1], ARGV[2]}",
                              ScriptOutputType.Multi,
+                             Nil,
                              List(
-                               "test",
                                "have",
                                "fun"
                              )
