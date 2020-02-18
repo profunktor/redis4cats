@@ -276,9 +276,9 @@ trait TestScenarios {
       _ <- IO { assert(fortyTwo === 42L) }
       value: String <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
       _ <- IO { assert(value === "Hello World") }
-      bool: Boolean <- cmd.evalWithKeys("return true", ScriptOutputType.Boolean, List("Foo"))
+      bool: Boolean <- cmd.eval("return true", ScriptOutputType.Boolean, List("Foo"))
       _ <- IO { assert(bool) }
-      list: List[String] <- cmd.evalWithKeysAndValues(
+      list: List[String] <- cmd.eval(
                              "return {'Let', 'us', ARGV[1], ARGV[2]}",
                              ScriptOutputType.Multi,
                              Nil,
@@ -288,12 +288,12 @@ trait TestScenarios {
                              )
                            )
       _ <- IO { assert(list === List("Let", "us", "have", "fun")) }
-      () <- cmd.evalWithKeysAndValues(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
+      () <- cmd.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
       sha42 <- cmd.scriptLoad("return 42")
       fortyTwoSha: Long <- cmd.evalSha(sha42, ScriptOutputType.Integer)
       _ <- IO { assert(fortyTwoSha === 42L) }
       shaStatusScript <- cmd.scriptLoad(statusScript)
-      () <- cmd.evalShaWithKeysAndValues(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
+      () <- cmd.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
       exists <- cmd.scriptExists(sha42, "foobar")
       _ <- IO { assert(exists === List(true, false)) }
       () <- cmd.scriptFlush

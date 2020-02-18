@@ -965,7 +965,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       async.flatMap(c => F.delay(c.eval[output.Underlying](script, output.outputType)))
     }.map(r => output.convert(r))
 
-  override def evalWithKeys(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
+  override def eval(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
     JRFuture {
       async.flatMap(c =>
         F.delay(
@@ -980,19 +980,14 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       )
     }.map(output.convert(_))
 
-  override def evalWithKeysAndValues(
-      script: String,
-      output: ScriptOutputType[V],
-      keys: List[K],
-      values: List[V]
-  ): F[output.R] =
+  override def eval(script: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
     JRFuture {
       async.flatMap(c =>
         F.delay(
           c.eval[output.Underlying](
             script,
             output.outputType,
-            // see comment in evalWithKeys above
+            // see comment in eval above
             keys.asInstanceOf[Seq[K with Object]].toArray,
             values: _*
           )
@@ -1005,33 +1000,28 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       async.flatMap(c => F.delay(c.evalsha[output.Underlying](script, output.outputType)))
     }.map(output.convert(_))
 
-  override def evalShaWithKeys(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
+  override def evalSha(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
     JRFuture {
       async.flatMap(c =>
         F.delay(
           c.evalsha[output.Underlying](
             script,
             output.outputType,
-            // see comment in evalWithKeys above
+            // see comment in eval above
             keys.asInstanceOf[Seq[K with Object]].toArray
           )
         )
       )
     }.map(output.convert(_))
 
-  override def evalShaWithKeysAndValues(
-      script: String,
-      output: ScriptOutputType[V],
-      keys: List[K],
-      values: List[V]
-  ): F[output.R] =
+  override def evalSha(script: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
     JRFuture {
       async.flatMap(c =>
         F.delay(
           c.evalsha[output.Underlying](
             script,
             output.outputType,
-            // see comment in evalWithKeys above
+            // see comment in eval above
             keys.asInstanceOf[Seq[K with Object]].toArray,
             values: _*
           )
