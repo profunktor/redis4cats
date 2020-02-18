@@ -272,25 +272,33 @@ trait TestScenarios {
         |redis.call('del',KEYS[1])
         |return redis.status_reply('OK')""".stripMargin
     for {
-      fortyTwo <- cmd.eval[Long]("return 42")
+      fortyTwo: Long <- cmd.eval("return 42", ScriptOutputType.Integer)
       _ <- IO { assert(fortyTwo === 42L) }
-      value <- cmd.eval[String]("return 'Hello World'")
+      value: String <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
       _ <- IO { assert(value === "Hello World") }
-      bool <- cmd.eval[Boolean]("return true")
+      bool: Boolean <- cmd.evalWithKeys("return true", ScriptOutputType.Boolean, List("Foo"))
       _ <- IO { assert(bool) }
-      list <- cmd.evalWithValues[List[String]]("return {'Let', 'us', ARGV[1], ARGV[2]}", Nil, "have", "fun")
+      list: List[String] <- cmd.evalWithKeys(
+                             "return {'Let', 'us', ARGV[1], ARGV[2]}",
+                             ScriptOutputType.Multi,
+                             List(
+                               "test",
+                               "have",
+                               "fun"
+                             )
+                           )
       _ <- IO { assert(list === List("Let", "us", "have", "fun")) }
-      () <- cmd.evalWithValues[Unit](statusScript, List("test"), "foo")
+      () <- cmd.evalWithKeysAndValues(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
       sha42 <- cmd.scriptLoad("return 42")
-      fortyTwoSha <- cmd.evalSha[Long](sha42)
+      fortyTwoSha: Long <- cmd.evalSha(sha42, ScriptOutputType.Integer)
       _ <- IO { assert(fortyTwoSha === 42L) }
       shaStatusScript <- cmd.scriptLoad(statusScript)
-      () <- cmd.evalShaWithValues[Unit](shaStatusScript, List("test"), "foo")
+      () <- cmd.evalShaWithKeysAndValues(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
       exists <- cmd.scriptExists(sha42, "foobar")
-      _ <- IO { assert(exists == List(true, false)) }
+      _ <- IO { assert(exists === List(true, false)) }
       () <- cmd.scriptFlush
       exists2 <- cmd.scriptExists(sha42)
-      _ <- IO { assert(exists2 == List(false)) }
+      _ <- IO { assert(exists2 === List(false)) }
     } yield ()
   }
 

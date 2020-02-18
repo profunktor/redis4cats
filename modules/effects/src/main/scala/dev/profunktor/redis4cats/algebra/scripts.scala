@@ -21,10 +21,14 @@ import dev.profunktor.redis4cats.effects.ScriptOutputType
 trait ScriptCommands[F[_], K, V] extends Scripting[F, K, V]
 
 trait Scripting[F[_], K, V] {
-  def eval[R: ScriptOutputType[V, *]](script: String, keys: K*): F[R]
-  def evalWithValues[R: ScriptOutputType[V, *]](script: String, keys: List[K], values: V*): F[R]
-  def evalSha[R: ScriptOutputType[V, *]](script: String, keys: K*): F[R]
-  def evalShaWithValues[R: ScriptOutputType[V, *]](script: String, keys: List[K], values: V*): F[R]
+  // these methods don't use varargs as they cause problems with type inference, see:
+  // https://github.com/scala/bug/issues/11488
+  def eval(script: String, output: ScriptOutputType[V]): F[output.R]
+  def evalWithKeys(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R]
+  def evalWithKeysAndValues(script: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R]
+  def evalSha(script: String, output: ScriptOutputType[V]): F[output.R]
+  def evalShaWithKeys(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R]
+  def evalShaWithKeysAndValues(script: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R]
   // This unfortunately has to take a V instead of String due to a bug in lettuce:
   // https://github.com/lettuce-io/lettuce-core/issues/1010
   def scriptLoad(script: V): F[String]
