@@ -20,6 +20,7 @@ Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), 
 - [Hashes API](https://redis.io/commands#hash): `hgetall`, `hset`, `hdel`, `hincrby`, etc.
 - [Keys API](https://redis.io/commands#generic): `del`, `expire`, `exists`, etc.
 - [Lists API](https://redis.io/commands#list): `rpush`, `lrange`, `lpop`, etc.
+- [Scripting API](https://redis.io/commands#scripting): `eval`, `evalsha`, etc.
 - [Server API](https://redis.io/commands#server): `flushall`, etc.
 - [Sets API](https://redis.io/commands#set): `sadd`, `scard`, `srem`, `spop`, etc.
 - [Sorted Sets API](https://redis.io/commands#sorted_set): `zcount`, `zcard`, `zrangebyscore`, `zrank`, etc.

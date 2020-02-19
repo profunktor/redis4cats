@@ -959,6 +959,90 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     JRFuture {
       async.flatMap(c => F.delay(c.slowlogLen))
     }.map(Long.unbox)
+
+  override def eval(script: String, output: ScriptOutputType[V]): F[output.R] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.eval[output.Underlying](script, output.outputType)))
+    }.map(r => output.convert(r))
+
+  override def eval(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
+    JRFuture {
+      async.flatMap(c =>
+        F.delay(
+          c.eval[output.Underlying](
+            script,
+            output.outputType,
+            // The Object requirement comes from the limitations of Java Generics. It is safe to assume K <: Object as
+            // the underlying JRedisCodec would also only support K <: Object.
+            keys.asInstanceOf[Seq[K with Object]].toArray
+          )
+        )
+      )
+    }.map(output.convert(_))
+
+  override def eval(script: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
+    JRFuture {
+      async.flatMap(c =>
+        F.delay(
+          c.eval[output.Underlying](
+            script,
+            output.outputType,
+            // see comment in eval above
+            keys.asInstanceOf[Seq[K with Object]].toArray,
+            values: _*
+          )
+        )
+      )
+    }.map(output.convert(_))
+
+  override def evalSha(script: String, output: ScriptOutputType[V]): F[output.R] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.evalsha[output.Underlying](script, output.outputType)))
+    }.map(output.convert(_))
+
+  override def evalSha(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
+    JRFuture {
+      async.flatMap(c =>
+        F.delay(
+          c.evalsha[output.Underlying](
+            script,
+            output.outputType,
+            // see comment in eval above
+            keys.asInstanceOf[Seq[K with Object]].toArray
+          )
+        )
+      )
+    }.map(output.convert(_))
+
+  override def evalSha(script: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
+    JRFuture {
+      async.flatMap(c =>
+        F.delay(
+          c.evalsha[output.Underlying](
+            script,
+            output.outputType,
+            // see comment in eval above
+            keys.asInstanceOf[Seq[K with Object]].toArray,
+            values: _*
+          )
+        )
+      )
+    }.map(output.convert(_))
+
+  override def scriptLoad(script: V): F[String] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.scriptLoad(script)))
+    }
+
+  override def scriptExists(digests: String*): F[List[Boolean]] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.scriptExists(digests: _*)))
+    }.map(_.asScala.map(Boolean.unbox(_)).toList)
+
+  override def scriptFlush: F[Unit] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.scriptFlush()))
+    }.void
 }
 
 private[redis4cats] trait RedisConversionOps {

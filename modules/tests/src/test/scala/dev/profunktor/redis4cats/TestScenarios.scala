@@ -265,4 +265,41 @@ trait TestScenarios {
 
   }
 
+  def scriptsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val statusScript =
+      """
+        |redis.call('set',KEYS[1],ARGV[1])
+        |redis.call('del',KEYS[1])
+        |return redis.status_reply('OK')""".stripMargin
+    for {
+      fortyTwo: Long <- cmd.eval("return 42", ScriptOutputType.Integer)
+      _ <- IO { assert(fortyTwo === 42L) }
+      value: String <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
+      _ <- IO { assert(value === "Hello World") }
+      bool: Boolean <- cmd.eval("return true", ScriptOutputType.Boolean, List("Foo"))
+      _ <- IO { assert(bool) }
+      list: List[String] <- cmd.eval(
+                             "return {'Let', 'us', ARGV[1], ARGV[2]}",
+                             ScriptOutputType.Multi,
+                             Nil,
+                             List(
+                               "have",
+                               "fun"
+                             )
+                           )
+      _ <- IO { assert(list === List("Let", "us", "have", "fun")) }
+      () <- cmd.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
+      sha42 <- cmd.scriptLoad("return 42")
+      fortyTwoSha: Long <- cmd.evalSha(sha42, ScriptOutputType.Integer)
+      _ <- IO { assert(fortyTwoSha === 42L) }
+      shaStatusScript <- cmd.scriptLoad(statusScript)
+      () <- cmd.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
+      exists <- cmd.scriptExists(sha42, "foobar")
+      _ <- IO { assert(exists === List(true, false)) }
+      () <- cmd.scriptFlush
+      exists2 <- cmd.scriptExists(sha42)
+      _ <- IO { assert(exists2 === List(false)) }
+    } yield ()
+  }
+
 }

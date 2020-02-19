@@ -24,6 +24,10 @@ options:
         url: effects/lists.html
         menu_section: effectapi
 
+      - title: Scripting
+        url: effects/scripting.html
+        menu_section: effectapi
+
       - title: Server
         url: effects/server.html
         menu_section: effectapi
