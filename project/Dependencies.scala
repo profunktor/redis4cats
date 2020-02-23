@@ -35,7 +35,7 @@ object Dependencies {
     // Scala test libraries
     val catsLaws      = cats("core")
     val catsTestKit   = cats("testkit")
-    val catsTestKitST = "org.typelevel" %% "cats-testkit-scalatest" % "1.0.0-RC1"
+    val catsTestKitST = "org.typelevel" %% "cats-testkit-scalatest" % "1.0.0"
 
     val scalaTest  = "org.scalatest"  %% "scalatest"  % Versions.scalaTest
     val scalaCheck = "org.scalacheck" %% "scalacheck" % Versions.scalaCheck
