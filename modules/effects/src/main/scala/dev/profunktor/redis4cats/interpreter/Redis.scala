@@ -640,7 +640,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit): F[Set[V]] =
     JRFuture {
-      async.flatMap(c => F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit))
+      async.flatMap(c =>
+        F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit))
       )
     }.map(_.asScala.toSet)
 

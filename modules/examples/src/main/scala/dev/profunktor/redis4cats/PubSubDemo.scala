@@ -52,8 +52,8 @@ object PubSubDemo extends LoggerIOApp {
              Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
              Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
              Stream.awakeEvery[IO](6.seconds) >> pubSub
-               .pubSubSubscriptions(List(eventsChannel, gamesChannel))
-               .evalMap(putStrLn)
+                   .pubSubSubscriptions(List(eventsChannel, gamesChannel))
+                   .evalMap(putStrLn)
            ).parJoin(6).drain
     } yield rs
 

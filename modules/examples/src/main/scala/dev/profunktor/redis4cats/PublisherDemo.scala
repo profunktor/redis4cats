@@ -41,8 +41,8 @@ object PublisherDemo extends LoggerIOApp {
       rs <- Stream(
              Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
              Stream.awakeEvery[IO](6.seconds) >> pubSub
-               .pubSubSubscriptions(eventsChannel)
-               .evalMap(putStrLn)
+                   .pubSubSubscriptions(eventsChannel)
+                   .evalMap(putStrLn)
            ).parJoin(2).drain
     } yield rs
 
