@@ -35,9 +35,7 @@ trait LoggerIOApp extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     Slf4jLogger
       .create[IO]
-      .flatMap { implicit logger: Logger[IO] =>
-        program
-      }
+      .flatMap { implicit logger: Logger[IO] => program }
       .as(ExitCode.Success)
 
 }

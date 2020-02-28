@@ -48,7 +48,7 @@ object RedisTransactionsDemo extends LoggerIOApp {
 
         val getters =
           cmd.get(key1).flatTap(showResult(key1)) *>
-            cmd.get(key2).flatTap(showResult(key2))
+              cmd.get(key2).flatTap(showResult(key2))
 
         val tx1 = tx.run(
           cmd.set(key1, "foo"),

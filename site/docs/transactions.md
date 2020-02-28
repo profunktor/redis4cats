@@ -91,7 +91,7 @@ commandsApi.use { cmd =>
 
 You should never pass a transactional command: `MULTI`, `EXEC` or `DISCARD`.
 
-The following example will result in a successful transaction that raises an error (resulting in a failed computation):
+The following example will result in a successful transaction; the error will be swallowed:
 
 ```scala mdoc:silent
 commandsApi.use { cmd =>

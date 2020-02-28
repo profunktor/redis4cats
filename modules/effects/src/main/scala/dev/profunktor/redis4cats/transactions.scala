@@ -41,29 +41,22 @@ object transactions {
       */
     def run(commands: F[Any]*): F[Unit] =
       Ref.of[F, List[Fiber[F, Any]]](List.empty).flatMap { fibers =>
-        Ref.of[F, Boolean](false).flatMap { txFailed =>
-          val tx =
-            Resource.makeCase(cmd.multi) {
-              case (_, ExitCase.Completed) =>
-                cmd.exec *> F.info("Transaction completed")
-              case (_, ExitCase.Error(e)) =>
-                cmd.discard.guarantee(txFailed.set(true)) *> F.error(s"Transaction failed: ${e.getMessage}")
-              case (_, ExitCase.Canceled) =>
-                cmd.discard.guarantee(txFailed.set(true)) *> F.error("Transaction canceled")
-            }
+        val tx =
+          Resource.makeCase(cmd.multi) {
+            case (_, ExitCase.Completed) =>
+              cmd.exec *> F.info("Transaction completed")
+            case (_, ExitCase.Error(e)) =>
+              cmd.discard *> F.error(s"Transaction failed: ${e.getMessage}")
+            case (_, ExitCase.Canceled) =>
+              cmd.discard *> F.error("Transaction canceled")
+          }
 
-          val joinOrCancelFibers =
-            fibers.get.flatMap { fbs =>
-              txFailed.get.ifA(
-                fbs.traverse(_.cancel).void,
-                fbs.traverse(_.join).void
-              )
-            }
+        val cancelFibers =
+          fibers.get.flatMap(_.traverse(_.cancel).void)
 
-          F.info("Transaction started") *>
-            tx.use(_ => commands.toList.traverse(_.start).flatMap(fibers.set))
-              .guarantee(joinOrCancelFibers)
-        }
+        F.info("Transaction started") *>
+          tx.use(_ => commands.toList.traverse(_.start).flatMap(fibers.set))
+            .guarantee(cancelFibers)
       }
   }
 
