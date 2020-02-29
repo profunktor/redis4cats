@@ -549,17 +549,17 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
 
   override def blPop(timeout: FiniteDuration, keys: K*): F[(K, V)] =
     JRFuture {
-      async.flatMap(c => F.delay(c.blpop(timeout.toMillis, keys: _*)))
+      async.flatMap(c => F.delay(c.blpop(timeout.toSeconds, keys: _*)))
     }.map(kv => kv.getKey -> kv.getValue)
 
   override def brPop(timeout: FiniteDuration, keys: K*): F[(K, V)] =
     JRFuture {
-      async.flatMap(c => F.delay(c.brpop(timeout.toMillis, keys: _*)))
+      async.flatMap(c => F.delay(c.brpop(timeout.toSeconds, keys: _*)))
     }.map(kv => kv.getKey -> kv.getValue)
 
   override def brPopLPush(timeout: FiniteDuration, source: K, destination: K): F[Option[V]] =
     JRFuture {
-      async.flatMap(c => F.delay(c.brpoplpush(timeout.toMillis, source, destination)))
+      async.flatMap(c => F.delay(c.brpoplpush(timeout.toSeconds, source, destination)))
     }.map(Option.apply)
 
   override def lPop(key: K): F[Option[V]] =
