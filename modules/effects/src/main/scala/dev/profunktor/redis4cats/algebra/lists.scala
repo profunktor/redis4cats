@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.Duration
 
 trait ListCommands[F[_], K, V]
     extends ListBlocking[F, K, V]
@@ -25,9 +25,9 @@ trait ListCommands[F[_], K, V]
     with ListPushPop[F, K, V]
 
 trait ListBlocking[F[_], K, V] {
-  def blPop(timeout: FiniteDuration, keys: K*): F[(K, V)]
-  def brPop(timeout: FiniteDuration, keys: K*): F[(K, V)]
-  def brPopLPush(timeout: FiniteDuration, source: K, destination: K): F[Option[V]]
+  def blPop(timeout: Duration, keys: K*): F[(K, V)]
+  def brPop(timeout: Duration, keys: K*): F[(K, V)]
+  def brPopLPush(timeout: Duration, source: K, destination: K): F[Option[V]]
 }
 
 trait ListGetter[F[_], K, V] {
