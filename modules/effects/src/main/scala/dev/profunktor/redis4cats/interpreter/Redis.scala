@@ -547,19 +547,19 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       async.flatMap(c => F.delay(c.lrange(key, start, stop)))
     }.map(_.asScala.toList)
 
-  override def blPop(timeout: FiniteDuration, keys: K*): F[(K, V)] =
+  override def blPop(timeout: Duration, keys: K*): F[(K, V)] =
     JRFuture {
-      async.flatMap(c => F.delay(c.blpop(timeout.toSeconds, keys: _*)))
+      async.flatMap(c => F.delay(c.blpop(timeout.toSecondsOrZero, keys: _*)))
     }.map(kv => kv.getKey -> kv.getValue)
 
-  override def brPop(timeout: FiniteDuration, keys: K*): F[(K, V)] =
+  override def brPop(timeout: Duration, keys: K*): F[(K, V)] =
     JRFuture {
-      async.flatMap(c => F.delay(c.brpop(timeout.toSeconds, keys: _*)))
+      async.flatMap(c => F.delay(c.brpop(timeout.toSecondsOrZero, keys: _*)))
     }.map(kv => kv.getKey -> kv.getValue)
 
-  override def brPopLPush(timeout: FiniteDuration, source: K, destination: K): F[Option[V]] =
+  override def brPopLPush(timeout: Duration, source: K, destination: K): F[Option[V]] =
     JRFuture {
-      async.flatMap(c => F.delay(c.brpoplpush(timeout.toSeconds, source, destination)))
+      async.flatMap(c => F.delay(c.brpoplpush(timeout.toSecondsOrZero, source, destination)))
     }.map(Option.apply)
 
   override def lPop(key: K): F[Option[V]] =
@@ -1094,6 +1094,13 @@ private[redis4cats] trait RedisConversionOps {
 
   private[redis4cats] implicit class ScoredValuesOps[V](v: ScoredValue[V]) {
     def asScoreWithValues: ScoreWithValue[V] = ScoreWithValue[V](Score(v.getScore), v.getValue)
+  }
+
+  private[redis4cats] implicit class DurationOps(d: Duration) {
+    def toSecondsOrZero: Long = d match {
+      case _: Duration.Infinite     => 0
+      case duration: FiniteDuration => duration.toSeconds
+    }
   }
 
 }
