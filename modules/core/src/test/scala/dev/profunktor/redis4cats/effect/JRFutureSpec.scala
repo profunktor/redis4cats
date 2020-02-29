@@ -39,9 +39,7 @@ class JRFutureSpec extends Redis4CatsAsyncFunSuite {
       }
 
     (ioa *> currentThread)
-      .flatMap { t =>
-        IO(assert(t.contains("scala-execution-context-global")))
-      }
+      .flatMap(t => IO(assert(t.contains("scala-execution-context-global"))))
       .unsafeToFuture()
   }
 
@@ -56,9 +54,7 @@ class JRFutureSpec extends Redis4CatsAsyncFunSuite {
       }
 
     (ioa.attempt *> currentThread)
-      .flatMap { t =>
-        IO(assert(t.contains("scala-execution-context-global")))
-      }
+      .flatMap(t => IO(assert(t.contains("scala-execution-context-global"))))
       .unsafeToFuture()
   }
 

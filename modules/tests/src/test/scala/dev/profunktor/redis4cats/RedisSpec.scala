@@ -36,7 +36,9 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("connection api")(withRedis(connectionScenario))
 
-  test("transactions")(withRedis(transactionScenario))
+  test("transactions: successful")(withRedis(transactionScenario))
+
+  test("transactions: canceled")(withRedis(canceledTransactionScenario))
 
   test("server")(withRedis(serverScenario))
 

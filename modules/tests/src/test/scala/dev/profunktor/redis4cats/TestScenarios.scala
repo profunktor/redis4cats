@@ -49,11 +49,11 @@ trait TestScenarios {
       _ <- cmd.geoAdd(testKey, _Montevideo)
       _ <- cmd.geoAdd(testKey, _Tokyo)
       x <- cmd.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoArgs.Unit.km)
-      _ <- IO { assert(x == 18374.9052) }
+      _ <- IO(assert(x == 18374.9052))
       y <- cmd.geoPos(testKey, _RioDeJaneiro.value)
-      _ <- IO { assert(y.contains(GeoCoordinate(-43.17289799451828, -22.906801071586663))) }
+      _ <- IO(assert(y.contains(GeoCoordinate(-43.17289799451828, -22.906801071586663))))
       z <- cmd.geoRadius(testKey, GeoRadius(_Montevideo.lon, _Montevideo.lat, Distance(10000.0)), GeoArgs.Unit.km)
-      _ <- IO { assert(z.toList.containsSlice(List(_BuenosAires.value, _Montevideo.value, _RioDeJaneiro.value))) }
+      _ <- IO(assert(z.toList.containsSlice(List(_BuenosAires.value, _Montevideo.value, _RioDeJaneiro.value))))
     } yield ()
   }
 
@@ -62,18 +62,18 @@ trait TestScenarios {
     val testField = "bar"
     for {
       x <- cmd.hGet(testKey, testField)
-      _ <- IO { assert(x.isEmpty) }
+      _ <- IO(assert(x.isEmpty))
       isSet1 <- cmd.hSetNx(testKey, testField, "some value")
-      _ <- IO { assert(isSet1) }
+      _ <- IO(assert(isSet1))
       y <- cmd.hGet(testKey, testField)
-      _ <- IO { assert(y.contains("some value")) }
+      _ <- IO(assert(y.contains("some value")))
       isSet2 <- cmd.hSetNx(testKey, testField, "should not happen")
-      _ <- IO { assert(!isSet2) }
+      _ <- IO(assert(!isSet2))
       w <- cmd.hGet(testKey, testField)
-      _ <- IO { assert(w.contains("some value")) }
+      _ <- IO(assert(w.contains("some value")))
       _ <- cmd.hDel(testKey, testField)
       z <- cmd.hGet(testKey, testField)
-      _ <- IO { assert(z.isEmpty) }
+      _ <- IO(assert(z.isEmpty))
     } yield ()
   }
 
@@ -81,18 +81,18 @@ trait TestScenarios {
     val testKey = "listos"
     for {
       t <- cmd.lRange(testKey, 0, 10)
-      _ <- IO { assert(t.isEmpty) }
+      _ <- IO(assert(t.isEmpty))
       _ <- cmd.rPush(testKey, "one", "two", "three")
       x <- cmd.lRange(testKey, 0, 10)
-      _ <- IO { assert(x == List("one", "two", "three")) }
+      _ <- IO(assert(x == List("one", "two", "three")))
       y <- cmd.lLen(testKey)
-      _ <- IO { assert(y.contains(3)) }
+      _ <- IO(assert(y.contains(3)))
       a <- cmd.lPop(testKey)
-      _ <- IO { assert(a.contains("one")) }
+      _ <- IO(assert(a.contains("one")))
       b <- cmd.rPop(testKey)
-      _ <- IO { assert(b.contains("three")) }
+      _ <- IO(assert(b.contains("three")))
       z <- cmd.lRange(testKey, 0, 10)
-      _ <- IO { assert(z == List("two")) }
+      _ <- IO(assert(z == List("two")))
     } yield ()
   }
 
@@ -100,20 +100,20 @@ trait TestScenarios {
     val testKey = "foos"
     for {
       x <- cmd.sMembers(testKey)
-      _ <- IO { assert(x.isEmpty) }
+      _ <- IO(assert(x.isEmpty))
       _ <- cmd.sAdd(testKey, "set value")
       y <- cmd.sMembers(testKey)
-      _ <- IO { assert(y.contains("set value")) }
+      _ <- IO(assert(y.contains("set value")))
       o <- cmd.sCard(testKey)
-      _ <- IO { assert(o == 1L) }
+      _ <- IO(assert(o == 1L))
       _ <- cmd.sRem("non-existing", "random")
       w <- cmd.sMembers(testKey)
-      _ <- IO { assert(w.contains("set value")) }
+      _ <- IO(assert(w.contains("set value")))
       _ <- cmd.sRem(testKey, "set value")
       z <- cmd.sMembers(testKey)
-      _ <- IO { assert(z.isEmpty) }
+      _ <- IO(assert(z.isEmpty))
       t <- cmd.sCard(testKey)
-      _ <- IO { assert(t == 0L) }
+      _ <- IO(assert(t == 0L))
     } yield ()
   }
 
@@ -121,14 +121,14 @@ trait TestScenarios {
     val testKey = "zztop"
     for {
       t <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
-      _ <- IO { assert(t.isEmpty) }
+      _ <- IO(assert(t.isEmpty))
       _ <- cmd.zAdd(testKey, args = None, ScoreWithValue(Score(1), 1), ScoreWithValue(Score(3), 2))
       x <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
-      _ <- IO { assert(x == List(1)) }
+      _ <- IO(assert(x == List(1)))
       y <- cmd.zCard(testKey)
-      _ <- IO { assert(y.contains(2)) }
+      _ <- IO(assert(y.contains(2)))
       z <- cmd.zCount(testKey, ZRange(0, 1))
-      _ <- IO { assert(z.contains(1)) }
+      _ <- IO(assert(z.contains(1)))
     } yield ()
   }
 
@@ -137,30 +137,30 @@ trait TestScenarios {
     val key2 = "key2"
     for {
       x <- cmd.get(key1)
-      _ <- IO { assert(x.isEmpty) }
+      _ <- IO(assert(x.isEmpty))
       exist1 <- cmd.exists(key1)
-      _ <- IO { assert(!exist1) }
+      _ <- IO(assert(!exist1))
       _ <- cmd.set(key1, "some value")
       exist2 <- cmd.exists(key1)
-      _ <- IO { assert(exist2) }
+      _ <- IO(assert(exist2))
       _ <- cmd.mSet(Map(key2 -> "some value 2"))
       exist3 <- cmd.exists(key1, key2)
-      _ <- IO { assert(exist3) }
+      _ <- IO(assert(exist3))
       exist4 <- cmd.exists(key1, key2, "_not_existing_key_")
-      _ <- IO { assert(!exist4) }
+      _ <- IO(assert(!exist4))
       _ <- cmd.del(key1)
       exist5 <- cmd.exists(key1)
-      _ <- IO { assert(!exist5) }
+      _ <- IO(assert(!exist5))
       a <- cmd.ttl("whatever+")
-      _ <- IO { assert(a.isEmpty) }
+      _ <- IO(assert(a.isEmpty))
       b <- cmd.pttl("whatever+")
-      _ <- IO { assert(b.isEmpty) }
+      _ <- IO(assert(b.isEmpty))
       _ <- cmd.set("f1", "bar")
       _ <- cmd.expire("f1", 10.seconds)
       c <- cmd.ttl("f1")
-      _ <- IO { assert(c.isDefined) }
+      _ <- IO(assert(c.isDefined))
       d <- cmd.pttl("f1")
-      _ <- IO { assert(d.isDefined) }
+      _ <- IO(assert(d.isDefined))
     } yield ()
   }
 
@@ -168,45 +168,45 @@ trait TestScenarios {
     val key = "test"
     for {
       x <- cmd.get(key)
-      _ <- IO { assert(x.isEmpty) }
+      _ <- IO(assert(x.isEmpty))
       isSet1 <- cmd.setNx(key, "some value")
-      _ <- IO { assert(isSet1) }
+      _ <- IO(assert(isSet1))
       y <- cmd.get(key)
-      _ <- IO { assert(y.contains("some value")) }
+      _ <- IO(assert(y.contains("some value")))
       isSet2 <- cmd.setNx(key, "should not happen")
-      _ <- IO { assert(!isSet2) }
+      _ <- IO(assert(!isSet2))
       isSet3 <- cmd.mSetNx(Map("multikey1" -> "someVal1", "multikey2" -> "someVal2"))
-      _ <- IO { assert(isSet3) }
+      _ <- IO(assert(isSet3))
       isSet4 <- cmd.mSetNx(Map("multikey1" -> "someVal0", "multikey3" -> "someVal3"))
-      _ <- IO { assert(!isSet4) }
+      _ <- IO(assert(!isSet4))
       val1 <- cmd.get("multikey1")
-      _ <- IO { assert(val1.contains("someVal1")) }
+      _ <- IO(assert(val1.contains("someVal1")))
       val3 <- cmd.get("multikey3")
-      _ <- IO { assert(val3.isEmpty) }
+      _ <- IO(assert(val3.isEmpty))
       isSet5 <- cmd.mSetNx(Map("multikey1" -> "someVal1", "multikey2" -> "someVal2"))
-      _ <- IO { assert(!isSet5) }
+      _ <- IO(assert(!isSet5))
       w <- cmd.get(key)
-      _ <- IO { assert(w.contains("some value")) }
+      _ <- IO(assert(w.contains("some value")))
       isSet6 <- cmd.set(key, "some value", SetArgs(SetArg.Existence.Nx))
-      _ <- IO { assert(!isSet6) }
+      _ <- IO(assert(!isSet6))
       isSet7 <- cmd.set(key, "some value 2", SetArgs(SetArg.Existence.Xx))
-      _ <- IO { assert(isSet7) }
+      _ <- IO(assert(isSet7))
       val4 <- cmd.get(key)
-      _ <- IO { assert(val4.contains("some value 2")) }
+      _ <- IO(assert(val4.contains("some value 2")))
       _ <- cmd.del(key)
       isSet8 <- cmd.set(key, "some value", SetArgs(SetArg.Existence.Xx))
-      _ <- IO { assert(!isSet8) }
+      _ <- IO(assert(!isSet8))
       isSet9 <- cmd.set(key, "some value", SetArgs(SetArg.Existence.Nx))
-      _ <- IO { assert(isSet9) }
+      _ <- IO(assert(isSet9))
       val5 <- cmd.get(key)
-      _ <- IO { assert(val5.contains("some value")) }
+      _ <- IO(assert(val5.contains("some value")))
       isSet10 <- cmd.set(key, "some value 2", SetArgs(None, None))
-      _ <- IO { assert(isSet10) }
+      _ <- IO(assert(isSet10))
       val6 <- cmd.get(key)
-      _ <- IO { assert(val6.contains("some value 2")) }
+      _ <- IO(assert(val6.contains("some value 2")))
       _ <- cmd.del(key)
       z <- cmd.get(key)
-      _ <- IO { assert(z.isEmpty) }
+      _ <- IO(assert(z.isEmpty))
     } yield ()
   }
 
@@ -214,39 +214,39 @@ trait TestScenarios {
     val key = "test"
     for {
       x <- cmd.get(key)
-      _ <- IO { assert(x.isEmpty) }
+      _ <- IO(assert(x.isEmpty))
       isSet1 <- cmd.setNx(key, "some value")
-      _ <- IO { assert(isSet1) }
+      _ <- IO(assert(isSet1))
       y <- cmd.get(key)
-      _ <- IO { assert(y.contains("some value")) }
+      _ <- IO(assert(y.contains("some value")))
       isSet2 <- cmd.setNx(key, "should not happen")
-      _ <- IO { assert(!isSet2) }
+      _ <- IO(assert(!isSet2))
       w <- cmd.get(key)
-      _ <- IO { assert(w.contains("some value")) }
+      _ <- IO(assert(w.contains("some value")))
       _ <- cmd.del(key)
       z <- cmd.get(key)
-      _ <- IO { assert(z.isEmpty) }
+      _ <- IO(assert(z.isEmpty))
     } yield ()
   }
 
   def connectionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] =
-    cmd.ping.flatMap(pong => IO { assert(pong === "PONG") }).void
+    cmd.ping.flatMap(pong => IO(assert(pong === "PONG"))).void
 
   def serverScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] =
     for {
       _ <- cmd.mSet(Map("firstname" -> "Jack", "lastname" -> "Stuntman", "age" -> "35"))
       names <- cmd.keys("*name*").map(_.toSet)
-      _ <- IO { assert(names == Set("firstname", "lastname")) }
+      _ <- IO(assert(names == Set("firstname", "lastname")))
       age <- cmd.keys("a??")
-      _ <- IO { assert(age == List("age")) }
+      _ <- IO(assert(age == List("age")))
       info <- cmd.info
-      _ <- IO { assert(info.contains("role")) }
+      _ <- IO(assert(info.contains("role")))
       dbsize <- cmd.dbsize
-      _ <- IO { assert(dbsize > 0) }
+      _ <- IO(assert(dbsize > 0))
       lastSave <- cmd.lastSave
-      _ <- IO { assert(lastSave.isBefore(Instant.now)) }
+      _ <- IO(assert(lastSave.isBefore(Instant.now)))
       slowLogLen <- cmd.slowLogLen
-      _ <- IO { assert(slowLogLen.isValidLong) }
+      _ <- IO(assert(slowLogLen.isValidLong))
     } yield ()
 
   def transactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
@@ -258,11 +258,21 @@ trait TestScenarios {
     for {
       _ <- tx.run(cmd.set(key1, "foo"), cmd.set(key2, "bar"))
       x <- cmd.get(key1)
-      _ <- IO { assert(x.contains("foo")) }
+      _ <- IO(assert(x.contains("foo")))
       y <- cmd.get(key2)
-      _ <- IO { assert(y.contains("bar")) }
+      _ <- IO(assert(y.contains("bar")))
     } yield ()
 
+  }
+
+  def canceledTransactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val tx = RedisTransaction(cmd)
+
+    val commands = (1 to 10000).toList.map(x => cmd.set(s"tx-$x", s"v$x"))
+
+    // Transaction should be canceled
+    IO.race(tx.run(commands: _*), IO.unit) >>
+      cmd.get("tx-1").map(x => assert(x.isEmpty)) // no keys written
   }
 
   def scriptsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
@@ -273,11 +283,11 @@ trait TestScenarios {
         |return redis.status_reply('OK')""".stripMargin
     for {
       fortyTwo: Long <- cmd.eval("return 42", ScriptOutputType.Integer)
-      _ <- IO { assert(fortyTwo === 42L) }
+      _ <- IO(assert(fortyTwo === 42L))
       value: String <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
-      _ <- IO { assert(value === "Hello World") }
+      _ <- IO(assert(value === "Hello World"))
       bool: Boolean <- cmd.eval("return true", ScriptOutputType.Boolean, List("Foo"))
-      _ <- IO { assert(bool) }
+      _ <- IO(assert(bool))
       list: List[String] <- cmd.eval(
                              "return {'Let', 'us', ARGV[1], ARGV[2]}",
                              ScriptOutputType.Multi,
@@ -287,18 +297,18 @@ trait TestScenarios {
                                "fun"
                              )
                            )
-      _ <- IO { assert(list === List("Let", "us", "have", "fun")) }
+      _ <- IO(assert(list === List("Let", "us", "have", "fun")))
       () <- cmd.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
       sha42 <- cmd.scriptLoad("return 42")
       fortyTwoSha: Long <- cmd.evalSha(sha42, ScriptOutputType.Integer)
-      _ <- IO { assert(fortyTwoSha === 42L) }
+      _ <- IO(assert(fortyTwoSha === 42L))
       shaStatusScript <- cmd.scriptLoad(statusScript)
       () <- cmd.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
       exists <- cmd.scriptExists(sha42, "foobar")
-      _ <- IO { assert(exists === List(true, false)) }
+      _ <- IO(assert(exists === List(true, false)))
       () <- cmd.scriptFlush
       exists2 <- cmd.scriptExists(sha42)
-      _ <- IO { assert(exists2 === List(false)) }
+      _ <- IO(assert(exists2 === List(false)))
     } yield ()
   }
 
