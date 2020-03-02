@@ -32,7 +32,7 @@ val commonSettings = Seq(
   startYear := Some(2018),
   licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   homepage := Some(url("https://redis4cats.profunktor.dev/")),
-  headerLicense := Some(HeaderLicense.ALv2("2018-2019", "ProfunKtor")),
+  headerLicense := Some(HeaderLicense.ALv2("2018-2020", "ProfunKtor")),
   libraryDependencies ++= Seq(
         CompilerPlugins.betterMonadicFor,
         CompilerPlugins.contextApplied,
