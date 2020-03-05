@@ -425,10 +425,10 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       async.flatMap(c => F.delay(c.hlen(key)))
     }.map(x => Option(Long.unbox(x)))
 
-  override def hSet(key: K, field: K, value: V): F[Unit] =
+  override def hSet(key: K, field: K, value: V): F[Boolean] =
     JRFuture {
       async.flatMap(c => F.delay(c.hset(key, field, value)))
-    }.void
+    }.map(x => Boolean.box(x))
 
   override def hSetNx(key: K, field: K, value: V): F[Boolean] =
     JRFuture {
