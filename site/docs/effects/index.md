@@ -31,7 +31,7 @@ def apply[F[_]](uri: RedisURI): Resource[F, RedisClient]
 
 In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either create your own or use `log4cats` (recommended). `redis4cats` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to add the extra dependency `redis4cats-log4cats` and `import dev.profunktor.redis4cats.log4cats._`.
 
-Take a look at the [examples](https://github.com/gvolpe/fs2-redis/blob/master/modules/examples/src/main/scala/dev.profunktor.redis4cats/LoggerIOApp.scala) to find out more.
+Take a look at the [examples](https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/LoggerIOApp.scala) to find out more.
 
 ### Establishing connection
 
@@ -61,7 +61,7 @@ val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
 ```
 
 The only difference with other APIs will be the `Commands` type. For the `Strings API` is `StringCommands`, for `Sorted Sets API` is `SortedSetCommands` and so on. For a complete list please take a look at the
-[algebras](https://github.com/gvolpe/fs2-redis/tree/master/modules/core/src/main/scala/dev.profunktor.redis4cats/algebra).
+[algebras](https://github.com/profunktor/redis4cats/tree/master/modules/effects/src/main/scala/dev/profunktor/redis4cats/algebra).
 
 ### Standalone, Sentinel or Cluster
 
