@@ -31,8 +31,8 @@ object domain {
   final case class NodeId(value: String) extends AnyVal
 
   final case class KeyScanCursor[K](underlying: JKeyScanCursor[K]) extends AnyVal {
-    def keys: List[K] = underlying.getKeys.asScala.toList
-    def cursor: String  = underlying.getCursor
+    def keys: List[K]  = underlying.getKeys.asScala.toList
+    def cursor: String = underlying.getCursor
   }
 
   object RedisCodec {
