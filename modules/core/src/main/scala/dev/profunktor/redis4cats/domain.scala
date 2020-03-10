@@ -18,6 +18,8 @@ package dev.profunktor.redis4cats
 
 import io.lettuce.core.{ ReadFrom => JReadFrom }
 import io.lettuce.core.codec.{ RedisCodec => JRedisCodec, StringCodec, ToByteBufEncoder }
+import io.lettuce.core.{ KeyScanCursor => JKeyScanCursor }
+import dev.profunktor.redis4cats.JavaConversions._
 
 object domain {
 
@@ -27,6 +29,11 @@ object domain {
 
   final case class RedisCodec[K, V](underlying: JCodec[K, V]) extends AnyVal
   final case class NodeId(value: String) extends AnyVal
+
+  final case class KeyScanCursor[K](underlying: JKeyScanCursor[K]) extends AnyVal {
+    def keys: List[K] = underlying.getKeys.asScala.toList
+    def cursor: String  = underlying.getCursor
+  }
 
   object RedisCodec {
     val Ascii = RedisCodec(StringCodec.ASCII)
