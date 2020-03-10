@@ -23,10 +23,9 @@ import cats.implicits._
 import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.domain._
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.effect.{JRFuture, Log}
 import dev.profunktor.redis4cats.effects._
-import io.lettuce.core.{ Limit => JLimit, Range => JRange, SetArgs => JSetArgs }
-import io.lettuce.core.{ GeoArgs, GeoRadiusStoreArgs, GeoWithin, ScoredValue, ZAddArgs, ZStoreArgs }
+import io.lettuce.core.{GeoArgs, GeoRadiusStoreArgs, GeoWithin, ScanCursor, ScoredValue, ZAddArgs, ZStoreArgs, Limit => JLimit, Range => JRange, SetArgs => JSetArgs}
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import java.util.concurrent.TimeUnit
@@ -166,6 +165,16 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       case d if d == -2 || d == -1 => none[FiniteDuration]
       case d                       => FiniteDuration(d, TimeUnit.MILLISECONDS).some
     }
+
+  def scan: F[KeyScanCursor[K]] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.scan()))
+    }.map(KeyScanCursor[K])
+
+  def scan(cursor: Long): F[KeyScanCursor[K]] =
+    JRFuture {
+      async.flatMap(c => F.delay(c.scan(ScanCursor.of(cursor.toString))))
+    }.map(KeyScanCursor[K])
 
   /******************************* Transactions API **********************************/
   // When in a cluster, transactions should run against a single node, therefore we use `conn.async` instead of `conn.clusterAsync`.

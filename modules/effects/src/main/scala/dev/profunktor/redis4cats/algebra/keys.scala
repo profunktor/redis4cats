@@ -16,6 +16,8 @@
 
 package dev.profunktor.redis4cats.algebra
 
+import dev.profunktor.redis4cats.domain.KeyScanCursor
+
 import scala.concurrent.duration.FiniteDuration
 
 trait KeyCommands[F[_], K] {
@@ -24,4 +26,6 @@ trait KeyCommands[F[_], K] {
   def expire(k: K, seconds: FiniteDuration): F[Unit]
   def ttl(key: K): F[Option[FiniteDuration]]
   def pttl(key: K): F[Option[FiniteDuration]]
+  def scan: F[KeyScanCursor[K]]
+  def scan(cursor: Long): F[KeyScanCursor[K]]
 }
