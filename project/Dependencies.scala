@@ -12,7 +12,7 @@ object Dependencies {
     val logback = "1.2.3"
 
     val betterMonadicFor = "0.3.1"
-    val contextApplied   = "0.1.3"
+    val contextApplied   = "0.1.4"
     val kindProjector    = "0.11.0"
 
     val scalaCheck = "1.14.3"
