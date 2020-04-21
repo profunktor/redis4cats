@@ -906,7 +906,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
 
   override def zRevRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]] =
     JRFuture {
-      async.flatMap(c => F.delay(c.zrangeWithScores(key, start, stop)))
+      async.flatMap(c => F.delay(c.zrevrangeWithScores(key, start, stop)))
     }.map(_.asScala.toList.map(_.asScoreWithValues))
 
   override def zRevRank(key: K, value: V): F[Option[Long]] =
