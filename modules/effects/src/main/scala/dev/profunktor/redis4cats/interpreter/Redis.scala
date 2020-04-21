@@ -898,7 +898,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       limit match {
         case Some(x) =>
           async.flatMap(c =>
-            F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
+            F.delay(c.zrevrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
           )
         case None => async.flatMap(c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange)))
       }
