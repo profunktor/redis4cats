@@ -17,7 +17,7 @@ Redis supports [transactions](https://redis.io/topics/transactions) via the `MUL
 
 The most common way is to create a `RedisTransaction` once by passing the commands API as a parameter and invoke the `run` function every time you want to run the given commands as part of a new transaction.
 
-Note that every command has to be forked (`.start`) because the commands need to be sent to the server asynchronously and no response will be received until either an `EXEC` or a `DISCARD` command is sent. Both forking and sending the final command is handled by `RedisTransaction`. Also, it is not possible to sequence commands (`flatMap`) that are part of a transaction. Every command has to be atomic and independent of previous results.
+Note that every command has to be forked (`.start`) because the commands need to be sent to the server asynchronously and no response will be received until either an `EXEC` or a `DISCARD` command is sent. Both forking and sending the final command is handled by `RedisTransaction`. Every command has to be atomic and independent of previous results, so it wouldn't make sense to chain commands using `flatMap` (though, it would technically work).
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
@@ -29,7 +29,7 @@ import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
 implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
-implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
+implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
   Redis[IO, String, String](null, null.asInstanceOf[RedisCodec[String, String]])

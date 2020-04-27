@@ -53,10 +53,13 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
             } yield nodeCmd
 
           // Transactions are only supported on a single node
-          val notAllowed =
-            cmd.multi.bracket(_ => cmd.set(key1, "nope") *> cmd.exec)(_ => cmd.discard).handleErrorWith {
-              case e: OperationNotSupported => putStrLn(e)
-            }
+          val notAllowed: IO[Unit] =
+            cmd.multi
+              .bracket(_ => cmd.set(key1, "nope") >> cmd.exec.void)(_ => cmd.discard)
+              .handleErrorWith {
+                case e: OperationNotSupported => putStrLn(e)
+              }
+              .void
 
           notAllowed *>
             // Transaction runs in a single shard, where "key1" is stored

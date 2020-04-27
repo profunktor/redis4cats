@@ -23,6 +23,7 @@ import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.transactions._
+import java.util.concurrent.TimeoutException
 
 object RedisTransactionsDemo extends LoggerIOApp {
 
@@ -33,7 +34,7 @@ object RedisTransactionsDemo extends LoggerIOApp {
     val key2 = "test2"
 
     val showResult: String => Option[String] => IO[Unit] = key =>
-      _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s))
+      _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s"$key: $s"))
 
     val commandsApi: Resource[IO, RedisCommands[IO, String, String]] =
       for {
@@ -50,12 +51,28 @@ object RedisTransactionsDemo extends LoggerIOApp {
           cmd.get(key1).flatTap(showResult(key1)) *>
               cmd.get(key2).flatTap(showResult(key2))
 
-        val tx1 = tx.run(
-          cmd.set(key1, "foo"),
-          cmd.set(key2, "bar")
-        )
+        val tx1 =
+          tx.run(
+              cmd.set(key1, "sad"),
+              cmd.set(key2, "windows"),
+              cmd.get(key1),
+              cmd.set(key1, "nix"),
+              cmd.set(key2, "linux"),
+              cmd.get(key1)
+            )
+            .handleErrorWith {
+              case TransactionAborted =>
+                putStrLn("[Error] - Transaction Aborted").as(List.empty)
+              case _: TimeoutException =>
+                putStrLn("[Error] - Timeout").as(List.empty)
+            }
 
-        getters *> tx1 *> getters.void
+        getters >> tx1.flatMap {
+          case (() :: () :: Some("sad") :: () :: () :: Some("nix") :: Nil) =>
+            putStrLn(">>> Got expected result")
+          case xs =>
+            putStrLn(">>> Unexpected result") >> xs.traverse_(putStrLn)
+        } >> getters.void >> putStrLn("Some more computations after tx...")
       }
   }
 

@@ -17,15 +17,19 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.concurrent._
 import cats.effect.implicits._
 import cats.implicits._
 import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.effect.Log
+import scala.concurrent.duration._
+import scala.util.control.NoStackTrace
 
 object transactions {
 
-  case class RedisTransaction[F[_]: Concurrent: Log, K, V](
+  case object TransactionAborted extends NoStackTrace
+
+  case class RedisTransaction[F[_]: Concurrent: Log: Timer, K, V](
       cmd: RedisCommands[F, K, V]
   ) {
 
@@ -39,24 +43,34 @@ object transactions {
       * It should not be used to run other computations, only Redis commands. Fail to do so
       * may end in unexpected results such as a dead lock.
       */
-    def run(commands: F[Any]*): F[Unit] =
+    def run(commands: F[Any]*): F[List[Any]] =
       Ref.of[F, List[Fiber[F, Any]]](List.empty).flatMap { fibers =>
-        val tx =
-          Resource.makeCase(cmd.multi) {
-            case (_, ExitCase.Completed) =>
-              cmd.exec *> F.info("Transaction completed")
-            case (_, ExitCase.Error(e)) =>
-              cmd.discard *> F.error(s"Transaction failed: ${e.getMessage}")
-            case (_, ExitCase.Canceled) =>
-              cmd.discard *> F.error("Transaction canceled")
-          }
+        Deferred[F, Either[Throwable, List[Any]]].flatMap { res =>
+          val cancelFibers =
+            fibers.get.flatMap(_.traverse(_.cancel).void)
 
-        val cancelFibers =
-          fibers.get.flatMap(_.traverse(_.cancel).void)
+          val joinFibers =
+            fibers.get.flatMap(_.traverse(_.join))
 
-        F.info("Transaction started") *>
-          tx.use(_ => commands.toList.traverse(_.start).flatMap(fibers.set))
-            .guarantee(cancelFibers)
+          val tx =
+            Resource.makeCase(cmd.multi) {
+              case (_, ExitCase.Completed) =>
+                F.info("Transaction completed") >>
+                    cmd.exec >> joinFibers.flatMap(tr => res.complete(tr.asRight))
+              case (_, ExitCase.Error(e)) =>
+                F.error(s"Transaction failed: ${e.getMessage}") >>
+                    cmd.discard.guarantee(cancelFibers >> res.complete(TransactionAborted.asLeft))
+              case (_, ExitCase.Canceled) =>
+                F.error("Transaction canceled") >>
+                    cmd.discard.guarantee(res.complete(TransactionAborted.asLeft) >> cancelFibers)
+            }
+
+          // This guarantees that the commands run in order
+          val runCommands = commands.toList.traverse_(_.start.flatMap(fb => fibers.update(_ :+ fb)))
+
+          F.info("Transaction started") >>
+            (tx.use(_ => runCommands) >> res.get.rethrow).timeout(3.seconds)
+        }
       }
   }
 
