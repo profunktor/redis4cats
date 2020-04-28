@@ -9,7 +9,7 @@ redis4cats
 
 Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async Java client [Lettuce](https://lettuce.io/).
 
-> **NOTE**: Neither binary compatibility nor API stability are guaranteed between releases.
+> **NOTE**: Neither binary compatibility nor API stability will be guaranteed until we reach `1.0.0`.
 
 `redis4cats` defines two types of API: an effect-based using [Cats Effect](https://typelevel.org/cats-effect/) and a stream-based using [Fs2](http://fs2.io/).
 
