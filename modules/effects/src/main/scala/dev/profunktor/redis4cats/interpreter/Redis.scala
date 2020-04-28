@@ -23,9 +23,20 @@ import cats.implicits._
 import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.domain._
-import dev.profunktor.redis4cats.effect.{JRFuture, Log}
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effects._
-import io.lettuce.core.{GeoArgs, GeoRadiusStoreArgs, GeoWithin, ScanCursor, ScoredValue, ZAddArgs, ZStoreArgs, Limit => JLimit, Range => JRange, SetArgs => JSetArgs}
+import io.lettuce.core.{
+  GeoArgs,
+  GeoRadiusStoreArgs,
+  GeoWithin,
+  ScanCursor,
+  ScoredValue,
+  ZAddArgs,
+  ZStoreArgs,
+  Limit => JLimit,
+  Range => JRange,
+  SetArgs => JSetArgs
+}
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import java.util.concurrent.TimeUnit
@@ -70,20 +81,20 @@ object Redis {
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
       nodeId: NodeId
-  ): (F[BaseRedis[F, K, V]], BaseRedis[F, K, V] => F[Unit]) = {
+  ): (F[RedisClientImpl[F, K, V]], RedisClientImpl[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture {
         F.delay(client.underlying.connectAsync[K, V](codec.underlying))
       }
       .map { c =>
-        new BaseRedis[F, K, V](new RedisStatefulClusterConnection(c), cluster = true) {
+        new RedisClientImpl[F, K, V](new RedisStatefulClusterConnection(c), cluster = true) {
           override def async: F[RedisClusterAsyncCommands[K, V]] =
             if (cluster) conn.byNode(nodeId).widen[RedisClusterAsyncCommands[K, V]]
             else conn.async.widen[RedisClusterAsyncCommands[K, V]]
         }
       }
 
-    val release: BaseRedis[F, K, V] => F[Unit] = c =>
+    val release: RedisClientImpl[F, K, V] => F[Unit] = c =>
       F.info(s"Releasing single-shard cluster Commands connection: ${client.underlying}") *> c.conn.close
 
     (acquire, release)
@@ -116,18 +127,19 @@ object Redis {
 
   def masterReplica[F[_]: Concurrent: ContextShift: Log, K, V](
       conn: RedisMasterReplica[K, V]
-  ): F[RedisCommands[F, K, V]] =
+  ): F[RedisClientImpl[F, K, V]] =
     F.delay(new RedisStatefulConnection(conn.underlying))
-      .map(new Redis[F, K, V](_))
+      .map(conn => new Redis[F, K, V](conn))
 }
 
-private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
+// Base is Exposed For liftK availability
+class RedisClientImpl[F[_]: Concurrent: ContextShift, K, V](
     val conn: RedisConnection[F, K, V],
     val cluster: Boolean
 ) extends RedisCommands[F, K, V]
     with RedisConversionOps {
-  override def liftK[G[_]: Concurrent: ContextShift]: BaseRedis[G, K, V] =
-    new BaseRedis[G, K, V](conn.liftK[G], cluster)
+  def liftK[G[_]: Concurrent: ContextShift]: RedisClientImpl[G, K, V] =
+    new RedisClientImpl[G, K, V](conn.liftK[G], cluster)
 
   import dev.profunktor.redis4cats.JavaConversions._
 
@@ -1116,8 +1128,8 @@ private[redis4cats] trait RedisConversionOps {
 
 private[redis4cats] class Redis[F[_]: Concurrent: ContextShift, K, V](
     connection: RedisStatefulConnection[F, K, V]
-) extends BaseRedis[F, K, V](connection, cluster = false)
+) extends RedisClientImpl[F, K, V](connection, cluster = false)
 
 private[redis4cats] class RedisCluster[F[_]: Concurrent: ContextShift, K, V](
     connection: RedisStatefulClusterConnection[F, K, V]
-) extends BaseRedis[F, K, V](connection, cluster = true)
+) extends RedisClientImpl[F, K, V](connection, cluster = true)
