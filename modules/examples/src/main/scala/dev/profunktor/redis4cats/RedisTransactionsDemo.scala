@@ -21,6 +21,7 @@ import cats.implicits._
 import dev.profunktor.redis4cats.algebra.RedisCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.transactions._
 import java.util.concurrent.TimeoutException
@@ -51,28 +52,24 @@ object RedisTransactionsDemo extends LoggerIOApp {
           cmd.get(key1).flatTap(showResult(key1)) *>
               cmd.get(key2).flatTap(showResult(key2))
 
-        val tx1 =
-          tx.run(
-              cmd.set(key1, "sad"),
-              cmd.set(key2, "windows"),
-              cmd.get(key1),
-              cmd.set(key1, "nix"),
-              cmd.set(key2, "linux"),
-              cmd.get(key1)
-            )
-            .handleErrorWith {
+        //type Cmd = IO[Unit] :: IO[Unit] :: IO[Option[String]] :: IO[Unit] :: IO[Unit] :: IO[Option[String]] :: HNil
+        //type Res = Unit :: Unit :: Option[String] :: Unit :: Unit :: Option[String] :: HNil
+
+        val cmz =
+          cmd.set(key1, "sad") :: cmd.set(key2, "windows") :: cmd.get(key1) ::
+              cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
+
+        val prog =
+          tx.exec(cmz)
+            .flatTap(xs => putStrLn(xs))
+            .onError {
               case TransactionAborted =>
-                putStrLn("[Error] - Transaction Aborted").as(List.empty)
+                putStrLn("[Error] - Transaction Aborted")
               case _: TimeoutException =>
-                putStrLn("[Error] - Timeout").as(List.empty)
+                putStrLn("[Error] - Timeout")
             }
 
-        getters >> tx1.flatMap {
-          case (() :: () :: Some("sad") :: () :: () :: Some("nix") :: Nil) =>
-            putStrLn(">>> Got expected result")
-          case xs =>
-            putStrLn(">>> Unexpected result") >> xs.traverse_(putStrLn)
-        } >> getters.void >> putStrLn("Some more computations after tx...")
+        getters >> prog >> getters >> putStrLn("some more here")
       }
   }
 

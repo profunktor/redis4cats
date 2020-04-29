@@ -68,7 +68,7 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
 
               val getter = cmd.get(key1).flatTap(showResult(key1))
 
-              val tx1 = tx.run(cmd.set(key1, "foo"))
+              val tx1 = putStrLn(tx) //.run(cmd.set(key1, "foo"))
 
               getter *> tx1 *> getter.void
             }
