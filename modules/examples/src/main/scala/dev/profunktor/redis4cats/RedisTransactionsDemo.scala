@@ -55,9 +55,10 @@ object RedisTransactionsDemo extends LoggerIOApp {
           cmd.set(key2, "bar")
         )
 
+        val tBuilder = RedisTransactionB.builder[IO, String, String]
         val txop2 = (
-          RedisTransactionB.operation[IO, String, String, Unit](_.set(key1, "foo1")),
-          RedisTransactionB.operation[IO, String, String, Unit](_.set(key2, "bar2"))
+          tBuilder.operation(_.set(key1, "foo1")),
+          tBuilder.operation(_.set(key2, "bar2"))
         ).tupled.void
 
         val tx2 = txop2.transact(cmd)
