@@ -150,16 +150,4 @@ object transactions {
       }
   }
 
-  object Example {
-    final case class Model(a: Option[String], b: Option[String])
-    def getModel[F[_]] =
-      (
-        RedisTransactionB.operation[F, String, String, Option[String]](_.get("foo")),
-        RedisTransactionB.operation[F, String, String, Option[String]](_.get("bar"))
-      ).mapN(Model.apply)
-
-    def transaction[F[_]: Concurrent: Log](commands: RedisCommands[F, String, String]): F[Model] =
-      getModel[F].transact(commands)
-  }
-
 }
