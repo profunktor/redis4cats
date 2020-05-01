@@ -69,12 +69,12 @@ object transactions {
     def builder[F[_], K, V]: Builder[F, K, V] = new Builder[F, K, V]
 
     /**
-     * The Builder is a Partially Applied Constructor Allowing operations to fully infer.
+      * The Builder is a Partially Applied Constructor Allowing operations to fully infer.
      **/
     class Builder[F[_], K, V] {
-      def operation[A](r: RedisCommands[F, K, V] => F[A]): RedisTransactionB[F, K, V, A] = 
+      def operation[A](r: RedisCommands[F, K, V] => F[A]): RedisTransactionB[F, K, V, A] =
         RedisTransactionB.operation(r)
-      def pure[A](a: A): RedisTransactionB[F, K, V, A] = 
+      def pure[A](a: A): RedisTransactionB[F, K, V, A] =
         RedisTransactionB.pure(a)
     }
 
