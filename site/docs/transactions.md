@@ -15,7 +15,7 @@ Redis supports [transactions](https://redis.io/topics/transactions) via the `MUL
 
 ### Working with transactions
 
-The most common way is to create a `RedisTransaction` once by passing the commands API as a parameter and invoke the `run` function every time you want to run the given commands as part of a new transaction.
+The most common way is to create a `RedisTransaction` once by passing the commands API as a parameter and invoke the `exec` function every time you want to run the given commands as part of a new transaction.
 
 Note that every command has to be forked (`.start`) because the commands need to be sent to the server asynchronously and no response will be received until either an `EXEC` or a `DISCARD` command is sent. Both forking and sending the final command is handled by `RedisTransaction`. Every command has to be atomic and independent of previous results, so it wouldn't make sense to chain commands using `flatMap` (though, it would technically work).
 
@@ -42,6 +42,7 @@ val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
 import cats.effect.IO
 import cats.implicits._
 import dev.profunktor.redis4cats._
+import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.transactions._
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
@@ -59,13 +60,19 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
     cmd.get(key1).flatTap(showResult(key1)) *>
       cmd.get(key2).flatTap(showResult(key2))
 
-  val setters = tx.run(
-    cmd.set(key1, "foo"),
-    cmd.set(key2, "bar"),
-    // .. more transactional commands ..
-  )
+  // the commands type is fully inferred
+  // IO[Unit] :: IO[Option[String]] :: IO[Unit] :: HNil
+  val commands = cmd.set(key1, "foo") :: cmd.get(key1) :: cmd.set(key2, "bar") :: HNil
 
-  getters *> setters *> getters.void
+  // the result type is inferred as well
+  // Unit :: Option[String] :: Unit :: HNil
+  val setters =
+    tx.exec(commands).flatMap {
+      case _ ~: res1 ~: _ =>
+        putStrLn(s"Key1 result: $res1")
+    }
+
+  getters >> setters >> getters.void
 }
 ```
 
@@ -81,13 +88,11 @@ commandsApi.use { cmd =>
     cmd.get(key1).flatTap(showResult(key1)) *>
       cmd.get(key2).flatTap(showResult(key2))
 
-  val setters = tx.run(
-    cmd.set(key1, "foo"),
-    cmd.set(key2, "bar"),
-    cmd.discard
+  val setters = tx.exec(
+    cmd.set(key1, "foo") :: cmd.set(key2, "bar") :: cmd.discard :: HNil
   )
 
-  getters *> setters *> getters.void
+  getters *> setters.void *> getters.void
 }
 ```
 
@@ -103,12 +108,10 @@ commandsApi.use { cmd =>
     cmd.get(key1).flatTap(showResult(key1)) *>
       cmd.get(key2).flatTap(showResult(key2))
 
-  val failedTx = tx.run(
-    cmd.set(key1, "foo"),
-    cmd.set(key2, "bar"),
-    IO.raiseError(new Exception("boom"))
+  val failedTx = tx.exec(
+    cmd.set(key1, "foo") :: cmd.set(key2, "bar") :: IO.raiseError(new Exception("boom")) :: HNil
   )
 
-  getters *> failedTx *> getters.void
+  getters *> failedTx.void *> getters.void
 }
 ```

@@ -37,24 +37,26 @@ import io.lettuce.core.{
   Range => JRange,
   SetArgs => JSetArgs
 }
-import io.lettuce.core.api.sync.{ RedisCommands => RedisSyncCommands }
+import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
+import scala.util.control.NoStackTrace
+
+case object TransactionDiscarded extends NoStackTrace
 
 object Redis {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClient,
-      codec: RedisCodec[K, V],
-      txBlocker: Blocker
+      codec: RedisCodec[K, V]
   ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromConnectionFuture {
         F.delay(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
       }
-      .map(c => new Redis(new RedisStatefulConnection(c), txBlocker))
+      .map(c => new Redis(new RedisStatefulConnection(c)))
 
     val release: Redis[F, K, V] => F[Unit] = c =>
       F.info(s"Releasing Commands connection: ${client.uri.underlying}") *> c.conn.close
@@ -64,14 +66,13 @@ object Redis {
 
   private[redis4cats] def acquireAndReleaseCluster[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClusterClient,
-      codec: RedisCodec[K, V],
-      txBlocker: Blocker
+      codec: RedisCodec[K, V]
   ): (F[RedisCluster[F, K, V]], RedisCluster[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture {
         F.delay(client.underlying.connectAsync[K, V](codec.underlying))
       }
-      .map(c => new RedisCluster(new RedisStatefulClusterConnection(c), txBlocker))
+      .map(c => new RedisCluster(new RedisStatefulClusterConnection(c)))
 
     val release: RedisCluster[F, K, V] => F[Unit] = c =>
       F.info(s"Releasing cluster Commands connection: ${client.underlying}") *> c.conn.close
@@ -82,15 +83,14 @@ object Redis {
   private[redis4cats] def acquireAndReleaseClusterByNode[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
-      nodeId: NodeId,
-      txBlocker: Blocker
+      nodeId: NodeId
   ): (F[BaseRedis[F, K, V]], BaseRedis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture {
         F.delay(client.underlying.connectAsync[K, V](codec.underlying))
       }
       .map { c =>
-        new BaseRedis[F, K, V](new RedisStatefulClusterConnection(c), cluster = true, txBlocker) {
+        new BaseRedis[F, K, V](new RedisStatefulClusterConnection(c), cluster = true) {
           override def async: F[RedisClusterAsyncCommands[K, V]] =
             if (cluster) conn.byNode(nodeId).widen[RedisClusterAsyncCommands[K, V]]
             else conn.async.widen[RedisClusterAsyncCommands[K, V]]
@@ -106,48 +106,44 @@ object Redis {
   def apply[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, RedisCommands[F, K, V]] =
-    Blocker[F].flatMap { txBlocker =>
-      val (acquire, release) = acquireAndRelease(client, codec, txBlocker)
-      Resource.make(acquire)(release).widen
-    }
+  ): Resource[F, RedisCommands[F, K, V]] = {
+    val (acquire, release) = acquireAndRelease(client, codec)
+    Resource.make(acquire)(release).widen
+  }
 
   def cluster[F[_]: Concurrent: ContextShift: Log, K, V](
       clusterClient: RedisClusterClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, RedisCommands[F, K, V]] =
-    Blocker[F].flatMap { txBlocker =>
-      val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, txBlocker)
-      Resource.make(acquire)(release).widen
-    }
+  ): Resource[F, RedisCommands[F, K, V]] = {
+    val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec)
+    Resource.make(acquire)(release).widen
+  }
 
   def clusterByNode[F[_]: Concurrent: ContextShift: Log, K, V](
       clusterClient: RedisClusterClient,
       codec: RedisCodec[K, V],
       nodeId: NodeId
-  ): Resource[F, RedisCommands[F, K, V]] =
-    Blocker[F].flatMap { txBlocker =>
-      val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, nodeId, txBlocker)
-      Resource.make(acquire)(release).widen
-    }
+  ): Resource[F, RedisCommands[F, K, V]] = {
+    val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, nodeId)
+    Resource.make(acquire)(release).widen
+  }
 
   def masterReplica[F[_]: Concurrent: ContextShift: Log, K, V](
       conn: RedisMasterReplica[K, V]
   ): Resource[F, RedisCommands[F, K, V]] =
-    Blocker[F].evalMap { txBlocker =>
+    Resource.liftF {
       F.delay(new RedisStatefulConnection(conn.underlying))
-        .map(c => new Redis[F, K, V](c, txBlocker))
+        .map(c => new Redis[F, K, V](c))
     }
 }
 
 private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     val conn: RedisConnection[F, K, V],
-    val cluster: Boolean,
-    txBlocker: Blocker
+    val cluster: Boolean
 ) extends RedisCommands[F, K, V]
     with RedisConversionOps {
   override def liftK[G[_]: Concurrent: ContextShift]: BaseRedis[G, K, V] =
-    new BaseRedis[G, K, V](conn.liftK[G], cluster, txBlocker)
+    new BaseRedis[G, K, V](conn.liftK[G], cluster)
 
   import dev.profunktor.redis4cats.JavaConversions._
 
@@ -201,52 +197,49 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
 
   /******************************* Transactions API **********************************/
   // When in a cluster, transactions should run against a single node.
-  // Also, transactions run synchronously to avoid unexpected behavior using the correspoding thread pool.
 
   def multi: F[Unit] =
-    txBlocker
-      .blockOn(sync)
-      .flatMap {
-        case c: RedisSyncCommands[K, V] => txBlocker.delay(c.multi())
-        case _                          => conn.sync.flatMap(c => txBlocker.delay(c.multi()))
+    JRFuture {
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.multi())
+        case _                           => conn.async.flatMap(c => F.delay(c.multi()))
       }
-      .void
+    }.void
 
   def exec: F[Unit] =
-    txBlocker
-      .blockOn(sync)
-      .flatMap {
-        case c: RedisSyncCommands[K, V] => txBlocker.delay(c.exec())
-        case _                          => conn.sync.flatMap(c => txBlocker.delay(c.exec()))
+    JRFuture {
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.exec())
+        case _                           => conn.async.flatMap(c => F.delay(c.exec()))
       }
-      .void
+    }.flatMap {
+      case res if res.wasDiscarded() => F.raiseError(TransactionDiscarded)
+      case _                         => F.unit
+    }
 
   def discard: F[Unit] =
-    txBlocker
-      .blockOn(sync)
-      .flatMap {
-        case c: RedisSyncCommands[K, V] => txBlocker.delay(c.discard())
-        case _                          => conn.sync.flatMap(c => txBlocker.delay(c.discard()))
+    JRFuture {
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.discard())
+        case _                           => conn.async.flatMap(c => F.delay(c.discard()))
       }
-      .void
+    }.void
 
   def watch(keys: K*): F[Unit] =
-    txBlocker
-      .blockOn(sync)
-      .flatMap {
-        case c: RedisSyncCommands[K, V] => txBlocker.delay(c.watch(keys: _*))
-        case _                          => conn.sync.flatMap(c => txBlocker.delay(c.watch(keys: _*)))
+    JRFuture {
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.watch(keys: _*))
+        case _                           => conn.async.flatMap(c => F.delay(c.watch(keys: _*)))
       }
-      .void
+    }.void
 
   def unwatch: F[Unit] =
-    txBlocker
-      .blockOn(sync)
-      .flatMap {
-        case c: RedisSyncCommands[K, V] => txBlocker.delay(c.unwatch())
-        case _                          => conn.sync.flatMap(c => txBlocker.delay(c.unwatch()))
+    JRFuture {
+      async.flatMap {
+        case c: RedisAsyncCommands[K, V] => F.delay(c.unwatch())
+        case _                           => conn.async.flatMap(c => F.delay(c.unwatch()))
       }
-      .void
+    }.void
 
   /******************************* AutoFlush API **********************************/
   override def enableAutoFlush: F[Unit] =
@@ -1144,11 +1137,9 @@ private[redis4cats] trait RedisConversionOps {
 }
 
 private[redis4cats] class Redis[F[_]: Concurrent: ContextShift, K, V](
-    connection: RedisStatefulConnection[F, K, V],
-    txBlocker: Blocker
-) extends BaseRedis[F, K, V](connection, cluster = false, txBlocker)
+    connection: RedisStatefulConnection[F, K, V]
+) extends BaseRedis[F, K, V](connection, cluster = false)
 
 private[redis4cats] class RedisCluster[F[_]: Concurrent: ContextShift, K, V](
-    connection: RedisStatefulClusterConnection[F, K, V],
-    txBlocker: Blocker
-) extends BaseRedis[F, K, V](connection, cluster = true, txBlocker)
+    connection: RedisStatefulClusterConnection[F, K, V]
+) extends BaseRedis[F, K, V](connection, cluster = true)

@@ -23,6 +23,7 @@ import cats.implicits._
 import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.effects._
+import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.transactions._
 import io.lettuce.core.GeoArgs
 import scala.concurrent.duration._
@@ -256,7 +257,7 @@ trait TestScenarios {
     val tx = RedisTransaction(cmd)
 
     for {
-      _ <- tx.run(cmd.set(key1, "foo"), cmd.set(key2, "bar"))
+      _ <- tx.exec(cmd.set(key1, "foo") :: cmd.set(key2, "bar") :: HNil)
       x <- cmd.get(key1)
       _ <- IO(assert(x.contains("foo")))
       y <- cmd.get(key2)
@@ -268,10 +269,11 @@ trait TestScenarios {
   def canceledTransactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val tx = RedisTransaction(cmd)
 
-    val commands = (1 to 10000).toList.map(x => cmd.set(s"tx-$x", s"v$x"))
+    val commands =
+      cmd.set(s"tx-1", s"v1") :: cmd.set(s"tx-2", s"v2") :: cmd.set(s"tx-3", s"v3") :: HNil
 
     // Transaction should be canceled
-    IO.race(tx.run(commands: _*), IO.unit) >>
+    IO.race(tx.exec(commands), IO.unit) >>
       cmd.get("tx-1").map(x => assert(x.isEmpty)) // no keys written
   }
 

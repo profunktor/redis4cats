@@ -52,16 +52,20 @@ object RedisTransactionsDemo extends LoggerIOApp {
           cmd.get(key1).flatTap(showResult(key1)) *>
               cmd.get(key2).flatTap(showResult(key2))
 
-        //type Cmd = IO[Unit] :: IO[Unit] :: IO[Option[String]] :: IO[Unit] :: IO[Unit] :: IO[Option[String]] :: HNil
-        //type Res = Unit :: Unit :: Option[String] :: Unit :: Unit :: Option[String] :: HNil
+        // the type is fully inferred but you can be explicit if you'd like
 
-        val cmz =
+        //type Cmd = IO[Unit] :: IO[Unit] :: IO[Option[String]] :: IO[Unit] :: IO[Unit] :: IO[Option[String]] :: HNil
+        val operations =
           cmd.set(key1, "sad") :: cmd.set(key2, "windows") :: cmd.get(key1) ::
               cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
 
+        //type Res = Unit :: Unit :: Option[String] :: Unit :: Unit :: Option[String] :: HNil
         val prog =
-          tx.exec(cmz)
-            .flatTap(xs => putStrLn(xs))
+          tx.exec(operations)
+            .flatMap {
+              case _ ~: _ ~: res1 ~: _ ~: _ ~: res2 =>
+                putStrLn(s"res1: $res1, res2: $res2")
+            }
             .onError {
               case TransactionAborted =>
                 putStrLn("[Error] - Transaction Aborted")

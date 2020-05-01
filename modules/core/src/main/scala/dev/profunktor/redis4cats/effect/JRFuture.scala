@@ -16,40 +16,49 @@
 
 package dev.profunktor.redis4cats.effect
 
-import java.util.concurrent.{ CompletableFuture, CompletionStage, Future }
-
-import cats.effect.{ Async, ContextShift }
-import cats.implicits._
+import cats.Defer
+import cats.effect.{ Concurrent, ContextShift }
 import cats.effect.implicits._
+import cats.implicits._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
+import java.util.concurrent._
 
 object JRFuture {
 
   private[redis4cats] type JFuture[A] = CompletionStage[A] with Future[A]
 
-  def apply[F[_]: Async: ContextShift, A](fa: F[RedisFuture[A]]): F[A] =
+  def apply[F[_]: Concurrent: ContextShift: Defer, A](fa: F[RedisFuture[A]]): F[A] =
     liftJFuture[F, RedisFuture[A], A](fa)
 
-  def fromConnectionFuture[F[_]: Async: ContextShift, A](fa: F[ConnectionFuture[A]]): F[A] =
+  def fromConnectionFuture[F[_]: Concurrent: ContextShift: Defer, A](fa: F[ConnectionFuture[A]]): F[A] =
     liftJFuture[F, ConnectionFuture[A], A](fa)
 
-  def fromCompletableFuture[F[_]: Async: ContextShift, A](fa: F[CompletableFuture[A]]): F[A] =
+  def fromCompletableFuture[F[_]: Concurrent: ContextShift: Defer, A](fa: F[CompletableFuture[A]]): F[A] =
     liftJFuture[F, CompletableFuture[A], A](fa)
 
   private[redis4cats] def liftJFuture[
-      F[_]: Async: ContextShift,
+      F[_]: Concurrent: ContextShift: Defer,
       G <: JFuture[A],
       A
-  ](fa: F[G]): F[A] =
-    fa.flatMap { f =>
-      F.async[A] { cb =>
-          f.handle[Unit] { (value: A, t: Throwable) =>
-            if (t != null) cb(Left(t))
-            else cb(Right(value))
+  ](fa: F[G]): F[A] = {
+    val lifted: F[A] = fa.flatMap { f =>
+      F.cancelable { cb =>
+        f.handle[Unit] { (res: A, err: Throwable) =>
+          err match {
+            case null =>
+              cb(Right(res))
+            case _: CancellationException =>
+              ()
+            case ex: CompletionException if ex.getCause ne null =>
+              cb(Left(ex.getCause))
+            case ex =>
+              cb(Left(ex))
           }
-          ()
         }
-        .guarantee(F.shift)
+        F.defer(F.pure(f.cancel(true)).void)
+      }
     }
+    lifted.guarantee(F.shift)
+  }
 
 }
