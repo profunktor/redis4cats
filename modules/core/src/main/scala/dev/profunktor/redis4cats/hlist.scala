@@ -16,6 +16,8 @@
 
 package dev.profunktor.redis4cats
 
+import scala.annotation.tailrec
+
 /**
   * An heterogeneous list, mainly used to operate on transactions.
   *
@@ -31,6 +33,7 @@ object hlist {
     def ::[A](a: A): Prepend[A]
 
     def reverse: HList = {
+      @tailrec
       def go(res: HList, ys: HList): HList =
         ys match {
           case HNil        => res
