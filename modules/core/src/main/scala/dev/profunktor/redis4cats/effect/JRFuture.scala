@@ -16,7 +16,6 @@
 
 package dev.profunktor.redis4cats.effect
 
-import cats.Defer
 import cats.effect.{ Concurrent, ContextShift }
 import cats.effect.implicits._
 import cats.implicits._
@@ -27,17 +26,17 @@ object JRFuture {
 
   private[redis4cats] type JFuture[A] = CompletionStage[A] with Future[A]
 
-  def apply[F[_]: Concurrent: ContextShift: Defer, A](fa: F[RedisFuture[A]]): F[A] =
+  def apply[F[_]: Concurrent: ContextShift, A](fa: F[RedisFuture[A]]): F[A] =
     liftJFuture[F, RedisFuture[A], A](fa)
 
-  def fromConnectionFuture[F[_]: Concurrent: ContextShift: Defer, A](fa: F[ConnectionFuture[A]]): F[A] =
+  def fromConnectionFuture[F[_]: Concurrent: ContextShift, A](fa: F[ConnectionFuture[A]]): F[A] =
     liftJFuture[F, ConnectionFuture[A], A](fa)
 
-  def fromCompletableFuture[F[_]: Concurrent: ContextShift: Defer, A](fa: F[CompletableFuture[A]]): F[A] =
+  def fromCompletableFuture[F[_]: Concurrent: ContextShift, A](fa: F[CompletableFuture[A]]): F[A] =
     liftJFuture[F, CompletableFuture[A], A](fa)
 
   private[redis4cats] def liftJFuture[
-      F[_]: Concurrent: ContextShift: Defer,
+      F[_]: Concurrent: ContextShift,
       G <: JFuture[A],
       A
   ](fa: F[G]): F[A] = {
@@ -55,7 +54,7 @@ object JRFuture {
               cb(Left(ex))
           }
         }
-        F.defer(F.pure(f.cancel(true)).void)
+        F.delay(f.cancel(true)).void
       }
     }
     lifted.guarantee(F.shift)

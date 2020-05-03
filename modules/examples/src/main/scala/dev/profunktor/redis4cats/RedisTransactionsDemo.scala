@@ -26,7 +26,10 @@ import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.transactions._
 import java.util.concurrent.TimeoutException
 
-object RedisTransactionsDemo extends LoggerIOApp {
+object RedisTransactionsDemo extends TxLoggerIOApp {
+
+  // TODO: Provide an example that uses a custom ContextShift[IO] for Redis and
+  // the normal one that comes from IOApp for the rest.
 
   import Demo._
 
