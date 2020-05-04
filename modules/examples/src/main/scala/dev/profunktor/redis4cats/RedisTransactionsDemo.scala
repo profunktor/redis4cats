@@ -75,7 +75,7 @@ object RedisTransactionsDemo extends LoggerIOApp {
                 putStrLn("[Error] - Timeout")
             }
 
-        getters >> prog >> getters >> putStrLn("some more here")
+        getters >> prog >> getters >> putStrLn("keep doing stuff...")
       }
   }
 

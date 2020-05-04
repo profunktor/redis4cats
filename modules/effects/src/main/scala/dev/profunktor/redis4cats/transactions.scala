@@ -60,12 +60,11 @@ object transactions {
           ys match {
             case HNil => F.pure(res)
             case HCons((h: Fiber[F, Any] @unchecked), t) if isJoin =>
-              F.info(">>> Got fiber") >>
-                  h.join.flatMap(x => F.info(s">>> Content: $x") >> joinOrCancel(t, x :: res)(isJoin))
+              h.join.flatMap(x => joinOrCancel(t, x :: res)(isJoin))
             case HCons((h: Fiber[F, Any] @unchecked), t) =>
               h.cancel.flatMap(x => joinOrCancel(t, x :: res)(isJoin))
             case HCons(h, t) =>
-              F.error(s">>> Unexpected cons: ${h.toString}") >> joinOrCancel(t, res)(isJoin)
+              F.error(s"Unexpected result: ${h.toString}") >> joinOrCancel(t, res)(isJoin)
           }
 
         def cancelFibers(fibs: HList, err: Throwable = TransactionAborted): F[Unit] =
