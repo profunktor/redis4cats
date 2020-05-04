@@ -43,7 +43,8 @@ private[redis4cats] trait RedisConnection[F[_], K, V] {
 }
 
 private[redis4cats] class RedisStatefulConnection[F[_]: Concurrent: ContextShift, K, V](
-    conn: StatefulRedisConnection[K, V]
+    conn: StatefulRedisConnection[K, V],
+    blocker: Blocker
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] = F.delay(conn.sync())
   def clusterSync: F[RedisClusterSyncCommands[K, V]] =
@@ -51,14 +52,16 @@ private[redis4cats] class RedisStatefulConnection[F[_]: Concurrent: ContextShift
   def async: F[RedisAsyncCommands[K, V]] = F.delay(conn.async())
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]] =
     F.raiseError(OperationNotSupported("Running in a single node"))
-  def close: F[Unit] = JRFuture.fromCompletableFuture(F.delay(conn.closeAsync())).void
+  def close: F[Unit] = JRFuture.fromCompletableFuture(F.delay(conn.closeAsync()))(blocker).void
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
     F.raiseError(OperationNotSupported("Running in a single node"))
-  def liftK[G[_]: Concurrent: ContextShift]: RedisConnection[G, K, V] = new RedisStatefulConnection[G, K, V](conn)
+  def liftK[G[_]: Concurrent: ContextShift]: RedisConnection[G, K, V] =
+    new RedisStatefulConnection[G, K, V](conn, blocker)
 }
 
 private[redis4cats] class RedisStatefulClusterConnection[F[_]: Concurrent: ContextShift, K, V](
-    conn: StatefulRedisClusterConnection[K, V]
+    conn: StatefulRedisClusterConnection[K, V],
+    blocker: Blocker
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] =
     F.raiseError(
@@ -71,11 +74,11 @@ private[redis4cats] class RedisStatefulClusterConnection[F[_]: Concurrent: Conte
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]] = F.delay(conn.async())
   def clusterSync: F[RedisClusterSyncCommands[K, V]]   = F.delay(conn.sync())
   def close: F[Unit] =
-    JRFuture.fromCompletableFuture(F.delay(conn.closeAsync())).void
+    JRFuture.fromCompletableFuture(F.delay(conn.closeAsync()))(blocker).void
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
-    JRFuture.fromCompletableFuture(F.delay(conn.getConnectionAsync(nodeId.value))).flatMap { stateful =>
+    JRFuture.fromCompletableFuture(F.delay(conn.getConnectionAsync(nodeId.value)))(blocker).flatMap { stateful =>
       F.delay(stateful.async())
     }
   def liftK[G[_]: Concurrent: ContextShift]: RedisConnection[G, K, V] =
-    new RedisStatefulClusterConnection[G, K, V](conn)
+    new RedisStatefulClusterConnection[G, K, V](conn, blocker)
 }
