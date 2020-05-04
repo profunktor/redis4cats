@@ -33,6 +33,10 @@ object hlist {
   final case class HCons[+H, +Tail <: HList](head: H, tail: Tail) extends HList
   case object HNil extends HList
 
+  object ~: {
+    def unapply[H, T <: HList](l: H :: T): Some[(H, T)] = Some((l.head, l.tail))
+  }
+
   /**
     * It witnesses a relationship between two HLists.
     *
@@ -61,10 +65,6 @@ object hlist {
 
     implicit def hcons[F[_], A, T <: HList](implicit w: Witness[T]): Witness.Aux[HCons[F[A], T], HCons[A, w.R]] =
       new Witness[HCons[F[A], T]] { type R = HCons[A, w.R] }
-  }
-
-  object ~: {
-    def unapply[H, T <: HList](l: H :: T): Some[(H, T)] = Some((l.head, l.tail))
   }
 
 }

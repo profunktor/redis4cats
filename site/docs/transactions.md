@@ -47,6 +47,7 @@ import cats.implicits._
 import dev.profunktor.redis4cats._
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.transactions._
+import java.util.concurrent.TimeoutException
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 
