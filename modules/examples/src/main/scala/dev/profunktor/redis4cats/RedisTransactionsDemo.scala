@@ -63,12 +63,14 @@ object RedisTransactionsDemo extends LoggerIOApp {
         val prog =
           tx.exec(operations)
             .flatMap {
-              case _ ~: _ ~: res1 ~: _ ~: _ ~: res2 =>
+              case _ ~: _ ~: res1 ~: _ ~: _ ~: res2 ~: HNil =>
                 putStrLn(s"res1: $res1, res2: $res2")
             }
             .onError {
               case TransactionAborted =>
                 putStrLn("[Error] - Transaction Aborted")
+              case TransactionDiscarded =>
+                putStrLn("[Error] - Transaction Discarded")
               case _: TimeoutException =>
                 putStrLn("[Error] - Timeout")
             }

@@ -47,10 +47,4 @@ class HListSpec extends AnyFunSuite with Matchers {
     assert(n2.isInstanceOf[Int])
   }
 
-  test("Reversing HList") {
-    val hl = "foo" :: 123 :: "bar" :: true :: 2.4 :: 'a' :: HNil
-    assert(hl.reverse === 'a' :: 2.4 :: true :: "bar" :: 123 :: "foo" :: HNil)
-    assert(hl.reverse.reverse == hl)
-  }
-
 }

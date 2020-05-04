@@ -26,6 +26,7 @@ import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisBlocker }
 import dev.profunktor.redis4cats.effect.JRFuture._
 import dev.profunktor.redis4cats.effects._
+import dev.profunktor.redis4cats.transactions.TransactionDiscarded
 import io.lettuce.core.{
   GeoArgs,
   GeoRadiusStoreArgs,
@@ -43,9 +44,6 @@ import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
-import scala.util.control.NoStackTrace
-
-case object TransactionDiscarded extends NoStackTrace
 
 object Redis {
 

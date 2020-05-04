@@ -16,8 +16,6 @@
 
 package dev.profunktor.redis4cats
 
-import scala.annotation.tailrec
-
 /**
   * An heterogeneous list, mainly used to operate on transactions.
   *
@@ -30,16 +28,6 @@ object hlist {
 
   sealed trait HList {
     def ::[A](a: A): HCons[A, this.type] = HCons(a, this)
-
-    def reverse: HList = {
-      @tailrec
-      def go(res: HList, ys: HList): HList =
-        ys match {
-          case HNil        => res
-          case HCons(h, t) => go(h :: res, t)
-        }
-      go(HNil, this)
-    }
   }
 
   final case class HCons[+H, +Tail <: HList](head: H, tail: Tail) extends HList

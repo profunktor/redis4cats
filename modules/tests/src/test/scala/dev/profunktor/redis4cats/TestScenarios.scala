@@ -256,13 +256,18 @@ trait TestScenarios {
 
     val tx = RedisTransaction(cmd)
 
-    for {
-      _ <- tx.exec(cmd.set(key1, "foo") :: cmd.set(key2, "bar") :: HNil)
-      x <- cmd.get(key1)
-      _ <- IO(assert(x.contains("foo")))
-      y <- cmd.get(key2)
-      _ <- IO(assert(y.contains("bar")))
-    } yield ()
+    val operations =
+      cmd.set(key1, "osx") :: cmd.set(key2, "windows") :: cmd.get(key1) :: cmd.sIsMember("foo", "bar") ::
+          cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
+
+    tx.exec(operations).map {
+      case _ ~: _ ~: res1 ~: res2 ~: _ ~: _ ~: res3 ~: HNil =>
+        assert(res1.contains("osx"))
+        assert(res2 === false)
+        assert(res3.contains("nix"))
+      case tr =>
+        assert(false, s"Unexpected result: $tr")
+    }
 
   }
 

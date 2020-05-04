@@ -28,7 +28,9 @@ import scala.util.control.NoStackTrace
 
 object transactions {
 
-  case object TransactionAborted extends NoStackTrace
+  sealed trait TransactionError extends NoStackTrace
+  case object TransactionAborted extends TransactionError
+  case object TransactionDiscarded extends TransactionError
 
   case class RedisTransaction[F[_]: Concurrent: Log: Timer, K, V](
       cmd: RedisCommands[F, K, V]
@@ -67,18 +69,17 @@ object transactions {
           }
 
         def cancelFibers(fibs: HList, err: Throwable = TransactionAborted): F[Unit] =
-          joinOrCancel(fibs.reverse, HNil)(false).void >> promise.complete(err.asLeft)
+          joinOrCancel(fibs, HNil)(false).void >> promise.complete(err.asLeft)
 
         val tx =
           Resource.makeCase(cmd.multi >> runner(commands, HNil)) {
             case ((fibs: HList), ExitCase.Completed) =>
               for {
                 _ <- F.info("Transaction completed")
-                _ <- cmd.exec.handleErrorWith(e => cancelFibers(fibs.reverse, e) >> F.raiseError(e))
-                tr <- joinOrCancel(fibs.reverse, HNil)(true)
+                _ <- cmd.exec.handleErrorWith(e => cancelFibers(fibs, e) >> F.raiseError(e))
+                tr <- joinOrCancel(fibs, HNil)(true)
                 // Casting here is fine since we have a `Witness` that proves this true
-                res = tr.asInstanceOf[HList].reverse.asInstanceOf[w.R]
-                _ <- promise.complete(res.asRight)
+                _ <- promise.complete(tr.asInstanceOf[w.R].asRight)
               } yield ()
             case ((fibs: HList), ExitCase.Error(e)) =>
               F.error(s"Transaction failed: ${e.getMessage}") >>

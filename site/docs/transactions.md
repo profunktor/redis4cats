@@ -7,17 +7,20 @@ position: 3
 
 # Transactions
 
-Redis supports [transactions](https://redis.io/topics/transactions) via the `MULTI`, `EXEC` and `DISCARD` commands. `redis4cats` provides a `RedisTransaction` utility that models a transaction as a resource via the primitive `bracketCase`.
+Redis supports [transactions](https://redis.io/topics/transactions) via the `MULTI`, `EXEC` and `DISCARD` commands. `redis4cats` provides a `RedisTransaction` utility that models a transaction as a `Resource`.
 
-- `acquire`: begin transaction
-- `use`: send transactional commands
-- `release`: either commit on success or rollback on failure / cancellation.
+Note that every command has to be forked (`.start`) because the commands need to be sent to the server asynchronously and no response will be received until either an `EXEC` or a `DISCARD` command is sent. Both forking and sending the final command is handled by `RedisTransaction`.
+
+These are internals, though. All you need to care about is what commands you want to run as part of a transaction
+and handle the possible errors and retry logic.
 
 ### Working with transactions
 
 The most common way is to create a `RedisTransaction` once by passing the commands API as a parameter and invoke the `exec` function every time you want to run the given commands as part of a new transaction.
 
-Note that every command has to be forked (`.start`) because the commands need to be sent to the server asynchronously and no response will be received until either an `EXEC` or a `DISCARD` command is sent. Both forking and sending the final command is handled by `RedisTransaction`. Every command has to be atomic and independent of previous results, so it wouldn't make sense to chain commands using `flatMap` (though, it would technically work).
+Every command has to be atomic and independent of previous Redis results, so it is not recommended to chain commands using `flatMap`.
+
+Below you can find a first example of transactional commands.
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
@@ -66,17 +69,34 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
 
   // the result type is inferred as well
   // Unit :: Option[String] :: Unit :: HNil
-  val setters =
-    tx.exec(commands).flatMap {
-      case _ ~: res1 ~: _ ~: HNil =>
-        putStrLn(s"Key1 result: $res1")
-    }
+  val prog =
+    tx.exec(commands)
+      .flatMap {
+        case _ ~: res1 ~: _ ~: HNil =>
+          putStrLn(s"Key1 result: $res1")
+      }
+      .onError {
+        case TransactionAborted =>
+          putStrLn("[Error] - Transaction Aborted")
+        case TransactionDiscarded =>
+          putStrLn("[Error] - Transaction Discarded")
+        case _: TimeoutException =>
+          putStrLn("[Error] - Timeout")
+      }
 
-  getters >> setters >> getters.void
+  getters >> prog >> getters.void
 }
 ```
 
 It should be exclusively used to run Redis commands as part of a transaction, not any other computations. Fail to do so, may result in unexpected behavior.
+
+Transactional commands may be discarded if something went wrong in between. The possible errors you may get are:
+
+- `TransactionDiscarded`: The `EXEC` command failed and the transactional commands were discarded.
+- `TransactionAborted`: The `DISCARD` command was triggered due to cancellation or other failure within the transaction.
+- `TimeoutException`: The transaction timed out due to some unknown error.
+
+### How NOT to use transactions
 
 For example, the following transaction will result in a dead-lock:
 
@@ -98,7 +118,7 @@ commandsApi.use { cmd =>
 
 You should never pass a transactional command: `MULTI`, `EXEC` or `DISCARD`.
 
-The following example will result in a successful transaction; the error will be swallowed:
+The following example will result in a successful transaction on Redis. Yet, the operation will end up raising the error passed as a command.
 
 ```scala mdoc:silent
 commandsApi.use { cmd =>
