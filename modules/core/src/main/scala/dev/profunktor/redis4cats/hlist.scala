@@ -29,8 +29,7 @@ object hlist {
   type HNil              = HNil.type
 
   sealed trait HList {
-    type Prepend[A] <: HList
-    def ::[A](a: A): Prepend[A]
+    def ::[A](a: A): HCons[A, this.type] = HCons(a, this)
 
     def reverse: HList = {
       @tailrec
@@ -43,15 +42,8 @@ object hlist {
     }
   }
 
-  case class HCons[H, Tail <: HList](head: H, tail: Tail) extends HList {
-    override type Prepend[A] = HCons[A, HCons[H, Tail]]
-    override def ::[A](a: A): Prepend[A] = HCons(a, this)
-  }
-
-  case object HNil extends HList {
-    override type Prepend[A] = HCons[A, HNil]
-    override def ::[A](a: A): Prepend[A] = HCons(a, this)
-  }
+  case class HCons[+H, +Tail <: HList](head: H, tail: Tail) extends HList
+  case object HNil extends HList
 
   /**
     * It witnesses a relationship between two HLists.
@@ -83,38 +75,8 @@ object hlist {
       new Witness[HCons[F[A], T]] { type R = HCons[A, w.R] }
   }
 
-  /**
-    * Below is the `unapply` machinery to deconstruct HLists, useful for
-    * mattern matching while eliminating the HNil value.
-    *
-    * Slightly adapted from Miles Sabin's code posted on SO.
-    *
-    * Source: https://stackoverflow.com/questions/18468606/extractor-for-a-shapeless-hlist-that-mimics-parser-concatenation
-    */
-  trait UnapplyRight[L <: HList] {
-    type Out
-    def apply(l: L): Out
-  }
-
-  trait LPUnapplyRight {
-    type Aux[L <: HList, Out0] = UnapplyRight[L] { type Out = Out0 }
-    implicit def unapplyHCons[H, T <: HList]: Aux[H :: T, Option[(H, T)]] =
-      new UnapplyRight[H :: T] {
-        type Out = Option[(H, T)]
-        def apply(l: H :: T): Out = Option((l.head, l.tail))
-      }
-  }
-
-  object UnapplyRight extends LPUnapplyRight {
-    implicit def unapplyPair[H1, H2]: Aux[H1 :: H2 :: HNil, Option[(H1, H2)]] =
-      new UnapplyRight[H1 :: H2 :: HNil] {
-        type Out = Option[(H1, H2)]
-        def apply(l: H1 :: H2 :: HNil): Out = Option((l.head, l.tail.head))
-      }
-  }
-
   object ~: {
-    def unapply[L <: HList, Out <: Option[Any]](l: L)(implicit ua: UnapplyRight.Aux[L, Out]): Out = ua(l)
+    def unapply[H, T <: HList](l: H :: T): Some[(H, T)] = Some((l.head, l.tail))
   }
 
 }

@@ -37,7 +37,7 @@ class HListSpec extends AnyFunSuite with Matchers {
   test("Unapply HLists (deconstruct)") {
     val hl = () :: "hi" :: 123 :: true :: 's' :: 55 :: HNil
 
-    val u ~: s ~: n1 ~: b ~: c ~: n2 = hl
+    val u ~: s ~: n1 ~: b ~: c ~: n2 ~: HNil = hl
 
     assert(u.isInstanceOf[Unit])
     assert(s.isInstanceOf[String])

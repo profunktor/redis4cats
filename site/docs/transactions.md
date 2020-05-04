@@ -68,7 +68,7 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
   // Unit :: Option[String] :: Unit :: HNil
   val setters =
     tx.exec(commands).flatMap {
-      case _ ~: res1 ~: _ =>
+      case _ ~: res1 ~: _ ~: HNil =>
         putStrLn(s"Key1 result: $res1")
     }
 
