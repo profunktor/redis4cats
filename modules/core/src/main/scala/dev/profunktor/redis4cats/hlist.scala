@@ -42,7 +42,7 @@ object hlist {
     }
   }
 
-  case class HCons[+H, +Tail <: HList](head: H, tail: Tail) extends HList
+  final case class HCons[+H, +Tail <: HList](head: H, tail: Tail) extends HList
   case object HNil extends HList
 
   /**
