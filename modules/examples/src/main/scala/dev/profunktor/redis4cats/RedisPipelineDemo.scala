@@ -18,7 +18,6 @@ package dev.profunktor.redis4cats
 
 import cats.effect._
 import cats.implicits._
-import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.pipeline._
