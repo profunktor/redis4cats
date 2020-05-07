@@ -48,7 +48,7 @@ import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
 implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
-implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
+implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
@@ -100,18 +100,18 @@ import dev.profunktor.redis4cats.connection.RedisMasterReplica
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.domain.{ ReadFrom}
 
-// Already Imported Above, but if copying from this block is necessary
+// Already imported above, but if copying from this block is necessary
 // val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
-val connection: Resource[IO, RedisMasterReplica[String, String]] =
-  Resource.liftF(RedisURI.make[IO]("redis://localhost")).flatMap { uri =>
-    RedisMasterReplica[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
-  }
+val commands: Resource[IO, StringCommands[IO, String, String]] =
+  for {
+    uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
+    conn <- RedisMasterReplica[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
+    cmds <- Redis.masterReplica[IO, String, String](conn)
+  } yield cmds
 
-connection.use { conn =>
-  Redis.masterReplica[IO, String, String](conn).flatMap { cmd =>
-    cmd.set("foo", "123") >> IO.unit  // do something
-  }
+commands.use { cmd =>
+  cmd.set("foo", "123") >> IO.unit  // do something
 }
 ```
 

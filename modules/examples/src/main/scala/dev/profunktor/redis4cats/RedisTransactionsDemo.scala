@@ -21,8 +21,10 @@ import cats.implicits._
 import dev.profunktor.redis4cats.algebra.RedisCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.transactions._
+import java.util.concurrent.TimeoutException
 
 object RedisTransactionsDemo extends LoggerIOApp {
 
@@ -33,7 +35,7 @@ object RedisTransactionsDemo extends LoggerIOApp {
     val key2 = "test2"
 
     val showResult: String => Option[String] => IO[Unit] = key =>
-      _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s))
+      _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s"$key: $s"))
 
     val commandsApi: Resource[IO, RedisCommands[IO, String, String]] =
       for {
@@ -50,12 +52,30 @@ object RedisTransactionsDemo extends LoggerIOApp {
           cmd.get(key1).flatTap(showResult(key1)) *>
               cmd.get(key2).flatTap(showResult(key2))
 
-        val tx1 = tx.run(
-          cmd.set(key1, "foo"),
-          cmd.set(key2, "bar")
-        )
+        // the type is fully inferred but you can be explicit if you'd like
 
-        getters *> tx1 *> getters.void
+        //type Cmd = IO[Unit] :: IO[Unit] :: IO[Option[String]] :: IO[Unit] :: IO[Unit] :: IO[Option[String]] :: HNil
+        val operations =
+          cmd.set(key1, "sad") :: cmd.set(key2, "windows") :: cmd.get(key1) ::
+              cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
+
+        //type Res = Unit :: Unit :: Option[String] :: Unit :: Unit :: Option[String] :: HNil
+        val prog =
+          tx.exec(operations)
+            .flatMap {
+              case _ ~: _ ~: res1 ~: _ ~: _ ~: res2 ~: HNil =>
+                putStrLn(s"res1: $res1, res2: $res2")
+            }
+            .onError {
+              case TransactionAborted =>
+                putStrLn("[Error] - Transaction Aborted")
+              case TransactionDiscarded =>
+                putStrLn("[Error] - Transaction Discarded")
+              case _: TimeoutException =>
+                putStrLn("[Error] - Timeout")
+            }
+
+        getters >> prog >> getters >> putStrLn("keep doing stuff...")
       }
   }
 

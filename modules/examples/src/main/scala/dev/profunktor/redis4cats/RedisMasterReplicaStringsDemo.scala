@@ -17,9 +17,9 @@
 package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
+import dev.profunktor.redis4cats.algebra.RedisCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.domain.ReadFrom
-import dev.profunktor.redis4cats.connection.RedisMasterReplica
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.interpreter.Redis
 
@@ -33,28 +33,28 @@ object RedisMasterReplicaStringsDemo extends LoggerIOApp {
     val showResult: Option[String] => IO[Unit] =
       _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
-    val connection: Resource[IO, RedisMasterReplica[String, String]] =
-      Resource.liftF(RedisURI.make[IO](redisURI)).flatMap { uri =>
-        RedisMasterReplica[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
-      }
+    val connection: Resource[IO, RedisCommands[IO, String, String]] =
+      for {
+        uri <- Resource.liftF(RedisURI.make[IO](redisURI))
+        conn <- RedisMasterReplica[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
+        cmds <- Redis.masterReplica[IO, String, String](conn)
+      } yield cmds
 
     connection
-      .use { conn =>
-        Redis.masterReplica[IO, String, String](conn).flatMap { cmd =>
-          for {
-            x <- cmd.get(usernameKey)
-            _ <- showResult(x)
-            _ <- cmd.set(usernameKey, "some value")
-            y <- cmd.get(usernameKey)
-            _ <- showResult(y)
-            _ <- cmd.setNx(usernameKey, "should not happen")
-            w <- cmd.get(usernameKey)
-            _ <- showResult(w)
-            _ <- cmd.del(usernameKey)
-            z <- cmd.get(usernameKey)
-            _ <- showResult(z)
-          } yield ()
-        }
+      .use { cmd =>
+        for {
+          x <- cmd.get(usernameKey)
+          _ <- showResult(x)
+          _ <- cmd.set(usernameKey, "some value")
+          y <- cmd.get(usernameKey)
+          _ <- showResult(y)
+          _ <- cmd.setNx(usernameKey, "should not happen")
+          w <- cmd.get(usernameKey)
+          _ <- showResult(w)
+          _ <- cmd.del(usernameKey)
+          z <- cmd.get(usernameKey)
+          _ <- showResult(z)
+        } yield ()
       }
   }
 

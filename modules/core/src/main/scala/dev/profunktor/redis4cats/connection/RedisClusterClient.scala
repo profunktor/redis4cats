@@ -18,18 +18,19 @@ package dev.profunktor.redis4cats.connection
 
 import cats.effect._
 import cats.implicits._
+import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.domain.NodeId
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.effect.JRFuture._
 import io.lettuce.core.cluster.{ SlotHash, RedisClusterClient => JClusterClient }
 import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
-
-import dev.profunktor.redis4cats.JavaConversions._
 
 sealed abstract case class RedisClusterClient private (underlying: JClusterClient)
 
 object RedisClusterClient {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
+      blocker: Blocker,
       uri: RedisURI*
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
 
@@ -41,7 +42,7 @@ object RedisClusterClient {
 
     val release: RedisClusterClient => F[Unit] = client =>
       F.info(s"Releasing Redis Cluster client: ${client.underlying}") *>
-          JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync())).void
+          JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync()))(blocker).void
 
     (acquire, release)
   }
@@ -49,10 +50,11 @@ object RedisClusterClient {
   private[redis4cats] def initializeClusterPartitions[F[_]: Sync](client: JClusterClient): F[Unit] =
     F.delay(client.getPartitions).void
 
-  def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI*): Resource[F, RedisClusterClient] = {
-    val (acquire, release) = acquireAndRelease(uri: _*)
-    Resource.make(acquire)(release)
-  }
+  def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI*): Resource[F, RedisClusterClient] =
+    mkBlocker[F].flatMap { blocker =>
+      val (acquire, release) = acquireAndRelease(blocker, uri: _*)
+      Resource.make(acquire)(release)
+    }
 
   def fromUnderlying(underlying: JClusterClient): RedisClusterClient =
     new RedisClusterClient(underlying) {}

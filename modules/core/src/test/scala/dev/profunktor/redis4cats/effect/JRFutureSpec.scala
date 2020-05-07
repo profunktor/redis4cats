@@ -18,24 +18,27 @@ package dev.profunktor.redis4cats.effect
 
 import java.util.concurrent.CompletableFuture
 
-import cats.effect.{ ContextShift, IO }
+import cats.effect.{ Blocker, ContextShift, IO }
 import cats.syntax.all._
 import dev.profunktor.redis4cats.testutils.Redis4CatsAsyncFunSuite
+import scala.concurrent.ExecutionContext
 
 class JRFutureSpec extends Redis4CatsAsyncFunSuite {
 
-  implicit val cs: ContextShift[IO] = IO.contextShift(scala.concurrent.ExecutionContext.global)
+  implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
   val currentThread: IO[String] = IO(Thread.currentThread().getName)
 
   test("it shifts back once the Future is converted") {
     val ioa =
-      JRFuture.fromCompletableFuture[IO, String] {
-        IO {
-          val jFuture = new CompletableFuture[String]()
-          jFuture.complete("foo")
-          jFuture
-        }
+      Blocker[IO].use { blocker =>
+        JRFuture.fromCompletableFuture[IO, String] {
+          IO {
+            val jFuture = new CompletableFuture[String]()
+            jFuture.complete("foo")
+            jFuture
+          }
+        }(blocker)
       }
 
     (ioa *> currentThread)
@@ -45,12 +48,14 @@ class JRFutureSpec extends Redis4CatsAsyncFunSuite {
 
   test("it shifts back even when the CompletableFuture fails") {
     val ioa =
-      JRFuture.fromCompletableFuture[IO, String] {
-        IO {
-          val jFuture = new CompletableFuture[String]()
-          jFuture.completeExceptionally(new RuntimeException("Purposely fail"))
-          jFuture
-        }
+      Blocker[IO].use { blocker =>
+        JRFuture.fromCompletableFuture[IO, String] {
+          IO {
+            val jFuture = new CompletableFuture[String]()
+            jFuture.completeExceptionally(new RuntimeException("Purposely fail"))
+            jFuture
+          }
+        }(blocker)
       }
 
     (ioa.attempt *> currentThread)

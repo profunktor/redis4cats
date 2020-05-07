@@ -23,6 +23,7 @@ import dev.profunktor.redis4cats.algebra.{ PubSubCommands, PublishCommands, Subs
 import dev.profunktor.redis4cats.domain._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.effect.JRFuture._
 import fs2.Stream
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
@@ -31,15 +32,16 @@ object PubSub {
 
   private[redis4cats] def acquireAndRelease[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: RedisClient,
-      codec: RedisCodec[K, V]
+      codec: RedisCodec[K, V],
+      blocker: Blocker
   ): (F[StatefulRedisPubSubConnection[K, V]], StatefulRedisPubSubConnection[K, V] => F[Unit]) = {
 
-    val acquire: F[StatefulRedisPubSubConnection[K, V]] = JRFuture.fromConnectionFuture {
+    val acquire: F[StatefulRedisPubSubConnection[K, V]] = JRFuture.fromConnectionFuture(
       F.delay(client.underlying.connectPubSubAsync(codec.underlying, client.uri.underlying))
-    }
+    )(blocker)
 
     val release: StatefulRedisPubSubConnection[K, V] => F[Unit] = c =>
-      JRFuture.fromCompletableFuture(F.delay(c.closeAsync())) *>
+      JRFuture.fromCompletableFuture(F.delay(c.closeAsync()))(blocker) *>
           F.info(s"Releasing PubSub connection: ${client.uri.underlying}")
 
     (acquire, release)
@@ -53,17 +55,18 @@ object PubSub {
   def mkPubSubConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Stream[F, PubSubCommands[Stream[F, *], K, V]] = {
-    val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
-    // One exclusive connection for subscriptions and another connection for publishing / stats
-    for {
-      state <- Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]]))
-      sConn <- Stream.bracket(acquire)(release)
-      pConn <- Stream.bracket(acquire)(release)
-      subs <- Stream.emit(new LivePubSubCommands[F, K, V](state, sConn, pConn))
-    } yield subs
+  ): Stream[F, PubSubCommands[Stream[F, *], K, V]] =
+    Stream.resource(mkBlocker[F]).flatMap { blocker =>
+      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, blocker)
+      // One exclusive connection for subscriptions and another connection for publishing / stats
+      for {
+        state <- Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]]))
+        sConn <- Stream.bracket(acquire)(release)
+        pConn <- Stream.bracket(acquire)(release)
+        subs <- Stream.emit(new LivePubSubCommands[F, K, V](state, sConn, pConn, blocker))
+      } yield subs
 
-  }
+    }
 
   /**
     * Creates a PubSub connection.
@@ -73,10 +76,11 @@ object PubSub {
   def mkPublisherConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Stream[F, PublishCommands[Stream[F, *], K, V]] = {
-    val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
-    Stream.bracket(acquire)(release).map(c => new Publisher[F, K, V](c))
-  }
+  ): Stream[F, PublishCommands[Stream[F, *], K, V]] =
+    Stream.resource(mkBlocker[F]).flatMap { blocker =>
+      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, blocker)
+      Stream.bracket(acquire)(release).map(c => new Publisher[F, K, V](c, blocker))
+    }
 
   /**
     * Creates a PubSub connection.
@@ -86,11 +90,12 @@ object PubSub {
   def mkSubscriberConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Stream[F, SubscribeCommands[Stream[F, *], K, V]] = {
-    val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
-    Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]])).flatMap { st =>
-      Stream.bracket(acquire)(release).map(new Subscriber(st, _))
+  ): Stream[F, SubscribeCommands[Stream[F, *], K, V]] =
+    Stream.resource(mkBlocker[F]).flatMap { blocker =>
+      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, blocker)
+      Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]])).flatMap { st =>
+        Stream.bracket(acquire)(release).map(new Subscriber(st, _, blocker))
+      }
     }
-  }
 
 }

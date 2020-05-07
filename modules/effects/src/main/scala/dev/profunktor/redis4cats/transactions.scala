@@ -17,15 +17,22 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.concurrent._
 import cats.effect.implicits._
 import cats.implicits._
 import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.hlist._
+import scala.concurrent.duration._
+import scala.util.control.NoStackTrace
 
 object transactions {
 
-  case class RedisTransaction[F[_]: Concurrent: Log, K, V](
+  sealed trait TransactionError extends NoStackTrace
+  case object TransactionAborted extends TransactionError
+  case object TransactionDiscarded extends TransactionError
+
+  case class RedisTransaction[F[_]: Concurrent: Log: Timer, K, V](
       cmd: RedisCommands[F, K, V]
   ) {
 
@@ -39,25 +46,54 @@ object transactions {
       * It should not be used to run other computations, only Redis commands. Fail to do so
       * may end in unexpected results such as a dead lock.
       */
-    def run(commands: F[Any]*): F[Unit] =
-      Ref.of[F, List[Fiber[F, Any]]](List.empty).flatMap { fibers =>
-        val tx =
-          Resource.makeCase(cmd.multi) {
-            case (_, ExitCase.Completed) =>
-              cmd.exec *> F.info("Transaction completed")
-            case (_, ExitCase.Error(e)) =>
-              cmd.discard *> F.error(s"Transaction failed: ${e.getMessage}")
-            case (_, ExitCase.Canceled) =>
-              cmd.discard *> F.error("Transaction canceled")
+    def exec[T <: HList, R <: HList](commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
+      Deferred[F, Either[Throwable, w.R]].flatMap { promise =>
+        // Forks every command in order
+        def runner[H <: HList, G <: HList](ys: H, res: G): F[Any] =
+          ys match {
+            case HNil                           => F.pure(res)
+            case HCons((h: F[_] @unchecked), t) => h.start.flatMap(fb => runner(t, fb :: res))
           }
 
-        val cancelFibers =
-          fibers.get.flatMap(_.traverse(_.cancel).void)
+        // Joins or cancel fibers correspondent to previous executed commands
+        def joinOrCancel[H <: HList, G <: HList](ys: H, res: G)(isJoin: Boolean): F[Any] =
+          ys match {
+            case HNil => F.pure(res)
+            case HCons((h: Fiber[F, Any] @unchecked), t) if isJoin =>
+              h.join.flatMap(x => joinOrCancel(t, x :: res)(isJoin))
+            case HCons((h: Fiber[F, Any] @unchecked), t) =>
+              h.cancel.flatMap(x => joinOrCancel(t, x :: res)(isJoin))
+            case HCons(h, t) =>
+              F.error(s"Unexpected result: ${h.toString}") >> joinOrCancel(t, res)(isJoin)
+          }
 
-        F.info("Transaction started") *>
-          tx.use(_ => commands.toList.traverse(_.start).flatMap(fibers.set))
-            .guarantee(cancelFibers)
+        def cancelFibers(fibs: HList, err: Throwable = TransactionAborted): F[Unit] =
+          joinOrCancel(fibs, HNil)(false).void >> promise.complete(err.asLeft)
+
+        val tx =
+          Resource.makeCase(cmd.multi >> runner(commands, HNil)) {
+            case ((fibs: HList), ExitCase.Completed) =>
+              for {
+                _ <- F.info("Transaction completed")
+                _ <- cmd.exec.handleErrorWith(e => cancelFibers(fibs, e) >> F.raiseError(e))
+                tr <- joinOrCancel(fibs, HNil)(true)
+                // Casting here is fine since we have a `Witness` that proves this true
+                _ <- promise.complete(tr.asInstanceOf[w.R].asRight)
+              } yield ()
+            case ((fibs: HList), ExitCase.Error(e)) =>
+              F.error(s"Transaction failed: ${e.getMessage}") >>
+                  cmd.discard.guarantee(cancelFibers(fibs))
+            case ((fibs: HList), ExitCase.Canceled) =>
+              F.error("Transaction canceled") >>
+                  cmd.discard.guarantee(cancelFibers(fibs))
+            case _ =>
+              F.error("Kernel panic: the impossible happened!")
+          }
+
+        F.info("Transaction started") >>
+          (tx.use(_ => F.unit) >> promise.get.rethrow).timeout(3.seconds)
       }
+
   }
 
 }
