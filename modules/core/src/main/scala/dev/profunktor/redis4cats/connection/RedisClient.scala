@@ -17,8 +17,7 @@
 package dev.profunktor.redis4cats.connection
 
 import cats.effect._
-import cats.syntax.apply._
-import cats.syntax.functor._
+import cats.implicits._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effect.JRFuture._
 import io.lettuce.core.{ RedisClient => JRedisClient, RedisURI => JRedisURI }

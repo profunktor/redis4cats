@@ -15,23 +15,9 @@
  */
 
 package dev.profunktor.redis4cats
+package streams
 
-import dev.profunktor.redis4cats.domain.RedisChannel
-import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands
-
-object streams {
-
-  trait RedisPubSubCommands[K, V] {
-    def underlying: RedisPubSubAsyncCommands[K, V]
-  }
-  case class LivePubSubCommands[K, V](underlying: RedisPubSubAsyncCommands[K, V]) extends RedisPubSubCommands[K, V]
-
-  case class Subscription[K](channel: RedisChannel[K], number: Long)
-
-  object Subscription {
-    def empty[K](channel: RedisChannel[K]): Subscription[K] =
-      Subscription[K](channel, 0L)
-  }
+object data {
 
   final case class StreamingMessage[K, V](key: K, body: Map[K, V])
   final case class StreamingMessageWithId[K, V](id: MessageId, key: K, body: Map[K, V])

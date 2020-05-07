@@ -10,15 +10,15 @@ Purely functional interface for the [Hashes API](https://redis.io/commands#hash)
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
+import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.algebra.HashCommands
-import dev.profunktor.redis4cats.interpreter.Redis
 import dev.profunktor.redis4cats.log4cats._
-import dev.profunktor.redis4cats.domain._
+import dev.profunktor.redis4cats.data._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
 implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
-implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
+implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, HashCommands[IO, String, String]] = {
   Redis[IO, String, String](null, null.asInstanceOf[RedisCodec[String, String]]).map(_.asInstanceOf[HashCommands[IO, String, String]])

@@ -16,12 +16,11 @@
 
 package dev.profunktor.redis4cats.codecs
 
-import dev.profunktor.redis4cats.domain.RedisCodec
-import java.nio.ByteBuffer
-
 import dev.profunktor.redis4cats.codecs.splits.SplitEpi
+import dev.profunktor.redis4cats.data.RedisCodec
 import io.lettuce.core.codec.{ RedisCodec => JRedisCodec, ToByteBufEncoder }
 import io.netty.buffer.ByteBuf
+import java.nio.ByteBuffer
 
 object Codecs {
 

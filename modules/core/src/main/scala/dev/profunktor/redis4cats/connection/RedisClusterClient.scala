@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats.connection
 import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.JavaConversions._
-import dev.profunktor.redis4cats.domain.NodeId
+import dev.profunktor.redis4cats.data.NodeId
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effect.JRFuture._
 import io.lettuce.core.cluster.{ SlotHash, RedisClusterClient => JClusterClient }

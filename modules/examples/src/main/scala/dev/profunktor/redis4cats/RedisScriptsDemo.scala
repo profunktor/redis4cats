@@ -17,11 +17,11 @@
 package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
+import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.algebra.ScriptCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.effects.ScriptOutputType
-import dev.profunktor.redis4cats.interpreter.Redis
 
 object RedisScriptsDemo extends LoggerIOApp {
 

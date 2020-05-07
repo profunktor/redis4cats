@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.interpreter.pubsub
+package dev.profunktor.redis4cats
+package pubsub
 
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
-import dev.profunktor.redis4cats.algebra.{ PubSubCommands, PubSubStats, SubscribeCommands }
-import dev.profunktor.redis4cats.domain.RedisChannel
-import dev.profunktor.redis4cats.interpreter.pubsub.internals.{ PubSubInternals, PubSubState }
-import dev.profunktor.redis4cats.streams.Subscription
+import dev.profunktor.redis4cats.data.RedisChannel
+import dev.profunktor.redis4cats.pubsub.data.Subscription
+import dev.profunktor.redis4cats.pubsub.internals.{ PubSubInternals, PubSubState }
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection

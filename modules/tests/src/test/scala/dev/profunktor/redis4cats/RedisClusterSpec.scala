@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats
 
-import dev.profunktor.redis4cats.domain.RedisCodec
+import dev.profunktor.redis4cats.data.RedisCodec
 
 class RedisClusterSpec extends Redis4CatsFunSuite(true) with TestScenarios {
 

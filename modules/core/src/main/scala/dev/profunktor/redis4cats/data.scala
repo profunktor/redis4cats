@@ -21,7 +21,7 @@ import io.lettuce.core.codec.{ RedisCodec => JRedisCodec, StringCodec, ToByteBuf
 import io.lettuce.core.{ KeyScanCursor => JKeyScanCursor }
 import dev.profunktor.redis4cats.JavaConversions._
 
-object domain {
+object data {
 
   final case class RedisChannel[K](underlying: K) extends AnyVal
 

@@ -18,9 +18,9 @@ package dev.profunktor.redis4cats
 
 import cats.effect.IO
 import dev.profunktor.redis4cats.connection._
-import dev.profunktor.redis4cats.domain.RedisChannel
+import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.effect.Log
-import dev.profunktor.redis4cats.interpreter.pubsub.PubSub
+import dev.profunktor.redis4cats.pubsub.PubSub
 import fs2.Stream
 
 import scala.concurrent.duration._

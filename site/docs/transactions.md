@@ -24,9 +24,8 @@ Below you can find a first example of transactional commands.
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
-import dev.profunktor.redis4cats.algebra._
-import dev.profunktor.redis4cats.interpreter.Redis
-import dev.profunktor.redis4cats.domain._
+import dev.profunktor.redis4cats._
+import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger

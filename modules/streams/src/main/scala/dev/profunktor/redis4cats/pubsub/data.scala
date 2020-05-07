@@ -14,18 +14,23 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.algebra
+package dev.profunktor.redis4cats.pubsub
 
-import dev.profunktor.redis4cats.data.KeyScanCursor
+import dev.profunktor.redis4cats.data.RedisChannel
+import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands
 
-import scala.concurrent.duration.FiniteDuration
+object data {
 
-trait KeyCommands[F[_], K] {
-  def del(key: K*): F[Unit]
-  def exists(key: K*): F[Boolean]
-  def expire(k: K, seconds: FiniteDuration): F[Unit]
-  def ttl(key: K): F[Option[FiniteDuration]]
-  def pttl(key: K): F[Option[FiniteDuration]]
-  def scan: F[KeyScanCursor[K]]
-  def scan(cursor: Long): F[KeyScanCursor[K]]
+  trait RedisPubSubCommands[K, V] {
+    def underlying: RedisPubSubAsyncCommands[K, V]
+  }
+  case class LivePubSubCommands[K, V](underlying: RedisPubSubAsyncCommands[K, V]) extends RedisPubSubCommands[K, V]
+
+  case class Subscription[K](channel: RedisChannel[K], number: Long)
+
+  object Subscription {
+    def empty[K](channel: RedisChannel[K]): Subscription[K] =
+      Subscription[K](channel, 0L)
+  }
+
 }

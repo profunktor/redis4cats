@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.algebra
+package dev.profunktor.redis4cats
+package pubsub
 
-import dev.profunktor.redis4cats.domain._
-import dev.profunktor.redis4cats.streams.Subscription
+import dev.profunktor.redis4cats.data._
+import dev.profunktor.redis4cats.pubsub.data.Subscription
 
 trait PubSubStats[F[_], K] {
   def pubSubChannels: F[List[K]]

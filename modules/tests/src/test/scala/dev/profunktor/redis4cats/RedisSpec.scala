@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats
 
-import dev.profunktor.redis4cats.domain.RedisCodec
+import dev.profunktor.redis4cats.data.RedisCodec
 import io.lettuce.core.codec.{ ToByteBufEncoder, RedisCodec => JRedisCodec, StringCodec => JStringCodec }
 import io.netty.buffer.ByteBuf
 

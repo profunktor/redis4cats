@@ -39,10 +39,10 @@ Here's an example of acquiring a client and a connection to the `Strings API`:
 
 ```scala mdoc:silent
 import cats.effect.{IO, Resource}
+import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.algebra.StringCommands
 import dev.profunktor.redis4cats.connection.{RedisClient, RedisURI}
-import dev.profunktor.redis4cats.domain.RedisCodec
-import dev.profunktor.redis4cats.interpreter.Redis
+import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
@@ -95,10 +95,10 @@ def apply[F[_], K, V](codec: RedisCodec[K, V], uris: RedisURI*)(
 ```scala mdoc:silent
 import cats.effect.{IO, Resource}
 import cats.implicits._
+import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.algebra.StringCommands
 import dev.profunktor.redis4cats.connection.RedisMasterReplica
-import dev.profunktor.redis4cats.interpreter.Redis
-import dev.profunktor.redis4cats.domain.{ ReadFrom}
+import dev.profunktor.redis4cats.data.ReadFrom
 
 // Already imported above, but if copying from this block is necessary
 // val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8

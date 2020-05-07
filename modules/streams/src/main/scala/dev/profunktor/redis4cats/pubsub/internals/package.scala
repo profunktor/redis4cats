@@ -14,22 +14,13 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.algebra
+package dev.profunktor.redis4cats.pubsub
 
-import cats.effect.{ Concurrent, ContextShift }
+import dev.profunktor.redis4cats.data.RedisChannel
+import fs2.concurrent.Topic
 
-trait RedisCommands[F[_], K, V]
-    extends StringCommands[F, K, V]
-    with HashCommands[F, K, V]
-    with SetCommands[F, K, V]
-    with SortedSetCommands[F, K, V]
-    with ListCommands[F, K, V]
-    with GeoCommands[F, K, V]
-    with ConnectionCommands[F]
-    with ServerCommands[F, K]
-    with TransactionalCommands[F, K]
-    with PipelineCommands[F]
-    with ScriptCommands[F, K, V]
-    with KeyCommands[F, K] {
-  def liftK[G[_]: Concurrent: ContextShift]: RedisCommands[G, K, V]
+package object internals {
+  private[pubsub] type PubSubState[F[_], K, V] = Map[K, Topic[F, Option[V]]]
+  private[pubsub] type GetOrCreateTopicListener[F[_], K, V] =
+    RedisChannel[K] => PubSubState[F, K, V] => F[Topic[F, Option[V]]]
 }

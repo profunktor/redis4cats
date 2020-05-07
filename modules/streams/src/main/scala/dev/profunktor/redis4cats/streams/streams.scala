@@ -14,13 +14,17 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.interpreter.pubsub
+package dev.profunktor.redis4cats.streams
 
-import dev.profunktor.redis4cats.domain.RedisChannel
-import fs2.concurrent.Topic
+import data._
 
-package object internals {
-  private[pubsub] type PubSubState[F[_], K, V] = Map[K, Topic[F, Option[V]]]
-  private[pubsub] type GetOrCreateTopicListener[F[_], K, V] =
-    RedisChannel[K] => PubSubState[F, K, V] => F[Topic[F, Option[V]]]
+// format: off
+trait RawStreaming[F[_], K, V] {
+  def xAdd(key: K, body: Map[K, V]): F[MessageId]
+  def xRead(streams: Set[StreamingOffset[K]]): F[List[StreamingMessageWithId[K, V]]]
+}
+
+trait Streaming[F[_], K, V] {
+  def append: F[StreamingMessage[K, V]] => F[Unit]
+  def read(keys: Set[K], initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K]): F[StreamingMessageWithId[K, V]]
 }

@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.interpreter.pubsub.internals
+package dev.profunktor.redis4cats.pubsub.internals
 
 import cats.effect.ConcurrentEffect
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
 import cats.syntax.all._
-import dev.profunktor.redis4cats.domain.RedisChannel
+import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.effect.Log
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnection }
