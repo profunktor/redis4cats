@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.interpreter.streams
+package dev.profunktor.redis4cats
+package streams
 
 import cats.effect._
 import cats.syntax.functor._
-import dev.profunktor.redis4cats.algebra.RawStreaming
-import dev.profunktor.redis4cats.streams._
 import dev.profunktor.redis4cats.effect.JRFuture
+import dev.profunktor.redis4cats.streams.data._
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
 

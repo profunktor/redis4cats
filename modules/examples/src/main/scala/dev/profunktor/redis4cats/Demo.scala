@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats
 import cats.effect.IO
 import dev.profunktor.redis4cats.codecs.Codecs
 import dev.profunktor.redis4cats.codecs.splits._
-import dev.profunktor.redis4cats.domain.RedisCodec
+import dev.profunktor.redis4cats.data.RedisCodec
 
 object Demo {
 

@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.interpreter.pubsub
+package dev.profunktor.redis4cats
+package pubsub
 
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
-import dev.profunktor.redis4cats.algebra.{ PubSubCommands, PublishCommands, SubscribeCommands }
-import dev.profunktor.redis4cats.domain._
+import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effect.JRFuture._

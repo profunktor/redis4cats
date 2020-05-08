@@ -21,7 +21,6 @@ import dev.profunktor.redis4cats.algebra.GeoCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.effects._
-import dev.profunktor.redis4cats.interpreter.Redis
 import io.lettuce.core.GeoArgs
 
 object RedisGeoDemo extends LoggerIOApp {

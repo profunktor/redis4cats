@@ -20,7 +20,6 @@ import cats.effect._
 import cats.effect.concurrent._
 import cats.effect.implicits._
 import cats.implicits._
-import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
 import scala.concurrent.duration._

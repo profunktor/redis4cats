@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.interpreter
+package dev.profunktor.redis4cats
 
 import java.time.Instant
 
 import cats.effect._
 import cats.implicits._
-import dev.profunktor.redis4cats.algebra._
 import dev.profunktor.redis4cats.connection._
-import dev.profunktor.redis4cats.domain._
+import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisBlocker }
 import dev.profunktor.redis4cats.effect.JRFuture._
 import dev.profunktor.redis4cats.effects._

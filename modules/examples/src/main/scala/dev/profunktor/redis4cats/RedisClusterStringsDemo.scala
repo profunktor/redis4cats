@@ -20,7 +20,6 @@ import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.StringCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
-import dev.profunktor.redis4cats.interpreter.Redis
 
 object RedisClusterStringsDemo extends LoggerIOApp {
 

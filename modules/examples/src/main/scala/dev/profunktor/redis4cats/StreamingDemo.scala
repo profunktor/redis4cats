@@ -20,8 +20,8 @@ import cats.effect.IO
 import cats.syntax.parallel._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
-import dev.profunktor.redis4cats.interpreter.streams.RedisStream
-import dev.profunktor.redis4cats.streams.StreamingMessage
+import dev.profunktor.redis4cats.streams.RedisStream
+import dev.profunktor.redis4cats.streams.data.StreamingMessage
 import fs2.Stream
 
 import scala.concurrent.duration._

@@ -51,11 +51,12 @@ trait Streaming[F[_], K, V] {
 ```scala mdoc:silent
 import cats.effect.IO
 import cats.syntax.parallel._
+import dev.profunktor.redis4cats.RedisCommands
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
-import dev.profunktor.redis4cats.domain._
-import dev.profunktor.redis4cats.interpreter.streams.RedisStream
+import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
-import dev.profunktor.redis4cats.streams._
+import dev.profunktor.redis4cats.streams.RedisStream
+import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
@@ -65,7 +66,7 @@ import scala.util.Random
 
 implicit val timer = IO.timer(ExecutionContext.global)
 implicit val cs    = IO.contextShift(ExecutionContext.global)
-implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
+implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val stringCodec = RedisCodec.Utf8
 

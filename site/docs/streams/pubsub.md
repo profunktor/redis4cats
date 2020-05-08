@@ -25,7 +25,7 @@ Note: cluster support is not implemented yet.
 
 ### Subscriber
 
-```tut:silent
+```mdoc:silent
 trait SubscribeCommands[F[_], K, V] {
   def subscribe(channel: RedisChannel[K]): F[V]
   def unsubscribe(channel: RedisChannel[K]): F[Unit]
@@ -36,7 +36,7 @@ When using the `PubSub` interpreter the types will be `Stream[F, V]` and `Stream
 
 ### Publisher / PubSubStats
 
-```tut:silent
+```mdoc:silent
 trait PubSubStats[F[_], K] {
   def pubSubChannels: F[List[K]]
   def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]
@@ -56,8 +56,8 @@ When using the `PubSub` interpreter the `publish` function will be defined as a 
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.implicits._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
-import dev.profunktor.redis4cats.domain._
-import dev.profunktor.redis4cats.interpreter.pubsub.PubSub
+import dev.profunktor.redis4cats.data._
+import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.log4cats._
 import fs2.{Pipe, Stream}
 import io.chrisdavenport.log4cats.Logger
@@ -68,7 +68,7 @@ import scala.util.Random
 
 object PubSubDemo extends IOApp {
 
-  implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
+  implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
   private val stringCodec = RedisCodec.Utf8
 

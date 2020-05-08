@@ -14,34 +14,39 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.interpreter.pubsub
+package dev.profunktor.redis4cats
+package pubsub
 
 import cats.effect._
-import cats.syntax.functor._
-import dev.profunktor.redis4cats.algebra.{ PubSubStats, PublishCommands }
-import dev.profunktor.redis4cats.domain.RedisChannel
-import dev.profunktor.redis4cats.streams.Subscription
+import cats.syntax.all._
+import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.JRFuture
+import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-class Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](
+import dev.profunktor.redis4cats.JavaConversions._
+
+class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V],
     blocker: Blocker
-) extends PublishCommands[Stream[F, *], K, V] {
-
-  private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection, blocker)
-
-  override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
-    _.evalMap(message => JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message)))(blocker).void)
+) extends PubSubStats[Stream[F, *], K] {
 
   override def pubSubChannels: Stream[F, List[K]] =
-    pubSubStats.pubSubChannels
+    Stream
+      .eval {
+        JRFuture(F.delay(pubConnection.async().pubsubChannels()))(blocker)
+      }
+      .map(_.asScala.toList)
 
   override def pubSubSubscriptions(channel: RedisChannel[K]): Stream[F, Subscription[K]] =
-    pubSubStats.pubSubSubscriptions(channel)
+    pubSubSubscriptions(List(channel)).map(_.headOption).unNone
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
-    pubSubStats.pubSubSubscriptions(channels)
+    Stream.eval {
+      JRFuture(F.delay(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*)))(blocker).flatMap { kv =>
+        F.delay(kv.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), n) })
+      }
+    }
 
 }

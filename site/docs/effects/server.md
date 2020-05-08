@@ -11,15 +11,15 @@ Purely functional interface for the [Server API](https://redis.io/commands#serve
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
 import cats.implicits._
+import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.algebra.ServerCommands
-import dev.profunktor.redis4cats.interpreter.Redis
-import dev.profunktor.redis4cats.domain._
+import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
 implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
-implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
+implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, ServerCommands[IO, String]] = {
   Redis[IO, String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[ServerCommands[IO, String]]

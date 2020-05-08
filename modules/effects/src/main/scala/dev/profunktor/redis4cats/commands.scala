@@ -14,17 +14,23 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.algebra
+package dev.profunktor.redis4cats
 
-import dev.profunktor.redis4cats.streams._
+import algebra._
+import cats.effect.{ Concurrent, ContextShift }
 
-// format: off
-trait RawStreaming[F[_], K, V] {
-  def xAdd(key: K, body: Map[K, V]): F[MessageId]
-  def xRead(streams: Set[StreamingOffset[K]]): F[List[StreamingMessageWithId[K, V]]]
-}
-
-trait Streaming[F[_], K, V] {
-  def append: F[StreamingMessage[K, V]] => F[Unit]
-  def read(keys: Set[K], initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K]): F[StreamingMessageWithId[K, V]]
+trait RedisCommands[F[_], K, V]
+    extends StringCommands[F, K, V]
+    with HashCommands[F, K, V]
+    with SetCommands[F, K, V]
+    with SortedSetCommands[F, K, V]
+    with ListCommands[F, K, V]
+    with GeoCommands[F, K, V]
+    with ConnectionCommands[F]
+    with ServerCommands[F, K]
+    with TransactionalCommands[F, K]
+    with PipelineCommands[F]
+    with ScriptCommands[F, K, V]
+    with KeyCommands[F, K] {
+  def liftK[G[_]: Concurrent: ContextShift]: RedisCommands[G, K, V]
 }

@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats.connection
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
-import dev.profunktor.redis4cats.domain._
+import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effect.JRFuture._
 import io.lettuce.core.masterreplica.{ MasterReplica, StatefulRedisMasterReplicaConnection }

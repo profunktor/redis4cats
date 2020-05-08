@@ -21,7 +21,6 @@ import dev.profunktor.redis4cats.algebra.SortedSetCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.effects.{ Score, ScoreWithValue, ZRange }
-import dev.profunktor.redis4cats.interpreter.Redis
 
 object RedisSortedSetsDemo extends LoggerIOApp {
 

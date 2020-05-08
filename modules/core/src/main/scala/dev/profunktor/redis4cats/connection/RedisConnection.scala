@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats.connection
 
 import cats.effect._
 import cats.syntax.all._
-import dev.profunktor.redis4cats.domain.NodeId
+import dev.profunktor.redis4cats.data.NodeId
 import dev.profunktor.redis4cats.effect.JRFuture
 import io.lettuce.core.api.StatefulRedisConnection
 import io.lettuce.core.api.async.RedisAsyncCommands
