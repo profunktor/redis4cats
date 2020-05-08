@@ -17,24 +17,46 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
+import cats.effect.concurrent.Deferred
 import cats.effect.implicits._
 import cats.implicits._
 import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.hlist._
+import scala.concurrent.duration._
+import scala.util.control.NoStackTrace
 
 object pipeline {
 
-  case class RedisPipeline[F[_]: Bracket[*[_], Throwable]: Log, K, V](
+  case object PipelineError extends NoStackTrace
+
+  case class RedisPipeline[F[_]: Concurrent: Log: Timer, K, V](
       cmd: RedisCommands[F, K, V]
-  ) {
-    def run[A](fa: F[A]): F[A] =
-      F.info("Pipeline started") *>
-          cmd.disableAutoFlush
-            .bracketCase(_ => fa) {
-              case (_, ExitCase.Completed) => cmd.flushCommands *> F.info("Pipeline completed")
-              case (_, ExitCase.Error(e))  => F.error(s"Pipeline failed: ${e.getMessage}")
-              case (_, ExitCase.Canceled)  => F.error("Pipeline canceled")
+  ) extends HListRunner[F] {
+
+    def exec[T <: HList, R <: HList](commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
+      Deferred[F, Either[Throwable, w.R]].flatMap { promise =>
+        F.info("Pipeline started") >>
+          Resource
+            .makeCase(cmd.disableAutoFlush >> runner(commands, HNil)) {
+              case ((fibs: HList), ExitCase.Completed) =>
+                for {
+                  _ <- F.info("Pipeline completed")
+                  _ <- cmd.flushCommands
+                  tr <- joinOrCancel(fibs, HNil)(true)
+                  // Casting here is fine since we have a `Witness` that proves this true
+                  _ <- promise.complete(tr.asInstanceOf[w.R].asRight)
+                } yield ()
+              case ((fibs: HList), ExitCase.Error(e)) =>
+                F.error(s"Pipeline failed: ${e.getMessage}") >> cancelFibers(fibs, PipelineError, promise)
+              case ((fibs: HList), ExitCase.Canceled) =>
+                F.error("Pipeline canceled") >> cancelFibers(fibs, PipelineError, promise)
+              case _ =>
+                F.error("Kernel panic: the impossible happened!")
             }
-            .guarantee(cmd.enableAutoFlush)
+            .use(_ => F.unit)
+            .guarantee(cmd.enableAutoFlush) >> promise.get.rethrow.timeout(3.seconds)
+      }
+
   }
 
 }

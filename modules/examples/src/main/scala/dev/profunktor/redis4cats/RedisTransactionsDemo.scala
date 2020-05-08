@@ -44,8 +44,6 @@ object RedisTransactionsDemo extends LoggerIOApp {
 
     commandsApi
       .use { cmd =>
-        val tx = RedisTransaction(cmd)
-
         val getters =
           cmd.get(key1).flatTap(showResult(key1)) *>
               cmd.get(key2).flatTap(showResult(key2))
@@ -59,7 +57,8 @@ object RedisTransactionsDemo extends LoggerIOApp {
 
         //type Res = Unit :: Unit :: Option[String] :: Unit :: Unit :: Option[String] :: HNil
         val prog =
-          tx.exec(operations)
+          RedisTransaction(cmd)
+            .exec(operations)
             .flatMap {
               case _ ~: _ ~: res1 ~: _ ~: _ ~: res2 ~: HNil =>
                 putStrLn(s"res1: $res1, res2: $res2")

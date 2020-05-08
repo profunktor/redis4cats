@@ -33,7 +33,7 @@ object transactions {
 
   case class RedisTransaction[F[_]: Concurrent: Log: Timer, K, V](
       cmd: RedisCommands[F, K, V]
-  ) {
+  ) extends HListRunner[F] {
 
     /***
       * Exclusively run Redis commands as part of a transaction.
@@ -47,50 +47,27 @@ object transactions {
       */
     def exec[T <: HList, R <: HList](commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
       Deferred[F, Either[Throwable, w.R]].flatMap { promise =>
-        // Forks every command in order
-        def runner[H <: HList, G <: HList](ys: H, res: G): F[Any] =
-          ys match {
-            case HNil                           => F.pure(res)
-            case HCons((h: F[_] @unchecked), t) => h.start.flatMap(fb => runner(t, fb :: res))
-          }
-
-        // Joins or cancel fibers correspondent to previous executed commands
-        def joinOrCancel[H <: HList, G <: HList](ys: H, res: G)(isJoin: Boolean): F[Any] =
-          ys match {
-            case HNil => F.pure(res)
-            case HCons((h: Fiber[F, Any] @unchecked), t) if isJoin =>
-              h.join.flatMap(x => joinOrCancel(t, x :: res)(isJoin))
-            case HCons((h: Fiber[F, Any] @unchecked), t) =>
-              h.cancel.flatMap(x => joinOrCancel(t, x :: res)(isJoin))
-            case HCons(h, t) =>
-              F.error(s"Unexpected result: ${h.toString}") >> joinOrCancel(t, res)(isJoin)
-          }
-
-        def cancelFibers(fibs: HList, err: Throwable = TransactionAborted): F[Unit] =
-          joinOrCancel(fibs, HNil)(false).void >> promise.complete(err.asLeft)
-
-        val tx =
-          Resource.makeCase(cmd.multi >> runner(commands, HNil)) {
-            case ((fibs: HList), ExitCase.Completed) =>
-              for {
-                _ <- F.info("Transaction completed")
-                _ <- cmd.exec.handleErrorWith(e => cancelFibers(fibs, e) >> F.raiseError(e))
-                tr <- joinOrCancel(fibs, HNil)(true)
-                // Casting here is fine since we have a `Witness` that proves this true
-                _ <- promise.complete(tr.asInstanceOf[w.R].asRight)
-              } yield ()
-            case ((fibs: HList), ExitCase.Error(e)) =>
-              F.error(s"Transaction failed: ${e.getMessage}") >>
-                  cmd.discard.guarantee(cancelFibers(fibs))
-            case ((fibs: HList), ExitCase.Canceled) =>
-              F.error("Transaction canceled") >>
-                  cmd.discard.guarantee(cancelFibers(fibs))
-            case _ =>
-              F.error("Kernel panic: the impossible happened!")
-          }
-
         F.info("Transaction started") >>
-          (tx.use(_ => F.unit) >> promise.get.rethrow).timeout(3.seconds)
+          Resource
+            .makeCase(cmd.multi >> runner(commands, HNil)) {
+              case ((fibs: HList), ExitCase.Completed) =>
+                for {
+                  _ <- F.info("Transaction completed")
+                  _ <- cmd.exec.handleErrorWith(e => cancelFibers(fibs, e, promise) >> F.raiseError(e))
+                  tr <- joinOrCancel(fibs, HNil)(true)
+                  // Casting here is fine since we have a `Witness` that proves this true
+                  _ <- promise.complete(tr.asInstanceOf[w.R].asRight)
+                } yield ()
+              case ((fibs: HList), ExitCase.Error(e)) =>
+                F.error(s"Transaction failed: ${e.getMessage}") >>
+                    cmd.discard.guarantee(cancelFibers(fibs, TransactionAborted, promise))
+              case ((fibs: HList), ExitCase.Canceled) =>
+                F.error("Transaction canceled") >>
+                    cmd.discard.guarantee(cancelFibers(fibs, TransactionAborted, promise))
+              case _ =>
+                F.error("Kernel panic: the impossible happened!")
+            }
+            .use(_ => F.unit) >> promise.get.rethrow.timeout(3.seconds)
       }
 
   }
