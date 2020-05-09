@@ -19,7 +19,6 @@ package dev.profunktor.redis4cats.effect
 import java.util.concurrent.CompletableFuture
 
 import cats.effect.{ Blocker, ContextShift, IO }
-import cats.syntax.all._
 import dev.profunktor.redis4cats.testutils.Redis4CatsAsyncFunSuite
 import scala.concurrent.ExecutionContext
 
