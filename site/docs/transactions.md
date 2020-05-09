@@ -16,7 +16,7 @@ and handle the possible errors and retry logic.
 
 ### Working with transactions
 
-The most common way is to create a `RedisTransaction` once by passing the commands API as a parameter and invoke the `exec` function every time you want to run the given commands as part of a new transaction.
+The most common way is to create a `RedisTransaction` once by passing the commands API as a parameter and invoke the `exec` function (or `exec_`) every time you want to run the given commands as part of a new transaction.
 
 Every command has to be atomic and independent of previous Redis results, so it is not recommended to chain commands using `flatMap`.
 
@@ -70,9 +70,9 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
   // the result type is inferred as well
   // Unit :: Option[String] :: Unit :: HNil
   val prog =
-    tx.exec(commands)
+    tx.exec_(commands)
       .flatMap {
-        case _ ~: res1 ~: _ ~: HNil =>
+        case res1 ~: HNil =>
           putStrLn(s"Key1 result: $res1")
       }
       .onError {
@@ -95,6 +95,8 @@ Transactional commands may be discarded if something went wrong in between. The 
 - `TransactionDiscarded`: The `EXEC` command failed and the transactional commands were discarded.
 - `TransactionAborted`: The `DISCARD` command was triggered due to cancellation or other failure within the transaction.
 - `TimeoutException`: The transaction timed out due to some unknown error.
+
+The `exec_` function filters out values of type `Unit`, which are normally irrelevant. If you find yourself needing the `Unit` types to verify some behavior, use `exec` instead.
 
 ### How NOT to use transactions
 

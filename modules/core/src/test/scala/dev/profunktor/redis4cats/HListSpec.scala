@@ -47,4 +47,16 @@ class HListSpec extends AnyFunSuite with Matchers {
     assert(n2.isInstanceOf[Int])
   }
 
+  test("Filter out values") {
+    val unit = ()
+    val hl   = unit :: "hi" :: 33 :: unit :: false :: 's' :: unit :: HNil
+
+    val s ~: n ~: b ~: c ~: HNil = hl.filterUnit
+
+    assert(s.isInstanceOf[String])
+    assert(n.isInstanceOf[Int])
+    assert(b.isInstanceOf[Boolean])
+    assert(c.isInstanceOf[Char])
+  }
+
 }

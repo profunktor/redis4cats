@@ -28,10 +28,33 @@ object hlist {
 
   sealed trait HList {
     def ::[A](a: A): HCons[A, this.type] = HCons(a, this)
+
+    def reverse: HList = {
+      def go(ys: HList, res: HList): HList =
+        ys match {
+          case HNil        => res
+          case HCons(h, t) => go(t, h :: res)
+        }
+      go(this, HNil)
+    }
   }
 
   final case class HCons[+H, +Tail <: HList](head: H, tail: Tail) extends HList
   case object HNil extends HList
+
+  object HList {
+    implicit class HListOps[T <: HList](t: T) {
+      def filterUnit[R <: HList](implicit w: Filter.Aux[T, R]): R = {
+        def go(ys: HList, res: HList): HList =
+          ys match {
+            case HNil                   => res
+            case HCons(h, t) if h == () => go(t, res)
+            case HCons(h, t)            => go(t, h :: res)
+          }
+        go(t, HNil).reverse.asInstanceOf[w.R]
+      }
+    }
+  }
 
   object ~: {
     def unapply[H, T <: HList](l: H :: T): Some[(H, T)] = Some((l.head, l.tail))
@@ -65,6 +88,42 @@ object hlist {
 
     implicit def hcons[F[_], A, T <: HList](implicit w: Witness[T]): Witness.Aux[HCons[F[A], T], HCons[A, w.R]] =
       new Witness[HCons[F[A], T]] { type R = HCons[A, w.R] }
+  }
+
+  /*
+   * It represents a relationship between a raw list and a
+   * filtered one. Mainly used to filter out values of type Unit.
+   */
+  sealed trait Filter[T <: HList] {
+    type R <: HList
+  }
+
+  object Filter {
+    type Aux[T0 <: HList, R0 <: HList] = Filter[T0] { type R = R0 }
+
+    implicit val hnil: Filter.Aux[HNil, HNil] =
+      new Filter[HNil] { type R = HNil }
+
+    implicit def hconsUnit[T <: HList](implicit w: Filter[T]): Filter.Aux[HCons[Unit, T], w.R] =
+      new Filter[HCons[Unit, T]] { type R = w.R }
+
+    implicit def hconsNotUnit[A: =!=[Unit, *], T <: HList](implicit w: Filter[T]): Filter.Aux[HCons[A, T], A :: w.R] =
+      new Filter[HCons[A, T]] { type R = A :: w.R }
+  }
+
+  /**
+    * Type inequality
+    *
+    * Credits: https://stackoverflow.com/a/6929051
+    */
+  sealed class =!=[A, B]
+
+  object =!= extends NEqualLowPriority {
+    implicit def nequal[A, B]: =!=[A, B] = new =!=[A, B]
+  }
+
+  trait NEqualLowPriority {
+    implicit def equal[A]: =!=[A, A] = sys.error("should not be called")
   }
 
 }
