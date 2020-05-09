@@ -17,12 +17,9 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
-import cats.effect.concurrent._
-import cats.effect.implicits._
 import cats.implicits._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
-import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
 object transactions {
@@ -33,7 +30,7 @@ object transactions {
 
   case class RedisTransaction[F[_]: Concurrent: Log: Timer, K, V](
       cmd: RedisCommands[F, K, V]
-  ) extends HListRunner[F] {
+  ) {
 
     /***
       * Exclusively run Redis commands as part of a transaction.
@@ -46,29 +43,16 @@ object transactions {
       * may end in unexpected results such as a dead lock.
       */
     def exec[T <: HList, R <: HList](commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
-      Deferred[F, Either[Throwable, w.R]].flatMap { promise =>
-        F.info("Transaction started") >>
-          Resource
-            .makeCase(cmd.multi >> runner(commands, HNil)) {
-              case ((fibs: HList), ExitCase.Completed) =>
-                for {
-                  _ <- F.info("Transaction completed")
-                  _ <- cmd.exec.handleErrorWith(e => cancelFibers(fibs, e, promise) >> F.raiseError(e))
-                  tr <- joinOrCancel(fibs, HNil)(true)
-                  // Casting here is fine since we have a `Witness` that proves this true
-                  _ <- promise.complete(tr.asInstanceOf[w.R].asRight)
-                } yield ()
-              case ((fibs: HList), ExitCase.Error(e)) =>
-                F.error(s"Transaction failed: ${e.getMessage}") >>
-                    cmd.discard.guarantee(cancelFibers(fibs, TransactionAborted, promise))
-              case ((fibs: HList), ExitCase.Canceled) =>
-                F.error("Transaction canceled") >>
-                    cmd.discard.guarantee(cancelFibers(fibs, TransactionAborted, promise))
-              case _ =>
-                F.error("Kernel panic: the impossible happened!")
-            }
-            .use(_ => F.unit) >> promise.get.rethrow.timeout(3.seconds)
-      }
+      Runner[F].exec(
+        Runner.Ops(
+          name = "Transaction",
+          mainCmd = cmd.multi,
+          onComplete = (f: Runner.CancelFibers[F]) => cmd.exec.handleErrorWith(e => f(e) >> F.raiseError(e)),
+          onError = cmd.discard,
+          afterCompletion = F.unit,
+          mkError = () => TransactionAborted
+        )
+      )(commands)
 
   }
 

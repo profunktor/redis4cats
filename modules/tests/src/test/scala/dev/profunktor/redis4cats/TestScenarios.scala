@@ -23,7 +23,8 @@ import cats.implicits._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.hlist._
-import dev.profunktor.redis4cats.transactions._
+import dev.profunktor.redis4cats.pipeline.RedisPipeline
+import dev.profunktor.redis4cats.transactions.RedisTransaction
 import io.lettuce.core.GeoArgs
 import scala.concurrent.duration._
 
@@ -249,17 +250,34 @@ trait TestScenarios {
       _ <- IO(assert(slowLogLen.isValidLong))
     } yield ()
 
-  def transactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
-    val key1 = "test1"
-    val key2 = "test2"
-
-    val tx = RedisTransaction(cmd)
+  def pipelineScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val key1 = "testp1"
+    val key2 = "testp2"
 
     val operations =
       cmd.set(key1, "osx") :: cmd.set(key2, "windows") :: cmd.get(key1) :: cmd.sIsMember("foo", "bar") ::
           cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
 
-    tx.exec(operations).map {
+    RedisPipeline(cmd).exec(operations).map {
+      case _ ~: _ ~: res1 ~: res2 ~: _ ~: _ ~: res3 ~: HNil =>
+        assert(res1.contains("osx"))
+        assert(res2 === false)
+        assert(res3.contains("nix"))
+      case tr =>
+        assert(false, s"Unexpected result: $tr")
+    }
+
+  }
+
+  def transactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val key1 = "test1"
+    val key2 = "test2"
+
+    val operations =
+      cmd.set(key1, "osx") :: cmd.set(key2, "windows") :: cmd.get(key1) :: cmd.sIsMember("foo", "bar") ::
+          cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
+
+    RedisTransaction(cmd).exec(operations).map {
       case _ ~: _ ~: res1 ~: res2 ~: _ ~: _ ~: res3 ~: HNil =>
         assert(res1.contains("osx"))
         assert(res2 === false)
