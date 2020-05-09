@@ -47,9 +47,9 @@ object hlist {
       def filterUnit[R <: HList](implicit w: Filter.Aux[T, R]): R = {
         def go(ys: HList, res: HList): HList =
           ys match {
-            case HNil                   => res
-            case HCons(h, t) if h == () => go(t, res)
-            case HCons(h, t)            => go(t, h :: res)
+            case HNil                                => res
+            case HCons(h, t) if h.isInstanceOf[Unit] => go(t, res)
+            case HCons(h, t)                         => go(t, h :: res)
           }
         go(t, HNil).reverse.asInstanceOf[w.R]
       }
