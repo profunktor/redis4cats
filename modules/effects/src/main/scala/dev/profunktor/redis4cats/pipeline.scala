@@ -17,6 +17,7 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
+import cats.syntax.functor._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
 import scala.util.control.NoStackTrace
@@ -29,6 +30,23 @@ object pipeline {
       cmd: RedisCommands[F, K, V]
   ) {
 
+    /**
+      * Same as @exec, except it filters out values of type Unit
+      * from its result.
+      */
+    def exec_[T <: HList, R <: HList, S <: HList](commands: T)(
+        implicit w: Witness.Aux[T, R],
+        f: Filter.Aux[R, S]
+    ): F[S] = exec[T, R](commands).map(_.filterUnit)
+
+    /***
+      * Exclusively run Redis commands as part of a pipeline (autoflush: disabled).
+      *
+      * Once all the commands have been executed, @exec will "flush" them into Redis,
+      * and finally re-enable autoflush.
+      *
+      * @return `F[R]` or raises a @PipelineError in case of failure.
+      */
     def exec[T <: HList, R <: HList](commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
       Runner[F].exec(
         Runner.Ops(
