@@ -11,15 +11,13 @@ Use [pipelining](https://redis.io/topics/pipelining) to speed up your queries by
 
 `redis4cats` provides a `RedisPipeline` utility that models this behavior with some guarantees described below:
 
-- `acquire`: disable autoflush.
-- `use`: send a bunch of commands defined as `F[A]`.
+- `acquire`: disable autoflush and send a bunch of commands defined as a custom `HList`.
 - `release`: either flush commands on success or log error on failure / cancellation.
 - `guarantee`: re-enable autoflush.
 
 ### RedisPipeline usage
 
-The API for disabling / enabling autoflush and flush commands manually is available for you to use but since the pattern
-is so common it is recommended to just use `RedisPipeline`. You can create a pipeline by passing the commands API as a parameter and invoke the `run` function given the set of commands you wish to send to the server.
+The API for disabling / enabling autoflush and flush commands manually is available for you to use but since the pattern is so common it is recommended to just use `RedisPipeline`. You can create a pipeline by passing the commands API as a parameter and invoke the `exec` function given the set of commands you wish to send to the server.
 
 Note that every command has to be forked (`.start`) because the commands need to be sent to the server in an asynchronous way but no response will be received until the commands are successfully flushed. Also, it is not possible to sequence commands (`flatMap`) that are part of a pipeline. Every command has to be atomic and independent of previous results.
 
@@ -43,7 +41,9 @@ val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
 import cats.effect.IO
 import cats.implicits._
 import dev.profunktor.redis4cats._
+import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline._
+import java.util.concurrent.TimeoutException
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext
 
@@ -51,22 +51,36 @@ implicit val timer = IO.timer(ExecutionContext.global)
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 
-val key = "testp"
+val key1 = "testp1"
+val key2 = "testp2"
 
-val showResult: Int => Option[String] => IO[Unit] = n =>
-  _.fold(putStrLn(s"Not found key $key-$n"))(s => putStrLn(s))
+val showResult: String => Option[String] => IO[Unit] = key =>
+_.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s"$key: $s"))
 
 commandsApi.use { cmd => // RedisCommands[IO, String, String]
-  def traversal(f: Int => IO[Unit]): IO[Unit] =
-    List.range(0, 50).traverse(f).void
+  val getters =
+    cmd.get(key1).flatTap(showResult(key1)) *>
+        cmd.get(key2).flatTap(showResult(key2))
 
-  val setters: IO[Unit] =
-    traversal(n => cmd.set(s"$key-$n", (n * 2).toString).start.void)
+  val operations =
+    cmd.set(key1, "noop") :: cmd.set(key2, "windows") :: cmd.get(key1) ::
+        cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
 
-  val getters: IO[Unit] =
-    traversal(n => cmd.get(s"$key-$n").flatMap(showResult(n)))
+  val prog =
+    RedisPipeline(cmd)
+      .exec(operations)
+      .flatMap {
+        case _ ~: _ ~: res1 ~: _ ~: _ ~: res2 ~: HNil =>
+          putStrLn(s"res1: $res1, res2: $res2")
+      }
+      .onError {
+        case PipelineError =>
+          putStrLn("[Error] - Pipeline failed")
+        case _: TimeoutException =>
+          putStrLn("[Error] - Timeout")
+      }
 
-  RedisPipeline(cmd).run(setters) *> IO.sleep(2.seconds) *> getters
+  getters >> prog >> getters >> putStrLn("keep doing stuff...")
 }
 ```
 

@@ -259,13 +259,13 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
 
   /******************************* AutoFlush API **********************************/
   override def enableAutoFlush: F[Unit] =
-    async.flatMap(c => F.delay(c.setAutoFlushCommands(true)))
+    blocker.blockOn(async.flatMap(c => blocker.delay(c.setAutoFlushCommands(true))))
 
   override def disableAutoFlush: F[Unit] =
-    async.flatMap(c => F.delay(c.setAutoFlushCommands(false)))
+    blocker.blockOn(async.flatMap(c => blocker.delay(c.setAutoFlushCommands(false))))
 
   override def flushCommands: F[Unit] =
-    async.flatMap(c => F.delay(c.flushCommands()))
+    blocker.blockOn(async.flatMap(c => blocker.delay(c.flushCommands())))
 
   /******************************* Strings API **********************************/
   override def append(key: K, value: V): F[Unit] =

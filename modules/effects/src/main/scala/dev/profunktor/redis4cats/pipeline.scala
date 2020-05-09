@@ -17,24 +17,30 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
-import cats.effect.implicits._
-import cats.implicits._
 import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.hlist._
+import scala.util.control.NoStackTrace
 
 object pipeline {
 
-  case class RedisPipeline[F[_]: Bracket[*[_], Throwable]: Log, K, V](
+  case object PipelineError extends NoStackTrace
+
+  case class RedisPipeline[F[_]: Concurrent: Log: Timer, K, V](
       cmd: RedisCommands[F, K, V]
   ) {
-    def run[A](fa: F[A]): F[A] =
-      F.info("Pipeline started") *>
-          cmd.disableAutoFlush
-            .bracketCase(_ => fa) {
-              case (_, ExitCase.Completed) => cmd.flushCommands *> F.info("Pipeline completed")
-              case (_, ExitCase.Error(e))  => F.error(s"Pipeline failed: ${e.getMessage}")
-              case (_, ExitCase.Canceled)  => F.error("Pipeline canceled")
-            }
-            .guarantee(cmd.enableAutoFlush)
+
+    def exec[T <: HList, R <: HList](commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
+      Runner[F].exec(
+        Runner.Ops(
+          name = "Pipeline",
+          mainCmd = cmd.disableAutoFlush,
+          onComplete = (_: Runner.CancelFibers[F]) => cmd.flushCommands,
+          onError = F.unit,
+          afterCompletion = cmd.enableAutoFlush,
+          mkError = () => PipelineError
+        )
+      )(commands)
+
   }
 
 }
