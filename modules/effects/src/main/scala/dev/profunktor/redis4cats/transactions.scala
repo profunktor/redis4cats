@@ -32,14 +32,24 @@ object transactions {
       cmd: RedisCommands[F, K, V]
   ) {
 
+    private val ops =
+      Runner.Ops(
+        name = "Transaction",
+        mainCmd = cmd.multi,
+        onComplete = (f: Runner.CancelFibers[F]) => cmd.exec.handleErrorWith(e => f(e) >> F.raiseError(e)),
+        onError = cmd.discard,
+        afterCompletion = F.unit,
+        mkError = () => TransactionAborted
+      )
+
     /**
       * Same as @exec, except it filters out values of type Unit
       * from its result.
       */
-    def exec_[T <: HList, R <: HList, S <: HList](commands: T)(
+    def filterExec[T <: HList, R <: HList, S <: HList](commands: T)(
         implicit w: Witness.Aux[T, R],
         f: Filter.Aux[R, S]
-    ): F[S] = exec[T, R](commands).map(_.filterUnit)
+    ): F[S] = Runner[F].filterExec(ops)(commands)
 
     /***
       * Exclusively run Redis commands as part of a transaction.
@@ -54,16 +64,7 @@ object transactions {
       * @return `F[R]` or it raises a @TransactionError in case of failure.
       */
     def exec[T <: HList, R <: HList](commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
-      Runner[F].exec(
-        Runner.Ops(
-          name = "Transaction",
-          mainCmd = cmd.multi,
-          onComplete = (f: Runner.CancelFibers[F]) => cmd.exec.handleErrorWith(e => f(e) >> F.raiseError(e)),
-          onError = cmd.discard,
-          afterCompletion = F.unit,
-          mkError = () => TransactionAborted
-        )
-      )(commands)
+      Runner[F].exec(ops)(commands)
 
   }
 

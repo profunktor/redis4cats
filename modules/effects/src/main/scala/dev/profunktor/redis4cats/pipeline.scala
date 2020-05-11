@@ -17,7 +17,6 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
-import cats.syntax.functor._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
 import scala.util.control.NoStackTrace
@@ -30,14 +29,24 @@ object pipeline {
       cmd: RedisCommands[F, K, V]
   ) {
 
+    private val ops =
+      Runner.Ops(
+        name = "Pipeline",
+        mainCmd = cmd.disableAutoFlush,
+        onComplete = (_: Runner.CancelFibers[F]) => cmd.flushCommands,
+        onError = F.unit,
+        afterCompletion = cmd.enableAutoFlush,
+        mkError = () => PipelineError
+      )
+
     /**
       * Same as @exec, except it filters out values of type Unit
       * from its result.
       */
-    def exec_[T <: HList, R <: HList, S <: HList](commands: T)(
+    def filterExec[T <: HList, R <: HList, S <: HList](commands: T)(
         implicit w: Witness.Aux[T, R],
         f: Filter.Aux[R, S]
-    ): F[S] = exec[T, R](commands).map(_.filterUnit)
+    ): F[S] = Runner[F].filterExec(ops)(commands)
 
     /***
       * Exclusively run Redis commands as part of a pipeline (autoflush: disabled).
@@ -48,16 +57,7 @@ object pipeline {
       * @return `F[R]` or raises a @PipelineError in case of failure.
       */
     def exec[T <: HList, R <: HList](commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
-      Runner[F].exec(
-        Runner.Ops(
-          name = "Pipeline",
-          mainCmd = cmd.disableAutoFlush,
-          onComplete = (_: Runner.CancelFibers[F]) => cmd.flushCommands,
-          onError = F.unit,
-          afterCompletion = cmd.enableAutoFlush,
-          mkError = () => PipelineError
-        )
-      )(commands)
+      Runner[F].exec(ops)(commands)
 
   }
 

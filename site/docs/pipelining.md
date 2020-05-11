@@ -17,7 +17,7 @@ Use [pipelining](https://redis.io/topics/pipelining) to speed up your queries by
 
 ### RedisPipeline usage
 
-The API for disabling / enabling autoflush and flush commands manually is available for you to use but since the pattern is so common it is recommended to just use `RedisPipeline`. You can create a pipeline by passing the commands API as a parameter and invoke the `exec` function (or `exec_`) given the set of commands you wish to send to the server.
+The API for disabling / enabling autoflush and flush commands manually is available for you to use but since the pattern is so common it is recommended to just use `RedisPipeline`. You can create a pipeline by passing the commands API as a parameter and invoke the `exec` function (or `filterExec`) given the set of commands you wish to send to the server.
 
 Note that every command has to be forked (`.start`) because the commands need to be sent to the server in an asynchronous way but no response will be received until the commands are successfully flushed. Also, it is not possible to sequence commands (`flatMap`) that are part of a pipeline. Every command has to be atomic and independent of previous results.
 
@@ -68,7 +68,7 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
 
   val prog =
     RedisPipeline(cmd)
-      .exec_(operations)
+      .filterExec(operations)
       .flatMap {
         case res1 ~: res2 ~: HNil =>
           putStrLn(s"res1: $res1, res2: $res2")
@@ -84,5 +84,4 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
 }
 ```
 
-The `exec_` function filters out values of type `Unit`, which are normally irrelevant. If you find yourself needing the `Unit` types to verify some behavior, use `exec` instead.
-
+The `filterExec` function filters out values of type `Unit`, which are normally irrelevant. If you find yourself needing the `Unit` types to verify some behavior, use `exec` instead.
