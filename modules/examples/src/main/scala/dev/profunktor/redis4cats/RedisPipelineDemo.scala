@@ -54,7 +54,7 @@ object RedisPipelineDemo extends LoggerIOApp {
 
         val prog =
           RedisPipeline(cmd)
-            .exec_(operations)
+            .filterExec(operations)
             .flatMap {
               case res1 ~: res2 ~: HNil =>
                 putStrLn(s"res1: $res1, res2: $res2")

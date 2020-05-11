@@ -42,6 +42,11 @@ object Runner {
 
 private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Timer] {
 
+  def filterExec[T <: HList, R <: HList, S <: HList](ops: Runner.Ops[F])(commands: T)(
+      implicit w: Witness.Aux[T, R],
+      f: Filter.Aux[R, S]
+  ): F[S] = exec[T, R](ops)(commands).map(_.filterUnit)
+
   def exec[T <: HList, R <: HList](ops: Runner.Ops[F])(commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
     Deferred[F, Either[Throwable, w.R]].flatMap { promise =>
       def cancelFibers[A](fibs: HList)(err: Throwable): F[Unit] =
