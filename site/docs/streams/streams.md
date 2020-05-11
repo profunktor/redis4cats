@@ -51,7 +51,6 @@ trait Streaming[F[_], K, V] {
 ```scala mdoc:silent
 import cats.effect.IO
 import cats.syntax.parallel._
-import dev.profunktor.redis4cats.RedisCommands
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._

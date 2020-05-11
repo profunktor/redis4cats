@@ -18,7 +18,6 @@ package dev.profunktor.redis4cats
 
 import cats.effect._
 import cats.implicits._
-import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline._
@@ -36,11 +35,7 @@ object RedisPipelineDemo extends LoggerIOApp {
       _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s"$key: $s"))
 
     val commandsApi: Resource[IO, RedisCommands[IO, String, String]] =
-      for {
-        uri <- Resource.liftF(RedisURI.make[IO](redisURI))
-        client <- RedisClient[IO](uri)
-        redis <- Redis[IO, String, String](client, stringCodec)
-      } yield redis
+      Redis[IO].utf8(redisURI)
 
     commandsApi
       .use { cmd =>

@@ -2,7 +2,7 @@
 layout: docs
 title:  "Transactions"
 number: 4
-position: 3
+position: 4
 ---
 
 # Transactions
@@ -24,6 +24,7 @@ Below you can find a first example of transactional commands.
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
+import cats.implicits._
 import dev.profunktor.redis4cats._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
@@ -36,7 +37,7 @@ implicit val timer = IO.timer(ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
-  Redis[IO, String, String](null, null.asInstanceOf[RedisCodec[String, String]])
+  Redis[IO].make[String, String](null, null.asInstanceOf[RedisCodec[String, String]])
 }
 ```
 

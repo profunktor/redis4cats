@@ -1,8 +1,8 @@
 ---
 layout: docs
 title:  "Streams API"
-number: 2
-position: 2
+number: 3
+position: 3
 ---
 
 # Streams API

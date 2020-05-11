@@ -104,43 +104,73 @@ object Redis {
     (acquire, release)
   }
 
-  def apply[F[_]: Concurrent: ContextShift: Log, K, V](
-      client: RedisClient,
-      codec: RedisCodec[K, V]
-  ): Resource[F, RedisCommands[F, K, V]] =
-    mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndRelease(client, codec, blocker)
-      Resource.make(acquire)(release).widen
-    }
+  class RedisPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
 
-  def cluster[F[_]: Concurrent: ContextShift: Log, K, V](
-      clusterClient: RedisClusterClient,
-      codec: RedisCodec[K, V]
-  ): Resource[F, RedisCommands[F, K, V]] =
-    mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, blocker)
-      Resource.make(acquire)(release).widen
-    }
+    def simple[K, V](uri: String, codec: RedisCodec[K, V]): Resource[F, RedisCommands[F, K, V]] =
+      for {
+        redisUri <- Resource.liftF(RedisURI.make[F](uri))
+        client <- RedisClient[F](redisUri)
+        redis <- this.make(client, codec)
+      } yield redis
 
-  def clusterByNode[F[_]: Concurrent: ContextShift: Log, K, V](
-      clusterClient: RedisClusterClient,
-      codec: RedisCodec[K, V],
-      nodeId: NodeId
-  ): Resource[F, RedisCommands[F, K, V]] =
-    mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, nodeId, blocker)
-      Resource.make(acquire)(release).widen
-    }
+    def utf8(uri: String): Resource[F, RedisCommands[F, String, String]] =
+      simple(uri, RedisCodec.Utf8)
 
-  def masterReplica[F[_]: Concurrent: ContextShift: Log, K, V](
-      conn: RedisMasterReplica[K, V]
-  ): Resource[F, RedisCommands[F, K, V]] =
-    mkBlocker[F].flatMap { blocker =>
-      Resource.liftF {
-        F.delay(new RedisStatefulConnection(conn.underlying, blocker))
-          .map(c => new Redis[F, K, V](c, blocker))
+    def make[K, V](
+        client: RedisClient,
+        codec: RedisCodec[K, V]
+    ): Resource[F, RedisCommands[F, K, V]] =
+      mkBlocker[F].flatMap { blocker =>
+        val (acquire, release) = acquireAndRelease(client, codec, blocker)
+        Resource.make(acquire)(release).widen
       }
-    }
+
+    def cluster[K, V](
+        uri: String,
+        codec: RedisCodec[K, V]
+    ): Resource[F, RedisCommands[F, K, V]] =
+      for {
+        redisUri <- Resource.liftF(RedisURI.make[F](uri))
+        client <- RedisClusterClient[F](redisUri)
+        redis <- this.makeCluster[K, V](client, codec)
+      } yield redis
+
+    def clusterUtf8(uri: String): Resource[F, RedisCommands[F, String, String]] =
+      cluster(uri, RedisCodec.Utf8)
+
+    def makeCluster[K, V](
+        clusterClient: RedisClusterClient,
+        codec: RedisCodec[K, V]
+    ): Resource[F, RedisCommands[F, K, V]] =
+      mkBlocker[F].flatMap { blocker =>
+        val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, blocker)
+        Resource.make(acquire)(release).widen
+      }
+
+    def makeClusterByNode[K, V](
+        clusterClient: RedisClusterClient,
+        codec: RedisCodec[K, V],
+        nodeId: NodeId
+    ): Resource[F, RedisCommands[F, K, V]] =
+      mkBlocker[F].flatMap { blocker =>
+        val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, nodeId, blocker)
+        Resource.make(acquire)(release).widen
+      }
+
+    def masterReplica[K, V](
+        conn: RedisMasterReplica[K, V]
+    ): Resource[F, RedisCommands[F, K, V]] =
+      mkBlocker[F].flatMap { blocker =>
+        Resource.liftF {
+          F.delay(new RedisStatefulConnection(conn.underlying, blocker))
+            .map(c => new Redis[F, K, V](c, blocker))
+        }
+      }
+
+  }
+
+  def apply[F[_]: Concurrent: ContextShift: Log]: RedisPartiallyApplied[F] = new RedisPartiallyApplied[F]
+
 }
 
 private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](

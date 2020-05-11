@@ -1,8 +1,8 @@
 ---
 layout: docs
 title:  "Effects API"
-number: 1
-position: 1
+number: 2
+position: 2
 ---
 
 # Effects API
@@ -41,7 +41,7 @@ Here's an example of acquiring a client and a connection to the `Strings API`:
 import cats.effect.{IO, Resource}
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.algebra.StringCommands
-import dev.profunktor.redis4cats.connection.{RedisClient, RedisURI}
+import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.log4cats._
 import io.chrisdavenport.log4cats.Logger
@@ -56,12 +56,29 @@ val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
     client <- RedisClient[IO](uri)
-    redis  <- Redis[IO, String, String](client, stringCodec)
+    redis  <- Redis[IO].make(client, stringCodec)
   } yield redis
 ```
 
-The only difference with other APIs will be the `Commands` type. For the `Strings API` is `StringCommands`, for `Sorted Sets API` is `SortedSetCommands` and so on. For a complete list please take a look at the
-[algebras](https://github.com/profunktor/redis4cats/tree/master/modules/effects/src/main/scala/dev/profunktor/redis4cats/algebra).
+The only difference with other APIs will be the `Commands` type. For the `Strings API` is `StringCommands`, for `Sorted Sets API` is `SortedSetCommands` and so on. For a complete list please take a look at the [algebras](https://github.com/profunktor/redis4cats/tree/master/modules/effects/src/main/scala/dev/profunktor/redis4cats/algebra).
+
+Doing it this way, you can share the same `RedisClient` to establish many different connections. If your use case is simple, have a look at the section below.
+
+### Single node connection
+
+For those who only need a simple API access to Redis commands, there are a few ways to acquire a connection:
+
+```scala mdoc:silent
+val simpleApi: Resource[IO, StringCommands[IO, String, String]] =
+  Redis[IO].simple("redis://localhost", RedisCodec.Ascii)
+```
+
+Or the most common one:
+
+```scala mdoc:silent
+val utf8Api: Resource[IO, StringCommands[IO, String, String]] =
+  Redis[IO].utf8("redis://localhost")
+```
 
 ### Standalone, Sentinel or Cluster
 
@@ -72,13 +89,20 @@ You can connect in any of these modes by either using `JRedisURI.create` or `JRe
 
 The process looks mostly like standalone connection but with small differences:
 
-```scala
-val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
+```scala mdoc:silent
+val clusterApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost:30001"))
     client <- RedisClusterClient[IO](uri)
-    redis  <- Redis.cluster[IO, String, String](client, stringCodec)
+    redis  <- Redis[IO].makeCluster(client, stringCodec)
   } yield redis
+```
+
+You can also make it simple if you don't need to reuse the client:
+
+```scala mdoc:silent
+val clusterUtf8Api: Resource[IO, StringCommands[IO, String, String]] =
+  Redis[IO].clusterUtf8("redis://localhost:30001")
 ```
 
 ### Master / Replica connection
@@ -106,8 +130,8 @@ import dev.profunktor.redis4cats.data.ReadFrom
 val commands: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
-    conn <- RedisMasterReplica[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
-    cmds <- Redis.masterReplica[IO, String, String](conn)
+    conn <- RedisMasterReplica[IO].make(stringCodec, uri)(Some(ReadFrom.MasterPreferred))
+    cmds <- Redis[IO].masterReplica(conn)
   } yield cmds
 
 commands.use { cmd =>

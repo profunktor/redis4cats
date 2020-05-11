@@ -34,8 +34,8 @@ object RedisMasterReplicaStringsDemo extends LoggerIOApp {
     val connection: Resource[IO, RedisCommands[IO, String, String]] =
       for {
         uri <- Resource.liftF(RedisURI.make[IO](redisURI))
-        conn <- RedisMasterReplica[IO, String, String](stringCodec, uri)(Some(ReadFrom.MasterPreferred))
-        cmds <- Redis.masterReplica[IO, String, String](conn)
+        conn <- RedisMasterReplica[IO].make(stringCodec, uri)(Some(ReadFrom.MasterPreferred))
+        cmds <- Redis[IO].masterReplica(conn)
       } yield cmds
 
     connection

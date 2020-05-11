@@ -18,7 +18,6 @@ package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.HashCommands
-import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 
 object RedisHashesDemo extends LoggerIOApp {
@@ -33,11 +32,7 @@ object RedisHashesDemo extends LoggerIOApp {
       _.fold(putStrLn(s"Not found key: $testKey | field: $testField"))(s => putStrLn(s))
 
     val commandsApi: Resource[IO, HashCommands[IO, String, String]] =
-      for {
-        uri <- Resource.liftF(RedisURI.make[IO](redisURI))
-        client <- RedisClient[IO](uri)
-        redis <- Redis[IO, String, String](client, stringCodec)
-      } yield redis
+      Redis[IO].utf8(redisURI)
 
     commandsApi
       .use { cmd =>
