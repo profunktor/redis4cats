@@ -54,7 +54,6 @@ When using the `PubSub` interpreter the `publish` function will be defined as a 
 
 ```scala mdoc:silent
 import cats.effect.{ExitCode, IO, IOApp}
-import cats.implicits._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.pubsub.PubSub

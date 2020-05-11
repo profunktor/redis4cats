@@ -39,15 +39,8 @@ class Redis4CatsFunSuite(isCluster: Boolean) extends AsyncFunSuite with BeforeAn
 
   private val stringCodec = RedisCodec.Utf8
 
-  private def mkRedis[K, V](codec: RedisCodec[K, V]) =
-    for {
-      uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
-      client <- RedisClient[IO](uri)
-      redis <- Redis[IO, K, V](client, codec)
-    } yield redis
-
   def withAbstractRedis[A, K, V](f: RedisCommands[IO, K, V] => IO[A])(codec: RedisCodec[K, V]): Assertion =
-    mkRedis(codec).use(f).as(assert(true)).unsafeRunSync()
+    Redis[IO].simple("redis://localhost", codec).use(f).as(assert(true)).unsafeRunSync()
 
   def withRedis[A](f: RedisCommands[IO, String, String] => IO[A]): Assertion =
     withAbstractRedis[A, String, String](f)(stringCodec)
@@ -68,7 +61,7 @@ class Redis4CatsFunSuite(isCluster: Boolean) extends AsyncFunSuite with BeforeAn
     for {
       uris <- Resource.liftF(redisUri)
       client <- RedisClusterClient[IO](uris: _*)
-      cluster <- Redis.cluster[IO, K, V](client, codec)
+      cluster <- Redis[IO].makeCluster(client, codec)
     } yield cluster
 
   def withAbstractRedisCluster[A, K, V](

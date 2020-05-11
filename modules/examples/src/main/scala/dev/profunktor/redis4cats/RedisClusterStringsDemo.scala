@@ -18,7 +18,6 @@ package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.StringCommands
-import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 
 object RedisClusterStringsDemo extends LoggerIOApp {
@@ -32,11 +31,7 @@ object RedisClusterStringsDemo extends LoggerIOApp {
       _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
     val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
-      for {
-        uri <- Resource.liftF(RedisURI.make[IO](redisClusterURI))
-        client <- RedisClusterClient[IO](uri)
-        redis <- Redis.cluster[IO, String, String](client, stringCodec)
-      } yield redis
+      Redis[IO].clusterUtf8(redisClusterURI)
 
     commandsApi
       .use { cmd =>

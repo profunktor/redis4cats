@@ -9,48 +9,47 @@ redis4cats
 
 Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async Java client [Lettuce](https://lettuce.io/).
 
-> **NOTE**: Neither binary compatibility nor API stability will be guaranteed until we reach `1.0.0`.
+### Quick Start
 
-`redis4cats` defines two types of API: an effect-based using [Cats Effect](https://typelevel.org/cats-effect/) and a stream-based using [Fs2](http://fs2.io/).
+```scala
+import cats.effect._
+import cats.implicits._
+import dev.profunktor.redis4cats.Redis
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 
-### Effects
+object QuickStart extends IOApp {
 
-- [Connection API](https://redis.io/commands#connection): `ping`
-- [Geo API](https://redis.io/commands#geo): `geoadd`, `geohash`, `geopos`, `geodist`, etc.
-- [Hashes API](https://redis.io/commands#hash): `hgetall`, `hset`, `hdel`, `hincrby`, etc.
-- [Keys API](https://redis.io/commands#generic): `del`, `expire`, `exists`, etc.
-- [Lists API](https://redis.io/commands#list): `rpush`, `lrange`, `lpop`, etc.
-- [Scripting API](https://redis.io/commands#scripting): `eval`, `evalsha`, etc.
-- [Server API](https://redis.io/commands#server): `flushall`, etc.
-- [Sets API](https://redis.io/commands#set): `sadd`, `scard`, `srem`, `spop`, etc.
-- [Sorted Sets API](https://redis.io/commands#sorted_set): `zcount`, `zcard`, `zrangebyscore`, `zrank`, etc.
-- [Strings API](https://redis.io/commands#string): `get`, `set`, etc.
+  override def run(args: List[String]): IO[ExitCode] =
+    Redis[IO].utf8("redis://localhost").use { cmd =>
+      for {
+        _ <- cmd.set("foo", "123")
+        x <- cmd.get("foo")
+        _ <- cmd.setNx("foo", "should not happen")
+        y <- cmd.get("foo")
+        _ <- IO(println(x === y)) // true
+      } yield ExitCode.Success
+    }
 
-### Streams
+}
+```
 
-- [PubSub API](https://redis.io/topics/pubsub) implemented on top of `fs2` streams.
-- [Streams API](https://redis.io/topics/streams-intro) experimental API, subject to changes.
-  + High-level API offers `read` and `append` using the underlying commands `XREAD` and `XADD` respectively.
-  + Consumer Groups are yet not implemented.
+The API is quite stable and *heavily used in production*. However, binary compatibility won't be guaranteed until we reach `1.0.0`.
 
-Other features are not considered at the moment but PRs and suggestions are very welcome.
+If you like it, give it a :star:! If you think we could do better, please [let us know](https://gitter.im/profunktor-dev/redis4cats)!
 
-## Dependencies
+### Dependencies
 
-Add this to your `build.sbt` for the Effects API (depends on `cats-effect`):
+Add this to your `build.sbt` for the [Effects API](https://redis4cats.profunktor.dev/effects/) (depends on `cats-effect`):
 
 ```
 libraryDependencies += "dev.profunktor" %% "redis4cats-effects" % Version
 ```
 
-And this for the Streams API (depends on `fs2` and `cats-effect`):
+Add this for the [Streams API](https://redis4cats.profunktor.dev/streams/) (depends on `fs2` and `cats-effect`):
 
 ```
 libraryDependencies += "dev.profunktor" %% "redis4cats-streams" % Version
 ```
-
-Note: previous artifacts `<= 0.8.0-RC1` were published using the `com.github.gvolpe` group id (see [migration
-guide](https://github.com/profunktor/redis4cats/wiki/Migration-guide-(Vim))).
 
 ### Log4cats support
 
@@ -60,8 +59,9 @@ guide](https://github.com/profunktor/redis4cats/wiki/Migration-guide-(Vim))).
 libraryDependencies += "dev.profunktor" %% "redis4cats-log4cats" % Version
 ```
 
-## Documentation
-Guides and examples can be found on the [micro site](https://redis4cats.profunktor.dev).
+## Scala docs
+
+Guides and examples can be found on the [microsite](https://redis4cats.profunktor.dev).
 
 The scala docs can be found here by module:
 * Core [![javadoc](https://javadoc.io/badge2/dev.profunktor/redis4cats-core_2.13/javadoc.svg)](https://javadoc.io/doc/dev.profunktor/redis4cats-core_2.13)

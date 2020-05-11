@@ -58,19 +58,24 @@ object RedisMasterReplica {
     (acquire, release)
   }
 
-  def apply[F[_]: Concurrent: ContextShift: Log, K, V](
-      codec: RedisCodec[K, V],
-      uris: RedisURI*
-  )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
-    mkBlocker[F].flatMap { blocker =>
-      Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F](blocker)).flatMap {
-        case (acquireClient, releaseClient) =>
-          Resource.make(acquireClient)(releaseClient).flatMap { client =>
-            val (acquire, release) = acquireAndRelease(client, codec, readFrom, blocker, uris: _*)
-            Resource.make(acquire)(release)
-          }
+  class MasterReplicaPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
+    def make[K, V](
+        codec: RedisCodec[K, V],
+        uris: RedisURI*
+    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
+      mkBlocker[F].flatMap { blocker =>
+        Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F](blocker)).flatMap {
+          case (acquireClient, releaseClient) =>
+            Resource.make(acquireClient)(releaseClient).flatMap { client =>
+              val (acquire, release) = acquireAndRelease(client, codec, readFrom, blocker, uris: _*)
+              Resource.make(acquire)(release)
+            }
+        }
       }
-    }
+  }
+
+  def apply[F[_]: Concurrent: ContextShift: Log]: MasterReplicaPartiallyApplied[F] =
+    new MasterReplicaPartiallyApplied[F]
 
   def fromUnderlying[K, V](underlying: StatefulRedisMasterReplicaConnection[K, V]) =
     new RedisMasterReplica[K, V](underlying) {}

@@ -53,7 +53,7 @@ object RedisStream {
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, *], K, V]] =
     Stream.resource(mkBlocker[F]).flatMap { blocker =>
-      Stream.resource(RedisMasterReplica[F, K, V](codec, uris: _*)(readFrom)).map { conn =>
+      Stream.resource(RedisMasterReplica[F].make(codec, uris: _*)(readFrom)).map { conn =>
         new RedisStream(new RedisRawStreaming(conn.underlying, blocker))
       }
     }

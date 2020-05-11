@@ -10,6 +10,7 @@ Purely functional interface for the [Lists API](https://redis.io/commands#list).
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
+import cats.implicits._
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.algebra.ListCommands
 import dev.profunktor.redis4cats.data._
@@ -21,7 +22,7 @@ implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, ListCommands[IO, String, String]] = {
-  Redis[IO, String, String](null, null.asInstanceOf[RedisCodec[String, String]]).map(_.asInstanceOf[ListCommands[IO, String, String]])
+  Redis[IO].make[String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[ListCommands[IO, String, String]]
 }
 ```
 

@@ -2,7 +2,7 @@
 layout: docs
 title:  "Pipelining"
 number: 5
-position: 4
+position: 5
 ---
 
 # Pipelining
@@ -23,6 +23,7 @@ Note that every command has to be forked (`.start`) because the commands need to
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
+import cats.implicits._
 import dev.profunktor.redis4cats._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
@@ -33,7 +34,7 @@ implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
-  Redis[IO, String, String](null, null.asInstanceOf[RedisCodec[String, String]])
+  Redis[IO].make[String, String](null, null.asInstanceOf[RedisCodec[String, String]])
 }
 ```
 
@@ -44,7 +45,6 @@ import dev.profunktor.redis4cats._
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline._
 import java.util.concurrent.TimeoutException
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext
 
 implicit val timer = IO.timer(ExecutionContext.global)

@@ -18,7 +18,6 @@ package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.GeoCommands
-import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.effects._
 import io.lettuce.core.GeoArgs
@@ -31,11 +30,7 @@ object RedisGeoDemo extends LoggerIOApp {
     val testKey = "location"
 
     val commandsApi: Resource[IO, GeoCommands[IO, String, String]] =
-      for {
-        uri <- Resource.liftF(RedisURI.make[IO](redisURI))
-        client <- RedisClient[IO](uri)
-        redis <- Redis[IO, String, String](client, stringCodec)
-      } yield redis
+      Redis[IO].utf8(redisURI)
 
     val _BuenosAires  = GeoLocation(Longitude(-58.3816), Latitude(-34.6037), "Buenos Aires")
     val _RioDeJaneiro = GeoLocation(Longitude(-43.1729), Latitude(-22.9068), "Rio de Janeiro")

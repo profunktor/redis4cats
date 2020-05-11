@@ -1,4 +1,8 @@
 options:
+  - title: Quick Start
+    url: quickstart.html
+    menu_section: quickstart
+
   - title: Effects API
     url: effects/
     menu_section: effectapi
@@ -58,10 +62,9 @@ options:
         menu_section: streamapi
 
   - title: Transactions
-    url: transactions
+    url: transactions.html
     menu_section: transactions
 
   - title: Pipelining
-    url: pipelining
+    url: pipelining.html
     menu_section: pipelining
-
