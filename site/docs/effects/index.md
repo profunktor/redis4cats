@@ -98,7 +98,7 @@ val clusterApi: Resource[IO, StringCommands[IO, String, String]] =
   } yield redis
 ```
 
-You can also make it simple if you don't need to reuse the client:
+You can also make it simple if you don't need to re-use the client:
 
 ```scala mdoc:silent
 val clusterUtf8Api: Resource[IO, StringCommands[IO, String, String]] =

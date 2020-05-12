@@ -107,10 +107,7 @@ object Redis {
   class RedisPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
 
     /**
-      * Creates a simple [[RedisCommands]] given
-      *
-      * @param uri the stringy Redis URI to be parsed
-      * @param codec the specific codec for keys and values
+      * Creates a simple [[RedisCommands]]
       *
       * It will create an underlying RedisClient to establish a
       * connection with Redis.
@@ -120,7 +117,7 @@ object Redis {
       * Redis[IO].simple("redis://localhost", RedisCodec.Ascii)
       * }}}
       *
-      * Note: if you need to create multiple connections, use [[make]]
+      * Note: if you need to create multiple connections, use [[fromClient]]
       * instead, which allows you to re-use the same client.
       */
     def simple[K, V](uri: String, codec: RedisCodec[K, V]): Resource[F, RedisCommands[F, K, V]] =
@@ -134,8 +131,6 @@ object Redis {
       * Creates a simple [[RedisCommands]] to deal with UTF-8 encoded
       * keys and values given
       *
-      * @param uri the stringy Redis URI to be parsed
-      *
       * It will create an underlying RedisClient to establish a
       * connection with Redis.
       *
@@ -144,7 +139,7 @@ object Redis {
       * Redis[IO].utf8("redis://localhost")
       * }}}
       *
-      * Note: if you need to create multiple connections, use [[make]]
+      * Note: if you need to create multiple connections, use [[fromClient]]
       * instead, which allows you to re-use the same client.
       */
     def utf8(uri: String): Resource[F, RedisCommands[F, String, String]] =
@@ -152,9 +147,6 @@ object Redis {
 
     /**
       * Creates a simple [[RedisCommands]] given
-      *
-      * @param client the Redis client to use for the underlying connection
-      * @param codec the specific codec for keys and values
       *
       * It will create an underlying RedisClient to establish a
       * connection with Redis.
@@ -172,7 +164,7 @@ object Redis {
       * Note: if you don't need to create multiple connections, you might
       * prefer to use either [[utf8]] or [[simple]] instead.
       */
-     def fromClient[K, V](
+    def fromClient[K, V](
         client: RedisClient,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
