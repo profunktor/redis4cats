@@ -37,7 +37,7 @@ implicit val timer = IO.timer(ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
-  Redis[IO].make[String, String](null, null.asInstanceOf[RedisCodec[String, String]])
+  Redis[IO].fromClient[String, String](null, null.asInstanceOf[RedisCodec[String, String]])
 }
 ```
 

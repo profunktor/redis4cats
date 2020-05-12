@@ -56,7 +56,7 @@ val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
     client <- RedisClient[IO](uri)
-    redis  <- Redis[IO].make(client, stringCodec)
+    redis  <- Redis[IO].fromClient(client, stringCodec)
   } yield redis
 ```
 
@@ -94,7 +94,7 @@ val clusterApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost:30001"))
     client <- RedisClusterClient[IO](uri)
-    redis  <- Redis[IO].makeCluster(client, stringCodec)
+    redis  <- Redis[IO].fromClusterClient(client, stringCodec)
   } yield redis
 ```
 
