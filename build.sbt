@@ -51,8 +51,11 @@ val commonSettings = Seq(
         t = Seq("-Xmax-classfile-name", "80"),
         f = Seq.empty
       ),
+  sources in (Compile, doc) := (sources in (Compile, doc)).value,
   scalafmtOnCompile := true,
-  scmInfo := Some(ScmInfo(url("https://github.com/profunktor/redis4cats"), "scm:git:git@github.com:profunktor/redis4cats.git")),
+  scmInfo := Some(
+        ScmInfo(url("https://github.com/profunktor/redis4cats"), "scm:git:git@github.com:profunktor/redis4cats.git")
+      ),
   publishTo := {
     val sonatype = "https://oss.sonatype.org/"
     if (isSnapshot.value)
@@ -62,9 +65,7 @@ val commonSettings = Seq(
   },
   publishMavenStyle := true,
   publishArtifact in Test := false,
-  pomIncludeRepository := { _ =>
-    false
-  },
+  pomIncludeRepository := { _ => false },
   pomExtra :=
       <developers>
         <developer>
@@ -94,6 +95,11 @@ lazy val `redis4cats-root` = project
     microsite
   )
   .settings(noPublish)
+  .settings(
+    siteSubdirName in ScalaUnidoc := "api",
+    addMappingsToSiteDir(mappings in (ScalaUnidoc, packageDoc), siteSubdirName in ScalaUnidoc)
+  )
+  .enablePlugins(ScalaUnidocPlugin)
 
 lazy val `redis4cats-core` = project
   .in(file("modules/core"))
@@ -146,7 +152,7 @@ lazy val tests = project
 
 lazy val microsite = project
   .in(file("site"))
-  .enablePlugins(MicrositesPlugin)
+  .enablePlugins(MicrositesPlugin, SiteScaladocPlugin, ScalaUnidocPlugin)
   .settings(commonSettings: _*)
   .settings(noPublish)
   .settings(
@@ -155,6 +161,7 @@ lazy val microsite = project
     micrositeAuthor := "ProfunKtor",
     micrositeGithubOwner := "profunktor",
     micrositeGithubRepo := "redis4cats",
+    micrositeDocumentationUrl := "/api",
     micrositeBaseUrl := "",
     micrositeExtraMdFiles := Map(
           file("README.md") -> ExtraMdFileConfig(
@@ -179,9 +186,21 @@ lazy val microsite = project
           "-Ywarn-dead-code",
           "-deprecation",
           "-Xlint:-missing-interpolator,_"
-        )
+        ),
+    addMappingsToSiteDir(mappings in (ScalaUnidoc, packageDoc), micrositeDocumentationUrl),
+    scalacOptions in (ScalaUnidoc, unidoc) ++= Seq(
+          "-doc-source-url",
+          scmInfo.value.get.browseUrl + "/tree/master€{FILE_PATH}.scala",
+          "-sourcepath",
+          baseDirectory.in(LocalRootProject).value.getAbsolutePath,
+          "-doc-root-content",
+          (resourceDirectory.in(Compile).value / "rootdoc.txt").getAbsolutePath
+        ),
+    unidocProjectFilter in (ScalaUnidoc, unidoc) :=
+        inAnyProject -- inProjects(examples)
   )
-  .dependsOn(`redis4cats-effects`, `redis4cats-streams`, `examples`)
+  .dependsOn(`redis4cats-effects`, `redis4cats-streams`, examples)
 
 // CI build
 addCommandAlias("buildRedis4Cats", ";clean;+test;mdoc")
+addCommandAlias("buildSite", ";doc;makeMicrosite")
