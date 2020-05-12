@@ -54,7 +54,7 @@ val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
 val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
-    uri    <- Resource.liftF(RedisURI.fromClient[IO]("redis://localhost"))
+    uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
     client <- RedisClient[IO](uri)
     redis  <- Redis[IO].fromClient(client, stringCodec)
   } yield redis
@@ -92,7 +92,7 @@ The process looks mostly like standalone connection but with small differences:
 ```scala mdoc:silent
 val clusterApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
-    uri    <- Resource.liftF(RedisURI.fromClient[IO]("redis://localhost:30001"))
+    uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost:30001"))
     client <- RedisClusterClient[IO](uri)
     redis  <- Redis[IO].fromClusterClient(client, stringCodec)
   } yield redis
@@ -129,8 +129,8 @@ import dev.profunktor.redis4cats.data.ReadFrom
 
 val commands: Resource[IO, StringCommands[IO, String, String]] =
   for {
-    uri <- Resource.liftF(RedisURI.fromClient[IO]("redis://localhost"))
-    conn <- RedisMasterReplica[IO].fromClient(stringCodec, uri)(Some(ReadFrom.MasterPreferred))
+    uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
+    conn <- RedisMasterReplica[IO].make(stringCodec, uri)(Some(ReadFrom.MasterPreferred))
     cmds <- Redis[IO].masterReplica(conn)
   } yield cmds
 

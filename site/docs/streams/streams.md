@@ -84,7 +84,7 @@ def randomMessage: Stream[IO, StreamingMessage[String, String]] = Stream.eval {
 }
 
 for {
-  redisURI  <- Stream.eval(RedisURI.fromClient[IO]("redis://localhost"))
+  redisURI  <- Stream.eval(RedisURI.make[IO]("redis://localhost"))
   client    <- Stream.resource(RedisClient[IO](redisURI))
   streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
   source    = streaming.read(Set(streamKey1, streamKey2))
