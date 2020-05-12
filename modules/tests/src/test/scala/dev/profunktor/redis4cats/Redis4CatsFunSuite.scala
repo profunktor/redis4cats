@@ -20,7 +20,7 @@ import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisCodec
-import dev.profunktor.redis4cats.effect.Log.NoOp._
+import dev.profunktor.redis4cats.effect.Log.noop
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.compatible.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
