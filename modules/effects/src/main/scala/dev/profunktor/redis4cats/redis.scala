@@ -110,13 +110,13 @@ object Redis {
       for {
         redisUri <- Resource.liftF(RedisURI.make[F](uri))
         client <- RedisClient[F](redisUri)
-        redis <- this.make(client, codec)
+        redis <- this.fromClient(client, codec)
       } yield redis
 
     def utf8(uri: String): Resource[F, RedisCommands[F, String, String]] =
       simple(uri, RedisCodec.Utf8)
 
-    def make[K, V](
+    def fromClient[K, V](
         client: RedisClient,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
@@ -132,13 +132,13 @@ object Redis {
       for {
         redisUri <- Resource.liftF(RedisURI.make[F](uri))
         client <- RedisClusterClient[F](redisUri)
-        redis <- this.makeCluster[K, V](client, codec)
+        redis <- this.fromClusterClient[K, V](client, codec)
       } yield redis
 
     def clusterUtf8(uri: String): Resource[F, RedisCommands[F, String, String]] =
       cluster(uri, RedisCodec.Utf8)
 
-    def makeCluster[K, V](
+    def fromClusterClient[K, V](
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
@@ -147,7 +147,7 @@ object Redis {
         Resource.make(acquire)(release).widen
       }
 
-    def makeClusterByNode[K, V](
+    def fromClusterClientByNode[K, V](
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V],
         nodeId: NodeId

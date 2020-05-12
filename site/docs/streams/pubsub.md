@@ -78,7 +78,7 @@ object PubSubDemo extends IOApp {
 
   val program: Stream[IO, Unit] =
     for {
-      redisURI <- Stream.eval(RedisURI.make[IO]("redis://localhost"))
+      redisURI <- Stream.eval(RedisURI.fromClient[IO]("redis://localhost"))
       client <- Stream.resource(RedisClient[IO](redisURI))
       pubSub <- PubSub.mkPubSubConnection[IO, String, String](client, stringCodec)
       sub1   = pubSub.subscribe(eventsChannel)

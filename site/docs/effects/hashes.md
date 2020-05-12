@@ -22,7 +22,7 @@ implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, HashCommands[IO, String, String]] = {
-  Redis[IO].make[String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[HashCommands[IO, String, String]]
+  Redis[IO].fromClient[String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[HashCommands[IO, String, String]]
 }
 ```
 

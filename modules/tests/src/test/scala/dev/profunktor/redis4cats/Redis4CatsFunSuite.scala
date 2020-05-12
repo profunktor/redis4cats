@@ -61,7 +61,7 @@ class Redis4CatsFunSuite(isCluster: Boolean) extends AsyncFunSuite with BeforeAn
     for {
       uris <- Resource.liftF(redisUri)
       client <- RedisClusterClient[IO](uris: _*)
-      cluster <- Redis[IO].makeCluster(client, codec)
+      cluster <- Redis[IO].fromClusterClient(client, codec)
     } yield cluster
 
   def withAbstractRedisCluster[A, K, V](
