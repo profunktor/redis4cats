@@ -15,7 +15,7 @@ Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), 
 import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.Redis
-import dev.profunktor.redis4cats.effect.Log.NoOp._
+import dev.profunktor.redis4cats.effect.Log.noop
 
 object QuickStart extends IOApp {
 
