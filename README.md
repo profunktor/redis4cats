@@ -59,16 +59,6 @@ libraryDependencies += "dev.profunktor" %% "redis4cats-streams" % Version
 libraryDependencies += "dev.profunktor" %% "redis4cats-log4cats" % Version
 ```
 
-## Scala docs
-
-Guides and examples can be found on the [microsite](https://redis4cats.profunktor.dev).
-
-The scala docs can be found here by module:
-* Core [![javadoc](https://javadoc.io/badge2/dev.profunktor/redis4cats-core_2.13/javadoc.svg)](https://javadoc.io/doc/dev.profunktor/redis4cats-core_2.13)
-* Effects [![javadoc](https://javadoc.io/badge2/dev.profunktor/redis4cats-effects_2.13/javadoc.svg)](https://javadoc.io/doc/dev.profunktor/redis4cats-effects_2.13)
-* Streams [![javadoc](https://javadoc.io/badge2/dev.profunktor/redis4cats-streams_2.13/javadoc.svg)](https://javadoc.io/doc/dev.profunktor/redis4cats-streams_2.13)
-* Log4cats [![javadoc](https://javadoc.io/badge2/dev.profunktor/redis4cats-log4cats_2.13/javadoc.svg)](https://javadoc.io/doc/dev.profunktor/redis4cats-log4cats_2.13)
-
 ## Running the tests locally
 
 Start both a single Redis node and a cluster using `docker-compose`:

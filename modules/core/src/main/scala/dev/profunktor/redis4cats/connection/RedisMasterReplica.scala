@@ -25,6 +25,9 @@ import dev.profunktor.redis4cats.effect.JRFuture._
 import io.lettuce.core.masterreplica.{ MasterReplica, StatefulRedisMasterReplicaConnection }
 import io.lettuce.core.{ ReadFrom => JReadFrom }
 
+/**
+  * It encapsulates an underlying `MasterReplica` connection
+  */
 sealed abstract case class RedisMasterReplica[K, V] private (underlying: StatefulRedisMasterReplicaConnection[K, V])
 
 object RedisMasterReplica {
@@ -59,6 +62,21 @@ object RedisMasterReplica {
   }
 
   class MasterReplicaPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
+
+    /**
+      * Creates a [[RedisMasterReplica]]
+      *
+      * It will also create an underlying [[RedisClient]] to establish connection with Redis
+      *
+      * Example:
+      *
+      * {{{
+      * val conn: Resource[IO, RedisMasterReplica[String, String]] =
+      *   Resource.liftF(RedisURI.make[IO](redisURI)).flatMap { uri =>
+      *     RedisMasterReplica[IO].make(RedisCodec.Utf8, uri)(Some(ReadFrom.MasterPreferred))
+      *   }
+      * }}}
+      */
     def make[K, V](
         codec: RedisCodec[K, V],
         uris: RedisURI*
