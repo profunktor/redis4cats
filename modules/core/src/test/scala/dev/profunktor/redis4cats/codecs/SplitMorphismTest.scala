@@ -16,12 +16,10 @@
 
 package dev.profunktor.redis4cats.codecs
 
-import cats.tests.CatsSuite
+import cats.implicits._
 import dev.profunktor.redis4cats.codecs.splits._
 
-import scala.util.Try
-
-class SplitMorphismTest extends CatsSuite {
+class SplitMorphismTest extends DisciplineSuite {
   import TestSplitEpiInstances._
 
   checkAll("IntDoubleInt", SplitMonoTests(intDoubleMono).splitMono)
@@ -34,6 +32,7 @@ class SplitMorphismTest extends CatsSuite {
 }
 
 object TestSplitEpiInstances {
+  import scala.util.Try
 
   // Just proving that these form a split monomorphism and won't pass the laws of epimorphisms
   val intDoubleMono: SplitMono[Int, Double] =

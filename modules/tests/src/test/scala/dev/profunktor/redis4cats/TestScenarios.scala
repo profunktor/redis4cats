@@ -20,7 +20,7 @@ import java.time.Instant
 
 import cats.effect._
 import cats.implicits._
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.noop
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline.RedisPipeline
@@ -32,10 +32,6 @@ trait TestScenarios {
 
   implicit def cs: ContextShift[IO]
   implicit def timer: Timer[IO]
-  implicit val logger: Log[IO] = new Log[IO] {
-    def info(msg: => String): IO[Unit]  = IO(println(msg))
-    def error(msg: => String): IO[Unit] = IO(println(msg))
-  }
 
   def locationScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val _BuenosAires  = GeoLocation(Longitude(-58.3816), Latitude(-34.6037), "Buenos Aires")

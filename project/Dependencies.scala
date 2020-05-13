@@ -15,8 +15,7 @@ object Dependencies {
     val contextApplied   = "0.1.4"
     val kindProjector    = "0.11.0"
 
-    val scalaCheck = "1.14.3"
-    val scalaTest  = "3.1.2"
+    val munit = "0.7.7"
   }
 
   object Libraries {
@@ -32,13 +31,11 @@ object Dependencies {
     val redisClient = "io.lettuce"     % "lettuce-core"    % V.lettuce
     val logback     = "ch.qos.logback" % "logback-classic" % V.logback
 
-    // Scala test libraries
-    val catsLaws      = cats("core")
-    val catsTestKit   = cats("testkit")
-    val catsTestKitST = "org.typelevel" %% "cats-testkit-scalatest" % "1.0.1"
-
-    val scalaTest  = "org.scalatest"  %% "scalatest"  % V.scalaTest
-    val scalaCheck = "org.scalacheck" %% "scalacheck" % V.scalaCheck
+    // Testing libraries
+    val catsLaws    = cats("core")
+    val catsTestKit = cats("testkit")
+    val munitCore       = "org.scalameta" %% "munit"            % V.munit
+    val munitScalacheck = "org.scalameta" %% "munit-scalacheck" % V.munit
   }
 
   object CompilerPlugins {

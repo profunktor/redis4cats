@@ -21,31 +21,34 @@ import cats.implicits._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effect.Log.noop
-import org.scalatest.BeforeAndAfterEach
-import org.scalatest.compatible.Assertion
-import org.scalatest.funsuite.AsyncFunSuite
-import scala.concurrent.ExecutionContext
+import munit.FunSuite
+import scala.concurrent.{ Await, ExecutionContext, Future }
+import scala.concurrent.duration.Duration
 
-class Redis4CatsFunSuite(isCluster: Boolean) extends AsyncFunSuite with BeforeAndAfterEach {
+abstract class Redis4CatsFunSuite(isCluster: Boolean) extends FunSuite {
 
   implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
   implicit val timer: Timer[IO]     = IO.timer(ExecutionContext.global)
   implicit val clock: Clock[IO]     = timer.clock
 
-  override protected def afterEach(): Unit = {
-    flushAll()
-    super.afterEach()
+  val flushAllFixture = new Fixture[Unit]("FLUSHALL") {
+    def apply(): Unit = ()
+
+    override def afterEach(context: AfterEach): Unit =
+      Await.result(flushAll(), Duration.Inf)
   }
+
+  override def munitFixtures = List(flushAllFixture)
 
   private val stringCodec = RedisCodec.Utf8
 
-  def withAbstractRedis[A, K, V](f: RedisCommands[IO, K, V] => IO[A])(codec: RedisCodec[K, V]): Assertion =
-    Redis[IO].simple("redis://localhost", codec).use(f).as(assert(true)).unsafeRunSync()
+  def withAbstractRedis[A, K, V](f: RedisCommands[IO, K, V] => IO[A])(codec: RedisCodec[K, V]): Future[Unit] =
+    Redis[IO].simple("redis://localhost", codec).use(f).as(assert(true)).unsafeToFuture()
 
-  def withRedis[A](f: RedisCommands[IO, String, String] => IO[A]): Assertion =
+  def withRedis[A](f: RedisCommands[IO, String, String] => IO[A]): Future[Unit] =
     withAbstractRedis[A, String, String](f)(stringCodec)
 
-  private def flushAll(): Assertion =
+  private def flushAll(): Future[Unit] =
     if (isCluster) withRedisCluster(_.flushAll)
     else withRedis(_.flushAll)
 
@@ -66,10 +69,10 @@ class Redis4CatsFunSuite(isCluster: Boolean) extends AsyncFunSuite with BeforeAn
 
   def withAbstractRedisCluster[A, K, V](
       f: RedisCommands[IO, K, V] => IO[A]
-  )(codec: RedisCodec[K, V]): Assertion =
-    mkRedisCluster(codec).use(f).as(assert(true)).unsafeRunSync()
+  )(codec: RedisCodec[K, V]): Future[Unit] =
+    mkRedisCluster(codec).use(f).as(assert(true)).unsafeToFuture()
 
-  def withRedisCluster[A](f: RedisCommands[IO, String, String] => IO[A]): Assertion =
+  def withRedisCluster[A](f: RedisCommands[IO, String, String] => IO[A]): Future[Unit] =
     withAbstractRedisCluster[A, String, String](f)(stringCodec)
 
 }

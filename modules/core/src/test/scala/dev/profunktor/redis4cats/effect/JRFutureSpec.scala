@@ -19,10 +19,10 @@ package dev.profunktor.redis4cats.effect
 import java.util.concurrent.CompletableFuture
 
 import cats.effect.{ Blocker, ContextShift, IO }
-import dev.profunktor.redis4cats.testutils.Redis4CatsAsyncFunSuite
 import scala.concurrent.ExecutionContext
+import munit.FunSuite
 
-class JRFutureSpec extends Redis4CatsAsyncFunSuite {
+class JRFutureSpec extends FunSuite {
 
   implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 

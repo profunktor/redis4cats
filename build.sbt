@@ -33,17 +33,17 @@ val commonSettings = Seq(
   licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   homepage := Some(url("https://redis4cats.profunktor.dev/")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2020", "ProfunKtor")),
+  testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
         CompilerPlugins.betterMonadicFor,
         CompilerPlugins.contextApplied,
         CompilerPlugins.kindProjector,
         Libraries.catsEffect,
         Libraries.redisClient,
-        Libraries.scalaCheck    % Test,
-        Libraries.scalaTest     % Test,
-        Libraries.catsLaws      % Test,
-        Libraries.catsTestKit   % Test,
-        Libraries.catsTestKitST % Test
+        Libraries.catsLaws    % Test,
+        Libraries.catsTestKit % Test,
+        Libraries.munitCore       % Test,
+        Libraries.munitScalacheck % Test
       ),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
