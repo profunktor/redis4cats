@@ -107,12 +107,13 @@ object Redis {
   class RedisPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
 
     /**
-      * Creates a simple [[RedisCommands]]
+      * Creates a [[RedisCommands]] for a single-node connection.
       *
       * It will create an underlying RedisClient to establish a
       * connection with Redis.
       *
       * Example:
+      *
       * {{{
       * Redis[IO].simple("redis://localhost", RedisCodec.Ascii)
       * }}}
@@ -128,13 +129,14 @@ object Redis {
       } yield redis
 
     /**
-      * Creates a simple [[RedisCommands]] to deal with UTF-8 encoded
-      * keys and values given
+      * Creates a [[RedisCommands]] for a single-node connection to deal
+      * with UTF-8 encoded keys and values.
       *
-      * It will create an underlying RedisClient to establish a
+      * It will also create an underlying RedisClient to establish a
       * connection with Redis.
       *
       * Example:
+      *
       * {{{
       * Redis[IO].utf8("redis://localhost")
       * }}}
@@ -146,19 +148,17 @@ object Redis {
       simple(uri, RedisCodec.Utf8)
 
     /**
-      * Creates a simple [[RedisCommands]] given
-      *
-      * It will create an underlying RedisClient to establish a
-      * connection with Redis.
+      * Creates a [[RedisCommands]] for a single-node connection.
       *
       * Example:
+      *
       * {{{
       * val redis: Resource[IO, RedisCommands[IO, String, String]] =
-      * for {
-      *   uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
-      *   cli <- RedisClient[IO](uri)
-      *   cmd <- Redis[IO].fromClient(cli, RedisCodec.Utf8)
-      * } yield cmd
+      *   for {
+      *     uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
+      *     cli <- RedisClient[IO](uri)
+      *     cmd <- Redis[IO].fromClient(cli, RedisCodec.Utf8)
+      *   } yield cmd
       * }}}
       *
       * Note: if you don't need to create multiple connections, you might
@@ -173,19 +173,77 @@ object Redis {
         Resource.make(acquire)(release).widen
       }
 
+    /**
+      * Creates a [[RedisCommands]] for a cluster connection.
+      *
+      * It will also create an underlying RedisClusterClient to establish a
+      * connection with Redis.
+      *
+      * Example:
+      *
+      * {{{
+      * Redis[IO].cluster(
+      *   RedisCodec.Utf8,
+      *   "redis://localhost:30001",
+      *   "redis://localhost:30002"
+      * )
+      * }}}
+      *
+      * Note: if you need to create multiple connections, use either [[fromClusterClient]]
+      * or [[fromClusterClientByNode]] instead, which allows you to re-use the same client.
+      */
     def cluster[K, V](
-        uri: String,
-        codec: RedisCodec[K, V]
+        codec: RedisCodec[K, V],
+        uris: String*
     ): Resource[F, RedisCommands[F, K, V]] =
       for {
-        redisUri <- Resource.liftF(RedisURI.make[F](uri))
-        client <- RedisClusterClient[F](redisUri)
+        redisUris <- Resource.liftF(uris.toList.traverse(RedisURI.make[F](_)))
+        client <- RedisClusterClient[F](redisUris: _*)
         redis <- this.fromClusterClient[K, V](client, codec)
       } yield redis
 
-    def clusterUtf8(uri: String): Resource[F, RedisCommands[F, String, String]] =
-      cluster(uri, RedisCodec.Utf8)
+    /**
+      * Creates a [[RedisCommands]] for a cluster connection to deal
+      * with UTF-8 encoded keys and values.
+      *
+      * It will also create an underlying RedisClusterClient to establish a
+      * connection with Redis.
+      *
+      * Example:
+      *
+      * {{{
+      * Redis[IO].clusterUtf8(
+      *   "redis://localhost:30001",
+      *   "redis://localhost:30002"
+      * )
+      * }}}
+      *
+      * Note: if you need to create multiple connections, use either [[fromClusterClient]]
+      * or [[fromClusterClientByNode]] instead, which allows you to re-use the same client.
+      */
+    def clusterUtf8(uris: String*): Resource[F, RedisCommands[F, String, String]] =
+      cluster(RedisCodec.Utf8, uris: _*)
 
+    /**
+      * Creates a [[RedisCommands]] for a cluster connection
+      *
+      * Example:
+      *
+      * {{{
+      * val redis: Resource[IO, RedisCommands[IO, String, String]] =
+      *   for {
+      *     uris <- Resource.liftF(
+      *             List("redis://localhost:30001", "redis://localhost:30002")
+      *               .traverse(RedisURI.make[F](_))
+      *           )
+      *     cli <- RedisClusterClient[IO](uris: _*)
+      *     cmd <- Redis[IO].fromClusterClient(cli, RedisCodec.Utf8)
+      *   } yield cmd
+      * }}}
+      *
+      * Note: if you don't need to create multiple connections, you might
+      * prefer to use either [[clusterUtf8]] or [[cluster]] instead.
+      */
     def fromClusterClient[K, V](
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V]
@@ -195,6 +253,27 @@ object Redis {
         Resource.make(acquire)(release).widen
       }
 
+    /**
+      * Creates a [[RedisCommands]] by trying to establish a cluster
+      * connection to the specified node.
+      *
+      * Example:
+      *
+      * {{{
+      * val redis: Resource[IO, RedisCommands[IO, String, String]] =
+      *   for {
+      *     uris <- Resource.liftF(
+      *             List("redis://localhost:30001", "redis://localhost:30002")
+      *               .traverse(RedisURI.make[F](_))
+      *           )
+      *     cli <- RedisClusterClient[IO](uris: _*)
+      *     cmd <- Redis[IO].fromClusterClientByNode(cli, RedisCodec.Utf8, NodeId("1"))
+      *   } yield cmd
+      * }}}
+      *
+      * Note: if you don't need to create multiple connections, you might
+      * prefer to use either [[clusterUtf8]] or [[cluster]] instead.
+      */
     def fromClusterClientByNode[K, V](
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V],
@@ -205,6 +284,20 @@ object Redis {
         Resource.make(acquire)(release).widen
       }
 
+    /**
+      * Creates a [[RedisCommands]] from a MasterReplica connection
+      *
+      * Example:
+      *
+      * {{{
+      * val redis: Resource[IO, RedisCommands[IO, String, String]] =
+      *   for {
+      *     uri <- Resource.liftF(RedisURI.make[IO](redisURI))
+      *     conn <- RedisMasterReplica[IO].make(RedisCodec.Utf8, uri)(Some(ReadFrom.MasterPreferred))
+      *     cmds <- Redis[IO].masterReplica(conn)
+      *   } yield cmds
+      * }}}
+      */
     def masterReplica[K, V](
         conn: RedisMasterReplica[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =

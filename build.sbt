@@ -52,6 +52,8 @@ val commonSettings = Seq(
         f = Seq.empty
       ),
   sources in (Compile, doc) := (sources in (Compile, doc)).value,
+  scalacOptions in (Compile, doc) ++= Seq("-groups", "-implicits"),
+  autoAPIMappings := true,
   scalafmtOnCompile := true,
   scmInfo := Some(
         ScmInfo(url("https://github.com/profunktor/redis4cats"), "scm:git:git@github.com:profunktor/redis4cats.git")
