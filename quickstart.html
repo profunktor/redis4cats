@@ -3,7 +3,7 @@
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">cats.effect._</span>
 <span class="k">import</span> <span class="nn">cats.implicits._</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.Redis</span>
-<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.effect.Log.NoOp._</span> <span class="c1">// disable logging</span>
+<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.effect.Log.noop</span> <span class="c1">// disable logging</span>
 
 <span class="k">object</span> <span class="nc">QuickStart</span> <span class="k">extends</span> <span class="nc">IOApp</span> <span class="o">{</span>
 
