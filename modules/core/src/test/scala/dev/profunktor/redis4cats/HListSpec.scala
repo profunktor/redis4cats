@@ -18,10 +18,9 @@ package dev.profunktor.redis4cats
 
 import cats.effect.IO
 import hlist._
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
+import munit.FunSuite
 
-class HListSpec extends AnyFunSuite with Matchers {
+class HListSpec extends FunSuite {
 
   test("HList and Witness") {
     def proof[T <: HList, R <: HList](xs: T)(implicit w: Witness.Aux[T, R]): R =
@@ -31,7 +30,7 @@ class HListSpec extends AnyFunSuite with Matchers {
 
     proof(actions): Unit :: String :: HNil
 
-    "proof(actions): Unit :: Int :: HNil" shouldNot typeCheck
+    compileErrors("proof(actions): Unit :: Int :: HNil")
   }
 
   test("Unapply HLists (deconstruct)") {
