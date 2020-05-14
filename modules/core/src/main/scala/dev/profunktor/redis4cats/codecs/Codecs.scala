@@ -25,8 +25,8 @@ import java.nio.ByteBuffer
 object Codecs {
 
   /**
-    * Given a base `Fs2RedisCodec[K, K]` and evidence of a split epimorphism between K and V
-    * a new `Fs2RedisCodec[K, V]` can be derived.
+    * Given a base RedisCodec[K, K] and a split epimorphism between K and V,
+    * a new RedisCodec[K, V] can be derived.
     * */
   def derive[K, V](
       baseCodec: RedisCodec[K, K],
