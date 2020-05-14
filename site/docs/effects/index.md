@@ -29,9 +29,25 @@ def apply[F[_]](uri: RedisURI): Resource[F, RedisClient]
 
 ### Logger
 
-In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either create your own or use `log4cats` (recommended). `redis4cats` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to add the extra dependency `redis4cats-log4cats` and `import dev.profunktor.redis4cats.log4cats._`.
+In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either use `log4cats` (recommended), one of the simpler instances such as `NoOp` and `Stdout`, or roll your own. `redis4cats` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to add the extra dependency `redis4cats-log4cats` and `import dev.profunktor.redis4cats.log4cats._`.
 
 Take a look at the [examples](https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/LoggerIOApp.scala) to find out more.
+
+#### Disable logging
+
+If you don't need logging at all, use the following import wherever a `Log` instance is required:
+
+```scala
+// Available for any `Applicative[F]`
+import dev.profunktor.redis4cats.effect.Log.NoOp._
+```
+
+If you need simple logging to STDOUT for quick debugging, you can use the following one:
+
+```scala
+// Available for any `Sync[F]`
+import dev.profunktor.redis4cats.effect.Log.Stdout._
+```
 
 ### Establishing connection
 

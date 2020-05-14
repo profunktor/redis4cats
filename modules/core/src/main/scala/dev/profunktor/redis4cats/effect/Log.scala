@@ -16,12 +16,26 @@
 
 package dev.profunktor.redis4cats.effect
 
-import cats.effect.IO
+import cats.Applicative
+import cats.effect.Sync
 
 /**
   * Typeclass used for internal logging such as acquiring and releasing connections.
   *
-  * You should provide an instance. It is recommended to use `log4cats`.
+  * It is recommended to use `log4cats` for production usage but if you do not want
+  * the extra dependency, you can opt to use either of the simple instances provided.
+  *
+  * If you don't need logging at all, you can use [[Log.NoOp]]
+  *
+  * {{{
+  * import dev.profunktor.redis4cats.effect.Log.NoOp._
+  * }}}
+  *
+  * If you need simple logging to STDOUT for quick debugging, you can use [[Log.Stdout]]
+  *
+  * {{{
+  * import dev.profunktor.redis4cats.effect.Log.Stdout._
+  * }}}
   * */
 trait Log[F[_]] {
   def info(msg: => String): F[Unit]
@@ -31,9 +45,22 @@ trait Log[F[_]] {
 object Log {
   def apply[F[_]](implicit ev: Log[F]): Log[F] = ev
 
-  implicit object noop extends Log[IO] {
-    def info(msg: => String): IO[Unit]  = IO.unit
-    def error(msg: => String): IO[Unit] = IO.unit
+  object NoOp {
+    implicit def instance[F[_]: Applicative]: Log[F] =
+      new Log[F] {
+        def info(msg: => String): F[Unit]  = F.unit
+        def error(msg: => String): F[Unit] = F.unit
+      }
+  }
+
+  object Stdout {
+    implicit def instance[F[_]: Sync]: Log[F] =
+      new Log[F] {
+        def info(msg: => String): F[Unit] =
+          F.delay(Console.out.println(msg))
+        def error(msg: => String): F[Unit] =
+          F.delay(Console.err.println(msg))
+      }
   }
 
 }

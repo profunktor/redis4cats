@@ -20,7 +20,7 @@ import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisCodec
-import dev.profunktor.redis4cats.effect.Log.noop
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 import munit.FunSuite
 import scala.concurrent.{ Await, ExecutionContext, Future }
 import scala.concurrent.duration.Duration
