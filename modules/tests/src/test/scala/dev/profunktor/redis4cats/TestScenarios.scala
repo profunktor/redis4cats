@@ -20,7 +20,7 @@ import java.time.Instant
 
 import cats.effect._
 import cats.implicits._
-import dev.profunktor.redis4cats.effect.Log.noop
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline.RedisPipeline
