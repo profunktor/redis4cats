@@ -1,8 +1,9 @@
 let
-  pkgs = import (fetchTarball "https://github.com/NixOS/nixpkgs-channels/archive/10100a97c89.tar.gz") {};
+  # unstable packages on May 13th
+  pkgs = import (fetchTarball "https://github.com/NixOS/nixpkgs-channels/archive/6bcb1dec8ea.tar.gz") {};
 in
-pkgs.mkShell {
-  buildInputs = [
-    pkgs.jekyll
-  ];
-}
+  pkgs.mkShell {
+    buildInputs = [
+      pkgs.jekyll # v4.0.1
+    ];
+  }

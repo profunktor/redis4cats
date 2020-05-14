@@ -3,12 +3,9 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-name := """redis4cats-root"""
-
-organization in ThisBuild := "dev.profunktor"
-
-scalaVersion in ThisBuild := "2.13.1"
-crossScalaVersions in ThisBuild := Seq(scalaVersion.value, "2.12.10")
+ThisBuild / name := """redis4cats-root"""
+ThisBuild / organization := "dev.profunktor"
+ThisBuild / crossScalaVersions := Seq("2.12.10", "2.13.2")
 
 sonatypeProfileName := "dev.profunktor"
 
