@@ -5,6 +5,7 @@ object Dependencies {
   object V {
     val cats       = "2.1.1"
     val catsEffect = "2.1.3"
+    val circe      = "0.13.0"
     val fs2        = "2.3.0"
     val log4cats   = "1.1.1"
 
@@ -25,16 +26,21 @@ object Dependencies {
     val catsEffect = "org.typelevel" %% "cats-effect" % V.catsEffect
     val fs2Core    = "co.fs2"        %% "fs2-core"    % V.fs2
 
-    val log4CatsCore  = log4cats("core")
-    val log4CatsSlf4j = log4cats("slf4j")
+    val log4CatsCore = log4cats("core")
 
-    val redisClient = "io.lettuce"     % "lettuce-core"    % V.lettuce
-    val logback     = "ch.qos.logback" % "logback-classic" % V.logback
+    val redisClient = "io.lettuce" % "lettuce-core" % V.lettuce
+
+    // Examples libraries
+    val circeCore     = "io.circe" %% "circe-core" % V.circe
+    val circeGeneric  = "io.circe" %% "circe-generic" % V.circe
+    val circeParser   = "io.circe" %% "circe-parser" % V.circe
+    val log4CatsSlf4j = log4cats("slf4j")
+    val logback       = "ch.qos.logback" % "logback-classic" % V.logback
 
     // Testing libraries
-    val catsLaws    = cats("core")
-    val catsTestKit = cats("testkit")
-    val munitCore       = "org.scalameta" %% "munit"            % V.munit
+    val catsLaws        = cats("core")
+    val catsTestKit     = cats("testkit")
+    val munitCore       = "org.scalameta" %% "munit" % V.munit
     val munitScalacheck = "org.scalameta" %% "munit-scalacheck" % V.munit
   }
 

@@ -37,8 +37,8 @@ val commonSettings = Seq(
         CompilerPlugins.kindProjector,
         Libraries.catsEffect,
         Libraries.redisClient,
-        Libraries.catsLaws    % Test,
-        Libraries.catsTestKit % Test,
+        Libraries.catsLaws        % Test,
+        Libraries.catsTestKit     % Test,
         Libraries.munitCore       % Test,
         Libraries.munitScalacheck % Test
       ),
@@ -133,8 +133,15 @@ lazy val examples = project
   .in(file("modules/examples"))
   .settings(commonSettings: _*)
   .settings(noPublish)
-  .settings(libraryDependencies += Libraries.log4CatsSlf4j)
-  .settings(libraryDependencies += Libraries.logback % "runtime")
+  .settings(
+    libraryDependencies ++= Seq(
+          Libraries.circeCore,
+          Libraries.circeGeneric,
+          Libraries.circeParser,
+          Libraries.log4CatsSlf4j,
+          Libraries.logback % "runtime"
+        )
+  )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-log4cats`)
   .dependsOn(`redis4cats-effects`)

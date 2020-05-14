@@ -68,3 +68,7 @@ options:
   - title: Pipelining
     url: pipelining.html
     menu_section: pipelining
+
+  - title: Codecs
+    url: codecs.html
+    menu_section: codecs
