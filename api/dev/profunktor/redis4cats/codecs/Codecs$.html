@@ -328,9 +328,9 @@
               
         </dd></dl></div>
     </li><li name="dev.profunktor.redis4cats.codecs.Codecs#derive" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="derive[K,V](baseCodec:dev.profunktor.redis4cats.data.RedisCodec[K,K],epi:dev.profunktor.redis4cats.codecs.splits.SplitEpi[K,V]):dev.profunktor.redis4cats.data.RedisCodec[K,V]"></a><a id="derive[K,V](RedisCodec[K,K],SplitEpi[K,V]):RedisCodec[K,V]"></a>
+      <a id="derive[K1,K2,V1,V2](baseCodec:dev.profunktor.redis4cats.data.RedisCodec[K1,V1],epiKeys:dev.profunktor.redis4cats.codecs.splits.SplitEpi[K1,K2],epiValues:dev.profunktor.redis4cats.codecs.splits.SplitEpi[V1,V2]):dev.profunktor.redis4cats.data.RedisCodec[K2,V2]"></a><a id="derive[K1,K2,V1,V2](RedisCodec[K1,V1],SplitEpi[K1,K2],SplitEpi[V1,V2]):RedisCodec[K2,V2]"></a>
       <span class="permalink">
-      <a href="../../../../dev/profunktor/redis4cats/codecs/Codecs$.html#derive[K,V](baseCodec:dev.profunktor.redis4cats.data.RedisCodec[K,K],epi:dev.profunktor.redis4cats.codecs.splits.SplitEpi[K,V]):dev.profunktor.redis4cats.data.RedisCodec[K,V]" title="Permalink">
+      <a href="../../../../dev/profunktor/redis4cats/codecs/Codecs$.html#derive[K1,K2,V1,V2](baseCodec:dev.profunktor.redis4cats.data.RedisCodec[K1,V1],epiKeys:dev.profunktor.redis4cats.codecs.splits.SplitEpi[K1,K2],epiValues:dev.profunktor.redis4cats.codecs.splits.SplitEpi[V1,V2]):dev.profunktor.redis4cats.data.RedisCodec[K2,V2]" title="Permalink">
         <i class="material-icons"></i>
       </a>
     </span>
@@ -339,11 +339,28 @@
         <span class="kind">def</span>
       </span>
       <span class="symbol">
-        <span class="name">derive</span><span class="tparams">[<span name="K">K</span>, <span name="V">V</span>]</span><span class="params">(<span name="baseCodec">baseCodec: <a href="../data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.K">K</span>]</span>, <span name="epi">epi: <a href="splits/SplitEpi.html" class="extype" name="dev.profunktor.redis4cats.codecs.splits.SplitEpi">SplitEpi</a>[<span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.V">V</span>]</span>)</span><span class="result">: <a href="../data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.V">V</span>]</span>
+        <span class="name">derive</span><span class="tparams">[<span name="K1">K1</span>, <span name="K2">K2</span>, <span name="V1">V1</span>, <span name="V2">V2</span>]</span><span class="params">(<span name="baseCodec">baseCodec: <a href="../data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.K1">K1</span>, <span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.V1">V1</span>]</span>, <span name="epiKeys">epiKeys: <a href="splits/SplitEpi.html" class="extype" name="dev.profunktor.redis4cats.codecs.splits.SplitEpi">SplitEpi</a>[<span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.K1">K1</span>, <span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.K2">K2</span>]</span>, <span name="epiValues">epiValues: <a href="splits/SplitEpi.html" class="extype" name="dev.profunktor.redis4cats.codecs.splits.SplitEpi">SplitEpi</a>[<span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.V1">V1</span>, <span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.V2">V2</span>]</span>)</span><span class="result">: <a href="../data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.K2">K2</span>, <span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.V2">V2</span>]</span>
       </span>
       
-      <p class="shortcomment cmt">Given a base RedisCodec[K, K] and a split epimorphism between K and V,
-a new RedisCodec[K, V] can be derived.</p>
+      <p class="shortcomment cmt">Given a base RedisCodec[K1, V1], a split epimorphism between K1 and K2, and
+a split epimorphism between V1 and V2, a new RedisCodec[K2, V2] can be derived.</p>
+    </li><li name="dev.profunktor.redis4cats.codecs.Codecs#derive" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="derive[K,V1,V2](baseCodec:dev.profunktor.redis4cats.data.RedisCodec[K,V1],epi:dev.profunktor.redis4cats.codecs.splits.SplitEpi[V1,V2]):dev.profunktor.redis4cats.data.RedisCodec[K,V2]"></a><a id="derive[K,V1,V2](RedisCodec[K,V1],SplitEpi[V1,V2]):RedisCodec[K,V2]"></a>
+      <span class="permalink">
+      <a href="../../../../dev/profunktor/redis4cats/codecs/Codecs$.html#derive[K,V1,V2](baseCodec:dev.profunktor.redis4cats.data.RedisCodec[K,V1],epi:dev.profunktor.redis4cats.codecs.splits.SplitEpi[V1,V2]):dev.profunktor.redis4cats.data.RedisCodec[K,V2]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">derive</span><span class="tparams">[<span name="K">K</span>, <span name="V1">V1</span>, <span name="V2">V2</span>]</span><span class="params">(<span name="baseCodec">baseCodec: <a href="../data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.V1">V1</span>]</span>, <span name="epi">epi: <a href="splits/SplitEpi.html" class="extype" name="dev.profunktor.redis4cats.codecs.splits.SplitEpi">SplitEpi</a>[<span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.V1">V1</span>, <span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.V2">V2</span>]</span>)</span><span class="result">: <a href="../data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.codecs.Codecs.derive.V2">V2</span>]</span>
+      </span>
+      
+      <p class="shortcomment cmt">Given a base RedisCodec[K, V1] and a split epimorphism between V1 and V2,
+a new RedisCodec[K, V2] can be derived.</p>
     </li><li name="scala.AnyRef#eq" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="eq(x$1:AnyRef):Boolean"></a><a id="eq(AnyRef):Boolean"></a>
       <span class="permalink">

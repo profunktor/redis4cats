@@ -301,7 +301,23 @@
         <span class="kind">val</span>
       </span>
       <span class="symbol">
-        <span class="name">Ascii</span><span class="result">: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="java.lang.String">String</span>, <span class="extype" name="java.lang.String">String</span>]</span>
+        <span class="name">Ascii</span><span class="result">: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="scala.Predef.String">String</span>, <span class="extype" name="scala.Predef.String">String</span>]</span>
+      </span>
+      
+      
+    </li><li name="dev.profunktor.redis4cats.data.RedisCodec#Bytes" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Bytes:dev.profunktor.redis4cats.data.RedisCodec[Array[Byte],Array[Byte]]"></a><a id="Bytes:RedisCodec[Array[Byte],Array[Byte]]"></a>
+      <span class="permalink">
+      <a href="../../../dev/profunktor/redis4cats/data$$RedisCodec$.html#Bytes:dev.profunktor.redis4cats.data.RedisCodec[Array[Byte],Array[Byte]]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">Bytes</span><span class="result">: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<a href="https://www.scala-lang.org/api/2.12.10/scala/Array.html#scala.Array" class="extype" name="scala.Array">Array</a>[<a href="https://www.scala-lang.org/api/2.12.10/scala/Byte.html#scala.Byte" class="extype" name="scala.Byte">Byte</a>], <a href="https://www.scala-lang.org/api/2.12.10/scala/Array.html#scala.Array" class="extype" name="scala.Array">Array</a>[<a href="https://www.scala-lang.org/api/2.12.10/scala/Byte.html#scala.Byte" class="extype" name="scala.Byte">Byte</a>]]</span>
       </span>
       
       
@@ -317,7 +333,7 @@
         <span class="kind">val</span>
       </span>
       <span class="symbol">
-        <span class="name">Utf8</span><span class="result">: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="java.lang.String">String</span>, <span class="extype" name="java.lang.String">String</span>]</span>
+        <span class="name">Utf8</span><span class="result">: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="scala.Predef.String">String</span>, <span class="extype" name="scala.Predef.String">String</span>]</span>
       </span>
       
       
@@ -361,6 +377,57 @@
                 <span class="name">@native</span><span class="args">()</span>
               
         </dd></dl></div>
+    </li><li name="dev.profunktor.redis4cats.data.RedisCodec#decryptSupplier" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="decryptSupplier[F[_]](key:javax.crypto.spec.SecretKeySpec)(implicitevidence$2:cats.effect.Sync[F]):F[io.lettuce.core.codec.CipherCodec.CipherSupplier]"></a><a id="decryptSupplier[F[_]](SecretKeySpec)(Sync[F]):F[CipherSupplier]"></a>
+      <span class="permalink">
+      <a href="../../../dev/profunktor/redis4cats/data$$RedisCodec$.html#decryptSupplier[F[_]](key:javax.crypto.spec.SecretKeySpec)(implicitevidence$2:cats.effect.Sync[F]):F[io.lettuce.core.codec.CipherCodec.CipherSupplier]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">decryptSupplier</span><span class="tparams">[<span name="F">F<span class="tparams">[<span name="_">_</span>]</span></span>]</span><span class="params">(<span name="key">key: <span class="extype" name="javax.crypto.spec.SecretKeySpec">SecretKeySpec</span></span>)</span><span class="params">(<span class="implicit">implicit </span><span name="arg0">arg0: <span class="extype" name="cats.effect.Sync">Sync</span>[<span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.decryptSupplier.F">F</span>]</span>)</span><span class="result">: <span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.decryptSupplier.F">F</span>[<span class="extype" name="io.lettuce.core.codec.CipherCodec.CipherSupplier">CipherSupplier</span>]</span>
+      </span>
+      
+      <p class="shortcomment cmt">It creates a CipherSupplier given a secret key for decryption.</p><div class="fullcomment"><div class="comment cmt"><p>It creates a CipherSupplier given a secret key for decryption.</p><p>A CipherSupplier is needed for <a href="#secure[K,V](codec:dev.profunktor.redis4cats.data.RedisCodec[K,V],encrypt:io.lettuce.core.codec.CipherCodec.CipherSupplier,decrypt:io.lettuce.core.codec.CipherCodec.CipherSupplier):dev.profunktor.redis4cats.data.RedisCodec[K,V]" class="extmbr" name="dev.profunktor.redis4cats.data.RedisCodec#secure">RedisCodec.secure</a>
+</p></div></div>
+    </li><li name="dev.profunktor.redis4cats.data.RedisCodec#deflate" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="deflate[K,V](codec:dev.profunktor.redis4cats.data.RedisCodec[K,V]):dev.profunktor.redis4cats.data.RedisCodec[K,V]"></a><a id="deflate[K,V](RedisCodec[K,V]):RedisCodec[K,V]"></a>
+      <span class="permalink">
+      <a href="../../../dev/profunktor/redis4cats/data$$RedisCodec$.html#deflate[K,V](codec:dev.profunktor.redis4cats.data.RedisCodec[K,V]):dev.profunktor.redis4cats.data.RedisCodec[K,V]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">deflate</span><span class="tparams">[<span name="K">K</span>, <span name="V">V</span>]</span><span class="params">(<span name="codec">codec: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.deflate.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.deflate.V">V</span>]</span>)</span><span class="result">: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.deflate.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.deflate.V">V</span>]</span>
+      </span>
+      
+      <p class="shortcomment cmt">It compresses every value sent to Redis and it decompresses every value read
+from Redis using the DEFLATE compression algorithm.</p>
+    </li><li name="dev.profunktor.redis4cats.data.RedisCodec#encryptSupplier" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="encryptSupplier[F[_]](key:javax.crypto.spec.SecretKeySpec)(implicitevidence$1:cats.effect.Sync[F]):F[io.lettuce.core.codec.CipherCodec.CipherSupplier]"></a><a id="encryptSupplier[F[_]](SecretKeySpec)(Sync[F]):F[CipherSupplier]"></a>
+      <span class="permalink">
+      <a href="../../../dev/profunktor/redis4cats/data$$RedisCodec$.html#encryptSupplier[F[_]](key:javax.crypto.spec.SecretKeySpec)(implicitevidence$1:cats.effect.Sync[F]):F[io.lettuce.core.codec.CipherCodec.CipherSupplier]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">encryptSupplier</span><span class="tparams">[<span name="F">F<span class="tparams">[<span name="_">_</span>]</span></span>]</span><span class="params">(<span name="key">key: <span class="extype" name="javax.crypto.spec.SecretKeySpec">SecretKeySpec</span></span>)</span><span class="params">(<span class="implicit">implicit </span><span name="arg0">arg0: <span class="extype" name="cats.effect.Sync">Sync</span>[<span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.encryptSupplier.F">F</span>]</span>)</span><span class="result">: <span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.encryptSupplier.F">F</span>[<span class="extype" name="io.lettuce.core.codec.CipherCodec.CipherSupplier">CipherSupplier</span>]</span>
+      </span>
+      
+      <p class="shortcomment cmt">It creates a CipherSupplier given a secret key for encryption.</p><div class="fullcomment"><div class="comment cmt"><p>It creates a CipherSupplier given a secret key for encryption.</p><p>A CipherSupplier is needed for <a href="#secure[K,V](codec:dev.profunktor.redis4cats.data.RedisCodec[K,V],encrypt:io.lettuce.core.codec.CipherCodec.CipherSupplier,decrypt:io.lettuce.core.codec.CipherCodec.CipherSupplier):dev.profunktor.redis4cats.data.RedisCodec[K,V]" class="extmbr" name="dev.profunktor.redis4cats.data.RedisCodec#secure">RedisCodec.secure</a>
+</p></div></div>
     </li><li name="scala.AnyRef#eq" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="eq(x$1:AnyRef):Boolean"></a><a id="eq(AnyRef):Boolean"></a>
       <span class="permalink">
@@ -434,6 +501,23 @@
                 <span class="name">@native</span><span class="args">()</span>
               
         </dd></dl></div>
+    </li><li name="dev.profunktor.redis4cats.data.RedisCodec#gzip" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="gzip[K,V](codec:dev.profunktor.redis4cats.data.RedisCodec[K,V]):dev.profunktor.redis4cats.data.RedisCodec[K,V]"></a><a id="gzip[K,V](RedisCodec[K,V]):RedisCodec[K,V]"></a>
+      <span class="permalink">
+      <a href="../../../dev/profunktor/redis4cats/data$$RedisCodec$.html#gzip[K,V](codec:dev.profunktor.redis4cats.data.RedisCodec[K,V]):dev.profunktor.redis4cats.data.RedisCodec[K,V]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">gzip</span><span class="tparams">[<span name="K">K</span>, <span name="V">V</span>]</span><span class="params">(<span name="codec">codec: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.gzip.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.gzip.V">V</span>]</span>)</span><span class="result">: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.gzip.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.gzip.V">V</span>]</span>
+      </span>
+      
+      <p class="shortcomment cmt">It compresses every value sent to Redis and it decompresses every value read
+from Redis using the GZIP compression algorithm.</p>
     </li><li name="scala.AnyRef#hashCode" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="hashCode():Int"></a>
       <span class="permalink">
@@ -523,6 +607,23 @@
                 <span class="name">@native</span><span class="args">()</span>
               
         </dd></dl></div>
+    </li><li name="dev.profunktor.redis4cats.data.RedisCodec#secure" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="secure[K,V](codec:dev.profunktor.redis4cats.data.RedisCodec[K,V],encrypt:io.lettuce.core.codec.CipherCodec.CipherSupplier,decrypt:io.lettuce.core.codec.CipherCodec.CipherSupplier):dev.profunktor.redis4cats.data.RedisCodec[K,V]"></a><a id="secure[K,V](RedisCodec[K,V],CipherSupplier,CipherSupplier):RedisCodec[K,V]"></a>
+      <span class="permalink">
+      <a href="../../../dev/profunktor/redis4cats/data$$RedisCodec$.html#secure[K,V](codec:dev.profunktor.redis4cats.data.RedisCodec[K,V],encrypt:io.lettuce.core.codec.CipherCodec.CipherSupplier,decrypt:io.lettuce.core.codec.CipherCodec.CipherSupplier):dev.profunktor.redis4cats.data.RedisCodec[K,V]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">secure</span><span class="tparams">[<span name="K">K</span>, <span name="V">V</span>]</span><span class="params">(<span name="codec">codec: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.secure.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.secure.V">V</span>]</span>, <span name="encrypt">encrypt: <span class="extype" name="io.lettuce.core.codec.CipherCodec.CipherSupplier">CipherSupplier</span></span>, <span name="decrypt">decrypt: <span class="extype" name="io.lettuce.core.codec.CipherCodec.CipherSupplier">CipherSupplier</span></span>)</span><span class="result">: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.secure.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.data.RedisCodec.secure.V">V</span>]</span>
+      </span>
+      
+      <p class="shortcomment cmt">It encrypts every value sent to Redis and it decrypts every value read from
+Redis using the supplied CipherSuppliers.</p>
     </li><li name="scala.AnyRef#synchronized" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="synchronized[T0](x$1:=&gt;T0):T0"></a><a id="synchronized[T0](⇒T0):T0"></a>
       <span class="permalink">
