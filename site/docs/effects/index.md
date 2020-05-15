@@ -80,6 +80,36 @@ The only difference with other APIs will be the `Commands` type. For the `String
 
 Doing it this way, you can share the same `RedisClient` to establish many different connections. If your use case is simple, have a look at the section below.
 
+#### Client configuration
+
+When you create a `RedisClient`, it will use sane defaults for timeouts, auto-reconnection, etc. These defaults can be customized by providing a `io.lettuce.core.ClientOptions` as well as the `RedisURI`.
+
+```scala mdoc:silent
+import io.lettuce.core.{ ClientOptions, TimeoutOptions }
+import java.time.Duration
+
+val mkOpts: IO[ClientOptions] =
+  IO {
+    ClientOptions.builder()
+     .autoReconnect(false)
+     .pingBeforeActivateConnection(false)
+     .timeoutOptions(
+       TimeoutOptions.builder()
+        .fixedTimeout(Duration.ofSeconds(10))
+        .build()
+     )
+     .build()
+  }
+
+val api: Resource[IO, StringCommands[IO, String, String]] =
+  for {
+    uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
+    opts   <- Resource.liftF(mkOpts)
+    client <- RedisClient[IO](uri, opts)
+    redis  <- Redis[IO].fromClient(client, stringCodec)
+  } yield redis
+```
+
 ### Single node connection
 
 For those who only need a simple API access to Redis commands, there are a few ways to acquire a connection:
@@ -87,6 +117,15 @@ For those who only need a simple API access to Redis commands, there are a few w
 ```scala mdoc:silent
 val simpleApi: Resource[IO, StringCommands[IO, String, String]] =
   Redis[IO].simple("redis://localhost", RedisCodec.Ascii)
+```
+
+A simple connection with custom client options:
+
+```scala mdoc:silent
+val simpleOptsApi: Resource[IO, StringCommands[IO, String, String]] =
+  Resource.liftF(IO(ClientOptions.create())).flatMap { opts =>
+    Redis[IO].withOptions("redis://localhost", opts, RedisCodec.Ascii)
+  }
 ```
 
 Or the most common one:

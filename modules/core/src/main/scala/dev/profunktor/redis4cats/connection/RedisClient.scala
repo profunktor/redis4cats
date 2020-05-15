@@ -20,7 +20,7 @@ import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effect.JRFuture._
-import io.lettuce.core.{ RedisClient => JRedisClient, RedisURI => JRedisURI }
+import io.lettuce.core.{ ClientOptions, RedisClient => JRedisClient, RedisURI => JRedisURI }
 
 sealed abstract case class RedisClient private (underlying: JRedisClient, uri: RedisURI)
 
@@ -28,10 +28,12 @@ object RedisClient {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
       uri: => RedisURI,
+      opts: ClientOptions,
       blocker: Blocker
   ): (F[RedisClient], RedisClient => F[Unit]) = {
     val acquire: F[RedisClient] = F.delay {
       val jClient: JRedisClient = JRedisClient.create(uri.underlying)
+      jClient.setOptions(opts)
       new RedisClient(jClient, uri) {}
     }
 
@@ -43,13 +45,21 @@ object RedisClient {
   }
 
   private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log](
+      opts: ClientOptions,
       blocker: Blocker
   ): F[(F[RedisClient], RedisClient => F[Unit])] =
-    F.delay(RedisURI.fromUnderlying(new JRedisURI())).map(uri => acquireAndRelease(uri, blocker))
+    F.delay(RedisURI.fromUnderlying(new JRedisURI()))
+      .map(uri => acquireAndRelease(uri, opts, blocker))
 
   def apply[F[_]: Concurrent: ContextShift: Log](uri: => RedisURI): Resource[F, RedisClient] =
+    Resource.liftF(F.delay(ClientOptions.create())).flatMap(apply[F](uri, _))
+
+  def apply[F[_]: Concurrent: ContextShift: Log](
+      uri: => RedisURI,
+      opts: ClientOptions
+  ): Resource[F, RedisClient] =
     mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndRelease(uri, blocker)
+      val (acquire, release) = acquireAndRelease(uri, opts, blocker)
       Resource.make(acquire)(release)
     }
 
