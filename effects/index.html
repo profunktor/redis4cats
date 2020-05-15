@@ -71,12 +71,49 @@
 
 <p>Doing it this way, you can share the same <code class="highlighter-rouge">RedisClient</code> to establish many different connections. If your use case is simple, have a look at the section below.</p>
 
+<h4 id="client-configuration">Client configuration</h4>
+
+<p>When you create a <code class="highlighter-rouge">RedisClient</code>, it will use sane defaults for timeouts, auto-reconnection, etc. These defaults can be customized by providing a <code class="highlighter-rouge">io.lettuce.core.ClientOptions</code> as well as the <code class="highlighter-rouge">RedisURI</code>.</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">io.lettuce.core.</span><span class="o">{</span> <span class="nc">ClientOptions</span><span class="o">,</span> <span class="nc">TimeoutOptions</span> <span class="o">}</span>
+<span class="k">import</span> <span class="nn">java.time.Duration</span>
+
+<span class="k">val</span> <span class="nv">mkOpts</span><span class="k">:</span> <span class="kt">IO</span><span class="o">[</span><span class="kt">ClientOptions</span><span class="o">]</span> <span class="k">=</span>
+  <span class="nc">IO</span> <span class="o">{</span>
+    <span class="nv">ClientOptions</span><span class="o">.</span><span class="py">builder</span><span class="o">()</span>
+     <span class="o">.</span><span class="py">autoReconnect</span><span class="o">(</span><span class="kc">false</span><span class="o">)</span>
+     <span class="o">.</span><span class="py">pingBeforeActivateConnection</span><span class="o">(</span><span class="kc">false</span><span class="o">)</span>
+     <span class="o">.</span><span class="py">timeoutOptions</span><span class="o">(</span>
+       <span class="nv">TimeoutOptions</span><span class="o">.</span><span class="py">builder</span><span class="o">()</span>
+        <span class="o">.</span><span class="py">fixedTimeout</span><span class="o">(</span><span class="nv">Duration</span><span class="o">.</span><span class="py">ofSeconds</span><span class="o">(</span><span class="mi">10</span><span class="o">))</span>
+        <span class="o">.</span><span class="py">build</span><span class="o">()</span>
+     <span class="o">)</span>
+     <span class="o">.</span><span class="py">build</span><span class="o">()</span>
+  <span class="o">}</span>
+
+<span class="k">val</span> <span class="nv">api</span><span class="k">:</span> <span class="kt">Resource</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">StringCommands</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">String</span>, <span class="kt">String</span><span class="o">]]</span> <span class="k">=</span>
+  <span class="k">for</span> <span class="o">{</span>
+    <span class="n">uri</span>    <span class="k">&lt;-</span> <span class="nv">Resource</span><span class="o">.</span><span class="py">liftF</span><span class="o">(</span><span class="nv">RedisURI</span><span class="o">.</span><span class="py">make</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span><span class="s">"redis://localhost"</span><span class="o">))</span>
+    <span class="n">opts</span>   <span class="k">&lt;-</span> <span class="nv">Resource</span><span class="o">.</span><span class="py">liftF</span><span class="o">(</span><span class="n">mkOpts</span><span class="o">)</span>
+    <span class="n">client</span> <span class="k">&lt;-</span> <span class="nc">RedisClient</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span><span class="n">uri</span><span class="o">,</span> <span class="n">opts</span><span class="o">)</span>
+    <span class="n">redis</span>  <span class="k">&lt;-</span> <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">fromClient</span><span class="o">(</span><span class="n">client</span><span class="o">,</span> <span class="n">stringCodec</span><span class="o">)</span>
+  <span class="o">}</span> <span class="k">yield</span> <span class="n">redis</span>
+</code></pre></div></div>
+
 <h3 id="single-node-connection">Single node connection</h3>
 
 <p>For those who only need a simple API access to Redis commands, there are a few ways to acquire a connection:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">val</span> <span class="nv">simpleApi</span><span class="k">:</span> <span class="kt">Resource</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">StringCommands</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">String</span>, <span class="kt">String</span><span class="o">]]</span> <span class="k">=</span>
   <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">simple</span><span class="o">(</span><span class="s">"redis://localhost"</span><span class="o">,</span> <span class="nv">RedisCodec</span><span class="o">.</span><span class="py">Ascii</span><span class="o">)</span>
+</code></pre></div></div>
+
+<p>A simple connection with custom client options:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">val</span> <span class="nv">simpleOptsApi</span><span class="k">:</span> <span class="kt">Resource</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">StringCommands</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">String</span>, <span class="kt">String</span><span class="o">]]</span> <span class="k">=</span>
+  <span class="nv">Resource</span><span class="o">.</span><span class="py">liftF</span><span class="o">(</span><span class="nc">IO</span><span class="o">(</span><span class="nv">ClientOptions</span><span class="o">.</span><span class="py">create</span><span class="o">())).</span><span class="py">flatMap</span> <span class="o">{</span> <span class="n">opts</span> <span class="k">=&gt;</span>
+    <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">withOptions</span><span class="o">(</span><span class="s">"redis://localhost"</span><span class="o">,</span> <span class="n">opts</span><span class="o">,</span> <span class="nv">RedisCodec</span><span class="o">.</span><span class="py">Ascii</span><span class="o">)</span>
+  <span class="o">}</span>
 </code></pre></div></div>
 
 <p>Or the most common one:</p>

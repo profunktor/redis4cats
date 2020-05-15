@@ -412,7 +412,7 @@
         <span class="name">cluster</span><span class="tparams">[<span name="K">K</span>, <span name="V">V</span>]</span><span class="params">(<span name="codec">codec: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.cluster.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.cluster.V">V</span>]</span>, <span name="uris">uris: <span class="extype" name="scala.Predef.String">String</span>*</span>)</span><span class="result">: <span class="extype" name="cats.effect.Resource">Resource</span>[<span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.F">F</span>, <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a>[<span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.F">F</span>, <span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.cluster.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.cluster.V">V</span>]]</span>
       </span>
       
-      <p class="shortcomment cmt">Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a cluster connection.</p><div class="fullcomment"><div class="comment cmt"><p>Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a cluster connection.</p><p>It will also create an underlying RedisClusterClient to establish a
+      <p class="shortcomment cmt">Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a cluster connection.</p><div class="fullcomment"><div class="comment cmt"><p>Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a cluster connection.</p><p>It will also create an underlying RedisClusterClient to establish
 connection with Redis.</p><p>Example:</p><pre>Redis[IO].cluster(
   RedisCodec.Utf8,
   <span class="lit">"redis://localhost:30001"</span>,
@@ -437,7 +437,7 @@ or <a href="#fromClusterClientByNode[K,V](clusterClient:dev.profunktor.redis4cat
       
       <p class="shortcomment cmt">Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a cluster connection to deal
 with UTF-8 encoded keys and values.</p><div class="fullcomment"><div class="comment cmt"><p>Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a cluster connection to deal
-with UTF-8 encoded keys and values.</p><p>It will also create an underlying RedisClusterClient to establish a
+with UTF-8 encoded keys and values.</p><p>It will also create an underlying RedisClusterClient to establish
 connection with Redis.</p><p>Example:</p><pre>Redis[IO].clusterUtf8(
   <span class="lit">"redis://localhost:30001"</span>,
   <span class="lit">"redis://localhost:30002"</span>
@@ -822,7 +822,7 @@ prefer to use either <a href="#clusterUtf8(uris:String*):cats.effect.Resource[F,
         <span class="name">simple</span><span class="tparams">[<span name="K">K</span>, <span name="V">V</span>]</span><span class="params">(<span name="uri">uri: <span class="extype" name="scala.Predef.String">String</span></span>, <span name="codec">codec: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.simple.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.simple.V">V</span>]</span>)</span><span class="result">: <span class="extype" name="cats.effect.Resource">Resource</span>[<span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.F">F</span>, <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a>[<span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.F">F</span>, <span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.simple.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.simple.V">V</span>]]</span>
       </span>
       
-      <p class="shortcomment cmt">Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a single-node connection.</p><div class="fullcomment"><div class="comment cmt"><p>Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a single-node connection.</p><p>It will create an underlying RedisClient to establish a
+      <p class="shortcomment cmt">Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a single-node connection.</p><div class="fullcomment"><div class="comment cmt"><p>Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a single-node connection.</p><p>It will create an underlying RedisClient with default options to establish
 connection with Redis.</p><p>Example:</p><pre>Redis[IO].simple(<span class="lit">"redis://localhost"</span>, RedisCodec.Ascii)</pre><p>Note: if you need to create multiple connections, use <a href="#fromClient[K,V](client:dev.profunktor.redis4cats.connection.RedisClient,codec:dev.profunktor.redis4cats.data.RedisCodec[K,V]):cats.effect.Resource[F,dev.profunktor.redis4cats.RedisCommands[F,K,V]]" class="extmbr" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied#fromClient">fromClient</a>
 instead, which allows you to re-use the same client.
 </p></div></div>
@@ -875,7 +875,7 @@ instead, which allows you to re-use the same client.
       
       <p class="shortcomment cmt">Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a single-node connection to deal
 with UTF-8 encoded keys and values.</p><div class="fullcomment"><div class="comment cmt"><p>Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a single-node connection to deal
-with UTF-8 encoded keys and values.</p><p>It will also create an underlying RedisClient to establish a
+with UTF-8 encoded keys and values.</p><p>It will create an underlying RedisClient with default options to establish
 connection with Redis.</p><p>Example:</p><pre>Redis[IO].utf8(<span class="lit">"redis://localhost"</span>)</pre><p>Note: if you need to create multiple connections, use <a href="#fromClient[K,V](client:dev.profunktor.redis4cats.connection.RedisClient,codec:dev.profunktor.redis4cats.data.RedisCodec[K,V]):cats.effect.Resource[F,dev.profunktor.redis4cats.RedisCommands[F,K,V]]" class="extmbr" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied#fromClient">fromClient</a>
 instead, which allows you to re-use the same client.
 </p></div></div>
@@ -947,6 +947,28 @@ instead, which allows you to re-use the same client.
                 <span class="name">@native</span><span class="args">()</span>
               
         </dd></dl></div>
+    </li><li name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied#withOptions" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="withOptions[K,V](uri:String,opts:io.lettuce.core.ClientOptions,codec:dev.profunktor.redis4cats.data.RedisCodec[K,V]):cats.effect.Resource[F,dev.profunktor.redis4cats.RedisCommands[F,K,V]]"></a><a id="withOptions[K,V](String,ClientOptions,RedisCodec[K,V]):Resource[F,RedisCommands[F,K,V]]"></a>
+      <span class="permalink">
+      <a href="../../../dev/profunktor/redis4cats/Redis$$RedisPartiallyApplied.html#withOptions[K,V](uri:String,opts:io.lettuce.core.ClientOptions,codec:dev.profunktor.redis4cats.data.RedisCodec[K,V]):cats.effect.Resource[F,dev.profunktor.redis4cats.RedisCommands[F,K,V]]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">withOptions</span><span class="tparams">[<span name="K">K</span>, <span name="V">V</span>]</span><span class="params">(<span name="uri">uri: <span class="extype" name="scala.Predef.String">String</span></span>, <span name="opts">opts: <span class="extype" name="io.lettuce.core.ClientOptions">ClientOptions</span></span>, <span name="codec">codec: <a href="data$$RedisCodec.html" class="extype" name="dev.profunktor.redis4cats.data.RedisCodec">RedisCodec</a>[<span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.withOptions.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.withOptions.V">V</span>]</span>)</span><span class="result">: <span class="extype" name="cats.effect.Resource">Resource</span>[<span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.F">F</span>, <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a>[<span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.F">F</span>, <span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.withOptions.K">K</span>, <span class="extype" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied.withOptions.V">V</span>]]</span>
+      </span>
+      
+      <p class="shortcomment cmt">Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a single-node connection.</p><div class="fullcomment"><div class="comment cmt"><p>Creates a <a href="RedisCommands.html" class="extype" name="dev.profunktor.redis4cats.RedisCommands">RedisCommands</a> for a single-node connection.</p><p>It will create an underlying RedisClient using the supplied client options
+to establish connection with Redis.</p><p>Example:</p><pre><span class="kw">for</span> {
+  opts <span class="kw">&lt;-</span> Resource.liftF(F.delay(ClientOptions.create())) <span class="cmt">// configure timeouts, etc</span>
+  cmds <span class="kw">&lt;-</span> Redis[IO].withOptions(<span class="lit">"redis://localhost"</span>, opts, RedisCodec.Ascii)
+} <span class="kw">yield</span> cmds</pre><p>Note: if you need to create multiple connections, use <a href="#fromClient[K,V](client:dev.profunktor.redis4cats.connection.RedisClient,codec:dev.profunktor.redis4cats.data.RedisCodec[K,V]):cats.effect.Resource[F,dev.profunktor.redis4cats.RedisCommands[F,K,V]]" class="extmbr" name="dev.profunktor.redis4cats.Redis.RedisPartiallyApplied#fromClient">fromClient</a>
+instead, which allows you to re-use the same client.
+</p></div></div>
     </li><li name="scala.Predef.ArrowAssoc#→" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="→[B](y:B):(A,B)"></a><a id="→[B](B):(RedisPartiallyApplied[F],B)"></a>
       <span class="permalink">
