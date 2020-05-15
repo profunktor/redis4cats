@@ -30,3 +30,5 @@ object QuickStart extends IOApp {
 ```
 
 This is the simplest way to get up and running with a single-node Redis connection. To learn more about commands, clustering, pipelining and transactions, please have a look at the extensive documentation.
+
+You can continue reading about the different ways of acquiring a client and a connection [here](./effects/).

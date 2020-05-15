@@ -25,7 +25,7 @@ Note: cluster support is not implemented yet.
 
 ### Subscriber
 
-```mdoc:silent
+```scala mdoc:silent
 trait SubscribeCommands[F[_], K, V] {
   def subscribe(channel: RedisChannel[K]): F[V]
   def unsubscribe(channel: RedisChannel[K]): F[Unit]
@@ -36,7 +36,7 @@ When using the `PubSub` interpreter the types will be `Stream[F, V]` and `Stream
 
 ### Publisher / PubSubStats
 
-```mdoc:silent
+```scala mdoc:silent
 trait PubSubStats[F[_], K] {
   def pubSubChannels: F[List[K]]
   def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]

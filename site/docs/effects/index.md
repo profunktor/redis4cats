@@ -19,43 +19,15 @@ The API that operates at the effect level `F[_]` on top of `cats-effect`.
 - **[Sorted SetsAPI](./sortedsets.html)**
 - **[Strings API](./strings.html)**
 
-### Acquiring client and connection
-
-For all the effect-based APIs the process of acquiring a client and a commands connection is via the `apply` method that returns a `Resource`:
-
-```scala
-def apply[F[_]](uri: RedisURI): Resource[F, RedisClient]
-```
-
-### Logger
-
-In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either use `log4cats` (recommended), one of the simpler instances such as `NoOp` and `Stdout`, or roll your own. `redis4cats` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to add the extra dependency `redis4cats-log4cats` and `import dev.profunktor.redis4cats.log4cats._`.
-
-Take a look at the [examples](https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/LoggerIOApp.scala) to find out more.
-
-#### Disable logging
-
-If you don't need logging at all, use the following import wherever a `Log` instance is required:
-
-```scala
-// Available for any `Applicative[F]`
-import dev.profunktor.redis4cats.effect.Log.NoOp._
-```
-
-If you need simple logging to STDOUT for quick debugging, you can use the following one:
-
-```scala
-// Available for any `Sync[F]`
-import dev.profunktor.redis4cats.effect.Log.Stdout._
-```
-
 ### Establishing connection
 
-Here's an example of acquiring a client and a connection to the `Strings API`:
+For all the effect-based APIs the process of acquiring a client and a commands connection is quite similar, and they all return a `Resource`.
+
+Let's have a look at the following example, which acquires a connection to the `Strings API`:
 
 ```scala mdoc:silent
 import cats.effect.{IO, Resource}
-import dev.profunktor.redis4cats.Redis
+import dev.profunktor.redis4cats._
 import dev.profunktor.redis4cats.algebra.StringCommands
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisCodec
@@ -76,9 +48,9 @@ val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
   } yield redis
 ```
 
-The only difference with other APIs will be the `Commands` type. For the `Strings API` is `StringCommands`, for `Sorted Sets API` is `SortedSetCommands` and so on. For a complete list please take a look at the [algebras](https://github.com/profunktor/redis4cats/tree/master/modules/effects/src/main/scala/dev/profunktor/redis4cats/algebra).
+`Redis[IO].fromClient` returns a `Resource[IO, RedisCommands[IO, K, V]]`, but here we're downcasting to a more specific API. This is not necessary but it shows how you can have more control over what commands you want a specific function to have access to. For the `Strings API` is `StringCommands`, for `Sorted Sets API` is `SortedSetCommands`, and so on. For a complete list please take a look at the [algebras](https://github.com/profunktor/redis4cats/tree/master/modules/effects/src/main/scala/dev/profunktor/redis4cats/algebra).
 
-Doing it this way, you can share the same `RedisClient` to establish many different connections. If your use case is simple, have a look at the section below.
+Acquiring a connection using `fromClient`, we can share the same `RedisClient` to establish many different connections. If you don't need this, have a look at the following sections.
 
 #### Client configuration
 
@@ -135,6 +107,28 @@ val utf8Api: Resource[IO, StringCommands[IO, String, String]] =
   Redis[IO].utf8("redis://localhost")
 ```
 
+### Logger
+
+In order to create a client and/or connection you must provide a `Log` instance that the library uses for internal logging. You could either use `log4cats` (recommended), one of the simpler instances such as `NoOp` and `Stdout`, or roll your own. `redis4cats` can derive an instance of `Log[F]` if there is an instance of `Logger[F]` in scope, just need to add the extra dependency `redis4cats-log4cats` and `import dev.profunktor.redis4cats.log4cats._`.
+
+Take a look at the [examples](https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/LoggerIOApp.scala) to find out more.
+
+#### Disable logging
+
+If you don't need logging at all, use the following import wherever a `Log` instance is required:
+
+```scala
+// Available for any `Applicative[F]`
+import dev.profunktor.redis4cats.effect.Log.NoOp._
+```
+
+If you need simple logging to STDOUT for quick debugging, you can use the following one:
+
+```scala
+// Available for any `Sync[F]`
+import dev.profunktor.redis4cats.effect.Log.Stdout._
+```
+
 ### Standalone, Sentinel or Cluster
 
 You can connect in any of these modes by either using `JRedisURI.create` or `JRedisURI.Builder`. More information
@@ -162,11 +156,23 @@ val clusterUtf8Api: Resource[IO, StringCommands[IO, String, String]] =
 
 ### Master / Replica connection
 
-The process is a bit different. First of all, you don't need to create a `RedisClient`, it'll be created for you. All you need is `RedisMasterReplica` that exposes in a similar way one method `apply` that returns a `Resource`.
+The process is a bit different. First of all, you don't need to create a `RedisClient`, it'll be created for you. All you need is `RedisMasterReplica` that exposes two different constructors as `Resource`.
 
 ```scala
-def apply[F[_], K, V](codec: RedisCodec[K, V], uris: RedisURI*)(
-  readFrom: Option[ReadFrom] = None): Resource[F, RedisMasterReplica[K, V]]
+def make[K, V](
+    codec: RedisCodec[K, V],
+    uris: RedisURI*
+)(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]]
+```
+
+And a way to customize the underlying client options.
+
+```scala
+def withOptions[K, V](
+    codec: RedisCodec[K, V],
+    opts: ClientOptions,
+    uris: RedisURI*
+)(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]]
 ```
 
 #### Example using the Strings API
@@ -179,13 +185,10 @@ import dev.profunktor.redis4cats.algebra.StringCommands
 import dev.profunktor.redis4cats.connection.RedisMasterReplica
 import dev.profunktor.redis4cats.data.ReadFrom
 
-// Already imported above, but if copying from this block is necessary
-// val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
-
 val commands: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
-    conn <- RedisMasterReplica[IO].make(stringCodec, uri)(Some(ReadFrom.MasterPreferred))
+    conn <- RedisMasterReplica[IO].make(RedisCodec.Utf8, uri)(ReadFrom.MasterPreferred.some)
     cmds <- Redis[IO].masterReplica(conn)
   } yield cmds
 
