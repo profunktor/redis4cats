@@ -23,7 +23,7 @@ import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effect.JRFuture._
 import io.lettuce.core.masterreplica.{ MasterReplica, StatefulRedisMasterReplicaConnection }
-import io.lettuce.core.{ ReadFrom => JReadFrom }
+import io.lettuce.core.{ ClientOptions, ReadFrom => JReadFrom }
 
 /**
   * It encapsulates an underlying `MasterReplica` connection
@@ -66,7 +66,8 @@ object RedisMasterReplica {
     /**
       * Creates a [[RedisMasterReplica]]
       *
-      * It will also create an underlying [[RedisClient]] to establish connection with Redis
+      * It will also create an underlying [[RedisClient]] with default client options to
+      * establish connection with Redis.
       *
       * Example:
       *
@@ -81,8 +82,32 @@ object RedisMasterReplica {
         codec: RedisCodec[K, V],
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
+      Resource.liftF(F.delay(ClientOptions.create())).flatMap(withOptions(codec, _, uris: _*)(readFrom))
+
+    /**
+      * Creates a [[RedisMasterReplica]] using the supplied client options
+      *
+      * It will also create an underlying [[RedisClient]] using the supplied client options
+      * to establish connection with Redis.
+      *
+      * Example:
+      *
+      * {{{
+      * val conn: Resource[IO, RedisMasterReplica[String, String]] =
+      *   for {
+      *     ops <- Resource.liftF(F.delay(ClientOptions.create()))
+      *     uri <- Resource.liftF(RedisURI.make[IO](redisURI))
+      *     mrc <- RedisMasterReplica[IO].withOptions(RedisCodec.Utf8, ops, uri)(Some(ReadFrom.MasterPreferred))
+      *   } yield mrc
+      * }}}
+      */
+    def withOptions[K, V](
+        codec: RedisCodec[K, V],
+        opts: ClientOptions,
+        uris: RedisURI*
+    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
       mkBlocker[F].flatMap { blocker =>
-        Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F](blocker)).flatMap {
+        Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F](opts, blocker)).flatMap {
           case (acquireClient, releaseClient) =>
             Resource.make(acquireClient)(releaseClient).flatMap { client =>
               val (acquire, release) = acquireAndRelease(client, codec, readFrom, blocker, uris: _*)
@@ -90,6 +115,7 @@ object RedisMasterReplica {
             }
         }
       }
+
   }
 
   def apply[F[_]: Concurrent: ContextShift: Log]: MasterReplicaPartiallyApplied[F] =

@@ -43,6 +43,7 @@ import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
+import io.lettuce.core.ClientOptions
 
 object Redis {
 
@@ -109,7 +110,7 @@ object Redis {
     /**
       * Creates a [[RedisCommands]] for a single-node connection.
       *
-      * It will create an underlying RedisClient to establish a
+      * It will create an underlying RedisClient with default options to establish
       * connection with Redis.
       *
       * Example:
@@ -129,10 +130,39 @@ object Redis {
       } yield redis
 
     /**
+      * Creates a [[RedisCommands]] for a single-node connection.
+      *
+      * It will create an underlying RedisClient using the supplied client options
+      * to establish connection with Redis.
+      *
+      * Example:
+      *
+      * {{{
+      * for {
+      *   opts <- Resource.liftF(F.delay(ClientOptions.create())) // configure timeouts, etc
+      *   cmds <- Redis[IO].withOptions("redis://localhost", opts, RedisCodec.Ascii)
+      * } yield cmds
+      * }}}
+      *
+      * Note: if you need to create multiple connections, use [[fromClient]]
+      * instead, which allows you to re-use the same client.
+      */
+    def withOptions[K, V](
+        uri: String,
+        opts: ClientOptions,
+        codec: RedisCodec[K, V]
+    ): Resource[F, RedisCommands[F, K, V]] =
+      for {
+        redisUri <- Resource.liftF(RedisURI.make[F](uri))
+        client <- RedisClient[F](redisUri, opts)
+        redis <- this.fromClient(client, codec)
+      } yield redis
+
+    /**
       * Creates a [[RedisCommands]] for a single-node connection to deal
       * with UTF-8 encoded keys and values.
       *
-      * It will also create an underlying RedisClient to establish a
+      * It will create an underlying RedisClient with default options to establish
       * connection with Redis.
       *
       * Example:
@@ -176,7 +206,7 @@ object Redis {
     /**
       * Creates a [[RedisCommands]] for a cluster connection.
       *
-      * It will also create an underlying RedisClusterClient to establish a
+      * It will also create an underlying RedisClusterClient to establish
       * connection with Redis.
       *
       * Example:
@@ -206,7 +236,7 @@ object Redis {
       * Creates a [[RedisCommands]] for a cluster connection to deal
       * with UTF-8 encoded keys and values.
       *
-      * It will also create an underlying RedisClusterClient to establish a
+      * It will also create an underlying RedisClusterClient to establish
       * connection with Redis.
       *
       * Example:
