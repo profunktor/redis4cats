@@ -26,7 +26,7 @@ object Demo {
   val redisURI: String                        = "redis://localhost"
   val redisClusterURI: String                 = "redis://localhost:30001"
   val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
-  val longCodec: RedisCodec[String, Long]     = Codecs.derive[String, Long](stringCodec, stringLongEpi)
+  val longCodec: RedisCodec[String, Long]     = Codecs.derive(stringCodec, stringLongEpi)
 
   def putStrLn[A](a: A): IO[Unit] = IO(println(a))
 
