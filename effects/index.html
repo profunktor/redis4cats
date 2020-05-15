@@ -14,39 +14,14 @@
   <li><strong><a href="./strings.html">Strings API</a></strong></li>
 </ul>
 
-<h3 id="acquiring-client-and-connection">Acquiring client and connection</h3>
-
-<p>For all the effect-based APIs the process of acquiring a client and a commands connection is via the <code class="highlighter-rouge">apply</code> method that returns a <code class="highlighter-rouge">Resource</code>:</p>
-
-<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">apply</span><span class="o">[</span><span class="kt">F</span><span class="o">[</span><span class="k">_</span><span class="o">]](</span><span class="n">uri</span><span class="k">:</span> <span class="kt">RedisURI</span><span class="o">)</span><span class="k">:</span> <span class="kt">Resource</span><span class="o">[</span><span class="kt">F</span>, <span class="kt">RedisClient</span><span class="o">]</span>
-</code></pre></div></div>
-
-<h3 id="logger">Logger</h3>
-
-<p>In order to create a client and/or connection you must provide a <code class="highlighter-rouge">Log</code> instance that the library uses for internal logging. You could either use <code class="highlighter-rouge">log4cats</code> (recommended), one of the simpler instances such as <code class="highlighter-rouge">NoOp</code> and <code class="highlighter-rouge">Stdout</code>, or roll your own. <code class="highlighter-rouge">redis4cats</code> can derive an instance of <code class="highlighter-rouge">Log[F]</code> if there is an instance of <code class="highlighter-rouge">Logger[F]</code> in scope, just need to add the extra dependency <code class="highlighter-rouge">redis4cats-log4cats</code> and <code class="highlighter-rouge">import dev.profunktor.redis4cats.log4cats._</code>.</p>
-
-<p>Take a look at the <a href="https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/LoggerIOApp.scala">examples</a> to find out more.</p>
-
-<h4 id="disable-logging">Disable logging</h4>
-
-<p>If you don’t need logging at all, use the following import wherever a <code class="highlighter-rouge">Log</code> instance is required:</p>
-
-<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Available for any `Applicative[F]`</span>
-<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.effect.Log.NoOp._</span>
-</code></pre></div></div>
-
-<p>If you need simple logging to STDOUT for quick debugging, you can use the following one:</p>
-
-<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Available for any `Sync[F]`</span>
-<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.effect.Log.Stdout._</span>
-</code></pre></div></div>
-
 <h3 id="establishing-connection">Establishing connection</h3>
 
-<p>Here’s an example of acquiring a client and a connection to the <code class="highlighter-rouge">Strings API</code>:</p>
+<p>For all the effect-based APIs the process of acquiring a client and a commands connection is quite similar, and they all return a <code class="highlighter-rouge">Resource</code>.</p>
+
+<p>Let’s have a look at the following example, which acquires a connection to the <code class="highlighter-rouge">Strings API</code>:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">cats.effect.</span><span class="o">{</span><span class="nc">IO</span><span class="o">,</span> <span class="nc">Resource</span><span class="o">}</span>
-<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.Redis</span>
+<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats._</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.algebra.StringCommands</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.connection._</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.data.RedisCodec</span>
@@ -67,9 +42,9 @@
   <span class="o">}</span> <span class="k">yield</span> <span class="n">redis</span>
 </code></pre></div></div>
 
-<p>The only difference with other APIs will be the <code class="highlighter-rouge">Commands</code> type. For the <code class="highlighter-rouge">Strings API</code> is <code class="highlighter-rouge">StringCommands</code>, for <code class="highlighter-rouge">Sorted Sets API</code> is <code class="highlighter-rouge">SortedSetCommands</code> and so on. For a complete list please take a look at the <a href="https://github.com/profunktor/redis4cats/tree/master/modules/effects/src/main/scala/dev/profunktor/redis4cats/algebra">algebras</a>.</p>
+<p><code class="highlighter-rouge">Redis[IO].fromClient</code> returns a <code class="highlighter-rouge">Resource[IO, RedisCommands[IO, K, V]]</code>, but here we’re downcasting to a more specific API. This is not necessary but it shows how you can have more control over what commands you want a specific function to have access to. For the <code class="highlighter-rouge">Strings API</code> is <code class="highlighter-rouge">StringCommands</code>, for <code class="highlighter-rouge">Sorted Sets API</code> is <code class="highlighter-rouge">SortedSetCommands</code>, and so on. For a complete list please take a look at the <a href="https://github.com/profunktor/redis4cats/tree/master/modules/effects/src/main/scala/dev/profunktor/redis4cats/algebra">algebras</a>.</p>
 
-<p>Doing it this way, you can share the same <code class="highlighter-rouge">RedisClient</code> to establish many different connections. If your use case is simple, have a look at the section below.</p>
+<p>Acquiring a connection using <code class="highlighter-rouge">fromClient</code>, we can share the same <code class="highlighter-rouge">RedisClient</code> to establish many different connections. If you don’t need this, have a look at the following sections.</p>
 
 <h4 id="client-configuration">Client configuration</h4>
 
@@ -122,6 +97,26 @@
   <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">utf8</span><span class="o">(</span><span class="s">"redis://localhost"</span><span class="o">)</span>
 </code></pre></div></div>
 
+<h3 id="logger">Logger</h3>
+
+<p>In order to create a client and/or connection you must provide a <code class="highlighter-rouge">Log</code> instance that the library uses for internal logging. You could either use <code class="highlighter-rouge">log4cats</code> (recommended), one of the simpler instances such as <code class="highlighter-rouge">NoOp</code> and <code class="highlighter-rouge">Stdout</code>, or roll your own. <code class="highlighter-rouge">redis4cats</code> can derive an instance of <code class="highlighter-rouge">Log[F]</code> if there is an instance of <code class="highlighter-rouge">Logger[F]</code> in scope, just need to add the extra dependency <code class="highlighter-rouge">redis4cats-log4cats</code> and <code class="highlighter-rouge">import dev.profunktor.redis4cats.log4cats._</code>.</p>
+
+<p>Take a look at the <a href="https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/LoggerIOApp.scala">examples</a> to find out more.</p>
+
+<h4 id="disable-logging">Disable logging</h4>
+
+<p>If you don’t need logging at all, use the following import wherever a <code class="highlighter-rouge">Log</code> instance is required:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Available for any `Applicative[F]`</span>
+<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.effect.Log.NoOp._</span>
+</code></pre></div></div>
+
+<p>If you need simple logging to STDOUT for quick debugging, you can use the following one:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Available for any `Sync[F]`</span>
+<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.effect.Log.Stdout._</span>
+</code></pre></div></div>
+
 <h3 id="standalone-sentinel-or-cluster">Standalone, Sentinel or Cluster</h3>
 
 <p>You can connect in any of these modes by either using <code class="highlighter-rouge">JRedisURI.create</code> or <code class="highlighter-rouge">JRedisURI.Builder</code>. More information
@@ -147,10 +142,21 @@
 
 <h3 id="master--replica-connection">Master / Replica connection</h3>
 
-<p>The process is a bit different. First of all, you don’t need to create a <code class="highlighter-rouge">RedisClient</code>, it’ll be created for you. All you need is <code class="highlighter-rouge">RedisMasterReplica</code> that exposes in a similar way one method <code class="highlighter-rouge">apply</code> that returns a <code class="highlighter-rouge">Resource</code>.</p>
+<p>The process is a bit different. First of all, you don’t need to create a <code class="highlighter-rouge">RedisClient</code>, it’ll be created for you. All you need is <code class="highlighter-rouge">RedisMasterReplica</code> that exposes two different constructors as <code class="highlighter-rouge">Resource</code>.</p>
 
-<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">apply</span><span class="o">[</span><span class="kt">F</span><span class="o">[</span><span class="k">_</span><span class="o">]</span>, <span class="kt">K</span>, <span class="kt">V</span><span class="o">](</span><span class="n">codec</span><span class="k">:</span> <span class="kt">RedisCodec</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">],</span> <span class="n">uris</span><span class="k">:</span> <span class="kt">RedisURI*</span><span class="o">)(</span>
-  <span class="n">readFrom</span><span class="k">:</span> <span class="kt">Option</span><span class="o">[</span><span class="kt">ReadFrom</span><span class="o">]</span> <span class="k">=</span> <span class="nc">None</span><span class="o">)</span><span class="k">:</span> <span class="kt">Resource</span><span class="o">[</span><span class="kt">F</span>, <span class="kt">RedisMasterReplica</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">]]</span>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">make</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">](</span>
+    <span class="n">codec</span><span class="k">:</span> <span class="kt">RedisCodec</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">],</span>
+    <span class="n">uris</span><span class="k">:</span> <span class="kt">RedisURI*</span>
+<span class="o">)(</span><span class="n">readFrom</span><span class="k">:</span> <span class="kt">Option</span><span class="o">[</span><span class="kt">JReadFrom</span><span class="o">]</span> <span class="k">=</span> <span class="nc">None</span><span class="o">)</span><span class="k">:</span> <span class="kt">Resource</span><span class="o">[</span><span class="kt">F</span>, <span class="kt">RedisMasterReplica</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">]]</span>
+</code></pre></div></div>
+
+<p>And a way to customize the underlying client options.</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">withOptions</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">](</span>
+    <span class="n">codec</span><span class="k">:</span> <span class="kt">RedisCodec</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">],</span>
+    <span class="n">opts</span><span class="k">:</span> <span class="kt">ClientOptions</span><span class="o">,</span>
+    <span class="n">uris</span><span class="k">:</span> <span class="kt">RedisURI*</span>
+<span class="o">)(</span><span class="n">readFrom</span><span class="k">:</span> <span class="kt">Option</span><span class="o">[</span><span class="kt">JReadFrom</span><span class="o">]</span> <span class="k">=</span> <span class="nc">None</span><span class="o">)</span><span class="k">:</span> <span class="kt">Resource</span><span class="o">[</span><span class="kt">F</span>, <span class="kt">RedisMasterReplica</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">]]</span>
 </code></pre></div></div>
 
 <h4 id="example-using-the-strings-api">Example using the Strings API</h4>
@@ -162,13 +168,10 @@
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.connection.RedisMasterReplica</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.data.ReadFrom</span>
 
-<span class="c1">// Already imported above, but if copying from this block is necessary</span>
-<span class="c1">// val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8</span>
-
 <span class="k">val</span> <span class="nv">commands</span><span class="k">:</span> <span class="kt">Resource</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">StringCommands</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">String</span>, <span class="kt">String</span><span class="o">]]</span> <span class="k">=</span>
   <span class="k">for</span> <span class="o">{</span>
     <span class="n">uri</span> <span class="k">&lt;-</span> <span class="nv">Resource</span><span class="o">.</span><span class="py">liftF</span><span class="o">(</span><span class="nv">RedisURI</span><span class="o">.</span><span class="py">make</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span><span class="s">"redis://localhost"</span><span class="o">))</span>
-    <span class="n">conn</span> <span class="k">&lt;-</span> <span class="nc">RedisMasterReplica</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">make</span><span class="o">(</span><span class="n">stringCodec</span><span class="o">,</span> <span class="n">uri</span><span class="o">)(</span><span class="nc">Some</span><span class="o">(</span><span class="nv">ReadFrom</span><span class="o">.</span><span class="py">MasterPreferred</span><span class="o">))</span>
+    <span class="n">conn</span> <span class="k">&lt;-</span> <span class="nc">RedisMasterReplica</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">make</span><span class="o">(</span><span class="nv">RedisCodec</span><span class="o">.</span><span class="py">Utf8</span><span class="o">,</span> <span class="n">uri</span><span class="o">)(</span><span class="nv">ReadFrom</span><span class="o">.</span><span class="py">MasterPreferred</span><span class="o">.</span><span class="py">some</span><span class="o">)</span>
     <span class="n">cmds</span> <span class="k">&lt;-</span> <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">masterReplica</span><span class="o">(</span><span class="n">conn</span><span class="o">)</span>
   <span class="o">}</span> <span class="k">yield</span> <span class="n">cmds</span>
 

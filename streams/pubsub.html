@@ -16,26 +16,26 @@
 
 <h3 id="subscriber">Subscriber</h3>
 
-<pre><code class="language-mdoc:silent">trait SubscribeCommands[F[_], K, V] {
-  def subscribe(channel: RedisChannel[K]): F[V]
-  def unsubscribe(channel: RedisChannel[K]): F[Unit]
-}
-</code></pre>
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">trait</span> <span class="nc">SubscribeCommands</span><span class="o">[</span><span class="kt">F</span><span class="o">[</span><span class="k">_</span><span class="o">]</span>, <span class="kt">K</span>, <span class="kt">V</span><span class="o">]</span> <span class="o">{</span>
+  <span class="k">def</span> <span class="nf">subscribe</span><span class="o">(</span><span class="n">channel</span><span class="k">:</span> <span class="kt">RedisChannel</span><span class="o">[</span><span class="kt">K</span><span class="o">])</span><span class="k">:</span> <span class="kt">F</span><span class="o">[</span><span class="kt">V</span><span class="o">]</span>
+  <span class="k">def</span> <span class="nf">unsubscribe</span><span class="o">(</span><span class="n">channel</span><span class="k">:</span> <span class="kt">RedisChannel</span><span class="o">[</span><span class="kt">K</span><span class="o">])</span><span class="k">:</span> <span class="kt">F</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span>
+<span class="o">}</span>
+</code></pre></div></div>
 
 <p>When using the <code class="highlighter-rouge">PubSub</code> interpreter the types will be <code class="highlighter-rouge">Stream[F, V]</code> and <code class="highlighter-rouge">Stream[F, Unit]</code> respectively.</p>
 
 <h3 id="publisher--pubsubstats">Publisher / PubSubStats</h3>
 
-<pre><code class="language-mdoc:silent">trait PubSubStats[F[_], K] {
-  def pubSubChannels: F[List[K]]
-  def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]
-  def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
-}
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">trait</span> <span class="nc">PubSubStats</span><span class="o">[</span><span class="kt">F</span><span class="o">[</span><span class="k">_</span><span class="o">]</span>, <span class="kt">K</span><span class="o">]</span> <span class="o">{</span>
+  <span class="k">def</span> <span class="nf">pubSubChannels</span><span class="k">:</span> <span class="kt">F</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">K</span><span class="o">]]</span>
+  <span class="k">def</span> <span class="nf">pubSubSubscriptions</span><span class="o">(</span><span class="n">channel</span><span class="k">:</span> <span class="kt">RedisChannel</span><span class="o">[</span><span class="kt">K</span><span class="o">])</span><span class="k">:</span> <span class="kt">F</span><span class="o">[</span><span class="kt">Subscription</span><span class="o">[</span><span class="kt">K</span><span class="o">]]</span>
+  <span class="k">def</span> <span class="nf">pubSubSubscriptions</span><span class="o">(</span><span class="n">channels</span><span class="k">:</span> <span class="kt">List</span><span class="o">[</span><span class="kt">RedisChannel</span><span class="o">[</span><span class="kt">K</span><span class="o">]])</span><span class="k">:</span> <span class="kt">F</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Subscription</span><span class="o">[</span><span class="kt">K</span><span class="o">]]]</span>
+<span class="o">}</span>
 
-trait PublishCommands[F[_], K, V] extends PubSubStats[F, K] {
-  def publish(channel: RedisChannel[K]): F[V] =&gt; F[Unit]
-}
-</code></pre>
+<span class="k">trait</span> <span class="nc">PublishCommands</span><span class="o">[</span><span class="kt">F</span><span class="o">[</span><span class="k">_</span><span class="o">]</span>, <span class="kt">K</span>, <span class="kt">V</span><span class="o">]</span> <span class="nc">extends</span> <span class="nc">PubSubStats</span><span class="o">[</span><span class="kt">F</span>, <span class="kt">K</span><span class="o">]</span> <span class="o">{</span>
+  <span class="k">def</span> <span class="nf">publish</span><span class="o">(</span><span class="n">channel</span><span class="k">:</span> <span class="kt">RedisChannel</span><span class="o">[</span><span class="kt">K</span><span class="o">])</span><span class="k">:</span> <span class="kt">F</span><span class="o">[</span><span class="kt">V</span><span class="o">]</span> <span class="k">=&gt;</span> <span class="n">F</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span>
+<span class="o">}</span>
+</code></pre></div></div>
 
 <p>When using the <code class="highlighter-rouge">PubSub</code> interpreter the <code class="highlighter-rouge">publish</code> function will be defined as a <code class="highlighter-rouge">Sink[F, V]</code> that can be connected to a <code class="highlighter-rouge">Stream[F, ?]</code> source.</p>
 
