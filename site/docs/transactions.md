@@ -69,7 +69,7 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
   val commands = cmd.set(key1, "foo") :: cmd.get(key1) :: cmd.set(key2, "bar") :: HNil
 
   // the result type is inferred as well
-  // Unit :: Option[String] :: Unit :: HNil
+  // Option[String] :: HNil
   val prog =
     tx.filterExec(commands)
       .flatMap {
