@@ -42,7 +42,7 @@ and handle the possible errors and retry logic.</p>
   <span class="k">val</span> <span class="nv">commands</span> <span class="k">=</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">)</span> <span class="o">::</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">)</span> <span class="o">::</span> <span class="nc">HNil</span>
 
   <span class="c1">// the result type is inferred as well</span>
-  <span class="c1">// Unit :: Option[String] :: Unit :: HNil</span>
+  <span class="c1">// Option[String] :: HNil</span>
   <span class="k">val</span> <span class="nv">prog</span> <span class="k">=</span>
     <span class="nv">tx</span><span class="o">.</span><span class="py">filterExec</span><span class="o">(</span><span class="n">commands</span><span class="o">)</span>
       <span class="o">.</span><span class="py">flatMap</span> <span class="o">{</span>
