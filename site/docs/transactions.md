@@ -1,8 +1,8 @@
 ---
 layout: docs
 title:  "Transactions"
-number: 4
-position: 4
+number: 6
+position: 6
 ---
 
 # Transactions

@@ -1,8 +1,8 @@
 ---
 layout: docs
 title:  "Pipelining"
-number: 5
-position: 5
+number: 7
+position: 7
 ---
 
 # Pipelining

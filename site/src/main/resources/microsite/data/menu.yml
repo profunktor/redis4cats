@@ -3,6 +3,14 @@ options:
     url: quickstart.html
     menu_section: quickstart
 
+  - title: Client
+    url: client.html
+    menu_section: client
+
+  - title: Codecs
+    url: codecs.html
+    menu_section: codecs
+
   - title: Effects API
     url: effects/
     menu_section: effectapi
@@ -68,7 +76,3 @@ options:
   - title: Pipelining
     url: pipelining.html
     menu_section: pipelining
-
-  - title: Codecs
-    url: codecs.html
-    menu_section: codecs

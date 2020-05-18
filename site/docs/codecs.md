@@ -1,8 +1,8 @@
 ---
 layout: docs
 title:  "Codecs"
-number: 6
-position: 6
+number: 3
+position: 3
 ---
 
 # Codecs
