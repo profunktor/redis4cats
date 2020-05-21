@@ -3,14 +3,21 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / name := """redis4cats-root"""
-ThisBuild / organization := "dev.profunktor"
+ThisBuild / name := """redis4cats"""
 ThisBuild / crossScalaVersions := Seq("2.12.10", "2.13.2")
 
-sonatypeProfileName := "dev.profunktor"
-
-// Needed to not run out of memory (Metaspace) when running test suite
-ThisBuild / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.ScalaLibrary
+// publishing
+ThisBuild / organization := "dev.profunktor"
+ThisBuild / homepage := Some(url("https://redis4cats.profunktor.dev/"))
+ThisBuild / licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
+ThisBuild / developers := List(
+  Developer(
+    "gvolpe",
+    "Gabriel Volpe",
+    "volpegabriel@gmail.com",
+    url("https://gvolpe.github.io")
+  )
+)
 
 promptTheme := PromptTheme(
   List(
@@ -28,7 +35,6 @@ val commonSettings = Seq(
   organizationName := "Redis client for Cats Effect & Fs2",
   startYear := Some(2018),
   licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
-  homepage := Some(url("https://redis4cats.profunktor.dev/")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2020", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
@@ -54,25 +60,7 @@ val commonSettings = Seq(
   scalafmtOnCompile := true,
   scmInfo := Some(
         ScmInfo(url("https://github.com/profunktor/redis4cats"), "scm:git:git@github.com:profunktor/redis4cats.git")
-      ),
-  publishTo := {
-    val sonatype = "https://oss.sonatype.org/"
-    if (isSnapshot.value)
-      Some("snapshots" at sonatype + "content/repositories/snapshots")
-    else
-      Some("releases" at sonatype + "service/local/staging/deploy/maven2")
-  },
-  publishMavenStyle := true,
-  publishArtifact in Test := false,
-  pomIncludeRepository := { _ => false },
-  pomExtra :=
-      <developers>
-        <developer>
-          <id>gvolpe</id>
-          <name>Gabriel Volpe</name>
-          <url>https://github.com/gvolpe</url>
-        </developer>
-      </developers>
+      )
 )
 
 lazy val noPublish = Seq(
