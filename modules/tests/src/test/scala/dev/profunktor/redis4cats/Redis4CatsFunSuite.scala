@@ -40,6 +40,8 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends FunSuite {
 
   override def munitFixtures = List(flushAllFixture)
 
+  override def munitFlakyOK: Boolean = true
+
   private val stringCodec = RedisCodec.Utf8
 
   def withAbstractRedis[A, K, V](f: RedisCommands[IO, K, V] => IO[A])(codec: RedisCodec[K, V]): Future[Unit] =
