@@ -1,18 +1,15 @@
-name: Release
-on:
-  push:
-    branches:
-      - master
-    tags:
-      - "*"
-
 jobs:
   build:
     name: Publish
     runs-on: ubuntu-18.04
     steps:
       - uses: "actions/checkout@v2.1.0"
-      - uses: "olafurpg/setup-scala@v5"
+      - name: java 11 setup
+        uses: "actions/setup-java@v6"
+        with:
+          architecture: x64
+          java-package: jdk
+          java-version: '11'
       - uses: "olafurpg/setup-gpg@v2"
       - env:
           PGP_PASSPHRASE: "${{ secrets.PGP_PASSPHRASE }}"
@@ -21,3 +18,10 @@ jobs:
           SONATYPE_USERNAME: "${{ secrets.SONATYPE_USERNAME }}"
         name: "Publish ${{ github.ref }}"
         run: sbt ci-release
+name: Release
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "*"

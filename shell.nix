@@ -8,6 +8,7 @@ let
 in
   pkgs.mkShell {
     buildInputs = [
+      pkgs.haskellPackages.dhall-json # 1.6.2
       pkgs.jekyll # 4.0.1
       pkgs.openjdk # 1.8.0_242
       pkgs.sbt # 1.3.10
