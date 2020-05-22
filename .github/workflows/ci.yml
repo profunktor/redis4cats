@@ -1,40 +1,43 @@
-name: Build
-
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: "actions/checkout@v2.1.0"
+      - run: docker-compose up -d
+      - run: |
+          shasum build.sbt \
+            project/plugins.sbt \
+            project/build.properties \
+            project/Dependencies.scala > gha.cache.tmp
+      - name: "~/.sbt cache"
+        uses: "actions/cache@v1"
+        with:
+          key: "${{ runner.os }}-sbt-${{ hashFiles('gha.cache.tmp') }}"
+          path: "~/.sbt"
+          restore-keys: sbt
+      - name: "~/.cache/coursier cache"
+        uses: "actions/cache@v1"
+        with:
+          key: "${{ runner.os }}-coursier-${{ hashFiles('gha.cache.tmp') }}"
+          path: "~/.cache/coursier"
+          restore-keys: coursier
+      - name: "java ${{ matrix.java}} setup"
+        uses: "olafurpg/setup-java@v6"
+        with:
+          architecture: x64
+          java-package: jdk
+          java-version: "${{ matrix.java}}"
+      - run: sbt buildRedis4Cats
+      - run: docker-compose down
+    strategy:
+      matrix:
+        java:
+          - '8.0.242'
+          - '11.0.5'
+name: Scala
 on:
+  pull_request: {}
   push:
     branches:
       - master
-  pull_request:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - uses: olafurpg/setup-scala@v5
-
-    - name: Starting up Redis
-      run: docker-compose up -d
-
-    - name: Cache Coursier dependencies
-      uses: actions/cache@v1
-      with:
-       path: ~/.cache/coursier
-       key: ${{ runner.os }}-${{ github.ref }}-coursier
-       restore-keys: |
-        ${{ runner.os }}-${{ github.ref }}-coursier
-
-    - name: Cache Ivy dependencies
-      uses: actions/cache@v1
-      with:
-        path: ~/.ivy2/cache
-        key: ${{ runner.os }}-${{ github.ref }}-ivy2
-        restore-keys: |
-         ${{ runner.os }}-${{ github.ref }}-ivy2
-
-    - name: Tests
-      run: sbt -J-Xms4G -J-Xmx4G buildRedis4Cats
-
-    - name: Shutting down Redis
-      run: docker-compose down
