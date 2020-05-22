@@ -1,5 +1,5 @@
 let GithubActions =
-      https://raw.githubusercontent.com/gvolpe/github-actions-dhall/feature/scala-actions/package.dhall sha256:c9b9020c54478267364393db3f735974ec4b6eafa4c88057912f77dc9dcae7be
+      https://raw.githubusercontent.com/gvolpe/github-actions-dhall/feature/scala-actions/package.dhall sha256:afd0a65b78c18a6c2aef93469b6457b19559a8125576d7f49da0729d3c5a2ea6
 
 let matrix = toMap { java = [ "8.0.242", "11.0.5" ] }
 
