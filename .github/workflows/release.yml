@@ -5,7 +5,7 @@ jobs:
     steps:
       - uses: "actions/checkout@v2.1.0"
       - name: java 11 setup
-        uses: "actions/setup-java@v6"
+        uses: "olafurpg/setup-java@v6"
         with:
           architecture: x64
           java-package: jdk

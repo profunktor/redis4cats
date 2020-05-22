@@ -23,7 +23,7 @@ jobs:
           path: "~/.cache/coursier"
           restore-keys: coursier
       - name: "java ${{ matrix.java}} setup"
-        uses: "actions/setup-java@v6"
+        uses: "olafurpg/setup-java@v6"
         with:
           architecture: x64
           java-package: jdk
