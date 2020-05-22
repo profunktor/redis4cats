@@ -7,8 +7,6 @@ jobs:
       - name: java 11 setup
         uses: "olafurpg/setup-java@v6"
         with:
-          architecture: x64
-          java-package: jdk
           java-version: '11'
       - uses: "olafurpg/setup-gpg@v2"
       - env:
