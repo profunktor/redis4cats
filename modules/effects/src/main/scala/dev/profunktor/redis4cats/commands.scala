@@ -31,6 +31,11 @@ trait RedisCommands[F[_], K, V]
     with TransactionalCommands[F, K]
     with PipelineCommands[F]
     with ScriptCommands[F, K, V]
-    with KeyCommands[F, K] {
-  def liftK[G[_]: Concurrent: ContextShift]: RedisCommands[G, K, V]
+    with KeyCommands[F, K]
+
+object RedisCommands {
+  implicit class LiftKOps[F[_], K, V](val cmd: RedisCommands[F, K, V]) extends AnyVal {
+    def liftK[G[_]: Concurrent: ContextShift]: RedisCommands[G, K, V] =
+      cmd.asInstanceOf[BaseRedis[F, K, V]].liftK[G]
+  }
 }

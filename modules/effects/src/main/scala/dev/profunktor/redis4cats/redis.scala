@@ -350,7 +350,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     blocker: Blocker
 ) extends RedisCommands[F, K, V]
     with RedisConversionOps {
-  override def liftK[G[_]: Concurrent: ContextShift]: BaseRedis[G, K, V] =
+
+  def liftK[G[_]: Concurrent: ContextShift]: RedisCommands[G, K, V] =
     new BaseRedis[G, K, V](conn.liftK[G], cluster, blocker)
 
   import dev.profunktor.redis4cats.JavaConversions._
