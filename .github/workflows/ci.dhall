@@ -1,12 +1,11 @@
 let GithubActions =
-      https://raw.githubusercontent.com/gvolpe/github-actions-dhall/feature/scala-actions/package.dhall sha256:afd0a65b78c18a6c2aef93469b6457b19559a8125576d7f49da0729d3c5a2ea6
+      https://raw.githubusercontent.com/regadas/github-actions-dhall/master/package.dhall sha256:40602cb9f4e3d1964e87bc88385c7946d9796b0fb1358249fce439ac9f30c726
 
 let matrix = toMap { java = [ "8.0.242", "11.0.5" ] }
 
 let setup =
       [ GithubActions.steps.checkout
-      , GithubActions.steps.run
-          { run = "docker-compose up -d" }
+      , GithubActions.steps.run { run = "docker-compose up -d" }
       , GithubActions.steps.run
           { run =
               ''
@@ -23,20 +22,15 @@ let setup =
           , key = "coursier"
           , hashFile = "gha.cache.tmp"
           }
-      , GithubActions.steps.java-setup
-          { java-version = "\${{ matrix.java}}" }
-      , GithubActions.steps.run
-          { run = "sbt buildRedis4Cats" }
-      , GithubActions.steps.run
-          { run = "docker-compose down" }
+      , GithubActions.steps.olafurpg/java-setup { java-version = "\${{ matrix.java}}" }
+      , GithubActions.steps.run { run = "sbt buildRedis4Cats" }
+      , GithubActions.steps.run { run = "docker-compose down" }
       ]
 
 in  GithubActions.Workflow::{
     , name = "Scala"
     , on = GithubActions.On::{
-      , push = Some GithubActions.Push::{
-          branches = Some [ "master" ]
-        }
+      , push = Some GithubActions.Push::{ branches = Some [ "master" ] }
       , pull_request = Some GithubActions.PullRequest::{=}
       }
     , jobs = toMap

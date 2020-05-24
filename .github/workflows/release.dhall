@@ -1,25 +1,19 @@
 let GithubActions =
-      https://raw.githubusercontent.com/gvolpe/github-actions-dhall/feature/scala-actions/package.dhall sha256:afd0a65b78c18a6c2aef93469b6457b19559a8125576d7f49da0729d3c5a2ea6
+      https://raw.githubusercontent.com/regadas/github-actions-dhall/master/package.dhall sha256:40602cb9f4e3d1964e87bc88385c7946d9796b0fb1358249fce439ac9f30c726
 
 let setup =
       [ GithubActions.steps.checkout
-      , GithubActions.steps.java-setup { java-version = "11" }
-      , GithubActions.steps.gpg-setup
-      , GithubActions.steps.sbt-ci-release
-          { ref = "\${{ github.ref }}"
-          , pgpPassphrase = "\${{ secrets.PGP_PASSPHRASE }}"
-          , pgpSecret = "\${{ secrets.PGP_SECRET }}"
-          , sonatypePassword = "\${{ secrets.SONATYPE_PASSWORD }}"
-          , sonatypeUsername = "\${{ secrets.SONATYPE_USERNAME }}"
-          }
+      , GithubActions.steps.olafurpg/java-setup { java-version = "11" }
+      , GithubActions.steps.olafurpg/gpg-setup
+      , GithubActions.steps.olafurpg/sbt-ci-release
       ]
 
 in  GithubActions.Workflow::{
     , name = "Release"
     , on = GithubActions.On::{
       , push = Some GithubActions.Push::{
-          , branches = Some [ "master" ]
-          , tags = Some ["*"]
+        , branches = Some [ "master" ]
+        , tags = Some [ "*" ]
         }
       }
     , jobs = toMap
