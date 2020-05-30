@@ -7,10 +7,10 @@ let
   pkgs = import nixpkgs {};
 in
   pkgs.mkShell {
-    buildInputs = [
-      pkgs.haskellPackages.dhall-json # 1.6.2
-      pkgs.jekyll # 4.0.1
-      pkgs.openjdk # 1.8.0_242
-      pkgs.sbt # 1.3.10
+    buildInputs = with pkgs; [
+      haskellPackages.dhall-json # 1.6.2
+      jekyll # 4.0.1
+      openjdk # 1.8.0_242
+      sbt # 1.3.10
     ];
   }
