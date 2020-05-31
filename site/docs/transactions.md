@@ -80,11 +80,11 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
       }
       .onError {
         case TransactionAborted =>
-          putStrLn("[Error] - Transaction Aborted")
+          Log[IO].error("[Error] - Transaction Aborted")
         case TransactionDiscarded =>
-          putStrLn("[Error] - Transaction Discarded")
+          Log[IO].error("[Error] - Transaction Discarded")
         case _: TimeoutException =>
-          putStrLn("[Error] - Timeout")
+          Log[IO].error("[Error] - Timeout")
       }
 
   getters >> prog >> getters.void
@@ -169,9 +169,9 @@ def txProgram(v1: String, v2: String) =
 
       val prog: IO[Unit] =
         RedisTransaction(cmd)
-          .exec(operations)
+          .filterExec(operations)
           .flatMap {
-            case _ ~: _ ~: res1 ~: _ ~: _ ~: res2 ~: HNil =>
+            case res1 ~: res2 ~: HNil =>
               Log[IO].info(s"res1: $res1, res2: $res2")
           }
           .onError {
