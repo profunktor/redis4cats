@@ -5,7 +5,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
     - uses: actions/checkout@v2
-    - uses: cachix/install-nix-action@v9
+    - uses: cachix/cachix-action@v6
     - run: nix-shell --run "sbt publishSite"
 name: "Publish Microsite"
 on:
@@ -13,3 +13,5 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'site/**'
