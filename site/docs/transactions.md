@@ -26,6 +26,7 @@ Below you can find a first example of transactional commands.
 import cats.effect.{IO, Resource}
 import cats.implicits._
 import dev.profunktor.redis4cats._
+import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.log4cats._
@@ -150,7 +151,7 @@ This library translates the `Null` reply as a `TransactionDiscarded` error raise
 
 ```scala mdoc:silent
 val mkClient: Resource[IO, RedisClient] =
-  Resource.liftF(RedisURI.make[IO](redisURI)).flatMap(RedisClient[IO](_))
+  Resource.liftF(RedisURI.make[IO]("redis://localhost")).flatMap(RedisClient[IO](_))
 
 val mkRedis: Resource[IO, RedisCommands[IO, String, String]] =
   mkClient.flatMap(cli => Redis[IO].fromClient(cli, RedisCodec.Utf8))
