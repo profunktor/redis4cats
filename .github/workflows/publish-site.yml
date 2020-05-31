@@ -1,0 +1,15 @@
+jobs:
+  microsite:
+    runs-on: ubuntu-18.04
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+    - uses: actions/checkout@v2
+    - uses: cachix/install-nix-action@v9
+    - run: nix-shell --run "sbt publishSite"
+name: "Publish Microsite"
+on:
+  pull_request:
+  push:
+    branches:
+      - master
