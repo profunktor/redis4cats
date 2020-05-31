@@ -20,7 +20,7 @@ import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.codecs.Codecs
 import dev.profunktor.redis4cats.codecs.splits.SplitEpi
 import dev.profunktor.redis4cats.data.RedisCodec
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 import io.circe.generic.auto._
 import io.circe.parser.{ decode => jsonDecode }
 import io.circe.syntax._
@@ -37,7 +37,7 @@ object JsonCodecDemo extends LoggerIOApp {
     case object Unknown extends Event
   }
 
-  def program(implicit log: Log[IO]): IO[Unit] = {
+  val program: IO[Unit] = {
     val eventsKey = "events"
 
     val eventSplitEpi: SplitEpi[String, Event] =

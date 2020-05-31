@@ -19,11 +19,10 @@ package dev.profunktor.redis4cats
 import cats.effect.IO
 import cats.syntax.parallel._
 import dev.profunktor.redis4cats.connection._
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.streams.RedisStream
 import dev.profunktor.redis4cats.streams.data.StreamingMessage
 import fs2.Stream
-
 import scala.concurrent.duration._
 import scala.util.Random
 
@@ -43,7 +42,7 @@ object StreamingDemo extends LoggerIOApp {
     }
   }
 
-  def stream(implicit log: Log[IO]): Stream[IO, Unit] =
+  val stream: Stream[IO, Unit] =
     for {
       uri <- Stream.eval(RedisURI.make[IO](redisURI))
       client <- Stream.resource(RedisClient[IO](uri))
@@ -56,7 +55,7 @@ object StreamingDemo extends LoggerIOApp {
            ).parJoin(2).drain
     } yield rs
 
-  def program(implicit log: Log[IO]): IO[Unit] =
+  val program: IO[Unit] =
     stream.compile.drain
 
 }

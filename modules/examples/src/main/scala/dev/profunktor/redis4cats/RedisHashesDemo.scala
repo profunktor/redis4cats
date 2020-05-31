@@ -18,13 +18,13 @@ package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.HashCommands
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 
 object RedisHashesDemo extends LoggerIOApp {
 
   import Demo._
 
-  def program(implicit log: Log[IO]): IO[Unit] = {
+  val program: IO[Unit] = {
     val testKey   = "foo"
     val testField = "bar"
 

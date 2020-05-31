@@ -17,8 +17,6 @@
 package dev.profunktor.redis4cats
 
 import cats.effect.{ ExitCode, IO, IOApp }
-import dev.profunktor.redis4cats.effect.Log
-import dev.profunktor.redis4cats.log4cats._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
@@ -29,12 +27,11 @@ import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
   * */
 trait LoggerIOApp extends IOApp {
 
-  def program(implicit log: Log[IO]): IO[Unit]
+  implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
+
+  def program: IO[Unit]
 
   override def run(args: List[String]): IO[ExitCode] =
-    Slf4jLogger
-      .create[IO]
-      .flatMap { implicit logger: Logger[IO] => program }
-      .as(ExitCode.Success)
+    program.as(ExitCode.Success)
 
 }

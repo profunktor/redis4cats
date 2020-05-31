@@ -19,13 +19,13 @@ package dev.profunktor.redis4cats
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.ReadFrom
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 
 object RedisMasterReplicaStringsDemo extends LoggerIOApp {
 
   import Demo._
 
-  def program(implicit log: Log[IO]): IO[Unit] = {
+  val program: IO[Unit] = {
     val usernameKey = "test"
 
     val showResult: Option[String] => IO[Unit] =

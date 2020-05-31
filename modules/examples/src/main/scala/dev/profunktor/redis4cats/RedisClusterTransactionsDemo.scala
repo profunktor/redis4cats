@@ -19,14 +19,14 @@ package dev.profunktor.redis4cats
 import cats.effect.{ IO, Resource }
 import cats.implicits._
 import dev.profunktor.redis4cats.connection._
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.transactions._
 
 object RedisClusterTransactionsDemo extends LoggerIOApp {
 
   import Demo._
 
-  def program(implicit log: Log[IO]): IO[Unit] = {
+  val program: IO[Unit] = {
     val key1 = "test1"
 
     val showResult: String => Option[String] => IO[Unit] = key =>
