@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats
 
 import cats.effect._
 import cats.implicits._
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline._
 import java.util.concurrent.TimeoutException
@@ -27,7 +27,7 @@ object RedisPipelineDemo extends LoggerIOApp {
 
   import Demo._
 
-  def program(implicit log: Log[IO]): IO[Unit] = {
+  val program: IO[Unit] = {
     val key1 = "testp1"
     val key2 = "testp2"
 

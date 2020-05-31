@@ -18,14 +18,14 @@ package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.SortedSetCommands
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects.{ Score, ScoreWithValue, ZRange }
 
 object RedisSortedSetsDemo extends LoggerIOApp {
 
   import Demo._
 
-  def program(implicit log: Log[IO]): IO[Unit] = {
+  val program: IO[Unit] = {
     val testKey = "zztop"
 
     val commandsApi: Resource[IO, SortedSetCommands[IO, String, Long]] =

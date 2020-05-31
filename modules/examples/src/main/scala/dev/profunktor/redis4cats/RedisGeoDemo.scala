@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.GeoCommands
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects._
 import io.lettuce.core.GeoArgs
 
@@ -26,7 +26,7 @@ object RedisGeoDemo extends LoggerIOApp {
 
   import Demo._
 
-  def program(implicit log: Log[IO]): IO[Unit] = {
+  val program: IO[Unit] = {
     val testKey = "location"
 
     val commandsApi: Resource[IO, GeoCommands[IO, String, String]] =

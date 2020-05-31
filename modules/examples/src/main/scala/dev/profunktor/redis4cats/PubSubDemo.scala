@@ -19,10 +19,9 @@ package dev.profunktor.redis4cats
 import cats.effect.IO
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisChannel
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import fs2.{ Pipe, Stream }
-
 import scala.concurrent.duration._
 import scala.util.Random
 
@@ -36,7 +35,7 @@ object PubSubDemo extends LoggerIOApp {
   def sink(name: String): Pipe[IO, String, Unit] =
     _.evalMap(x => putStrLn(s"Subscriber: $name >> $x"))
 
-  def stream(implicit log: Log[IO]): Stream[IO, Unit] =
+  val stream: Stream[IO, Unit] =
     for {
       uri <- Stream.eval(RedisURI.make[IO](redisURI))
       client <- Stream.resource(RedisClient[IO](uri))
@@ -57,7 +56,7 @@ object PubSubDemo extends LoggerIOApp {
            ).parJoin(6).drain
     } yield rs
 
-  def program(implicit log: Log[IO]): IO[Unit] =
+  val program: IO[Unit] =
     stream.compile.drain
 
 }

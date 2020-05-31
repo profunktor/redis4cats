@@ -18,14 +18,14 @@ package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.ScriptCommands
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects.ScriptOutputType
 
 object RedisScriptsDemo extends LoggerIOApp {
 
   import Demo._
 
-  def program(implicit log: Log[IO]): IO[Unit] = {
+  val program: IO[Unit] = {
     val commandsApi: Resource[IO, ScriptCommands[IO, String, String]] =
       Redis[IO].utf8(redisURI)
 
