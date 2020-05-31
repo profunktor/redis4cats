@@ -11,7 +11,7 @@ jobs:
         name: scala-microsite
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
     - run: nix-shell --run "sbt publishSite"
-name: "Publish Microsite"
+name: "Microsite"
 on:
   pull_request:
   push:
