@@ -5,7 +5,11 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
     - uses: actions/checkout@v2
+    - uses: cachix/install-nix-action@v9
     - uses: cachix/cachix-action@v6
+      with:
+        name: scala-microsite
+        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
     - run: nix-shell --run "sbt publishSite"
 name: "Publish Microsite"
 on:
