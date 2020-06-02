@@ -143,7 +143,7 @@ commandsApi.use { cmd =>
 
 ### Optimistic locking
 
-Redis provides an [optimistic locking using check-and-set](https://redis.io/topics/transactions#optimistic-locking-using-check-and-set) mechanism by using the `WATCH` command. Quoting the Redis documentation:
+Redis provides a mechanism called [optimistic locking using check-and-set](https://redis.io/topics/transactions#optimistic-locking-using-check-and-set) via the `WATCH` command. Quoting the Redis documentation:
 
 > `WATCH`ed keys are monitored in order to detect changes against them. If at least one watched key is modified before the `EXEC` command, the whole transaction aborts, and `EXEC` returns a `Null` reply to notify that the transaction failed.
 
