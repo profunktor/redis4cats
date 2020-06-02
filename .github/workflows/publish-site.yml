@@ -1,21 +1,21 @@
 jobs:
-  microsite:
-    runs-on: ubuntu-18.04
+  publish:
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    name: publish-site
+    runs-on: ubuntu-18.04
     steps:
-    - uses: actions/checkout@v2
-    - uses: cachix/install-nix-action@v9
-    - uses: cachix/cachix-action@master
-      with:
-        name: scala-microsite
-        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix-shell --run "sbt publishSite"
-name: "Microsite"
+      - uses: "actions/checkout@v2.1.0"
+      - uses: "cachix/install-nix-action@v9"
+      - uses: "cachix/cachix-action@v6"
+        with:
+          name: scala-microsite
+          signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
+      - run: "nix-shell run -- \"sbt publishSite\""
+name: Microsite
 on:
-  pull_request:
   push:
     branches:
       - master
     paths:
-      - 'site/**'
+      - "site/**"
