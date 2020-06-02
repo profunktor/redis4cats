@@ -172,6 +172,8 @@ lazy val microsite = project
     micrositeExtraMdFilesOutput := (resourceManaged in Compile).value / "jekyll",
     micrositeGitterChannel := true,
     micrositeGitterChannelUrl := "profunktor-dev/redis4cats",
+    micrositePushSiteWith := GitHub4s,
+    micrositeGithubToken := sys.env.get("GITHUB_TOKEN"),
     scalacOptions --= Seq(
           "-Werror",
           "-Xfatal-warnings",
