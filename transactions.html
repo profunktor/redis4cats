@@ -114,7 +114,7 @@ and handle the possible errors and retry logic.</p>
 
 <h3 id="optimistic-locking">Optimistic locking</h3>
 
-<p>Redis provides an <a href="https://redis.io/topics/transactions#optimistic-locking-using-check-and-set">optimistic locking using check-and-set</a> mechanism by using the <code class="highlighter-rouge">WATCH</code> command. Quoting the Redis documentation:</p>
+<p>Redis provides a mechanism called <a href="https://redis.io/topics/transactions#optimistic-locking-using-check-and-set">optimistic locking using check-and-set</a> via the <code class="highlighter-rouge">WATCH</code> command. Quoting the Redis documentation:</p>
 
 <blockquote>
   <p><code class="highlighter-rouge">WATCH</code>ed keys are monitored in order to detect changes against them. If at least one watched key is modified before the <code class="highlighter-rouge">EXEC</code> command, the whole transaction aborts, and <code class="highlighter-rouge">EXEC</code> returns a <code class="highlighter-rouge">Null</code> reply to notify that the transaction failed.</p>
@@ -164,7 +164,7 @@ and handle the possible errors and retry logic.</p>
 
 <p>Note that if we want to run transactions concurrently, we need to acquire a connection per transaction (<code class="highlighter-rouge">RedisCommands</code>), as <code class="highlighter-rouge">MULTI</code> can not be called concurrently within the same connection, reason why it is recommended to share the same <code class="highlighter-rouge">RedisClient</code>.</p>
 
-<p>Now before executing the transaction, we invoke <code class="highlighter-rouge">cmd.watch(key1, key2)</code>. Next, let’s run two concurrent transactions:</p>
+<p>Before executing the transaction, we invoke <code class="highlighter-rouge">cmd.watch(key1, key2)</code>. Next, let’s run two concurrent transactions:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">IO</span><span class="o">.</span><span class="py">race</span><span class="o">(</span><span class="nf">txProgram</span><span class="o">(</span><span class="s">"nix"</span><span class="o">,</span> <span class="s">"linux"</span><span class="o">),</span> <span class="nf">txProgram</span><span class="o">(</span><span class="s">"foo"</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">)).</span><span class="py">void</span>
 </code></pre></div></div>
