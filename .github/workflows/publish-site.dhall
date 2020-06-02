@@ -5,7 +5,7 @@ let setup =
       [ GithubActions.steps.checkout
       , GithubActions.steps.cachix/install-nix
       , GithubActions.steps.cachix/cachix { cache-name = "scala-microsite" }
-      , GithubActions.steps.run { run = "nix-shell run -- \"sbt publishSite\"" }
+      , GithubActions.steps.run { run = "nix-shell --run \"sbt publishSite\"" }
       ]
 
 in  GithubActions.Workflow::{

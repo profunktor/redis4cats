@@ -192,7 +192,7 @@ def txProgram(v1: String, v2: String) =
 
 Note that if we want to run transactions concurrently, we need to acquire a connection per transaction (`RedisCommands`), as `MULTI` can not be called concurrently within the same connection, reason why it is recommended to share the same `RedisClient`.
 
-Now before executing the transaction, we invoke `cmd.watch(key1, key2)`. Next, let's run two concurrent transactions:
+Before executing the transaction, we invoke `cmd.watch(key1, key2)`. Next, let's run two concurrent transactions:
 
 ```scala mdoc:silent
 IO.race(txProgram("nix", "linux"), txProgram("foo", "bar")).void
