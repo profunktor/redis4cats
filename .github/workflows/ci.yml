@@ -39,3 +39,5 @@ on:
   push:
     branches:
       - master
+    paths:
+      - "modules/**"

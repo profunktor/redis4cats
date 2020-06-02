@@ -22,7 +22,8 @@ let setup =
           , key = "coursier"
           , hashFile = "gha.cache.tmp"
           }
-      , GithubActions.steps.olafurpg/java-setup { java-version = "\${{ matrix.java}}" }
+      , GithubActions.steps.olafurpg/java-setup
+          { java-version = "\${{ matrix.java}}" }
       , GithubActions.steps.run { run = "sbt buildRedis4Cats" }
       , GithubActions.steps.run { run = "docker-compose down" }
       ]
@@ -30,7 +31,10 @@ let setup =
 in  GithubActions.Workflow::{
     , name = "Scala"
     , on = GithubActions.On::{
-      , push = Some GithubActions.Push::{ branches = Some [ "master" ] }
+      , push = Some GithubActions.Push::{
+        , branches = Some [ "master" ]
+        , paths = Some [ "modules/**" ]
+        }
       , pull_request = Some GithubActions.PullRequest::{=}
       }
     , jobs = toMap
