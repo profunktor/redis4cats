@@ -65,10 +65,7 @@ object RedisClusterClient {
     F.delay(client.getPartitions).void
 
   def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI*): Resource[F, RedisClusterClient] =
-    mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndRelease(Redis4CatsConfig(), blocker, uri: _*)
-      Resource.make(acquire)(release)
-    }
+    configured[F](Redis4CatsConfig(), uri: _*)
 
   def configured[F[_]: Concurrent: ContextShift: Log](
       config: Redis4CatsConfig,
