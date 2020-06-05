@@ -47,6 +47,7 @@ Acquiring a connection using `fromClient`, we can share the same `RedisClient` t
 When you create a `RedisClient`, it will use sane defaults for timeouts, auto-reconnection, etc. These defaults can be customized by providing a `io.lettuce.core.ClientOptions` as well as the `RedisURI`.
 
 ```scala mdoc:silent
+import dev.profunktor.redis4cats.config._
 import io.lettuce.core.{ ClientOptions, TimeoutOptions }
 import java.time.Duration
 
@@ -68,6 +69,23 @@ val api: Resource[IO, StringCommands[IO, String, String]] =
     uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
     opts   <- Resource.liftF(mkOpts)
     client <- RedisClient[IO](uri, opts)
+    redis  <- Redis[IO].fromClient(client, stringCodec)
+  } yield redis
+```
+
+Furthermore, you can pass a customized `Redis4CatsConfig` to configure behaviour which isn't covered by `io.lettuce.core.ClientOptions`:
+
+```scala mdoc:silent
+import io.lettuce.core.{ ClientOptions, TimeoutOptions }
+import scala.concurrent.duration._
+
+val config = Redis4CatsConfig().withShutdown(ShutdownConfig(1.seconds, 5.seconds))
+
+val configuredApi: Resource[IO, StringCommands[IO, String, String]] =
+  for {
+    uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
+    opts   <- Resource.liftF(mkOpts)
+    client <- RedisClient[IO](uri, opts, config)
     redis  <- Redis[IO].fromClient(client, stringCodec)
   } yield redis
 ```
