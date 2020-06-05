@@ -16,8 +16,11 @@
 
 package dev.profunktor.redis4cats.connection
 
+import java.util.concurrent.TimeUnit
+
 import cats.effect._
 import cats.implicits._
+import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effect.JRFuture._
 import io.lettuce.core.{ ClientOptions, RedisClient => JRedisClient, RedisURI => JRedisURI }
@@ -29,6 +32,7 @@ object RedisClient {
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
       uri: => RedisURI,
       opts: ClientOptions,
+      config: Redis4CatsConfig,
       blocker: Blocker
   ): (F[RedisClient], RedisClient => F[Unit]) = {
     val acquire: F[RedisClient] = F.delay {
@@ -39,27 +43,39 @@ object RedisClient {
 
     val release: RedisClient => F[Unit] = client =>
       F.info(s"Releasing Redis connection: $uri") *>
-          JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync()))(blocker).void
+          JRFuture
+            .fromCompletableFuture(
+              F.delay(
+                client.underlying.shutdownAsync(
+                  config.shutdown.quietPeriod.toNanos,
+                  config.shutdown.timeout.toNanos,
+                  TimeUnit.NANOSECONDS
+                )
+              )
+            )(blocker)
+            .void
 
     (acquire, release)
   }
 
   private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log](
       opts: ClientOptions,
+      config: Redis4CatsConfig,
       blocker: Blocker
   ): F[(F[RedisClient], RedisClient => F[Unit])] =
     F.delay(RedisURI.fromUnderlying(new JRedisURI()))
-      .map(uri => acquireAndRelease(uri, opts, blocker))
+      .map(uri => acquireAndRelease(uri, opts, config, blocker))
 
   def apply[F[_]: Concurrent: ContextShift: Log](uri: => RedisURI): Resource[F, RedisClient] =
     Resource.liftF(F.delay(ClientOptions.create())).flatMap(apply[F](uri, _))
 
   def apply[F[_]: Concurrent: ContextShift: Log](
       uri: => RedisURI,
-      opts: ClientOptions
+      opts: ClientOptions,
+      config: Redis4CatsConfig = Redis4CatsConfig()
   ): Resource[F, RedisClient] =
     mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndRelease(uri, opts, blocker)
+      val (acquire, release) = acquireAndRelease(uri, opts, config, blocker)
       Resource.make(acquire)(release)
     }
 

@@ -16,20 +16,24 @@
 
 package dev.profunktor.redis4cats.connection
 
+import java.util.concurrent.TimeUnit
+
 import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.JavaConversions._
+import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.data.NodeId
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effect.JRFuture._
-import io.lettuce.core.cluster.{ SlotHash, RedisClusterClient => JClusterClient }
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
+import io.lettuce.core.cluster.{ SlotHash, RedisClusterClient => JClusterClient }
 
 sealed abstract case class RedisClusterClient private (underlying: JClusterClient)
 
 object RedisClusterClient {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
+      config: Redis4CatsConfig,
       blocker: Blocker,
       uri: RedisURI*
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
@@ -42,7 +46,17 @@ object RedisClusterClient {
 
     val release: RedisClusterClient => F[Unit] = client =>
       F.info(s"Releasing Redis Cluster client: ${client.underlying}") *>
-          JRFuture.fromCompletableFuture(F.delay(client.underlying.shutdownAsync()))(blocker).void
+          JRFuture
+            .fromCompletableFuture(
+              F.delay(
+                client.underlying.shutdownAsync(
+                  config.shutdown.quietPeriod.toNanos,
+                  config.shutdown.timeout.toNanos,
+                  TimeUnit.NANOSECONDS
+                )
+              )
+            )(blocker)
+            .void
 
     (acquire, release)
   }
@@ -51,8 +65,14 @@ object RedisClusterClient {
     F.delay(client.getPartitions).void
 
   def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI*): Resource[F, RedisClusterClient] =
+    configured[F](Redis4CatsConfig(), uri: _*)
+
+  def configured[F[_]: Concurrent: ContextShift: Log](
+      config: Redis4CatsConfig,
+      uri: RedisURI*
+  ): Resource[F, RedisClusterClient] =
     mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndRelease(blocker, uri: _*)
+      val (acquire, release) = acquireAndRelease(config, blocker, uri: _*)
       Resource.make(acquire)(release)
     }
 

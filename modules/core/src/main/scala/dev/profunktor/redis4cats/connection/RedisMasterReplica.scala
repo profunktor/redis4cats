@@ -19,6 +19,7 @@ package dev.profunktor.redis4cats.connection
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
+import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effect.JRFuture._
@@ -82,7 +83,9 @@ object RedisMasterReplica {
         codec: RedisCodec[K, V],
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
-      Resource.liftF(F.delay(ClientOptions.create())).flatMap(withOptions(codec, _, uris: _*)(readFrom))
+      Resource
+        .liftF(F.delay(ClientOptions.create()))
+        .flatMap(withOptions(codec, _, Redis4CatsConfig(), uris: _*)(readFrom))
 
     /**
       * Creates a [[RedisMasterReplica]] using the supplied client options
@@ -104,10 +107,11 @@ object RedisMasterReplica {
     def withOptions[K, V](
         codec: RedisCodec[K, V],
         opts: ClientOptions,
+        config: Redis4CatsConfig,
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
       mkBlocker[F].flatMap { blocker =>
-        Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F](opts, blocker)).flatMap {
+        Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F](opts, config, blocker)).flatMap {
           case (acquireClient, releaseClient) =>
             Resource.make(acquireClient)(releaseClient).flatMap { client =>
               val (acquire, release) = acquireAndRelease(client, codec, readFrom, blocker, uris: _*)
