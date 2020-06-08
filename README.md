@@ -35,7 +35,7 @@ object QuickStart extends IOApp {
 
 The API is quite stable and *heavily used in production*. However, binary compatibility won't be guaranteed until we reach `1.0.0`.
 
-If you like it, give it a :star:! If you think we could do better, please [let us know](https://gitter.im/profunktor-dev/redis4cats)!
+If you like it, give it a ⭐ ! If you think we could do better, please [let us know](https://gitter.im/profunktor-dev/redis4cats)!
 
 ### Dependencies
 

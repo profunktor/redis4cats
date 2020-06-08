@@ -2,7 +2,6 @@ jobs:
   publish:
     env:
       GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-    name: publish-site
     runs-on: ubuntu-18.04
     steps:
       - uses: "actions/checkout@v2.1.0"
@@ -11,7 +10,8 @@ jobs:
         with:
           name: scala-microsite
           signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
-      - run: "nix-shell --run \"sbt publishSite\""
+      - name: "Building microsite 🚧"
+        run: "nix-shell --run \"sbt publishSite\""
 name: Microsite
 on:
   push:
@@ -19,3 +19,4 @@ on:
       - master
     paths:
       - "site/**"
+      - "**/README.md"
