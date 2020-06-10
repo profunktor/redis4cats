@@ -38,8 +38,9 @@ import cats.effect.Sync
   * }}}
   * */
 trait Log[F[_]] {
-  def info(msg: => String): F[Unit]
+  def debug(msg: => String): F[Unit]
   def error(msg: => String): F[Unit]
+  def info(msg: => String): F[Unit]
 }
 
 object Log {
@@ -48,18 +49,21 @@ object Log {
   object NoOp {
     implicit def instance[F[_]: Applicative]: Log[F] =
       new Log[F] {
-        def info(msg: => String): F[Unit]  = F.unit
+        def debug(msg: => String): F[Unit] = F.unit
         def error(msg: => String): F[Unit] = F.unit
+        def info(msg: => String): F[Unit]  = F.unit
       }
   }
 
   object Stdout {
     implicit def instance[F[_]: Sync]: Log[F] =
       new Log[F] {
-        def info(msg: => String): F[Unit] =
+        def debug(msg: => String): F[Unit] =
           F.delay(Console.out.println(msg))
         def error(msg: => String): F[Unit] =
           F.delay(Console.err.println(msg))
+        def info(msg: => String): F[Unit] =
+          F.delay(Console.out.println(msg))
       }
   }
 
