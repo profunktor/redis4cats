@@ -20,7 +20,11 @@ import data._
 
 // format: off
 trait RawStreaming[F[_], K, V] {
-  def xAdd(key: K, body: Map[K, V]): F[MessageId]
+
+  /**
+    * @param approxMaxlen does XTRIM ~ maxlen if defined
+    */
+  def xAdd(key: K, body: Map[K, V], approxMaxlen: Option[Long] = None): F[MessageId]
   def xRead(streams: Set[StreamingOffset[K]]): F[List[StreamingMessageWithId[K, V]]]
 }
 
