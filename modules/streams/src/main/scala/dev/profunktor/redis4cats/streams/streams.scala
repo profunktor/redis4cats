@@ -25,10 +25,10 @@ trait RawStreaming[F[_], K, V] {
     * @param approxMaxlen does XTRIM ~ maxlen if defined
     */
   def xAdd(key: K, body: Map[K, V], approxMaxlen: Option[Long] = None): F[MessageId]
-  def xRead(streams: Set[StreamingOffset[K]]): F[List[StreamingMessageWithId[K, V]]]
+  def xRead(streams: Set[StreamingOffset[K]]): F[List[XReadMessage[K, V]]]
 }
 
 trait Streaming[F[_], K, V] {
-  def append: F[StreamingMessage[K, V]] => F[Unit]
-  def read(keys: Set[K], initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K]): F[StreamingMessageWithId[K, V]]
+  def append: F[XAddMessage[K, V]] => F[Unit]
+  def read(keys: Set[K], initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K]): F[XReadMessage[K, V]]
 }

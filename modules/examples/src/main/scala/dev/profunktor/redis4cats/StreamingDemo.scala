@@ -21,7 +21,7 @@ import cats.syntax.parallel._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.streams.RedisStream
-import dev.profunktor.redis4cats.streams.data.StreamingMessage
+import dev.profunktor.redis4cats.streams.data.XAddMessage
 import fs2.Stream
 import scala.concurrent.duration._
 import scala.util.Random
@@ -33,12 +33,12 @@ object StreamingDemo extends LoggerIOApp {
   private val streamKey1 = "demo"
   private val streamKey2 = "users"
 
-  def randomMessage: Stream[IO, StreamingMessage[String, String]] = Stream.eval {
+  def randomMessage: Stream[IO, XAddMessage[String, String]] = Stream.eval {
     val rndKey   = IO(Random.nextInt(1000).toString)
     val rndValue = IO(Random.nextString(10))
     (rndKey, rndValue).parMapN {
       case (k, v) =>
-        StreamingMessage(streamKey1, Map(k -> v))
+        XAddMessage(streamKey1, Map(k -> v))
     }
   }
 

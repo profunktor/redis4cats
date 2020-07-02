@@ -63,16 +63,16 @@ object RedisStream {
 class RedisStream[F[_]: Concurrent, K, V](rawStreaming: RedisRawStreaming[F, K, V])
     extends Streaming[Stream[F, *], K, V] {
 
-  private[streams] val nextOffset: K => StreamingMessageWithId[K, V] => StreamingOffset[K] =
+  private[streams] val nextOffset: K => XReadMessage[K, V] => StreamingOffset[K] =
     key => msg => StreamingOffset.Custom(key, (msg.id.value.dropRight(2).toLong + 1).toString)
 
-  private[streams] val offsetsByKey: List[StreamingMessageWithId[K, V]] => Map[K, Option[StreamingOffset[K]]] =
+  private[streams] val offsetsByKey: List[XReadMessage[K, V]] => Map[K, Option[StreamingOffset[K]]] =
     list => list.groupBy(_.key).map { case (k, values) => k -> values.lastOption.map(nextOffset(k)) }
 
-  override def append: Stream[F, StreamingMessage[K, V]] => Stream[F, Unit] =
-    _.evalMap(msg => rawStreaming.xAdd(msg.key, msg.body).void)
+  override def append: Stream[F, XAddMessage[K, V]] => Stream[F, Unit] =
+    _.evalMap(msg => rawStreaming.xAdd(msg.key, msg.body, msg.approxMaxlen).void)
 
-  override def read(keys: Set[K], initialOffset: K => StreamingOffset[K]): Stream[F, StreamingMessageWithId[K, V]] = {
+  override def read(keys: Set[K], initialOffset: K => StreamingOffset[K]): Stream[F, XReadMessage[K, V]] = {
     val initial = keys.map(k => k -> initialOffset(k)).toMap
     Stream.eval(Ref.of[F, Map[K, StreamingOffset[K]]](initial)).flatMap { ref =>
       (for {

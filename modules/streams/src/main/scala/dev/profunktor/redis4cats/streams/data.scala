@@ -19,8 +19,8 @@ package streams
 
 object data {
 
-  final case class StreamingMessage[K, V](key: K, body: Map[K, V])
-  final case class StreamingMessageWithId[K, V](id: MessageId, key: K, body: Map[K, V])
+  final case class XAddMessage[K, V](key: K, body: Map[K, V], approxMaxlen: Option[Long] = None)
+  final case class XReadMessage[K, V](id: MessageId, key: K, body: Map[K, V])
   final case class MessageId(value: String) extends AnyVal
 
   sealed trait StreamingOffset[K] extends Product with Serializable {
