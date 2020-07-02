@@ -39,8 +39,8 @@ At the moment there's only two combinators:
 
 ```scala
 trait Streaming[F[_], K, V] {
-  def append: F[StreamingMessage[K, V]] => F[Unit]
-  def read(keys: Set[K], initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K]): F[StreamingMessageWithId[K, V]]
+  def append: F[XAddMessage[K, V]] => F[Unit]
+  def read(keys: Set[K], initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K]): F[XReadMessage[K, V]]
 }
 ```
 
@@ -74,12 +74,12 @@ def putStrLn[A](a: A): IO[Unit] = IO(println(a))
 val streamKey1 = "demo"
 val streamKey2 = "users"
 
-def randomMessage: Stream[IO, StreamingMessage[String, String]] = Stream.eval {
+def randomMessage: Stream[IO, XAddMessage[String, String]] = Stream.eval {
   val rndKey   = IO(Random.nextInt(1000).toString)
   val rndValue = IO(Random.nextString(10))
   (rndKey, rndValue).parMapN {
     case (k, v) =>
-      StreamingMessage(streamKey1, Map(k -> v))
+      XAddMessage(streamKey1, Map(k -> v))
   }
 }
 
