@@ -150,11 +150,10 @@ Redis provides a mechanism called [optimistic locking using check-and-set](https
 This library translates the `Null` reply as a `TransactionDiscarded` error raised in the effect type. E.g.:
 
 ```scala mdoc:silent
-val mkClient: Resource[IO, RedisClient] =
-  Resource.liftF(RedisURI.make[IO]("redis://localhost")).flatMap(RedisClient[IO](_))
-
 val mkRedis: Resource[IO, RedisCommands[IO, String, String]] =
-  mkClient.flatMap(cli => Redis[IO].fromClient(cli, RedisCodec.Utf8))
+  RedisClient[IO].from("redis://localhost").flatMap { cli =>
+    Redis[IO].fromClient(cli, RedisCodec.Utf8)
+  }
 
 def txProgram(v1: String, v2: String) =
   mkRedis

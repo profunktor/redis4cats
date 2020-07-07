@@ -66,18 +66,89 @@ object RedisClient {
     F.delay(RedisURI.fromUnderlying(new JRedisURI()))
       .map(uri => acquireAndRelease(uri, opts, config, blocker))
 
-  def apply[F[_]: Concurrent: ContextShift: Log](uri: => RedisURI): Resource[F, RedisClient] =
-    Resource.liftF(F.delay(ClientOptions.create())).flatMap(apply[F](uri, _))
+  class RedisClientPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
 
-  def apply[F[_]: Concurrent: ContextShift: Log](
-      uri: => RedisURI,
-      opts: ClientOptions,
-      config: Redis4CatsConfig = Redis4CatsConfig()
-  ): Resource[F, RedisClient] =
-    mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndRelease(uri, opts, config, blocker)
-      Resource.make(acquire)(release)
-    }
+    /**
+      * Creates a [[RedisClient]] with default options.
+      *
+      * Example:
+      *
+      * {{{
+      * RedisClient[IO].from("redis://localhost")
+      * }}}
+      */
+    def from(strUri: => String): Resource[F, RedisClient] =
+      Resource.liftF(RedisURI.make[F](strUri)).flatMap(this.fromUri(_))
+
+    /**
+      * Creates a [[RedisClient]] with default options from a validated URI.
+      *
+      * Example:
+      *
+      * {{{
+      * for {
+      *   uri <- Resource.liftF(RedisURI.make[F]("redis://localhost"))
+      *   cli <- RedisClient[IO].fromUri(uri)
+      * } yield cli
+      * }}}
+      *
+      * You may prefer to use [[from]] instead, which takes a raw string.
+      */
+    def fromUri(uri: => RedisURI): Resource[F, RedisClient] =
+      Resource.liftF(F.delay(ClientOptions.create())).flatMap(this.custom(uri, _))
+
+    /**
+      * Creates a [[RedisClient]] with the supplied options.
+      *
+      * Example:
+      *
+      * {{{
+      * for {
+      *   ops <- Resource.liftF(F.delay(ClientOptions.create())) // configure timeouts, etc
+      *   cli <- RedisClient[IO].withOptions("redis://localhost", ops)
+      * } yield cli
+      * }}}
+      */
+    def withOptions(
+        strUri: => String,
+        opts: ClientOptions
+    ): Resource[F, RedisClient] =
+      Resource.liftF(RedisURI.make[F](strUri)).flatMap(this.custom(_, opts))
+
+    /**
+      * Creates a [[RedisClient]] with the supplied options from a validated URI.
+      *
+      * Example:
+      *
+      * {{{
+      * for {
+      *   uri <- Resource.liftF(RedisURI.make[F]("redis://localhost"))
+      *   ops <- Resource.liftF(F.delay(ClientOptions.create())) // configure timeouts, etc
+      *   cli <- RedisClient[IO].custom(uri, ops)
+      * } yield cli
+      * }}}
+      *
+      * Additionally, it can take a [[dev.profunktor.redis4cats.config.Redis4CatsConfig]] to configure the shutdown timeouts,
+      * for example. However, you don't need to worry about this in most cases.
+      *
+      * {{{
+      * RedisClient[IO].custom(uri, ops, Redis4CatsConfig())
+      * }}}
+      *
+      * If not supplied, sane defaults will be used.
+      */
+    def custom(
+        uri: => RedisURI,
+        opts: ClientOptions,
+        config: Redis4CatsConfig = Redis4CatsConfig()
+    ): Resource[F, RedisClient] =
+      mkBlocker[F].flatMap { blocker =>
+        val (acquire, release) = acquireAndRelease(uri, opts, config, blocker)
+        Resource.make(acquire)(release)
+      }
+  }
+
+  def apply[F[_]: Concurrent: ContextShift: Log]: RedisClientPartiallyApplied[F] = new RedisClientPartiallyApplied[F]
 
   def fromUnderlyingWithUri(underlying: JRedisClient, uri: RedisURI): RedisClient =
     new RedisClient(underlying, uri) {}

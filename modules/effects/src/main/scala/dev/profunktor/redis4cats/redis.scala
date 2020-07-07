@@ -123,11 +123,7 @@ object Redis {
       * instead, which allows you to re-use the same client.
       */
     def simple[K, V](uri: String, codec: RedisCodec[K, V]): Resource[F, RedisCommands[F, K, V]] =
-      for {
-        redisUri <- Resource.liftF(RedisURI.make[F](uri))
-        client <- RedisClient[F](redisUri)
-        redis <- this.fromClient(client, codec)
-      } yield redis
+      RedisClient[F].from(uri).flatMap(this.fromClient(_, codec))
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection.
@@ -152,11 +148,7 @@ object Redis {
         opts: ClientOptions,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      for {
-        redisUri <- Resource.liftF(RedisURI.make[F](uri))
-        client <- RedisClient[F](redisUri, opts)
-        redis <- this.fromClient(client, codec)
-      } yield redis
+      RedisClient[F].withOptions(uri, opts).flatMap(this.fromClient(_, codec))
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection to deal
