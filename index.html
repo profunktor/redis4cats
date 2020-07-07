@@ -31,32 +31,32 @@
 <span class="o">}</span>
 </code></pre></div></div>
 
-<p>The API is quite stable and <em>heavily used in production</em>. However, binary compatibility won’t be guaranteed until we reach <code class="highlighter-rouge">1.0.0</code>.</p>
+<p>The API is quite stable and <em>heavily used in production</em>. However, binary compatibility won’t be guaranteed until we reach <code class="language-plaintext highlighter-rouge">1.0.0</code>.</p>
 
 <p>If you like it, give it a ⭐ ! If you think we could do better, please <a href="https://gitter.im/profunktor-dev/redis4cats">let us know</a>!</p>
 
 <h3 id="dependencies">Dependencies</h3>
 
-<p>Add this to your <code class="highlighter-rouge">build.sbt</code> for the <a href="https://redis4cats.profunktor.dev/effects/">Effects API</a> (depends on <code class="highlighter-rouge">cats-effect</code>):</p>
+<p>Add this to your <code class="language-plaintext highlighter-rouge">build.sbt</code> for the <a href="https://redis4cats.profunktor.dev/effects/">Effects API</a> (depends on <code class="language-plaintext highlighter-rouge">cats-effect</code>):</p>
 
-<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>libraryDependencies += "dev.profunktor" %% "redis4cats-effects" % Version
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>libraryDependencies += "dev.profunktor" %% "redis4cats-effects" % Version
 </code></pre></div></div>
 
-<p>Add this for the <a href="https://redis4cats.profunktor.dev/streams/">Streams API</a> (depends on <code class="highlighter-rouge">fs2</code> and <code class="highlighter-rouge">cats-effect</code>):</p>
+<p>Add this for the <a href="https://redis4cats.profunktor.dev/streams/">Streams API</a> (depends on <code class="language-plaintext highlighter-rouge">fs2</code> and <code class="language-plaintext highlighter-rouge">cats-effect</code>):</p>
 
-<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>libraryDependencies += "dev.profunktor" %% "redis4cats-streams" % Version
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>libraryDependencies += "dev.profunktor" %% "redis4cats-streams" % Version
 </code></pre></div></div>
 
 <h3 id="log4cats-support">Log4cats support</h3>
 
-<p><code class="highlighter-rouge">redis4cats</code> needs a logger for internal use and provides instances for <code class="highlighter-rouge">log4cats</code>. It is the recommended logging library:</p>
+<p><code class="language-plaintext highlighter-rouge">redis4cats</code> needs a logger for internal use and provides instances for <code class="language-plaintext highlighter-rouge">log4cats</code>. It is the recommended logging library:</p>
 
-<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>libraryDependencies += "dev.profunktor" %% "redis4cats-log4cats" % Version
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>libraryDependencies += "dev.profunktor" %% "redis4cats-log4cats" % Version
 </code></pre></div></div>
 
 <h2 id="running-the-tests-locally">Running the tests locally</h2>
 
-<p>Start both a single Redis node and a cluster using <code class="highlighter-rouge">docker-compose</code>:</p>
+<p>Start both a single Redis node and a cluster using <code class="language-plaintext highlighter-rouge">docker-compose</code>:</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;</span> docker-compose up
 <span class="o">&gt;</span> sbt +test

@@ -2,19 +2,19 @@
 
 <p>Use <a href="https://redis.io/topics/pipelining">pipelining</a> to speed up your queries by having full control of commands flushing. By default Redis works in autoflush mode but it can be disabled to “pipeline” commands to the server without waiting for a response. And at any point in time you can “flush commands”.</p>
 
-<p><code class="highlighter-rouge">redis4cats</code> provides a <code class="highlighter-rouge">RedisPipeline</code> utility that models this behavior with some guarantees described below:</p>
+<p><code class="language-plaintext highlighter-rouge">redis4cats</code> provides a <code class="language-plaintext highlighter-rouge">RedisPipeline</code> utility that models this behavior with some guarantees described below:</p>
 
 <ul>
-  <li><code class="highlighter-rouge">acquire</code>: disable autoflush and send a bunch of commands defined as a custom <code class="highlighter-rouge">HList</code>.</li>
-  <li><code class="highlighter-rouge">release</code>: either flush commands on success or log error on failure / cancellation.</li>
-  <li><code class="highlighter-rouge">guarantee</code>: re-enable autoflush.</li>
+  <li><code class="language-plaintext highlighter-rouge">acquire</code>: disable autoflush and send a bunch of commands defined as a custom <code class="language-plaintext highlighter-rouge">HList</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">release</code>: either flush commands on success or log error on failure / cancellation.</li>
+  <li><code class="language-plaintext highlighter-rouge">guarantee</code>: re-enable autoflush.</li>
 </ul>
 
 <h3 id="redispipeline-usage">RedisPipeline usage</h3>
 
-<p>The API for disabling / enabling autoflush and flush commands manually is available for you to use but since the pattern is so common it is recommended to just use <code class="highlighter-rouge">RedisPipeline</code>. You can create a pipeline by passing the commands API as a parameter and invoke the <code class="highlighter-rouge">exec</code> function (or <code class="highlighter-rouge">filterExec</code>) given the set of commands you wish to send to the server.</p>
+<p>The API for disabling / enabling autoflush and flush commands manually is available for you to use but since the pattern is so common it is recommended to just use <code class="language-plaintext highlighter-rouge">RedisPipeline</code>. You can create a pipeline by passing the commands API as a parameter and invoke the <code class="language-plaintext highlighter-rouge">exec</code> function (or <code class="language-plaintext highlighter-rouge">filterExec</code>) given the set of commands you wish to send to the server.</p>
 
-<p>Note that every command has to be forked (<code class="highlighter-rouge">.start</code>) because the commands need to be sent to the server in an asynchronous way but no response will be received until the commands are successfully flushed. Also, it is not possible to sequence commands (<code class="highlighter-rouge">flatMap</code>) that are part of a pipeline. Every command has to be atomic and independent of previous results.</p>
+<p>Note that every command has to be forked (<code class="language-plaintext highlighter-rouge">.start</code>) because the commands need to be sent to the server in an asynchronous way but no response will be received until the commands are successfully flushed. Also, it is not possible to sequence commands (<code class="language-plaintext highlighter-rouge">flatMap</code>) that are part of a pipeline. Every command has to be atomic and independent of previous results.</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">cats.effect.IO</span>
 <span class="k">import</span> <span class="nn">cats.implicits._</span>
@@ -61,7 +61,7 @@
 <span class="o">}</span>
 </code></pre></div></div>
 
-<p>The <code class="highlighter-rouge">filterExec</code> function filters out values of type <code class="highlighter-rouge">Unit</code>, which are normally irrelevant. If you find yourself needing the <code class="highlighter-rouge">Unit</code> types to verify some behavior, use <code class="highlighter-rouge">exec</code> instead.</p>
+<p>The <code class="language-plaintext highlighter-rouge">filterExec</code> function filters out values of type <code class="language-plaintext highlighter-rouge">Unit</code>, which are normally irrelevant. If you find yourself needing the <code class="language-plaintext highlighter-rouge">Unit</code> types to verify some behavior, use <code class="language-plaintext highlighter-rouge">exec</code> instead.</p>
 </section></div></div></div></div><script src="/highlight/highlight.pack.js"></script><script>
 // For all code blocks, copy the language from the containing div
 // to the inner code tag (where hljs expects it to be)
