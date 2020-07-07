@@ -37,8 +37,7 @@ object PubSubDemo extends LoggerIOApp {
 
   val stream: Stream[IO, Unit] =
     for {
-      uri <- Stream.eval(RedisURI.make[IO](redisURI))
-      client <- Stream.resource(RedisClient[IO](uri))
+      client <- Stream.resource(RedisClient[IO].from(redisURI))
       pubSub <- PubSub.mkPubSubConnection[IO, String, String](client, stringCodec)
       sub1 = pubSub.subscribe(eventsChannel)
       sub2 = pubSub.subscribe(gamesChannel)

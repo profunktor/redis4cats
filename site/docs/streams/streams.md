@@ -51,7 +51,7 @@ trait Streaming[F[_], K, V] {
 ```scala mdoc:silent
 import cats.effect.IO
 import cats.syntax.parallel._
-import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
+import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
 import dev.profunktor.redis4cats.streams.RedisStream
@@ -84,8 +84,7 @@ def randomMessage: Stream[IO, XAddMessage[String, String]] = Stream.eval {
 }
 
 for {
-  redisURI  <- Stream.eval(RedisURI.make[IO]("redis://localhost"))
-  client    <- Stream.resource(RedisClient[IO](redisURI))
+  client    <- Stream.resource(RedisClient[IO].from("redis://localhost"))
   streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
   source    = streaming.read(Set(streamKey1, streamKey2))
   appender  = streaming.append

@@ -37,11 +37,8 @@ object ConcurrentTransactionsDemo extends LoggerIOApp {
     val showResult: String => Option[String] => IO[Unit] = key =>
       _.fold(Log[IO].info(s"Key not found: $key"))(s => Log[IO].info(s"$key: $s"))
 
-    val mkClient: Resource[IO, RedisClient] =
-      Resource.liftF(RedisURI.make[IO](redisURI)).flatMap(RedisClient[IO](_))
-
     val mkRedis: Resource[IO, RedisCommands[IO, String, String]] =
-      mkClient.flatMap(cli => Redis[IO].fromClient(cli, RedisCodec.Utf8))
+      RedisClient[IO].from(redisURI).flatMap(cli => Redis[IO].fromClient(cli, RedisCodec.Utf8))
 
     def txProgram(v1: String, v2: String) =
       mkRedis

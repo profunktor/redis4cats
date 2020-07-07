@@ -32,8 +32,7 @@ val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
 val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
-    uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
-    client <- RedisClient[IO](uri)
+    client <- RedisClient[IO].from("redis://localhost")
     redis  <- Redis[IO].fromClient(client, stringCodec)
   } yield redis
 ```
@@ -66,9 +65,8 @@ val mkOpts: IO[ClientOptions] =
 
 val api: Resource[IO, StringCommands[IO, String, String]] =
   for {
-    uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
     opts   <- Resource.liftF(mkOpts)
-    client <- RedisClient[IO](uri, opts)
+    client <- RedisClient[IO].withOptions("redis://localhost", opts)
     redis  <- Redis[IO].fromClient(client, stringCodec)
   } yield redis
 ```
@@ -76,7 +74,6 @@ val api: Resource[IO, StringCommands[IO, String, String]] =
 Furthermore, you can pass a customized `Redis4CatsConfig` to configure behaviour which isn't covered by `io.lettuce.core.ClientOptions`:
 
 ```scala mdoc:silent
-import io.lettuce.core.{ ClientOptions, TimeoutOptions }
 import scala.concurrent.duration._
 
 val config = Redis4CatsConfig().withShutdown(ShutdownConfig(1.seconds, 5.seconds))
@@ -85,7 +82,7 @@ val configuredApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
     opts   <- Resource.liftF(mkOpts)
-    client <- RedisClient[IO](uri, opts, config)
+    client <- RedisClient[IO].custom(uri, opts, config)
     redis  <- Redis[IO].fromClient(client, stringCodec)
   } yield redis
 ```

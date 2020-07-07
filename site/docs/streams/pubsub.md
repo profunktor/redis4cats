@@ -54,7 +54,7 @@ When using the `PubSub` interpreter the `publish` function will be defined as a 
 
 ```scala mdoc:silent
 import cats.effect.{ExitCode, IO, IOApp}
-import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
+import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.log4cats._
@@ -78,8 +78,7 @@ object PubSubDemo extends IOApp {
 
   val program: Stream[IO, Unit] =
     for {
-      redisURI <- Stream.eval(RedisURI.make[IO]("redis://localhost"))
-      client <- Stream.resource(RedisClient[IO](redisURI))
+      client <- Stream.resource(RedisClient[IO].from("redis://localhost"))
       pubSub <- PubSub.mkPubSubConnection[IO, String, String](client, stringCodec)
       sub1   = pubSub.subscribe(eventsChannel)
       sub2   = pubSub.subscribe(gamesChannel)
