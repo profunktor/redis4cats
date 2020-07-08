@@ -69,8 +69,8 @@ class RedisStream[F[_]: Concurrent, K, V](rawStreaming: RedisRawStreaming[F, K, 
   private[streams] val offsetsByKey: List[XReadMessage[K, V]] => Map[K, Option[StreamingOffset[K]]] =
     list => list.groupBy(_.key).map { case (k, values) => k -> values.lastOption.map(nextOffset(k)) }
 
-  override def append: Stream[F, XAddMessage[K, V]] => Stream[F, Unit] =
-    _.evalMap(msg => rawStreaming.xAdd(msg.key, msg.body, msg.approxMaxlen).void)
+  override def append: Stream[F, XAddMessage[K, V]] => Stream[F, MessageId] =
+    _.evalMap(msg => rawStreaming.xAdd(msg.key, msg.body, msg.approxMaxlen))
 
   override def read(keys: Set[K], initialOffset: K => StreamingOffset[K]): Stream[F, XReadMessage[K, V]] = {
     val initial = keys.map(k => k -> initialOffset(k)).toMap
