@@ -34,7 +34,13 @@ object RedisStream {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Stream[F, Streaming[Stream[F, *], K, V]] =
-    Stream.resource(mkBlocker[F]).flatMap { blocker =>
+    Stream.resource(mkStreamingConnectionResource(client, codec))
+
+  def mkStreamingConnectionResource[F[_]: Concurrent: ContextShift: Log, K, V](
+      client: RedisClient,
+      codec: RedisCodec[K, V]
+  ): Resource[F, Streaming[Stream[F, *], K, V]] =
+    mkBlocker[F].flatMap { blocker =>
       val acquire = JRFuture
         .fromConnectionFuture(F.delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)))(
           blocker
@@ -45,15 +51,21 @@ object RedisStream {
         JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync()))(blocker) *>
             F.info(s"Releasing Streaming connection: ${client.uri.underlying}")
 
-      Stream.bracket(acquire)(release).map(rs => new RedisStream(rs))
+      Resource.make(acquire)(release).map(rs => new RedisStream(rs))
     }
 
   def mkMasterReplicaConnection[F[_]: Concurrent: ContextShift: Log, K, V](
       codec: RedisCodec[K, V],
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, *], K, V]] =
-    Stream.resource(mkBlocker[F]).flatMap { blocker =>
-      Stream.resource(RedisMasterReplica[F].make(codec, uris: _*)(readFrom)).map { conn =>
+    Stream.resource(mkMasterReplicaConnectionResource(codec, uris: _*)(readFrom))
+
+  def mkMasterReplicaConnectionResource[F[_]: Concurrent: ContextShift: Log, K, V](
+      codec: RedisCodec[K, V],
+      uris: RedisURI*
+  )(readFrom: Option[JReadFrom] = None): Resource[F, Streaming[Stream[F, *], K, V]] =
+    mkBlocker[F].flatMap { blocker =>
+      RedisMasterReplica[F].make(codec, uris: _*)(readFrom).map { conn =>
         new RedisStream(new RedisRawStreaming(conn.underlying, blocker))
       }
     }
