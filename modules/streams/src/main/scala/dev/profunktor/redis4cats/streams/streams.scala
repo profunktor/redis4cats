@@ -29,6 +29,6 @@ trait RawStreaming[F[_], K, V] {
 }
 
 trait Streaming[F[_], K, V] {
-  def append: F[XAddMessage[K, V]] => F[Unit]
+  def append: F[XAddMessage[K, V]] => F[MessageId]
   def read(keys: Set[K], initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K]): F[XReadMessage[K, V]]
 }
