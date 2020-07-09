@@ -370,6 +370,15 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
   def expire(key: K, expiresIn: FiniteDuration): F[Unit] =
     async.flatMap(c => F.delay(c.expire(key, expiresIn.toSeconds))).futureLift.void
 
+  def objectIdletime(key: K): F[Option[FiniteDuration]] =
+    async
+      .flatMap(c => F.delay(c.objectIdletime(key)))
+      .futureLift
+      .map {
+        case null => none[FiniteDuration]
+        case d    => FiniteDuration(d, TimeUnit.SECONDS).some
+      }
+
   def ttl(key: K): F[Option[FiniteDuration]] =
     async
       .flatMap(c => F.delay(c.ttl(key)))

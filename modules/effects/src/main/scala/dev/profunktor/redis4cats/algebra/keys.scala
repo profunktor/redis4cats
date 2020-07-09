@@ -24,6 +24,7 @@ trait KeyCommands[F[_], K] {
   def del(key: K*): F[Unit]
   def exists(key: K*): F[Boolean]
   def expire(k: K, seconds: FiniteDuration): F[Unit]
+  def objectIdletime(k: K): F[Option[FiniteDuration]]
   def ttl(key: K): F[Option[FiniteDuration]]
   def pttl(key: K): F[Option[FiniteDuration]]
   def scan: F[KeyScanCursor[K]]
