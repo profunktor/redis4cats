@@ -17,6 +17,7 @@
 package dev.profunktor.redis4cats.algebra
 
 import dev.profunktor.redis4cats.data.KeyScanCursor
+import dev.profunktor.redis4cats.effects.ScanArgs
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -29,4 +30,6 @@ trait KeyCommands[F[_], K] {
   def pttl(key: K): F[Option[FiniteDuration]]
   def scan: F[KeyScanCursor[K]]
   def scan(cursor: Long): F[KeyScanCursor[K]]
+  def scan(scanArgs: ScanArgs): F[KeyScanCursor[K]]
+  def scan(cursor: Long, scanArgs: ScanArgs): F[KeyScanCursor[K]]
 }

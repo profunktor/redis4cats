@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats
 
-import io.lettuce.core.{ GeoArgs, ScriptOutputType => JScriptOutputType }
+import io.lettuce.core.{ GeoArgs, ScriptOutputType => JScriptOutputType, ScanArgs => JScanArgs }
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -86,6 +86,20 @@ object effects {
       override private[redis4cats] val outputType                = JScriptOutputType.STATUS
       override private[redis4cats] def convert(in: String): Unit = ()
     }
+  }
+
+  case class ScanArgs(`match`: Option[String], count: Option[Long]) {
+    def underlying: JScanArgs = {
+      val u = new JScanArgs
+      `match`.foreach(u.`match`)
+      count.foreach(u.limit)
+      u
+    }
+  }
+  object ScanArgs {
+    def apply(`match`: String): ScanArgs              = ScanArgs(Some(`match`), None)
+    def apply(count: Long): ScanArgs                  = ScanArgs(None, Some(count))
+    def apply(`match`: String, count: Long): ScanArgs = ScanArgs(Some(`match`), Some(count))
   }
 
   sealed trait SetArg

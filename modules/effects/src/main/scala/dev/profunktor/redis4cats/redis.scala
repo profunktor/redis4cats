@@ -397,15 +397,27 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
         case d                       => FiniteDuration(d, TimeUnit.MILLISECONDS).some
       }
 
-  def scan: F[KeyScanCursor[K]] =
+  override def scan: F[KeyScanCursor[K]] =
     async
       .flatMap(c => F.delay(c.scan()))
       .futureLift
       .map(KeyScanCursor[K])
 
-  def scan(cursor: Long): F[KeyScanCursor[K]] =
+  override def scan(cursor: Long): F[KeyScanCursor[K]] =
     async
       .flatMap(c => F.delay(c.scan(ScanCursor.of(cursor.toString))))
+      .futureLift
+      .map(KeyScanCursor[K])
+
+  override def scan(scanArgs: ScanArgs): F[KeyScanCursor[K]] =
+    async
+      .flatMap(c => F.delay(c.scan(scanArgs.underlying)))
+      .futureLift
+      .map(KeyScanCursor[K])
+
+  override def scan(cursor: Long, scanArgs: ScanArgs): F[KeyScanCursor[K]] =
+    async
+      .flatMap(c => F.delay(c.scan(ScanCursor.of(cursor.toString), scanArgs.underlying)))
       .futureLift
       .map(KeyScanCursor[K])
 
