@@ -147,6 +147,16 @@ trait TestScenarios {
       _ <- cmd.mSet(Map(key2 -> "some value 2"))
       exist3 <- cmd.exists(key1, key2)
       _ <- IO(assert(exist3))
+      scan0 <- cmd.scan
+      _ <- IO(assert(scan0.cursor == "0" && scan0.keys.sorted == List(key1, key2)))
+      scan1 <- cmd.scan(ScanArgs(1))
+      _ <- IO(assert(scan1.cursor != "0" && scan1.keys.length == 1))
+      scan2 <- cmd.scan(scan1.cursor.toLong, ScanArgs("key*"))
+      _ <- IO(
+            assert(
+              scan2.cursor == "0" && (scan1.keys ++ scan2.keys).sorted == List(key1, key2)
+            )
+          )
       exist4 <- cmd.exists(key1, key2, "_not_existing_key_")
       _ <- IO(assert(!exist4))
       _ <- cmd.del(key1)

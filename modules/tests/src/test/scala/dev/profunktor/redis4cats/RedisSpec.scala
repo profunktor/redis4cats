@@ -28,6 +28,8 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("lists api")(withRedis(listsScenario))
 
+  test("keys api")(withRedis(keysScenario))
+
   test("sets api")(withRedis(setsScenario))
 
   test("sorted sets api")(withAbstractRedis(sortedSetsScenario)(RedisCodec(LongCodec)))
