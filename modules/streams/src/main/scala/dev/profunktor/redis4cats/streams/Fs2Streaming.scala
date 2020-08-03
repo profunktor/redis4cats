@@ -76,7 +76,7 @@ class RedisStream[F[_]: Concurrent, K, V](rawStreaming: RedisRawStreaming[F, K, 
     extends Streaming[Stream[F, *], K, V] {
 
   private[streams] val nextOffset: K => XReadMessage[K, V] => StreamingOffset[K] =
-    key => msg => StreamingOffset.Custom(key, (msg.id.value.dropRight(2).toLong + 1).toString)
+    key => msg => StreamingOffset.Custom(key, (msg.id.value.takeWhile(_ != '-').toLong + 1).toString)
 
   private[streams] val offsetsByKey: List[XReadMessage[K, V]] => Map[K, Option[StreamingOffset[K]]] =
     list => list.groupBy(_.key).map { case (k, values) => k -> values.lastOption.map(nextOffset(k)) }
