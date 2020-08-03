@@ -58,4 +58,13 @@ class HListSpec extends FunSuite {
     assert(c.isInstanceOf[Char])
   }
 
+  test("Conversion from standard list") {
+    val lt = List("a", "b", "c")
+    val hl = "a" :: "b" :: "c" :: HNil
+    assert(hl == HList.fromList(lt))
+
+    val el = List.empty[Int]
+    assert(HNil == HList.fromList(el))
+  }
+
 }

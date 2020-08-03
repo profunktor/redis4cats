@@ -43,6 +43,15 @@ object hlist {
   case object HNil extends HList
 
   object HList {
+    def fromList[A](list: List[A]): HList = {
+      def go(ys: List[A], res: HList): HList =
+        ys match {
+          case Nil      => res
+          case (h :: t) => go(t, h :: res)
+        }
+      go(list, HNil).reverse
+    }
+
     implicit class HListOps[T <: HList](t: T) {
       def filterUnit[R <: HList](implicit w: Filter.Aux[T, R]): R = {
         def go(ys: HList, res: HList): HList =
