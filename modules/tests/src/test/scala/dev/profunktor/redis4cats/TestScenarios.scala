@@ -18,6 +18,7 @@ package dev.profunktor.redis4cats
 
 import java.time.Instant
 
+import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.effect.Log.NoOp._
@@ -26,6 +27,7 @@ import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline.RedisPipeline
 import dev.profunktor.redis4cats.transactions.RedisTransaction
 import io.lettuce.core.GeoArgs
+
 import scala.concurrent.duration._
 
 trait TestScenarios {
@@ -77,6 +79,15 @@ trait TestScenarios {
   def listsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val testKey = "listos"
     for {
+      first1 <- cmd.blPop(1.second, NonEmptyList.one(testKey))
+      _ <- IO(assert(first1.isEmpty))
+      last1 <- cmd.brPop(1.second, NonEmptyList.one(testKey))
+      _ <- IO(assert(last1.isEmpty))
+      _ <- cmd.rPush(testKey, "one", "two")
+      last2 <- cmd.brPop(1.second, NonEmptyList.one(testKey))
+      _ <- IO(assert(last2.contains((testKey, "two"))))
+      first2 <- cmd.blPop(1.second, NonEmptyList.one(testKey))
+      _ <- IO(assert(first2.contains((testKey, "one"))))
       t <- cmd.lRange(testKey, 0, 10)
       _ <- IO(assert(t.isEmpty))
       _ <- cmd.rPush(testKey, "one", "two", "three")
