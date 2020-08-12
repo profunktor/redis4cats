@@ -1188,15 +1188,15 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       .futureLift
       .map(_.asScala.toList.map(_.asScoreWithValues))
 
-  override def bzPopMin(timeout: FiniteDuration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
+  override def bzPopMin(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
     async
-      .flatMap(c => F.delay(c.bzpopmin(timeout.toSeconds, keys.toList: _*)))
+      .flatMap(c => F.delay(c.bzpopmin(timeout.toSecondsOrZero, keys.toList: _*)))
       .futureLift
       .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
-  override def bzPopMax(timeout: FiniteDuration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
+  override def bzPopMax(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
     async
-      .flatMap(c => F.delay(c.bzpopmax(timeout.toSeconds, keys.toList: _*)))
+      .flatMap(c => F.delay(c.bzpopmax(timeout.toSecondsOrZero, keys.toList: _*)))
       .futureLift
       .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
