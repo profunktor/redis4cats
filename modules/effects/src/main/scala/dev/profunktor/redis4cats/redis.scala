@@ -42,6 +42,9 @@ import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 import java.util.concurrent.TimeUnit
+
+import cats.data.NonEmptyList
+
 import scala.concurrent.duration._
 import io.lettuce.core.ClientOptions
 
@@ -1172,6 +1175,30 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       .flatMap(c => F.delay(c.zscore(key, value)))
       .futureLift
       .map(x => Option(Double.unbox(x)))
+
+  override def zPopMin(key: K, count: Long): F[List[ScoreWithValue[V]]] =
+    async
+      .flatMap(c => F.delay(c.zpopmin(key, count)))
+      .futureLift
+      .map(_.asScala.toList.map(_.asScoreWithValues))
+
+  override def zPopMax(key: K, count: Long): F[List[ScoreWithValue[V]]] =
+    async
+      .flatMap(c => F.delay(c.zpopmax(key, count)))
+      .futureLift
+      .map(_.asScala.toList.map(_.asScoreWithValues))
+
+  override def bzPopMin(timeout: FiniteDuration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
+    async
+      .flatMap(c => F.delay(c.bzpopmin(timeout.toSeconds, keys.toList: _*)))
+      .futureLift
+      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
+
+  override def bzPopMax(timeout: FiniteDuration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
+    async
+      .flatMap(c => F.delay(c.bzpopmax(timeout.toSeconds, keys.toList: _*)))
+      .futureLift
+      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
   /******************************* Connection API **********************************/
   override val ping: F[String] =

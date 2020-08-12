@@ -18,6 +18,7 @@ package dev.profunktor.redis4cats
 
 import java.time.Instant
 
+import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
 import dev.profunktor.redis4cats.effect.Log.NoOp._
@@ -26,6 +27,7 @@ import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline.RedisPipeline
 import dev.profunktor.redis4cats.transactions.RedisTransaction
 import io.lettuce.core.GeoArgs
+
 import scala.concurrent.duration._
 
 trait TestScenarios {
@@ -115,11 +117,34 @@ trait TestScenarios {
   }
 
   def sortedSetsScenario(cmd: RedisCommands[IO, String, Long]): IO[Unit] = {
-    val testKey = "zztop"
+    val testKey         = "zztop"
+    val scoreWithValue1 = ScoreWithValue(Score(1), 1L)
+    val scoreWithValue2 = ScoreWithValue(Score(3), 2L)
+    val timeout         = 1.second
     for {
+      minPop1 <- cmd.zPopMin(testKey, 1)
+      _ <- IO(assert(minPop1.isEmpty))
+      maxPop1 <- cmd.zPopMax(testKey, 1)
+      _ <- IO(assert(maxPop1.isEmpty))
+      minBPop1 <- cmd.bzPopMin(timeout, NonEmptyList.one(testKey))
+      _ <- IO(assert(minBPop1.isEmpty))
+      maxBPop1 <- cmd.bzPopMax(timeout, NonEmptyList.one(testKey))
+      _ <- IO(assert(maxBPop1.isEmpty))
       t <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
       _ <- IO(assert(t.isEmpty))
-      _ <- cmd.zAdd(testKey, args = None, ScoreWithValue(Score(1), 1), ScoreWithValue(Score(3), 2))
+      _ <- cmd.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
+      minPop2 <- cmd.zPopMin(testKey, 1)
+      _ <- IO(assert(minPop2 == List(scoreWithValue1)))
+      maxPop2 <- cmd.zPopMax(testKey, 1)
+      _ <- IO(assert(maxPop2 == List(scoreWithValue2)))
+      _ <- cmd.zCard(testKey).map(card => assert(card.contains(0)))
+      _ <- cmd.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
+      minBPop2 <- cmd.bzPopMin(timeout, NonEmptyList.one(testKey))
+      _ <- IO(assert(minBPop2.contains((testKey, scoreWithValue1))))
+      maxBPop2 <- cmd.bzPopMax(timeout, NonEmptyList.one(testKey))
+      _ <- IO(assert(maxBPop2.contains((testKey, scoreWithValue2))))
+      _ <- cmd.zCard(testKey).map(card => assert(card.contains(0)))
+      _ <- cmd.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
       x <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
       _ <- IO(assert(x == List(1)))
       y <- cmd.zCard(testKey)
