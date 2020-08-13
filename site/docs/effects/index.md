@@ -16,6 +16,6 @@ The API that operates at the effect level `F[_]` on top of `cats-effect`.
 - **[Scripting API](./scripting.html)**
 - **[Server API](./server.html)**
 - **[Sets API](./sets.html)**
-- **[Sorted SetsAPI](./sortedsets.html)**
+- **[Sorted Sets API](./sortedsets.html)**
 - **[Strings API](./strings.html)**
 

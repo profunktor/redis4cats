@@ -1176,6 +1176,30 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       .futureLift
       .map(x => Option(Double.unbox(x)))
 
+  override def zPopMin(key: K, count: Long): F[List[ScoreWithValue[V]]] =
+    async
+      .flatMap(c => F.delay(c.zpopmin(key, count)))
+      .futureLift
+      .map(_.asScala.toList.map(_.asScoreWithValues))
+
+  override def zPopMax(key: K, count: Long): F[List[ScoreWithValue[V]]] =
+    async
+      .flatMap(c => F.delay(c.zpopmax(key, count)))
+      .futureLift
+      .map(_.asScala.toList.map(_.asScoreWithValues))
+
+  override def bzPopMin(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
+    async
+      .flatMap(c => F.delay(c.bzpopmin(timeout.toSecondsOrZero, keys.toList: _*)))
+      .futureLift
+      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
+
+  override def bzPopMax(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
+    async
+      .flatMap(c => F.delay(c.bzpopmax(timeout.toSecondsOrZero, keys.toList: _*)))
+      .futureLift
+      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
+
   /******************************* Connection API **********************************/
   override val ping: F[String] =
     async.flatMap(c => F.delay(c.ping())).futureLift

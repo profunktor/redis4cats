@@ -16,8 +16,11 @@
 
 package dev.profunktor.redis4cats.algebra
 
+import cats.data.NonEmptyList
 import dev.profunktor.redis4cats.effects.{ RangeLimit, ScoreWithValue, ZRange }
 import io.lettuce.core.{ ZAddArgs, ZStoreArgs }
+
+import scala.concurrent.duration.Duration
 
 trait SortedSetCommands[F[_], K, V] extends SortedSetGetter[F, K, V] with SortedSetSetter[F, K, V]
 
@@ -46,6 +49,10 @@ trait SortedSetGetter[F[_], K, V] {
   def zRevRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]]
   def zRevRank(key: K, value: V): F[Option[Long]]
   def zScore(key: K, value: V): F[Option[Double]]
+  def zPopMin(key: K, count: Long): F[List[ScoreWithValue[V]]]
+  def zPopMax(key: K, count: Long): F[List[ScoreWithValue[V]]]
+  def bzPopMax(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]]
+  def bzPopMin(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]]
 }
 
 trait SortedSetSetter[F[_], K, V] {
