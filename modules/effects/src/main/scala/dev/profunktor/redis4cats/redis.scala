@@ -42,6 +42,9 @@ import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 import java.util.concurrent.TimeUnit
+
+import cats.data.NonEmptyList
+
 import scala.concurrent.duration._
 import io.lettuce.core.ClientOptions
 
@@ -818,17 +821,17 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       .futureLift
       .map(_.asScala.toList)
 
-  override def blPop(timeout: Duration, keys: K*): F[(K, V)] =
+  override def blPop(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, V)]] =
     async
-      .flatMap(c => F.delay(c.blpop(timeout.toSecondsOrZero, keys: _*)))
+      .flatMap(c => F.delay(c.blpop(timeout.toSecondsOrZero, keys.toList: _*)))
       .futureLift
-      .map(kv => kv.getKey -> kv.getValue)
+      .map(Option(_).map(kv => kv.getKey -> kv.getValue))
 
-  override def brPop(timeout: Duration, keys: K*): F[(K, V)] =
+  override def brPop(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, V)]] =
     async
-      .flatMap(c => F.delay(c.brpop(timeout.toSecondsOrZero, keys: _*)))
+      .flatMap(c => F.delay(c.brpop(timeout.toSecondsOrZero, keys.toList: _*)))
       .futureLift
-      .map(kv => kv.getKey -> kv.getValue)
+      .map(Option(_).map(kv => kv.getKey -> kv.getValue))
 
   override def brPopLPush(timeout: Duration, source: K, destination: K): F[Option[V]] =
     async
