@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
 import scala.util.control.NoStackTrace

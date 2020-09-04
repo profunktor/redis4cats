@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats.connection
 import java.util.concurrent.TimeUnit
 
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.data.NodeId

@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats
 import java.time.Instant
 
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisBlocker }

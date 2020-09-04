@@ -15,8 +15,6 @@
  */
 
 package dev.profunktor.redis4cats.codecs
-
-import cats.implicits._
 import dev.profunktor.redis4cats.codecs.splits._
 
 class SplitMorphismTest extends DisciplineSuite {
