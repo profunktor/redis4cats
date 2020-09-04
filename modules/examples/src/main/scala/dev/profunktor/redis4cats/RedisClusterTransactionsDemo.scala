@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
-import cats.implicits._
+import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.transactions._

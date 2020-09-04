@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats.effect
 
 import cats.effect._
 import cats.effect.implicits._
-import cats.implicits._
+import cats.syntax.all._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
 import java.util.concurrent._
 
