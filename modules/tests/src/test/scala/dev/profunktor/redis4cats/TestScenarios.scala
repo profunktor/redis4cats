@@ -206,6 +206,13 @@ trait TestScenarios {
       _ <- IO(assert(c.isDefined))
       d <- cmd.pttl("f1")
       _ <- IO(assert(d.isDefined))
+      _ <- cmd.set("f2", "yay")
+      _ <- cmd.expire("f2", 50.millis)
+      e <- cmd.ttl("f2")
+      _ <- IO(assert(e.nonEmpty))
+      _ <- IO.sleep(50.millis)
+      f <- cmd.ttl("f2")
+      _ <- IO(assert(f.isEmpty))
     } yield ()
   }
 
