@@ -391,18 +391,11 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
   /**
     * Expires a key at the given date.
     *
-    * It maps Redis' EXPIREAT and PEXPIREAT commands, depending on the given [[TimePrecision]].
+    * It calls Redis' PEXPIREAT under the hood, which has milliseconds precision.
     */
-  def expireAt(key: K, at: Instant, precision: TimePrecision): F[Unit] =
+  def expireAt(key: K, at: Instant): F[Unit] =
     async
-      .flatMap { c =>
-        precision match {
-          case TimePrecision.Seconds =>
-            F.delay(c.expireat(key, at.getEpochSecond()))
-          case TimePrecision.MilliSeconds =>
-            F.delay(c.pexpireat(key, at.toEpochMilli()))
-        }
-      }
+      .flatMap(c => F.delay(c.pexpireat(key, at.toEpochMilli())))
       .futureLift
       .void
 

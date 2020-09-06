@@ -130,11 +130,4 @@ object effects {
     def apply(ttl: SetArg.Ttl): SetArgs                       = SetArgs(None, Some(ttl))
     def apply(ex: SetArg.Existence, ttl: SetArg.Ttl): SetArgs = SetArgs(Some(ex), Some(ttl))
   }
-
-  /* Used by expireAt */
-  sealed trait TimePrecision
-  object TimePrecision {
-    case object Seconds extends TimePrecision
-    case object MilliSeconds extends TimePrecision
-  }
 }
