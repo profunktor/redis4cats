@@ -17,7 +17,9 @@
 package dev.profunktor.redis4cats
 
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
+import cats.data.NonEmptyList
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
@@ -27,6 +29,7 @@ import dev.profunktor.redis4cats.effect.JRFuture._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.transactions.TransactionDiscarded
 import io.lettuce.core.{
+  ClientOptions,
   GeoArgs,
   GeoRadiusStoreArgs,
   GeoWithin,
@@ -41,12 +44,8 @@ import io.lettuce.core.{
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
-import java.util.concurrent.TimeUnit
-
-import cats.data.NonEmptyList
 
 import scala.concurrent.duration._
-import io.lettuce.core.ClientOptions
 
 object Redis {
 
@@ -370,8 +369,35 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
       .futureLift
       .map(x => x == key.size.toLong)
 
+  /**
+    * Expires a key with the given duration. If specified either in MILLISECONDS, MICROSECONDS or NANOSECONDS,
+    * the value will be converted to MILLISECONDS. Otherwise, it will be converted to SECONDS.
+    *
+    * As expected by Redis' PEXPIRE and EXPIRE commands, respectively.
+    */
   def expire(key: K, expiresIn: FiniteDuration): F[Unit] =
-    async.flatMap(c => F.delay(c.expire(key, expiresIn.toSeconds))).futureLift.void
+    async
+      .flatMap { c =>
+        expiresIn.unit match {
+          case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS =>
+            F.delay(c.pexpire(key, expiresIn.toMillis))
+          case _ =>
+            F.delay(c.expire(key, expiresIn.toSeconds))
+        }
+      }
+      .futureLift
+      .void
+
+  /**
+    * Expires a key at the given date.
+    *
+    * It calls Redis' PEXPIREAT under the hood, which has milliseconds precision.
+    */
+  def expireAt(key: K, at: Instant): F[Unit] =
+    async
+      .flatMap(c => F.delay(c.pexpireat(key, at.toEpochMilli())))
+      .futureLift
+      .void
 
   def objectIdletime(key: K): F[Option[FiniteDuration]] =
     async

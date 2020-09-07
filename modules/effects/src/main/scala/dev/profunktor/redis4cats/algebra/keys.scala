@@ -16,6 +16,8 @@
 
 package dev.profunktor.redis4cats.algebra
 
+import java.time.Instant
+
 import dev.profunktor.redis4cats.data.KeyScanCursor
 import dev.profunktor.redis4cats.effects.ScanArgs
 
@@ -24,8 +26,9 @@ import scala.concurrent.duration.FiniteDuration
 trait KeyCommands[F[_], K] {
   def del(key: K*): F[Unit]
   def exists(key: K*): F[Boolean]
-  def expire(k: K, seconds: FiniteDuration): F[Unit]
-  def objectIdletime(k: K): F[Option[FiniteDuration]]
+  def expire(key: K, expiresIn: FiniteDuration): F[Unit]
+  def expireAt(key: K, at: Instant): F[Unit]
+  def objectIdletime(key: K): F[Option[FiniteDuration]]
   def ttl(key: K): F[Option[FiniteDuration]]
   def pttl(key: K): F[Option[FiniteDuration]]
   def scan: F[KeyScanCursor[K]]
