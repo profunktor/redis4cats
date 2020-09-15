@@ -699,7 +699,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
     async
       .flatMap(c => F.delay(c.hmget(key, fields: _*)))
       .futureLift
-      .map(_.asScala.toList.map(kv => kv.getKey -> kv.getValue).toMap)
+      .map(_.asScala.toList.collect { case kv if kv.hasValue => kv.getKey -> kv.getValue }.toMap)
 
   override def hKeys(key: K): F[List[K]] =
     async
