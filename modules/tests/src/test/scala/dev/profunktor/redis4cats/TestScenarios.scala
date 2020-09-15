@@ -59,6 +59,7 @@ trait TestScenarios {
   def hashesScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val testKey   = "foo"
     val testField = "bar"
+    val testField2 = "baz"
     for {
       x <- cmd.hGet(testKey, testField)
       _ <- IO(assert(x.isEmpty))
@@ -70,6 +71,8 @@ trait TestScenarios {
       _ <- IO(assert(!isSet2))
       w <- cmd.hGet(testKey, testField)
       _ <- IO(assert(w.contains("some value")))
+      w <- cmd.hmGet(testKey, testField, testField2)
+      _ <- IO(assert(w == Map(testField -> "some value")))
       _ <- cmd.hDel(testKey, testField)
       z <- cmd.hGet(testKey, testField)
       _ <- IO(assert(z.isEmpty))
