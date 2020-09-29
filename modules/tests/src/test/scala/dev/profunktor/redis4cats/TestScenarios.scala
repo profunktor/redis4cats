@@ -57,8 +57,8 @@ trait TestScenarios {
   }
 
   def hashesScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
-    val testKey   = "foo"
-    val testField = "bar"
+    val testKey    = "foo"
+    val testField  = "bar"
     val testField2 = "baz"
     for {
       x <- cmd.hGet(testKey, testField)
