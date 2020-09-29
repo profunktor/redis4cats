@@ -1230,6 +1230,9 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
   override val ping: F[String] =
     async.flatMap(c => F.delay(c.ping())).futureLift
 
+  override def select(index: Int): F[Unit] =
+    conn.async.flatMap(c => blocker.delay(c.select(index))).void
+
   /******************************* Server API **********************************/
   override val flushAll: F[Unit] =
     async.flatMap(c => F.delay(c.flushall())).futureLift.void
