@@ -338,14 +338,14 @@ object Redis {
 
 }
 
-private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift, K, V](
+private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     val conn: RedisConnection[F, K, V],
     val cluster: Boolean,
     blocker: Blocker
 ) extends RedisCommands[F, K, V]
     with RedisConversionOps {
 
-  def liftK[G[_]: Concurrent: ContextShift]: RedisCommands[G, K, V] =
+  def liftK[G[_]: Concurrent: ContextShift: Log]: RedisCommands[G, K, V] =
     new BaseRedis[G, K, V](conn.liftK[G], cluster, blocker)
 
   import dev.profunktor.redis4cats.JavaConversions._
@@ -1426,12 +1426,12 @@ private[redis4cats] trait RedisConversionOps {
 
 }
 
-private[redis4cats] class Redis[F[_]: Concurrent: ContextShift, K, V](
+private[redis4cats] class Redis[F[_]: Concurrent: ContextShift: Log, K, V](
     connection: RedisStatefulConnection[F, K, V],
     blocker: Blocker
 ) extends BaseRedis[F, K, V](connection, cluster = false, blocker)
 
-private[redis4cats] class RedisCluster[F[_]: Concurrent: ContextShift, K, V](
+private[redis4cats] class RedisCluster[F[_]: Concurrent: ContextShift: Log, K, V](
     connection: RedisStatefulClusterConnection[F, K, V],
     blocker: Blocker
 ) extends BaseRedis[F, K, V](connection, cluster = true, blocker)

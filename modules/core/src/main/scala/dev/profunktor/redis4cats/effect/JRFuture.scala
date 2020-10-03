@@ -55,9 +55,11 @@ object JRFuture {
   )(blocker: Blocker): F[A] =
     liftJFuture[F, CompletableFuture[A], A](fa)(blocker)
 
-  implicit class FutureLiftOps[F[_]: Concurrent: ContextShift, A](fa: F[RedisFuture[A]]) {
+  implicit class FutureLiftOps[F[_]: Concurrent: ContextShift: Log, A](fa: F[RedisFuture[A]]) {
     def futureLift(implicit rb: RedisBlocker): F[A] =
-      liftJFuture[F, RedisFuture[A], A](fa)(rb.ec)
+      liftJFuture[F, RedisFuture[A], A](fa)(rb.ec).onError {
+        case e: ExecutionException => F.error(s"${e.getMessage()} - ${Option(e.getCause())}")
+      }
   }
 
   private[redis4cats] def liftJFuture[

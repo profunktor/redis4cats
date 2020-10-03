@@ -18,6 +18,7 @@ package dev.profunktor.redis4cats
 
 import algebra._
 import cats.effect.{ Concurrent, ContextShift }
+import dev.profunktor.redis4cats.effect.Log
 
 trait RedisCommands[F[_], K, V]
     extends StringCommands[F, K, V]
@@ -35,7 +36,7 @@ trait RedisCommands[F[_], K, V]
 
 object RedisCommands {
   implicit class LiftKOps[F[_], K, V](val cmd: RedisCommands[F, K, V]) extends AnyVal {
-    def liftK[G[_]: Concurrent: ContextShift]: RedisCommands[G, K, V] =
+    def liftK[G[_]: Concurrent: ContextShift: Log]: RedisCommands[G, K, V] =
       cmd.asInstanceOf[BaseRedis[F, K, V]].liftK[G]
   }
 }
