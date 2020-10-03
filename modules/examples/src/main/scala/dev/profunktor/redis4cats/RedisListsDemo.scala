@@ -33,7 +33,8 @@ object RedisListsDemo extends LoggerIOApp {
     commandsApi
       .use { cmd =>
         for {
-          _ <- cmd.rPush(testKey, "one", "two", "three")
+          d <- cmd.rPush(testKey, "one", "two", "three")
+          _ <- putStrLn(s"Length on Push: $d")
           x <- cmd.lRange(testKey, 0, 10)
           _ <- putStrLn(s"Range: $x")
           y <- cmd.lLen(testKey)

@@ -48,10 +48,10 @@ trait ListSetter[F[_], K, V] {
 
 trait ListPushPop[F[_], K, V] {
   def lPop(key: K): F[Option[V]]
-  def lPush(key: K, values: V*): F[Unit]
-  def lPushX(key: K, values: V*): F[Unit]
+  def lPush(key: K, values: V*): F[Long]
+  def lPushX(key: K, values: V*): F[Long]
   def rPop(key: K): F[Option[V]]
   def rPopLPush(source: K, destination: K): F[Option[V]]
-  def rPush(key: K, values: V*): F[Unit]
-  def rPushX(key: K, values: V*): F[Unit]
+  def rPush(key: K, values: V*): F[Long]
+  def rPushX(key: K, values: V*): F[Long]
 }
