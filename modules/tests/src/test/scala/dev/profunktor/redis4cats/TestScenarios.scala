@@ -27,10 +27,11 @@ import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline.RedisPipeline
 import dev.profunktor.redis4cats.transactions.RedisTransaction
 import io.lettuce.core.GeoArgs
+import munit.FunSuite
 
 import scala.concurrent.duration._
 
-trait TestScenarios {
+trait TestScenarios { self: FunSuite =>
 
   implicit def cs: ContextShift[IO]
   implicit def timer: Timer[IO]
@@ -48,7 +49,7 @@ trait TestScenarios {
       _ <- cmd.geoAdd(testKey, _Montevideo)
       _ <- cmd.geoAdd(testKey, _Tokyo)
       x <- cmd.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoArgs.Unit.km)
-      _ <- IO(assert(x == 18374.9052))
+      _ <- IO(assertEquals(x, 18374.9052))
       y <- cmd.geoPos(testKey, _RioDeJaneiro.value)
       _ <- IO(assert(y.contains(GeoCoordinate(-43.17289799451828, -22.906801071586663))))
       z <- cmd.geoRadius(testKey, GeoRadius(_Montevideo.lon, _Montevideo.lat, Distance(10000.0)), GeoArgs.Unit.km)
@@ -57,8 +58,8 @@ trait TestScenarios {
   }
 
   def hashesScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
-    val testKey   = "foo"
-    val testField = "bar"
+    val testKey    = "foo"
+    val testField  = "bar"
     val testField2 = "baz"
     for {
       x <- cmd.hGet(testKey, testField)
@@ -72,7 +73,7 @@ trait TestScenarios {
       w <- cmd.hGet(testKey, testField)
       _ <- IO(assert(w.contains("some value")))
       w <- cmd.hmGet(testKey, testField, testField2)
-      _ <- IO(assert(w == Map(testField -> "some value")))
+      _ <- IO(assertEquals(w, Map(testField -> "some value")))
       _ <- cmd.hDel(testKey, testField)
       z <- cmd.hGet(testKey, testField)
       _ <- IO(assert(z.isEmpty))
@@ -95,7 +96,7 @@ trait TestScenarios {
       _ <- IO(assert(t.isEmpty))
       _ <- cmd.rPush(testKey, "one", "two", "three")
       x <- cmd.lRange(testKey, 0, 10)
-      _ <- IO(assert(x == List("one", "two", "three")))
+      _ <- IO(assertEquals(x, List("one", "two", "three")))
       y <- cmd.lLen(testKey)
       _ <- IO(assert(y.contains(3)))
       a <- cmd.lPop(testKey)
@@ -103,7 +104,7 @@ trait TestScenarios {
       b <- cmd.rPop(testKey)
       _ <- IO(assert(b.contains("three")))
       z <- cmd.lRange(testKey, 0, 10)
-      _ <- IO(assert(z == List("two")))
+      _ <- IO(assertEquals(z, List("two")))
     } yield ()
   }
 
@@ -116,7 +117,7 @@ trait TestScenarios {
       y <- cmd.sMembers(testKey)
       _ <- IO(assert(y.contains("set value")))
       o <- cmd.sCard(testKey)
-      _ <- IO(assert(o == 1L))
+      _ <- IO(assertEquals(o, 1L))
       _ <- cmd.sRem("non-existing", "random")
       w <- cmd.sMembers(testKey)
       _ <- IO(assert(w.contains("set value")))
@@ -124,7 +125,7 @@ trait TestScenarios {
       z <- cmd.sMembers(testKey)
       _ <- IO(assert(z.isEmpty))
       t <- cmd.sCard(testKey)
-      _ <- IO(assert(t == 0L))
+      _ <- IO(assertEquals(t, 0L))
     } yield ()
   }
 
@@ -146,9 +147,9 @@ trait TestScenarios {
       _ <- IO(assert(t.isEmpty))
       _ <- cmd.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
       minPop2 <- cmd.zPopMin(testKey, 1)
-      _ <- IO(assert(minPop2 == List(scoreWithValue1)))
+      _ <- IO(assertEquals(minPop2, List(scoreWithValue1)))
       maxPop2 <- cmd.zPopMax(testKey, 1)
-      _ <- IO(assert(maxPop2 == List(scoreWithValue2)))
+      _ <- IO(assertEquals(maxPop2, List(scoreWithValue2)))
       _ <- cmd.zCard(testKey).map(card => assert(card.contains(0)))
       _ <- cmd.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
       minBPop2 <- cmd.bzPopMin(timeout, NonEmptyList.one(testKey))
@@ -158,7 +159,7 @@ trait TestScenarios {
       _ <- cmd.zCard(testKey).map(card => assert(card.contains(0)))
       _ <- cmd.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
       x <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
-      _ <- IO(assert(x == List(1)))
+      _ <- IO(assertEquals(x, List(1L)))
       y <- cmd.zCard(testKey)
       _ <- IO(assert(y.contains(2)))
       z <- cmd.zCount(testKey, ZRange(0, 1))
@@ -185,15 +186,14 @@ trait TestScenarios {
       exist3 <- cmd.exists(key1, key2)
       _ <- IO(assert(exist3))
       scan0 <- cmd.scan
-      _ <- IO(assert(scan0.cursor == "0" && scan0.keys.sorted == List(key1, key2)))
+      _ <- IO(assertEquals(scan0.cursor, "0"))
+      _ <- IO(assertEquals(scan0.keys.sorted, List(key1, key2)))
       scan1 <- cmd.scan(ScanArgs(1))
-      _ <- IO(assert(scan1.cursor != "0" && scan1.keys.length == 1))
+      _ <- IO(assertNotEquals(scan1.cursor, "0"))
+      _ <- IO(assertEquals(scan1.keys.length, 1))
       scan2 <- cmd.scan(scan1.cursor.toLong, ScanArgs("key*"))
-      _ <- IO(
-            assert(
-              scan2.cursor == "0" && (scan1.keys ++ scan2.keys).sorted == List(key1, key2)
-            )
-          )
+      _ <- IO(assertEquals(scan2.cursor, "0"))
+      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key2)))
       exist4 <- cmd.exists(key1, key2, "_not_existing_key_")
       _ <- IO(assert(!exist4))
       _ <- cmd.del(key1)
@@ -206,9 +206,9 @@ trait TestScenarios {
       _ <- cmd.set("f1", "bar")
       _ <- cmd.expire("f1", 10.seconds)
       c <- cmd.ttl("f1")
-      _ <- IO(assert(c.isDefined))
+      _ <- IO(assert(c.nonEmpty))
       d <- cmd.pttl("f1")
-      _ <- IO(assert(d.isDefined))
+      _ <- IO(assert(d.nonEmpty))
       _ <- cmd.set("f2", "yay")
       _ <- cmd.expire("f2", 50.millis)
       e <- cmd.ttl("f2")
@@ -285,15 +285,15 @@ trait TestScenarios {
   }
 
   def connectionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] =
-    cmd.ping.flatMap(pong => IO(assert(pong === "PONG"))).void
+    cmd.ping.flatMap(pong => IO(assertEquals(pong, "PONG"))).void
 
   def serverScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] =
     for {
       _ <- cmd.mSet(Map("firstname" -> "Jack", "lastname" -> "Stuntman", "age" -> "35"))
       names <- cmd.keys("*name*").map(_.toSet)
-      _ <- IO(assert(names == Set("firstname", "lastname")))
+      _ <- IO(assertEquals(names, Set("firstname", "lastname")))
       age <- cmd.keys("a??")
-      _ <- IO(assert(age == List("age")))
+      _ <- IO(assertEquals(age, List("age")))
       info <- cmd.info
       _ <- IO(assert(info.contains("role")))
       dbsize <- cmd.dbsize
@@ -315,10 +315,10 @@ trait TestScenarios {
     RedisPipeline(cmd).exec(operations).map {
       case _ ~: _ ~: res1 ~: res2 ~: _ ~: _ ~: res3 ~: HNil =>
         assert(res1.contains("osx"))
-        assert(res2 === false)
+        assert(!res2)
         assert(res3.contains("nix"))
       case tr =>
-        assert(false, s"Unexpected result: $tr")
+        fail(s"Unexpected result: $tr")
     }
 
   }
@@ -334,10 +334,10 @@ trait TestScenarios {
     RedisTransaction(cmd).exec(operations).map {
       case _ ~: _ ~: res1 ~: res2 ~: _ ~: _ ~: res3 ~: HNil =>
         assert(res1.contains("osx"))
-        assert(res2 === false)
+        assert(!res2)
         assert(res3.contains("nix"))
       case tr =>
-        assert(false, s"Unexpected result: $tr")
+        fail(s"Unexpected result: $tr")
     }
 
   }
@@ -361,9 +361,9 @@ trait TestScenarios {
         |return redis.status_reply('OK')""".stripMargin
     for {
       fortyTwo: Long <- cmd.eval("return 42", ScriptOutputType.Integer)
-      _ <- IO(assert(fortyTwo === 42L))
+      _ <- IO(assertEquals(fortyTwo, 42L))
       value: String <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
-      _ <- IO(assert(value === "Hello World"))
+      _ <- IO(assertEquals(value, "Hello World"))
       bool: Boolean <- cmd.eval("return true", ScriptOutputType.Boolean, List("Foo"))
       _ <- IO(assert(bool))
       list: List[String] <- cmd.eval(
@@ -375,18 +375,18 @@ trait TestScenarios {
                                "fun"
                              )
                            )
-      _ <- IO(assert(list === List("Let", "us", "have", "fun")))
-      () <- cmd.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
+      _ <- IO(assertEquals(list, List("Let", "us", "have", "fun")))
+      _ <- cmd.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
       sha42 <- cmd.scriptLoad("return 42")
       fortyTwoSha: Long <- cmd.evalSha(sha42, ScriptOutputType.Integer)
-      _ <- IO(assert(fortyTwoSha === 42L))
+      _ <- IO(assertEquals(fortyTwoSha, 42L))
       shaStatusScript <- cmd.scriptLoad(statusScript)
-      () <- cmd.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
+      _ <- cmd.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
       exists <- cmd.scriptExists(sha42, "foobar")
-      _ <- IO(assert(exists === List(true, false)))
-      () <- cmd.scriptFlush
+      _ <- IO(assertEquals(exists, List(true, false)))
+      _ <- cmd.scriptFlush
       exists2 <- cmd.scriptExists(sha42)
-      _ <- IO(assert(exists2 === List(false)))
+      _ <- IO(assertEquals(exists2, List(false)))
     } yield ()
   }
 
