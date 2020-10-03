@@ -871,11 +871,11 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(Option.apply)
 
-  override def lPush(key: K, values: V*): F[Unit] =
-    async.flatMap(c => F.delay(c.lpush(key, values: _*))).futureLift.void
+  override def lPush(key: K, values: V*): F[Long] =
+    async.flatMap(c => F.delay(c.lpush(key, values: _*))).futureLift.map(x => Long.box(x))
 
-  override def lPushX(key: K, values: V*): F[Unit] =
-    async.flatMap(c => F.delay(c.lpushx(key, values: _*))).futureLift.void
+  override def lPushX(key: K, values: V*): F[Long] =
+    async.flatMap(c => F.delay(c.lpushx(key, values: _*))).futureLift.map(x => Long.box(x))
 
   override def rPop(key: K): F[Option[V]] =
     async
@@ -889,11 +889,11 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(Option.apply)
 
-  override def rPush(key: K, values: V*): F[Unit] =
-    async.flatMap(c => F.delay(c.rpush(key, values: _*))).futureLift.void
+  override def rPush(key: K, values: V*): F[Long] =
+    async.flatMap(c => F.delay(c.rpush(key, values: _*))).futureLift.map(x => Long.box(x))
 
-  override def rPushX(key: K, values: V*): F[Unit] =
-    async.flatMap(c => F.delay(c.rpushx(key, values: _*))).futureLift.void
+  override def rPushX(key: K, values: V*): F[Long] =
+    async.flatMap(c => F.delay(c.rpushx(key, values: _*))).futureLift.map(x => Long.box(x))
 
   override def lInsertAfter(key: K, pivot: V, value: V): F[Unit] =
     async.flatMap(c => F.delay(c.linsert(key, false, pivot, value))).futureLift.void
