@@ -101,11 +101,15 @@ object data {
   }
 
   object ReadFrom {
-    val Master           = JReadFrom.MASTER
-    val MasterPreferred  = JReadFrom.MASTER_PREFERRED
-    val Nearest          = JReadFrom.NEAREST
-    val Replica          = JReadFrom.REPLICA
-    val ReplicaPreferred = JReadFrom.REPLICA_PREFERRED
+    @deprecated(message = "in favor of Upstream", since = "v0.10.4")
+    val Master = JReadFrom.UPSTREAM
+    @deprecated(message = "in favor of UpstreamPreferred", since = "v0.10.4")
+    val MasterPreferred   = JReadFrom.UPSTREAM_PREFERRED
+    val Upstream          = JReadFrom.UPSTREAM
+    val UpstreamPreferred = JReadFrom.UPSTREAM_PREFERRED
+    val Nearest           = JReadFrom.NEAREST
+    val Replica           = JReadFrom.REPLICA
+    val ReplicaPreferred  = JReadFrom.REPLICA_PREFERRED
   }
 
 }
