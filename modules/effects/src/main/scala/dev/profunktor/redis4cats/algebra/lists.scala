@@ -39,9 +39,9 @@ trait ListGetter[F[_], K, V] {
 }
 
 trait ListSetter[F[_], K, V] {
-  def lInsertAfter(key: K, pivot: V, value: V): F[Unit]
-  def lInsertBefore(key: K, pivot: V, value: V): F[Unit]
-  def lRem(key: K, count: Long, value: V): F[Unit]
+  def lInsertAfter(key: K, pivot: V, value: V): F[Long]
+  def lInsertBefore(key: K, pivot: V, value: V): F[Long]
+  def lRem(key: K, count: Long, value: V): F[Long]
   def lSet(key: K, index: Long, value: V): F[Unit]
   def lTrim(key: K, start: Long, stop: Long): F[Unit]
 }
