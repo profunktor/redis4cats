@@ -1354,7 +1354,10 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(output.convert(_))
 
-  override def scriptLoad(script: V): F[String] =
+  override def scriptLoad(script: String): F[String] =
+    async.flatMap(c => F.delay(c.scriptLoad(script))).futureLift
+
+  override def scriptLoad(script: Array[Byte]): F[String] =
     async.flatMap(c => F.delay(c.scriptLoad(script))).futureLift
 
   override def scriptExists(digests: String*): F[List[Boolean]] =

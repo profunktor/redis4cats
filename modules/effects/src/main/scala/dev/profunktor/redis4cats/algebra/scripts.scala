@@ -29,9 +29,8 @@ trait Scripting[F[_], K, V] {
   def evalSha(script: String, output: ScriptOutputType[V]): F[output.R]
   def evalSha(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R]
   def evalSha(script: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R]
-  // This unfortunately has to take a V instead of String due to a bug in lettuce:
-  // https://github.com/lettuce-io/lettuce-core/issues/1010
-  def scriptLoad(script: V): F[String]
+  def scriptLoad(script: String): F[String]
+  def scriptLoad(script: Array[Byte]): F[String]
   def scriptExists(digests: String*): F[List[Boolean]]
   def scriptFlush: F[Unit]
 }
