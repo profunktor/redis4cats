@@ -360,8 +360,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     if (cluster) conn.clusterSync else conn.sync.widen
 
   /******************************* Keys API *************************************/
-  def del(key: K*): F[Unit] =
-    async.flatMap(c => F.delay(c.del(key: _*))).futureLift.void
+  def del(key: K*): F[Long] =
+    async.flatMap(c => F.delay(c.del(key: _*))).futureLift.map(x => Long.box(x))
 
   def exists(key: K*): F[Boolean] =
     async
@@ -375,7 +375,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     *
     * As expected by Redis' PEXPIRE and EXPIRE commands, respectively.
     */
-  def expire(key: K, expiresIn: FiniteDuration): F[Unit] =
+  def expire(key: K, expiresIn: FiniteDuration): F[Boolean] =
     async
       .flatMap { c =>
         expiresIn.unit match {
@@ -386,18 +386,18 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
         }
       }
       .futureLift
-      .void
+      .map(x => Boolean.box(x))
 
   /**
     * Expires a key at the given date.
     *
     * It calls Redis' PEXPIREAT under the hood, which has milliseconds precision.
     */
-  def expireAt(key: K, at: Instant): F[Unit] =
+  def expireAt(key: K, at: Instant): F[Boolean] =
     async
       .flatMap(c => F.delay(c.pexpireat(key, at.toEpochMilli())))
       .futureLift
-      .void
+      .map(x => Boolean.box(x))
 
   def objectIdletime(key: K): F[Option[FiniteDuration]] =
     async
@@ -895,14 +895,14 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   override def rPushX(key: K, values: V*): F[Long] =
     async.flatMap(c => F.delay(c.rpushx(key, values: _*))).futureLift.map(x => Long.box(x))
 
-  override def lInsertAfter(key: K, pivot: V, value: V): F[Unit] =
-    async.flatMap(c => F.delay(c.linsert(key, false, pivot, value))).futureLift.void
+  override def lInsertAfter(key: K, pivot: V, value: V): F[Long] =
+    async.flatMap(c => F.delay(c.linsert(key, false, pivot, value))).futureLift.map(x => Long.box(x))
 
-  override def lInsertBefore(key: K, pivot: V, value: V): F[Unit] =
-    async.flatMap(c => F.delay(c.linsert(key, true, pivot, value))).futureLift.void
+  override def lInsertBefore(key: K, pivot: V, value: V): F[Long] =
+    async.flatMap(c => F.delay(c.linsert(key, true, pivot, value))).futureLift.map(x => Long.box(x))
 
-  override def lRem(key: K, count: Long, value: V): F[Unit] =
-    async.flatMap(c => F.delay(c.lrem(key, count, value))).futureLift.void
+  override def lRem(key: K, count: Long, value: V): F[Long] =
+    async.flatMap(c => F.delay(c.lrem(key, count, value))).futureLift.map(x => Long.box(x))
 
   override def lSet(key: K, index: Long, value: V): F[Unit] =
     async.flatMap(c => F.delay(c.lset(key, index, value))).futureLift.void

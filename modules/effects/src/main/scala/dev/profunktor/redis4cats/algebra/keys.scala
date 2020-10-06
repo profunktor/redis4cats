@@ -24,10 +24,10 @@ import dev.profunktor.redis4cats.effects.ScanArgs
 import scala.concurrent.duration.FiniteDuration
 
 trait KeyCommands[F[_], K] {
-  def del(key: K*): F[Unit]
+  def del(key: K*): F[Long]
   def exists(key: K*): F[Boolean]
-  def expire(key: K, expiresIn: FiniteDuration): F[Unit]
-  def expireAt(key: K, at: Instant): F[Unit]
+  def expire(key: K, expiresIn: FiniteDuration): F[Boolean]
+  def expireAt(key: K, at: Instant): F[Boolean]
   def objectIdletime(key: K): F[Option[FiniteDuration]]
   def ttl(key: K): F[Option[FiniteDuration]]
   def pttl(key: K): F[Option[FiniteDuration]]
