@@ -16,38 +16,38 @@
 
 package dev.profunktor.redis4cats
 
-import cats.syntax.flatMap._
-import dev.profunktor.redis4cats.data.RedisCodec
+//import cats.syntax.flatMap._
+//import dev.profunktor.redis4cats.data.RedisCodec
 import io.lettuce.core.codec.{ ToByteBufEncoder, RedisCodec => JRedisCodec, StringCodec => JStringCodec }
 import io.netty.buffer.ByteBuf
 
 class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
-  test("geo api")(withRedis(locationScenario))
+//  test("geo api")(withRedis(locationScenario))
+//
+//  test("hashes api")(withRedis(hashesScenario))
+//
+//  test("lists api")(withRedis(listsScenario))
 
-  test("hashes api")(withRedis(hashesScenario))
+  test("keys api")(withRedis(cmd => /*keysScenario(cmd) >>*/ scanScenario(cmd)))
 
-  test("lists api")(withRedis(listsScenario))
-
-  test("keys api")(withRedis(cmd => keysScenario(cmd) >> scanScenario(cmd)))
-
-  test("sets api")(withRedis(setsScenario))
-
-  test("sorted sets api")(withAbstractRedis(sortedSetsScenario)(RedisCodec(LongCodec)))
-
-  test("strings api")(withRedis(stringsScenario))
-
-  test("connection api")(withRedis(connectionScenario))
-
-  test("pipelining".flaky)(withRedis(pipelineScenario))
-
-  test("transactions: successful")(withRedis(transactionScenario))
-
-  test("transactions: canceled".flaky)(withRedis(canceledTransactionScenario))
-
-  test("server")(withRedis(serverScenario))
-
-  test("scripts")(withRedis(scriptsScenario))
+//  test("sets api")(withRedis(setsScenario))
+//
+//  test("sorted sets api")(withAbstractRedis(sortedSetsScenario)(RedisCodec(LongCodec)))
+//
+//  test("strings api")(withRedis(stringsScenario))
+//
+//  test("connection api")(withRedis(connectionScenario))
+//
+//  test("pipelining".flaky)(withRedis(pipelineScenario))
+//
+//  test("transactions: successful")(withRedis(transactionScenario))
+//
+//  test("transactions: canceled".flaky)(withRedis(canceledTransactionScenario))
+//
+//  test("server")(withRedis(serverScenario))
+//
+//  test("scripts")(withRedis(scriptsScenario))
 }
 
 object LongCodec extends JRedisCodec[String, Long] with ToByteBufEncoder[String, Long] {

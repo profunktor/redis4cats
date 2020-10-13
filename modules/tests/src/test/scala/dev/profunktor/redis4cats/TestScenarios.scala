@@ -236,17 +236,19 @@ trait TestScenarios { self: FunSuite =>
   def scanScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key1 = "key1"
     val key2 = "key2"
+    val key3 = "key12"
     for {
-      _ <- cmd.mSet(Map(key1 -> "value#1", key2 -> "value#2"))
+      _ <- cmd.mSet(Map(key1 -> "value#1", key2 -> "value#2", key3 -> "value#3"))
       scan0 <- cmd.scan
       _ <- IO(assertEquals(scan0.cursor, "0"))
-      _ <- IO(assertEquals(scan0.keys.sorted, List(key1, key2)))
+      _ <- IO(assertEquals(scan0.keys.sorted, List(key1, key2, key3).sorted))
       scan1 <- cmd.scan(ScanArgs(1))
       _ <- IO(assertNotEquals(scan1.cursor, "0"))
       _ <- IO(assertEquals(scan1.keys.length, 1))
-      scan2 <- cmd.scan(scan1, ScanArgs("key*"))
+      scan2 <- cmd.scan(scan1, ScanArgs("key1*"))
       _ <- IO(assertEquals(scan2.cursor, "0"))
-      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key2)))
+      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key3)))
+      _ <- cmd.del(key3)
     } yield ()
   }
 
@@ -265,6 +267,7 @@ trait TestScenarios { self: FunSuite =>
       (keys2, iterations2) <- clusterScan(cmd, args = Some(ScanArgs(1)))
       _ <- IO(assertEquals(keys2.sorted, List(key1, key2, key3)))
       _ <- IO(assertNotEquals(iterations2, iterations0))
+      _ <- cmd.del(key3)
     } yield ()
   }
 
