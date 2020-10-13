@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats.algebra
 
 import java.time.Instant
 
-import dev.profunktor.redis4cats.data.KeyScanCursor
+import dev.profunktor.redis4cats.data.{ KeyScanCursor, ScanCursor }
 import dev.profunktor.redis4cats.effects.ScanArgs
 
 import scala.concurrent.duration.FiniteDuration
@@ -32,7 +32,11 @@ trait KeyCommands[F[_], K] {
   def ttl(key: K): F[Option[FiniteDuration]]
   def pttl(key: K): F[Option[FiniteDuration]]
   def scan: F[KeyScanCursor[K]]
+  @deprecated("In favor of scan(cursor: ScanCursor)", since = "0.10.4")
   def scan(cursor: Long): F[KeyScanCursor[K]]
+  def scan(cursor: ScanCursor): F[KeyScanCursor[K]]
   def scan(scanArgs: ScanArgs): F[KeyScanCursor[K]]
+  @deprecated("In favor of scan(cursor: ScanCursor, scanArgs: ScanArgs)", since = "0.10.4")
   def scan(cursor: Long, scanArgs: ScanArgs): F[KeyScanCursor[K]]
+  def scan(cursor: ScanCursor, scanArgs: ScanArgs): F[KeyScanCursor[K]]
 }

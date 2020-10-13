@@ -33,7 +33,7 @@ import io.lettuce.core.{
   GeoArgs,
   GeoRadiusStoreArgs,
   GeoWithin,
-  ScanCursor,
+  ScanCursor => JScanCursor,
   ScoredValue,
   ZAddArgs,
   ZStoreArgs,
@@ -434,7 +434,13 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
 
   override def scan(cursor: Long): F[KeyScanCursor[K]] =
     async
-      .flatMap(c => F.delay(c.scan(ScanCursor.of(cursor.toString))))
+      .flatMap(c => F.delay(c.scan(JScanCursor.of(cursor.toString))))
+      .futureLift
+      .map(KeyScanCursor[K])
+
+  override def scan(cursor: ScanCursor): F[KeyScanCursor[K]] =
+    async
+      .flatMap(c => F.delay(c.scan(cursor.underlying)))
       .futureLift
       .map(KeyScanCursor[K])
 
@@ -446,7 +452,13 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
 
   override def scan(cursor: Long, scanArgs: ScanArgs): F[KeyScanCursor[K]] =
     async
-      .flatMap(c => F.delay(c.scan(ScanCursor.of(cursor.toString), scanArgs.underlying)))
+      .flatMap(c => F.delay(c.scan(JScanCursor.of(cursor.toString), scanArgs.underlying)))
+      .futureLift
+      .map(KeyScanCursor[K])
+
+  override def scan(cursor: ScanCursor, scanArgs: ScanArgs): F[KeyScanCursor[K]] =
+    async
+      .flatMap(c => F.delay(c.scan(cursor.underlying, scanArgs.underlying)))
       .futureLift
       .map(KeyScanCursor[K])
 

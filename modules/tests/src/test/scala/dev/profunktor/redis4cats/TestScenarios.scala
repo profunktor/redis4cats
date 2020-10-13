@@ -207,7 +207,7 @@ trait TestScenarios { self: FunSuite =>
       scan1 <- cmd.scan(ScanArgs(1))
       _ <- IO(assertNotEquals(scan1.cursor, "0"))
       _ <- IO(assertEquals(scan1.keys.length, 1))
-      scan2 <- cmd.scan(scan1.cursor.toLong, ScanArgs("key*"))
+      scan2 <- cmd.scan(scan1, ScanArgs("key*"))
       _ <- IO(assertEquals(scan2.cursor, "0"))
       _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key2)))
       exist4 <- cmd.exists(key1, key2, "_not_existing_key_")

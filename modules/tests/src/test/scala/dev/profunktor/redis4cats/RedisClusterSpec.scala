@@ -20,6 +20,8 @@ import dev.profunktor.redis4cats.data.RedisCodec
 
 class RedisClusterSpec extends Redis4CatsFunSuite(true) with TestScenarios {
 
+  test("keys api")(withRedisCluster(keysScenario))
+
   test("cluster: geo api")(withRedisCluster(locationScenario))
 
   test("cluster: hashes api")(withRedisCluster(hashesScenario))
