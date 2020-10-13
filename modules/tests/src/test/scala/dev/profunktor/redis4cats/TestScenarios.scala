@@ -21,6 +21,7 @@ import java.time.Instant
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
+import dev.profunktor.redis4cats.data.KeyScanCursor
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.hlist._
@@ -201,15 +202,6 @@ trait TestScenarios { self: FunSuite =>
       _ <- cmd.mSet(Map(key2 -> "some value 2"))
       exist3 <- cmd.exists(key1, key2)
       _ <- IO(assert(exist3))
-      scan0 <- cmd.scan
-      _ <- IO(assertEquals(scan0.cursor, "0"))
-      _ <- IO(assertEquals(scan0.keys.sorted, List(key1, key2)))
-      scan1 <- cmd.scan(ScanArgs(1))
-      _ <- IO(assertNotEquals(scan1.cursor, "0"))
-      _ <- IO(assertEquals(scan1.keys.length, 1))
-      scan2 <- cmd.scan(scan1, ScanArgs("key*"))
-      _ <- IO(assertEquals(scan2.cursor, "0"))
-      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key2)))
       exist4 <- cmd.exists(key1, key2, "_not_existing_key_")
       _ <- IO(assert(!exist4))
       g <- cmd.del(key1)
@@ -237,7 +229,63 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(f.isEmpty))
       j <- cmd.expire("_not_existing_key_", 50.millis)
       _ <- IO(assertEquals(j, false))
+      _ <- cmd.del("f1")
     } yield ()
+  }
+
+  def scanScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val key1 = "key1"
+    val key2 = "key2"
+    for {
+      _ <- cmd.mSet(Map(key1 -> "value#1", key2 -> "value#2"))
+      scan0 <- cmd.scan
+      _ <- IO(assertEquals(scan0.cursor, "0"))
+      _ <- IO(assertEquals(scan0.keys.sorted, List(key1, key2)))
+      scan1 <- cmd.scan(ScanArgs(1))
+      _ <- IO(assertNotEquals(scan1.cursor, "0"))
+      _ <- IO(assertEquals(scan1.keys.length, 1))
+      scan2 <- cmd.scan(scan1, ScanArgs("key*"))
+      _ <- IO(assertEquals(scan2.cursor, "0"))
+      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key2)))
+    } yield ()
+  }
+
+  def clusterScanScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val key1 = "key1"
+    val key2 = "key2"
+    val key3 = "key3"
+    for {
+      _ <- cmd.mSet(Map(key1 -> "value#1", key2 -> "value#2", key3 -> "value#3"))
+      (keys0, iterations0) <- clusterScan(cmd, args = None)
+      _ <- IO(assertEquals(keys0.sorted, List(key1, key2, key3)))
+      _ <- IO(assertEquals(iterations0, 2))
+      (keys1, iterations1) <- clusterScan(cmd, args = Some(ScanArgs("key*")))
+      _ <- IO(assertEquals(keys1.sorted, List(key1, key2, key3)))
+      _ <- IO(assertEquals(iterations1, 2))
+
+      (keys2, iterations2) <- clusterScan(cmd, args = Some(ScanArgs(1)))
+      _ <- IO(assertEquals(keys2.sorted, List(key1, key2, key3)))
+      _ <- IO(assertEquals(iterations2, 4))
+    } yield ()
+  }
+
+  type Iterations = Int
+
+  /**
+    * Does scan on all cluster nodes until all keys collected since order of scanned nodes can't be guaranteed
+    */
+  private def clusterScan(
+      cmd: RedisCommands[IO, String, String],
+      args: Option[ScanArgs]
+  ): IO[(List[String], Iterations)] = {
+    def scanRec(previous: KeyScanCursor[String], acc: List[String], cnt: Int): IO[(List[String], Iterations)] =
+      if (previous.isFinished) IO.pure((previous.keys ++ acc, cnt))
+      else
+        args.fold(cmd.scan(previous))(cmd.scan(previous, _)).flatMap {
+          scanRec(_, previous.keys ++ acc, cnt + 1)
+        }
+
+    args.fold(cmd.scan)(cmd.scan).flatMap(scanRec(_, List.empty, 0))
   }
 
   def stringsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {

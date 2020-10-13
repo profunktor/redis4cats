@@ -438,9 +438,9 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(KeyScanCursor[K])
 
-  override def scan(cursor: ScanCursor): F[KeyScanCursor[K]] =
+  override def scan(previous: KeyScanCursor[K]): F[KeyScanCursor[K]] =
     async
-      .flatMap(c => F.delay(c.scan(cursor.underlying)))
+      .flatMap(c => F.delay(c.scan(previous.underlying)))
       .futureLift
       .map(KeyScanCursor[K])
 
@@ -456,9 +456,9 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(KeyScanCursor[K])
 
-  override def scan(cursor: ScanCursor, scanArgs: ScanArgs): F[KeyScanCursor[K]] =
+  override def scan(previous: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]] =
     async
-      .flatMap(c => F.delay(c.scan(cursor.underlying, scanArgs.underlying)))
+      .flatMap(c => F.delay(c.scan(previous.underlying, scanArgs.underlying)))
       .futureLift
       .map(KeyScanCursor[K])
 

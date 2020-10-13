@@ -32,26 +32,12 @@ object data {
   final case class RedisCodec[K, V](underlying: JRedisCodec[K, V]) extends AnyVal
   final case class NodeId(value: String) extends AnyVal
 
-  sealed abstract class ScanCursor private[data] {
+  sealed abstract class ScanCursor {
     def underlying: JScanCursor
 
     def isFinished: Boolean = underlying.isFinished
 
     def cursor: String = underlying.getCursor
-
-    override def toString: String = s"ScanCursor($underlying)"
-
-    override def hashCode(): Int = underlying.hashCode()
-  }
-
-  object ScanCursor {
-    def of(cursor: Long): ScanCursor = {
-      val rawCursor = cursor.toString
-
-      new ScanCursor {
-        override val underlying: JScanCursor = JScanCursor.of(rawCursor)
-      }
-    }
   }
 
   final case class KeyScanCursor[K](underlying: JKeyScanCursor[K]) extends ScanCursor {
