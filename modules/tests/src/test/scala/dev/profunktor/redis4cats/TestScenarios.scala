@@ -262,10 +262,9 @@ trait TestScenarios { self: FunSuite =>
       (keys1, iterations1) <- clusterScan(cmd, args = Some(ScanArgs("key*")))
       _ <- IO(assertEquals(keys1.sorted, List(key1, key2, key3)))
       _ <- IO(assertEquals(iterations1, 2))
-
       (keys2, iterations2) <- clusterScan(cmd, args = Some(ScanArgs(1)))
       _ <- IO(assertEquals(keys2.sorted, List(key1, key2, key3)))
-      _ <- IO(assertEquals(iterations2, 4))
+      _ <- IO(assertNotEquals(iterations2, iterations0))
     } yield ()
   }
 
