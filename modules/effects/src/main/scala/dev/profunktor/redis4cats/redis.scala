@@ -468,8 +468,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   def multi: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => F.delay(c.multi())
-        case _                           => conn.async.flatMap(c => F.delay(c.multi()))
+        case c: RedisAsyncCommands[K, V] => blocker.delay(c.multi())
+        case _                           => conn.async.flatMap(c => blocker.delay(c.multi()))
       }
       .futureLift
       .void
@@ -477,8 +477,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   def exec: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => F.delay(c.exec())
-        case _                           => conn.async.flatMap(c => F.delay(c.exec()))
+        case c: RedisAsyncCommands[K, V] => blocker.delay(c.exec())
+        case _                           => conn.async.flatMap(c => blocker.delay(c.exec()))
       }
       .futureLift
       .flatMap {
@@ -489,8 +489,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   def discard: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => F.delay(c.discard())
-        case _                           => conn.async.flatMap(c => F.delay(c.discard()))
+        case c: RedisAsyncCommands[K, V] => blocker.delay(c.discard())
+        case _                           => conn.async.flatMap(c => blocker.delay(c.discard()))
       }
       .futureLift
       .void
@@ -498,8 +498,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   def watch(keys: K*): F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => F.delay(c.watch(keys: _*))
-        case _                           => conn.async.flatMap(c => F.delay(c.watch(keys: _*)))
+        case c: RedisAsyncCommands[K, V] => blocker.delay(c.watch(keys: _*))
+        case _                           => conn.async.flatMap(c => blocker.delay(c.watch(keys: _*)))
       }
       .futureLift
       .void
@@ -507,8 +507,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   def unwatch: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => F.delay(c.unwatch())
-        case _                           => conn.async.flatMap(c => F.delay(c.unwatch()))
+        case c: RedisAsyncCommands[K, V] => blocker.delay(c.unwatch())
+        case _                           => conn.async.flatMap(c => blocker.delay(c.unwatch()))
       }
       .futureLift
       .void
