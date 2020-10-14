@@ -58,7 +58,7 @@ class OptimisticLockSuite extends FunSuite {
   }
 
   private def setupTestData(client: RedisClient): IO[Unit] =
-    commands(client).use(cmds => cmds.set(testKey, InitialValue))
+    commands(client).use(cmds => cmds.flushAll >> cmds.set(testKey, InitialValue))
 
   private def concurrentUpdates(client: RedisClient): IO[List[Either[String, Unit]]] =
     (Deferred[IO, Unit], Ref.of[IO, Int](0)).parTupled.flatMap {
