@@ -20,10 +20,10 @@ package pubsub
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
-import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.connection.RedisClient
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.JRFuture._
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import fs2.Stream
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
@@ -63,9 +63,7 @@ object PubSub {
         state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         sConn <- Resource.make(acquire)(release)
         pConn <- Resource.make(acquire)(release)
-      } yield {
-        new LivePubSubCommands[F, K, V](state, sConn, pConn, blocker)
-      }
+      } yield new LivePubSubCommands[F, K, V](state, sConn, pConn, blocker)
     }
 
   /**
@@ -96,9 +94,7 @@ object PubSub {
       for {
         state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         conn <- Resource.make(acquire)(release)
-      } yield {
-        new Subscriber(state, conn, blocker)
-      }
+      } yield new Subscriber(state, conn, blocker)
     }
 
 }
