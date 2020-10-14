@@ -234,37 +234,33 @@ trait TestScenarios { self: FunSuite =>
   }
 
   def scanScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
-    val key1 = "key1"
-    val key2 = "key2"
+    val keys = (1 until 10).map("key" + _).sorted.toList
     for {
-      _ <- cmd.mSet(Map(key1 -> "value#1", key2 -> "value#2"))
+      _ <- cmd.mSet(keys.map(key => (key, key + "#value")).toMap)
       scan0 <- cmd.scan
       _ <- IO(assertEquals(scan0.cursor, "0"))
-      _ <- IO(assertEquals(scan0.keys.sorted, List(key1, key2).sorted))
+      _ <- IO(assertEquals(scan0.keys.sorted, keys))
       scan1 <- cmd.scan(ScanArgs(1))
       _ <- IO(assert(scan1.keys.nonEmpty, "read at least something but no hard requirement"))
+      _ <- IO(assert(scan1.keys.size < keys.size, "but read less than all of them"))
       scan2 <- cmd.scan(scan1, ScanArgs("key*"))
       _ <- IO(assertEquals(scan2.cursor, "0"))
-      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key2), "read to the end in result"))
+      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, keys, "read to the end in result"))
     } yield ()
   }
 
   def clusterScanScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
-    val key1 = "key1"
-    val key2 = "key2"
-    val key3 = "key3"
+    val keys = (1 to 10).map("key" + _).sorted.toList
     for {
-      _ <- cmd.mSet(Map(key1 -> "value#1", key2 -> "value#2", key3 -> "value#3"))
+      _ <- cmd.mSet(keys.map(key => (key, key + "#value")).toMap)
       (keys0, iterations0) <- clusterScan(cmd, args = None)
-      _ <- IO(assertEquals(keys0.sorted, List(key1, key2, key3)))
-      _ <- IO(assertEquals(iterations0, 2))
+      _ <- IO(assertEquals(keys0.sorted, keys))
       (keys1, iterations1) <- clusterScan(cmd, args = Some(ScanArgs("key*")))
-      _ <- IO(assertEquals(keys1.sorted, List(key1, key2, key3)))
-      _ <- IO(assertEquals(iterations1, 2))
+      _ <- IO(assertEquals(keys1.sorted, keys))
+      _ <- IO(assertEquals(iterations1, iterations0))
       (keys2, iterations2) <- clusterScan(cmd, args = Some(ScanArgs(1)))
-      _ <- IO(assertEquals(keys2.sorted, List(key1, key2, key3)))
+      _ <- IO(assertEquals(keys2.sorted, keys))
       _ <- IO(assert(iterations2 > iterations0, "made more iterations because of limit"))
-      _ <- cmd.del(key3)
     } yield ()
   }
 
