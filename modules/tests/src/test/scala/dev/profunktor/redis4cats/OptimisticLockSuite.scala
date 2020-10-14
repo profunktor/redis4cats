@@ -61,10 +61,11 @@ class OptimisticLockSuite extends FunSuite {
     commands(client).use(cmds => cmds.set(testKey, InitialValue))
 
   private def concurrentUpdates(client: RedisClient): IO[List[Either[String, Unit]]] =
-    (Deferred[IO, Unit], Ref.of[IO, Int](1)).parTupled.flatMap {
+    (Deferred[IO, Unit], Ref.of[IO, Int](0)).parTupled.flatMap {
       case (promise, counter) =>
         // A promise to make sure all the connections call WATCH before running the transaction
-        def attemptComplete = counter.get.flatMap(count => promise.complete(()).whenA(count === Parallelism))
+        def attemptComplete =
+          counter.get.flatMap(count => promise.complete(()).attempt.whenA(count === Parallelism))
         Parallel.parSequence(List.range(0, Parallelism).as(exclusiveUpdate(client, promise, counter, attemptComplete)))
     }
 
