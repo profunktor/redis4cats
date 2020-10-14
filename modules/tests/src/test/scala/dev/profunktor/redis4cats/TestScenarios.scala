@@ -236,19 +236,16 @@ trait TestScenarios { self: FunSuite =>
   def scanScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key1 = "key1"
     val key2 = "key2"
-    val key3 = "key12"
     for {
-      _ <- cmd.mSet(Map(key1 -> "value#1", key2 -> "value#2", key3 -> "value#3"))
+      _ <- cmd.mSet(Map(key1 -> "value#1", key2 -> "value#2"))
       scan0 <- cmd.scan
       _ <- IO(assertEquals(scan0.cursor, "0"))
-      _ <- IO(assertEquals(scan0.keys.sorted, List(key1, key2, key3).sorted))
+      _ <- IO(assertEquals(scan0.keys.sorted, List(key1, key2).sorted))
       scan1 <- cmd.scan(ScanArgs(1))
-      _ <- IO(assertNotEquals(scan1.cursor, "0"))
-      _ <- IO(assertEquals(scan1.keys.length, 1))
-      scan2 <- cmd.scan(scan1, ScanArgs("key1*"))
+      _ <- IO(assert(scan1.keys.length < 10, "read less than default amount"))
+      scan2 <- cmd.scan(scan1, ScanArgs("key*"))
       _ <- IO(assertEquals(scan2.cursor, "0"))
-      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key3)))
-      _ <- cmd.del(key3)
+      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key2)))
     } yield ()
   }
 
