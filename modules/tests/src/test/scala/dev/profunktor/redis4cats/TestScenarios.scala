@@ -242,10 +242,10 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(scan0.cursor, "0"))
       _ <- IO(assertEquals(scan0.keys.sorted, List(key1, key2).sorted))
       scan1 <- cmd.scan(ScanArgs(1))
-      _ <- IO(assert(scan1.keys.length < 10, "read less than default amount"))
+      _ <- IO(assert(scan1.keys.nonEmpty, "read at least something but no hard requirement"))
       scan2 <- cmd.scan(scan1, ScanArgs("key*"))
       _ <- IO(assertEquals(scan2.cursor, "0"))
-      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key2)))
+      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key2), "read to the end in result"))
     } yield ()
   }
 
@@ -263,7 +263,7 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(iterations1, 2))
       (keys2, iterations2) <- clusterScan(cmd, args = Some(ScanArgs(1)))
       _ <- IO(assertEquals(keys2.sorted, List(key1, key2, key3)))
-      _ <- IO(assertNotEquals(iterations2, iterations0))
+      _ <- IO(assert(iterations2 > iterations0, "made more iterations because of limit"))
       _ <- cmd.del(key3)
     } yield ()
   }
