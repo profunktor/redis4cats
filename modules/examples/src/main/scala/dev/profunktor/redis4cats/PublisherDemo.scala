@@ -34,7 +34,7 @@ object PublisherDemo extends LoggerIOApp {
   val stream: Stream[IO, Unit] =
     for {
       client <- Stream.resource(RedisClient[IO].from(redisURI))
-      pubSub <- PubSub.mkPublisherConnection[IO, String, String](client, stringCodec)
+      pubSub <- Stream.resource(PubSub.mkPublisherConnection[IO, String, String](client, stringCodec))
       pub1 = pubSub.publish(eventsChannel)
       rs <- Stream(
              Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
