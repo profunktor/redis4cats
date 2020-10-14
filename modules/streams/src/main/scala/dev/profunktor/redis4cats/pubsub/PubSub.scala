@@ -55,17 +55,17 @@ object PubSub {
   def mkPubSubConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Stream[F, PubSubCommands[Stream[F, *], K, V]] =
-    Stream.resource(mkBlocker[F]).flatMap { blocker =>
+  ): Resource[F, PubSubCommands[Stream[F, *], K, V]] =
+    mkBlocker[F].flatMap { blocker =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec, blocker)
       // One exclusive connection for subscriptions and another connection for publishing / stats
       for {
-        state <- Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]]))
-        sConn <- Stream.bracket(acquire)(release)
-        pConn <- Stream.bracket(acquire)(release)
-        subs <- Stream.emit(new LivePubSubCommands[F, K, V](state, sConn, pConn, blocker))
-      } yield subs
-
+        state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
+        sConn <- Resource.make(acquire)(release)
+        pConn <- Resource.make(acquire)(release)
+      } yield {
+        new LivePubSubCommands[F, K, V](state, sConn, pConn, blocker)
+      }
     }
 
   /**
@@ -76,10 +76,10 @@ object PubSub {
   def mkPublisherConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Stream[F, PublishCommands[Stream[F, *], K, V]] =
-    Stream.resource(mkBlocker[F]).flatMap { blocker =>
+  ): Resource[F, PublishCommands[Stream[F, *], K, V]] =
+    mkBlocker[F].flatMap { blocker =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec, blocker)
-      Stream.bracket(acquire)(release).map(c => new Publisher[F, K, V](c, blocker))
+      Resource.make(acquire)(release).map(new Publisher[F, K, V](_, blocker))
     }
 
   /**
@@ -90,11 +90,14 @@ object PubSub {
   def mkSubscriberConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Stream[F, SubscribeCommands[Stream[F, *], K, V]] =
-    Stream.resource(mkBlocker[F]).flatMap { blocker =>
+  ): Resource[F, SubscribeCommands[Stream[F, *], K, V]] =
+    mkBlocker[F].flatMap { blocker =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec, blocker)
-      Stream.eval(Ref.of(Map.empty[K, Topic[F, Option[V]]])).flatMap { st =>
-        Stream.bracket(acquire)(release).map(new Subscriber(st, _, blocker))
+      for {
+        state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
+        conn <- Resource.make(acquire)(release)
+      } yield {
+        new Subscriber(state, conn, blocker)
       }
     }
 
