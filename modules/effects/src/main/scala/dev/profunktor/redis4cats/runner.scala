@@ -71,22 +71,20 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Timer] {
               case ((fibs: HList), ExitCase.Canceled) =>
                 F.error(s"${ops.name} canceled - ID: $uuid") >>
                     ops.onError.guarantee(cancelFibers(fibs)(ops.mkError()))
-              case _ =>
-                F.error(s"Kernel panic: the impossible happened! - ID: $uuid")
             }
             .use(_ => F.unit)
             .guarantee(ops.afterCompletion) >> promise.get.rethrow.timeout(3.seconds)
     }
 
   // Forks every command in order
-  private def runner[H <: HList, G <: HList](ys: H, res: G): F[Any] =
+  private def runner[H <: HList, G <: HList](ys: H, res: G): F[HList] =
     ys match {
       case HNil                           => F.pure(res)
       case HCons((h: F[_] @unchecked), t) => h.start.flatMap(fb => runner(t, fb :: res))
     }
 
   // Joins or cancel fibers correspondent to previous executed commands
-  private def joinOrCancel[H <: HList, G <: HList](ys: H, res: G)(isJoin: Boolean): F[Any] =
+  private def joinOrCancel[H <: HList, G <: HList](ys: H, res: G)(isJoin: Boolean): F[HList] =
     ys match {
       case HNil => F.pure(res)
       case HCons((h: Fiber[F, Any] @unchecked), t) if isJoin =>

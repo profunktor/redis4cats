@@ -24,7 +24,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.hlist.HNil
-import dev.profunktor.redis4cats.effect.Log.Stdout._
+import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.transactions._
 import munit.FunSuite
 
@@ -45,10 +45,10 @@ class OptimisticLockSuite extends FunSuite {
 
   test("Optimistic lock allows single update") {
     mkRedis
-      .use(client =>
+      .use { client =>
         setupTestData(client)
           .productR(concurrentUpdates(client))
-      )
+      }
       .map { results =>
         val (left, right) = results.separate
         assertEquals(left.size, Parallelism - 1)
