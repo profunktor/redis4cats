@@ -32,7 +32,11 @@ trait KeyCommands[F[_], K] {
   def ttl(key: K): F[Option[FiniteDuration]]
   def pttl(key: K): F[Option[FiniteDuration]]
   def scan: F[KeyScanCursor[K]]
+  @deprecated("In favor of scan(cursor: KeyScanCursor[K])", since = "0.10.4")
   def scan(cursor: Long): F[KeyScanCursor[K]]
+  def scan(previous: KeyScanCursor[K]): F[KeyScanCursor[K]]
   def scan(scanArgs: ScanArgs): F[KeyScanCursor[K]]
+  @deprecated("In favor of scan(cursor: KeyScanCursor[K], scanArgs: ScanArgs)", since = "0.10.4")
   def scan(cursor: Long, scanArgs: ScanArgs): F[KeyScanCursor[K]]
+  def scan(previous: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]]
 }

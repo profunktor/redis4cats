@@ -16,6 +16,7 @@
 
 package dev.profunktor.redis4cats
 
+import cats.syntax.flatMap._
 import dev.profunktor.redis4cats.data.RedisCodec
 import io.lettuce.core.codec.{ ToByteBufEncoder, RedisCodec => JRedisCodec, StringCodec => JStringCodec }
 import io.netty.buffer.ByteBuf
@@ -28,7 +29,7 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("lists api")(withRedis(listsScenario))
 
-  test("keys api")(withRedis(keysScenario))
+  test("keys api")(withRedis(cmd => keysScenario(cmd) >> scanScenario(cmd)))
 
   test("sets api")(withRedis(setsScenario))
 

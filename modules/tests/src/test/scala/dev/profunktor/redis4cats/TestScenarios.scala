@@ -21,6 +21,7 @@ import java.time.Instant
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
+import dev.profunktor.redis4cats.data.KeyScanCursor
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.hlist._
@@ -201,18 +202,6 @@ trait TestScenarios { self: FunSuite =>
       _ <- cmd.mSet(Map(key2 -> "some value 2"))
       exist3 <- cmd.exists(key1, key2)
       _ <- IO(assert(exist3))
-      scan0 <- cmd.scan
-      _ <- IO(assertEquals(scan0.cursor, "0"))
-      _ <- IO(assertEquals(scan0.keys.sorted, List(key1, key2)))
-      //scan1 <- cmd.scan(ScanArgs(1))
-      //FIXME: These two assertions do not seem to make sense, do they?
-      //_ <- IO(assertNotEquals(scan1.cursor, "0"))
-      //_ <- IO(assertEquals(scan1.keys.length, 1))
-      //scan2 <- cmd.scan(scan1.cursor.toLong, ScanArgs("key*"))
-      scan2 <- cmd.scan(scan0.cursor.toLong, ScanArgs("key*"))
-      _ <- IO(assertEquals(scan2.cursor, "0"))
-      //_ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, List(key1, key2)))
-      _ <- IO(assertEquals(scan2.keys.sorted, List(key1, key2)))
       exist4 <- cmd.exists(key1, key2, "_not_existing_key_")
       _ <- IO(assert(!exist4))
       g <- cmd.del(key1)
@@ -240,7 +229,58 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(f.isEmpty))
       j <- cmd.expire("_not_existing_key_", 50.millis)
       _ <- IO(assertEquals(j, false))
+      _ <- cmd.del("f1")
     } yield ()
+  }
+
+  def scanScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val keys = (1 until 10).map("key" + _).sorted.toList
+    for {
+      _ <- cmd.mSet(keys.map(key => (key, key + "#value")).toMap)
+      scan0 <- cmd.scan
+      _ <- IO(assertEquals(scan0.cursor, "0"))
+      _ <- IO(assertEquals(scan0.keys.sorted, keys))
+      scan1 <- cmd.scan(ScanArgs(1))
+      _ <- IO(assert(scan1.keys.nonEmpty, "read at least something but no hard requirement"))
+      _ <- IO(assert(scan1.keys.size < keys.size, "but read less than all of them"))
+      scan2 <- cmd.scan(scan1, ScanArgs("key*"))
+      _ <- IO(assertEquals(scan2.cursor, "0"))
+      _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, keys, "read to the end in result"))
+    } yield ()
+  }
+
+  def clusterScanScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val keys = (1 to 10).map("key" + _).sorted.toList
+    for {
+      _ <- cmd.mSet(keys.map(key => (key, key + "#value")).toMap)
+      (keys0, iterations0) <- clusterScan(cmd, args = None)
+      _ <- IO(assertEquals(keys0.sorted, keys))
+      (keys1, iterations1) <- clusterScan(cmd, args = Some(ScanArgs("key*")))
+      _ <- IO(assertEquals(keys1.sorted, keys))
+      _ <- IO(assertEquals(iterations1, iterations0))
+      (keys2, iterations2) <- clusterScan(cmd, args = Some(ScanArgs(1)))
+      _ <- IO(assertEquals(keys2.sorted, keys))
+      _ <- IO(assert(iterations2 > iterations0, "made more iterations because of limit"))
+    } yield ()
+  }
+
+  type Iterations = Int
+
+  /**
+    * Does scan on all cluster nodes until all keys collected since order of scanned nodes can't be guaranteed
+    */
+  private def clusterScan(
+      cmd: RedisCommands[IO, String, String],
+      args: Option[ScanArgs]
+  ): IO[(List[String], Iterations)] = {
+    def scanRec(previous: KeyScanCursor[String], acc: List[String], cnt: Int): IO[(List[String], Iterations)] =
+      if (previous.isFinished) IO.pure((previous.keys ++ acc, cnt))
+      else
+        args.fold(cmd.scan(previous))(cmd.scan(previous, _)).flatMap {
+          scanRec(_, previous.keys ++ acc, cnt + 1)
+        }
+
+    args.fold(cmd.scan)(cmd.scan).flatMap(scanRec(_, List.empty, 0))
   }
 
   def stringsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
