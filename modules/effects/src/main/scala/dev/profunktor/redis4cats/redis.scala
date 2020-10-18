@@ -56,7 +56,7 @@ object Redis {
   ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromConnectionFuture(
-        F.delay(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
+        blocker.delay(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
       )(blocker)
       .map(c => new Redis(new RedisStatefulConnection(c, blocker), blocker))
 
@@ -73,7 +73,7 @@ object Redis {
   ): (F[RedisCluster[F, K, V]], RedisCluster[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture(
-        F.delay(client.underlying.connectAsync[K, V](codec.underlying))
+        blocker.delay(client.underlying.connectAsync[K, V](codec.underlying))
       )(blocker)
       .map(c => new RedisCluster(new RedisStatefulClusterConnection(c, blocker), blocker))
 
@@ -91,7 +91,7 @@ object Redis {
   ): (F[BaseRedis[F, K, V]], BaseRedis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture(
-        F.delay(client.underlying.connectAsync[K, V](codec.underlying))
+        blocker.delay(client.underlying.connectAsync[K, V](codec.underlying))
       )(blocker)
       .map { c =>
         new BaseRedis[F, K, V](new RedisStatefulClusterConnection(c, blocker), cluster = true, blocker) {
@@ -534,7 +534,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .map(Option.apply)
 
   override def set(key: K, value: V): F[Unit] =
-    async.flatMap(c => F.delay(c.set(key, value))).futureLift.void
+    async.flatMap(c => blocker.delay(c.set(key, value))).futureLift.void
 
   override def set(key: K, value: V, setArgs: SetArgs): F[Boolean] = {
     val jSetArgs = new JSetArgs()
