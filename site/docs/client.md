@@ -193,7 +193,7 @@ import dev.profunktor.redis4cats.data.ReadFrom
 val commands: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
-    conn <- RedisMasterReplica[IO].make(RedisCodec.Utf8, uri)(ReadFrom.MasterPreferred.some)
+    conn <- RedisMasterReplica[IO].make(RedisCodec.Utf8, uri)(ReadFrom.UpstreamPreferred.some)
     cmds <- Redis[IO].masterReplica(conn)
   } yield cmds
 
