@@ -130,7 +130,10 @@ trait TestScenarios { self: FunSuite =>
     for {
       x <- cmd.sMembers(testKey)
       _ <- IO(assert(x.isEmpty))
-      _ <- cmd.sAdd(testKey, "set value")
+      a <- cmd.sAdd(testKey, "set value")
+      _ <- IO(assertEquals(a, 1L))
+      b <- cmd.sAdd(testKey, "set value")
+      _ <- IO(assertEquals(b, 0L))
       y <- cmd.sMembers(testKey)
       _ <- IO(assert(y.contains("set value")))
       o <- cmd.sCard(testKey)
@@ -162,7 +165,8 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(maxBPop1.isEmpty))
       t <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
       _ <- IO(assert(t.isEmpty))
-      _ <- cmd.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
+      add2 <- cmd.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
+      _ <- IO(assertEquals(add2, 2L))
       minPop2 <- cmd.zPopMin(testKey, 1)
       _ <- IO(assertEquals(minPop2, List(scoreWithValue1)))
       maxPop2 <- cmd.zPopMax(testKey, 1)
@@ -181,6 +185,8 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(y.contains(2)))
       z <- cmd.zCount(testKey, ZRange(0, 1))
       _ <- IO(assert(z.contains(1)))
+      r <- cmd.zRemRangeByScore(testKey, ZRange(1, 3))
+      _ <- IO(assertEquals(r, 2L))
     } yield ()
   }
 

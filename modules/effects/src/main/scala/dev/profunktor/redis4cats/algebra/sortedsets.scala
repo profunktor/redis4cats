@@ -56,13 +56,13 @@ trait SortedSetGetter[F[_], K, V] {
 }
 
 trait SortedSetSetter[F[_], K, V] {
-  def zAdd(key: K, args: Option[ZAddArgs], values: ScoreWithValue[V]*): F[Unit]
-  def zAddIncr(key: K, args: Option[ZAddArgs], value: ScoreWithValue[V]): F[Unit]
-  def zIncrBy(key: K, member: V, amount: Double): F[Unit]
-  def zInterStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Unit]
-  def zRem(key: K, values: V*): F[Unit]
-  def zRemRangeByLex(key: K, range: ZRange[V]): F[Unit]
-  def zRemRangeByRank(key: K, start: Long, stop: Long): F[Unit]
-  def zRemRangeByScore(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Unit]
-  def zUnionStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Unit]
+  def zAdd(key: K, args: Option[ZAddArgs], values: ScoreWithValue[V]*): F[Long]
+  def zAddIncr(key: K, args: Option[ZAddArgs], value: ScoreWithValue[V]): F[Double]
+  def zIncrBy(key: K, member: V, amount: Double): F[Double]
+  def zInterStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Long]
+  def zRem(key: K, values: V*): F[Long]
+  def zRemRangeByLex(key: K, range: ZRange[V]): F[Long]
+  def zRemRangeByRank(key: K, start: Long, stop: Long): F[Long]
+  def zRemRangeByScore(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Long]
+  def zUnionStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Long]
 }
