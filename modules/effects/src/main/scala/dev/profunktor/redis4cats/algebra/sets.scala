@@ -32,10 +32,10 @@ trait SetGetter[F[_], K, V] {
 }
 
 trait SetSetter[F[_], K, V] {
-  def sAdd(key: K, values: V*): F[Unit]
-  def sDiffStore(destination: K, keys: K*): F[Unit]
-  def sInterStore(destination: K, keys: K*): F[Unit]
-  def sMove(source: K, destination: K, value: V): F[Unit]
+  def sAdd(key: K, values: V*): F[Long]
+  def sDiffStore(destination: K, keys: K*): F[Long]
+  def sInterStore(destination: K, keys: K*): F[Long]
+  def sMove(source: K, destination: K, value: V): F[Boolean]
 }
 
 trait SetDeletion[F[_], K, V] {

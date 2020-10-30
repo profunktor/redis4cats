@@ -768,17 +768,17 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(x => Boolean.box(x))
 
-  override def sAdd(key: K, values: V*): F[Unit] =
-    async.flatMap(c => F.delay(c.sadd(key, values: _*))).futureLift.void
+  override def sAdd(key: K, values: V*): F[Long] =
+    async.flatMap(c => F.delay(c.sadd(key, values: _*))).futureLift.map(x => Long.box(x))
 
-  override def sDiffStore(destination: K, keys: K*): F[Unit] =
-    async.flatMap(c => F.delay(c.sdiffstore(destination, keys: _*))).futureLift.void
+  override def sDiffStore(destination: K, keys: K*): F[Long] =
+    async.flatMap(c => F.delay(c.sdiffstore(destination, keys: _*))).futureLift.map(x => Long.box(x))
 
-  override def sInterStore(destination: K, keys: K*): F[Unit] =
-    async.flatMap(c => F.delay(c.sinterstore(destination, keys: _*))).futureLift.void
+  override def sInterStore(destination: K, keys: K*): F[Long] =
+    async.flatMap(c => F.delay(c.sinterstore(destination, keys: _*))).futureLift.map(x => Long.box(x))
 
-  override def sMove(source: K, destination: K, value: V): F[Unit] =
-    async.flatMap(c => F.delay(c.smove(source, destination, value))).futureLift.void
+  override def sMove(source: K, destination: K, value: V): F[Boolean] =
+    async.flatMap(c => F.delay(c.smove(source, destination, value))).futureLift.map(x => Boolean.box(x))
 
   override def sPop(key: K): F[Option[V]] =
     async
@@ -1037,53 +1037,56 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .void
 
   /******************************* Sorted Sets API **********************************/
-  override def zAdd(key: K, args: Option[ZAddArgs], values: ScoreWithValue[V]*): F[Unit] = {
+  override def zAdd(key: K, args: Option[ZAddArgs], values: ScoreWithValue[V]*): F[Long] = {
     val res = args match {
       case Some(x) =>
         async.flatMap(c => F.delay(c.zadd(key, x, values.map(s => ScoredValue.just(s.score.value, s.value)): _*)))
       case None =>
         async.flatMap(c => F.delay(c.zadd(key, values.map(s => ScoredValue.just(s.score.value, s.value)): _*)))
     }
-    res.futureLift.void
+    res.futureLift.map(x => Long.box(x))
   }
 
-  override def zAddIncr(key: K, args: Option[ZAddArgs], member: ScoreWithValue[V]): F[Unit] = {
+  override def zAddIncr(key: K, args: Option[ZAddArgs], member: ScoreWithValue[V]): F[Double] = {
     val res = args match {
       case Some(x) => async.flatMap(c => F.delay(c.zaddincr(key, x, member.score.value, member.value)))
       case None    => async.flatMap(c => F.delay(c.zaddincr(key, member.score.value, member.value)))
     }
-    res.futureLift.void
+    res.futureLift.map(x => Double.box(x))
   }
 
-  override def zIncrBy(key: K, member: V, amount: Double): F[Unit] =
-    async.flatMap(c => F.delay(c.zincrby(key, amount, member))).futureLift.void
+  override def zIncrBy(key: K, member: V, amount: Double): F[Double] =
+    async.flatMap(c => F.delay(c.zincrby(key, amount, member))).futureLift.map(x => Double.box(x))
 
-  override def zInterStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Unit] = {
+  override def zInterStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Long] = {
     val res = args match {
       case Some(x) => async.flatMap(c => F.delay(c.zinterstore(destination, x, keys: _*)))
       case None    => async.flatMap(c => F.delay(c.zinterstore(destination, keys: _*)))
     }
-    res.futureLift.void
+    res.futureLift.map(x => Long.box(x))
   }
 
-  override def zRem(key: K, values: V*): F[Unit] =
-    async.flatMap(c => F.delay(c.zrem(key, values: _*))).futureLift.void
+  override def zRem(key: K, values: V*): F[Long] =
+    async.flatMap(c => F.delay(c.zrem(key, values: _*))).futureLift.map(x => Long.box(x))
 
-  override def zRemRangeByLex(key: K, range: ZRange[V]): F[Unit] =
-    async.flatMap(c => F.delay(c.zremrangebylex(key, JRange.create[V](range.start, range.end)))).futureLift.void
+  override def zRemRangeByLex(key: K, range: ZRange[V]): F[Long] =
+    async
+      .flatMap(c => F.delay(c.zremrangebylex(key, JRange.create[V](range.start, range.end))))
+      .futureLift
+      .map(x => Long.box(x))
 
-  override def zRemRangeByRank(key: K, start: Long, stop: Long): F[Unit] =
-    async.flatMap(c => F.delay(c.zremrangebyrank(key, start, stop))).futureLift.void
+  override def zRemRangeByRank(key: K, start: Long, stop: Long): F[Long] =
+    async.flatMap(c => F.delay(c.zremrangebyrank(key, start, stop))).futureLift.map(x => Long.box(x))
 
-  override def zRemRangeByScore(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Unit] =
-    async.flatMap(c => F.delay(c.zremrangebyscore(key, range.asJavaRange))).futureLift.void
+  override def zRemRangeByScore(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Long] =
+    async.flatMap(c => F.delay(c.zremrangebyscore(key, range.asJavaRange))).futureLift.map(x => Long.box(x))
 
-  override def zUnionStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Unit] = {
+  override def zUnionStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Long] = {
     val res = args match {
       case Some(x) => async.flatMap(c => F.delay(c.zunionstore(destination, x, keys: _*)))
       case None    => async.flatMap(c => F.delay(c.zunionstore(destination, keys: _*)))
     }
-    res.futureLift.void
+    res.futureLift.map(x => Long.box(x))
   }
 
   override def zCard(key: K): F[Option[Long]] =
