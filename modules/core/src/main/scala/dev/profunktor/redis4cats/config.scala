@@ -23,11 +23,15 @@ object config {
   // Builder-style abstract class instead of case class to allow for bincompat-friendly extension in future versions.
   sealed abstract class Redis4CatsConfig {
     val shutdown: ShutdownConfig
+    val topologyViewRefreshStrategy: TopologyViewRefreshStrategy
     def withShutdown(shutdown: ShutdownConfig): Redis4CatsConfig
   }
 
   object Redis4CatsConfig {
-    private case class Redis4CatsConfigImpl(shutdown: ShutdownConfig) extends Redis4CatsConfig {
+    private case class Redis4CatsConfigImpl(
+        shutdown: ShutdownConfig,
+        topologyViewRefreshStrategy: TopologyViewRefreshStrategy = NoRefresh
+    ) extends Redis4CatsConfig {
       override def withShutdown(_shutdown: ShutdownConfig): Redis4CatsConfig = copy(shutdown = _shutdown)
     }
     def apply(): Redis4CatsConfig = Redis4CatsConfigImpl(ShutdownConfig())
@@ -43,5 +47,11 @@ object config {
     */
   // Shutdown values from new Lettuce defaults coming in version 6 (#974dd70), defaults in 5.3 are causing long waiting time.
   case class ShutdownConfig(quietPeriod: FiniteDuration = 0.seconds, timeout: FiniteDuration = 2.seconds)
+
+  sealed trait TopologyViewRefreshStrategy
+
+  final case class Periodic(interval: FiniteDuration = 60.seconds) extends TopologyViewRefreshStrategy
+  final case class Adaptive(timeout: FiniteDuration = 30.seconds) extends TopologyViewRefreshStrategy
+  final case object NoRefresh extends TopologyViewRefreshStrategy
 
 }

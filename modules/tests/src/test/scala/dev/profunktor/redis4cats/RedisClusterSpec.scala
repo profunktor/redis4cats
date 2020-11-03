@@ -16,9 +16,12 @@
 
 package dev.profunktor.redis4cats
 
+import cats.syntax.flatMap._
 import dev.profunktor.redis4cats.data.RedisCodec
 
 class RedisClusterSpec extends Redis4CatsFunSuite(true) with TestScenarios {
+
+  test("cluster: keys api")(withRedisCluster(cmd => keysScenario(cmd) >> clusterScanScenario(cmd)))
 
   test("cluster: geo api")(withRedisCluster(locationScenario))
 

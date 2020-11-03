@@ -79,7 +79,7 @@ object PubSubDemo extends IOApp {
   val program: Stream[IO, Unit] =
     for {
       client <- Stream.resource(RedisClient[IO].from("redis://localhost"))
-      pubSub <- PubSub.mkPubSubConnection[IO, String, String](client, stringCodec)
+      pubSub <- Stream.resource(PubSub.mkPubSubConnection[IO, String, String](client, stringCodec))
       sub1   = pubSub.subscribe(eventsChannel)
       sub2   = pubSub.subscribe(gamesChannel)
       pub1   = pubSub.publish(eventsChannel)

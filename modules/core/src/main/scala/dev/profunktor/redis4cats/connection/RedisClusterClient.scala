@@ -16,17 +16,23 @@
 
 package dev.profunktor.redis4cats.connection
 
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
-import dev.profunktor.redis4cats.config.Redis4CatsConfig
+import dev.profunktor.redis4cats.config._
 import dev.profunktor.redis4cats.data.NodeId
 import dev.profunktor.redis4cats.effect.JRFuture._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
-import io.lettuce.core.cluster.{ SlotHash, RedisClusterClient => JClusterClient }
+import io.lettuce.core.cluster.{
+  ClusterClientOptions,
+  ClusterTopologyRefreshOptions,
+  SlotHash,
+  RedisClusterClient => JClusterClient
+}
 
 sealed abstract case class RedisClusterClient private (underlying: JClusterClient)
 
@@ -41,7 +47,7 @@ object RedisClusterClient {
     val acquire: F[RedisClusterClient] =
       F.info(s"Acquire Redis Cluster client") *>
           F.delay(JClusterClient.create(uri.map(_.underlying).asJava))
-            .flatTap(initializeClusterPartitions[F])
+            .flatTap(initializeClusterTopology[F](_, config.topologyViewRefreshStrategy))
             .map(new RedisClusterClient(_) {})
 
     val release: RedisClusterClient => F[Unit] = client =>
@@ -61,8 +67,43 @@ object RedisClusterClient {
     (acquire, release)
   }
 
-  private[redis4cats] def initializeClusterPartitions[F[_]: Sync](client: JClusterClient): F[Unit] =
-    F.delay(client.getPartitions).void
+  private[redis4cats] def initializeClusterTopology[F[_]: Sync](
+      client: JClusterClient,
+      topologyViewRefreshStrategy: TopologyViewRefreshStrategy
+  ): F[Unit] =
+    F.delay {
+      topologyViewRefreshStrategy match {
+        case NoRefresh =>
+          client.getPartitions
+        case Periodic(interval) =>
+          client.setOptions(
+            ClusterClientOptions
+              .builder()
+              .topologyRefreshOptions(
+                ClusterTopologyRefreshOptions
+                  .builder()
+                  // Use implicit duration converters from scala 2.13 once 2.12 support is removed
+                  .enablePeriodicRefresh(Duration.ofMillis(interval.toMillis))
+                  .build()
+              )
+              .build()
+          )
+        case Adaptive(timeout) =>
+          client.setOptions(
+            ClusterClientOptions
+              .builder()
+              .topologyRefreshOptions(
+                ClusterTopologyRefreshOptions
+                  .builder()
+                  .enableAllAdaptiveRefreshTriggers()
+                  // Use implicit duration converters from scala 2.13 once 2.12 support is removed
+                  .adaptiveRefreshTriggersTimeout(Duration.ofMillis(timeout.toMillis))
+                  .build()
+              )
+              .build()
+          )
+      }
+    }.void
 
   def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI*): Resource[F, RedisClusterClient] =
     configured[F](Redis4CatsConfig(), uri: _*)

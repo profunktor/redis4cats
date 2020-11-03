@@ -9,14 +9,14 @@ object Dependencies {
     val fs2        = "2.4.4"
     val log4cats   = "1.1.1"
 
-    val lettuce = "6.0.0.RELEASE"
+    val lettuce = "6.0.1.RELEASE"
     val logback = "1.2.3"
 
     val betterMonadicFor = "0.3.1"
     val contextApplied   = "0.1.4"
     val kindProjector    = "0.11.0"
 
-    val munit = "0.7.13"
+    val munit = "0.7.15"
   }
 
   object Libraries {

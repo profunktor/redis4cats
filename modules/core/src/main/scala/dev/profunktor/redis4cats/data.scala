@@ -21,7 +21,7 @@ import cats.syntax.functor._
 import dev.profunktor.redis4cats.JavaConversions._
 import io.lettuce.core.{ ReadFrom => JReadFrom }
 import io.lettuce.core.codec.{ ByteArrayCodec, CipherCodec, CompressionCodec, RedisCodec => JRedisCodec, StringCodec }
-import io.lettuce.core.{ KeyScanCursor => JKeyScanCursor }
+import io.lettuce.core.{ KeyScanCursor => JKeyScanCursor, ScanCursor => JScanCursor }
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
@@ -32,9 +32,16 @@ object data {
   final case class RedisCodec[K, V](underlying: JRedisCodec[K, V]) extends AnyVal
   final case class NodeId(value: String) extends AnyVal
 
-  final case class KeyScanCursor[K](underlying: JKeyScanCursor[K]) extends AnyVal {
-    def keys: List[K]  = underlying.getKeys.asScala.toList
+  sealed abstract class ScanCursor {
+    def underlying: JScanCursor
+
+    def isFinished: Boolean = underlying.isFinished
+
     def cursor: String = underlying.getCursor
+  }
+
+  final case class KeyScanCursor[K](underlying: JKeyScanCursor[K]) extends ScanCursor {
+    def keys: List[K] = underlying.getKeys.asScala.toList
   }
 
   object RedisCodec {
