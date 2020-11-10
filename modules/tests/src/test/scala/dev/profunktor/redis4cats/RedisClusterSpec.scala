@@ -43,6 +43,8 @@ class RedisClusterSpec extends Redis4CatsFunSuite(true) with TestScenarios {
 
   test("cluster: scripts")(withRedis(scriptsScenario))
 
+  test("cluster: hyperloglog api")(withRedis(hyperloglogScenario))
+
   // FIXME: The Cluster impl cannot connect to a single node just yet
   //test("cluster: pipelining")(withRedisCluster(pipelineScenario))
   //test("cluster: transactions")(withRedisCluster(transactionScenario))
