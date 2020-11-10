@@ -1389,13 +1389,13 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     async
       .flatMap(c => F.delay(c.pfadd(key, values: _*)))
       .futureLift
-      .map(Long.unbox)
+      .map(Long.box(_))
 
   override def pfCount(key: K): F[Long] =
     async
       .flatMap(c => F.delay(c.pfcount(key)))
       .futureLift
-      .map(Long.unbox)
+      .map(Long.box(_))
 
   override def pfMerge(outputKey: K, inputKeys: K*): F[Unit] =
     async
