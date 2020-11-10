@@ -48,6 +48,8 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
   test("server")(withRedis(serverScenario))
 
   test("scripts")(withRedis(scriptsScenario))
+
+  test("hyperloglog api")(withRedis(hyperloglogScenario))
 }
 
 object LongCodec extends JRedisCodec[String, Long] with ToByteBufEncoder[String, Long] {

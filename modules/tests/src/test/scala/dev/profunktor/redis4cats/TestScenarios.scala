@@ -460,4 +460,24 @@ trait TestScenarios { self: FunSuite =>
     } yield ()
   }
 
+  def hyperloglogScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val key  = "hll"
+    val key2 = "hll2"
+    val key3 = "hll3"
+    for {
+      x <- cmd.get(key)
+      _ <- IO(assert(x.isEmpty))
+      c1 <- cmd.pfCount(key)
+      _ <- IO(assertEquals(c1, 0L))
+      _ <- cmd.pfAdd(key, "a", "b", "c")
+      c2 <- cmd.pfCount(key)
+      _ <- IO(assert(c2 > 0, "hyperloglog should think it has more than 0 items in"))
+      _ <- cmd.pfAdd(key2, "a", "b", "c")
+      c3 <- cmd.pfCount(key2)
+      _ <- IO(assert(c3 > 0, "second hyperloglog should think it has more than 0 items in"))
+      _ <- cmd.pfMerge(key3, key2, key)
+      c4 <- cmd.pfCount(key3)
+      _ <- IO(assert(c4 > 0, "merged hyperloglog should think it has more than 0 items in"))
+    } yield ()
+  }
 }
