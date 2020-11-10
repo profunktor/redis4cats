@@ -1383,6 +1383,25 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
 
   override def scriptFlush: F[Unit] =
     async.flatMap(c => F.delay(c.scriptFlush())).futureLift.void
+
+  /** ***************************** HyperLoglog API **********************************/
+  override def pfAdd(key: K, values: V*): F[Long] =
+    async
+      .flatMap(c => F.delay(c.pfadd(key, values: _*)))
+      .futureLift
+      .map(Long.unbox)
+
+  override def pfCount(key: K): F[Long] =
+    async
+      .flatMap(c => F.delay(c.pfcount(key)))
+      .futureLift
+      .map(Long.unbox)
+
+  override def pfMerge(outputKey: K, inputKeys: K*): F[Unit] =
+    async
+      .flatMap(c => F.delay(c.pfmerge(outputKey, inputKeys: _*)))
+      .futureLift
+      .void
 }
 
 private[redis4cats] trait RedisConversionOps {
