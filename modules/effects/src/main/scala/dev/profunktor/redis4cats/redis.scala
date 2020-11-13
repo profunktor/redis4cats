@@ -1095,7 +1095,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
-  override def zCount(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Option[Long]] =
+  override def zCount[T: Numeric](key: K, range: ZRange[T]): F[Option[Long]] =
     async
       .flatMap(c => F.delay(c.zcount(key, range.asJavaRange)))
       .futureLift
