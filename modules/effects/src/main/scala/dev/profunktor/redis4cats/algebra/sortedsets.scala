@@ -26,7 +26,7 @@ trait SortedSetCommands[F[_], K, V] extends SortedSetGetter[F, K, V] with Sorted
 
 trait SortedSetGetter[F[_], K, V] {
   def zCard(key: K): F[Option[Long]]
-  def zCount(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Option[Long]]
+  def zCount[T: Numeric](key: K, range: ZRange[T]): F[Option[Long]]
   def zLexCount(key: K, range: ZRange[V]): F[Option[Long]]
   def zRange(key: K, start: Long, stop: Long): F[List[V]]
   def zRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]]
