@@ -1,3 +1,12 @@
+name: Scala
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+    paths:
+      - "modules/**"
+
 jobs:
   build:
     name: Build
@@ -11,19 +20,19 @@ jobs:
             project/build.properties \
             project/Dependencies.scala > gha.cache.tmp
       - name: "~/.sbt cache"
-        uses: "actions/cache@v1"
+        uses: "actions/cache@v2"
         with:
           key: "${{ runner.os }}-sbt-${{ hashFiles('gha.cache.tmp') }}"
           path: "~/.sbt"
           restore-keys: sbt
       - name: "~/.cache/coursier cache"
-        uses: "actions/cache@v1"
+        uses: "actions/cache@v2"
         with:
           key: "${{ runner.os }}-coursier-${{ hashFiles('gha.cache.tmp') }}"
           path: "~/.cache/coursier"
           restore-keys: coursier
       - name: "java ${{ matrix.java}} setup"
-        uses: "olafurpg/setup-java@v6"
+        uses: "olafurpg/setup-java@v10"
         with:
           java-version: "${{ matrix.java}}"
       - run: sbt buildRedis4Cats
@@ -33,11 +42,3 @@ jobs:
         java:
           - '8.0.242'
           - '11.0.5'
-name: Scala
-on:
-  pull_request: {}
-  push:
-    branches:
-      - master
-    paths:
-      - "modules/**"
