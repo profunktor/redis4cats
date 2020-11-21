@@ -22,9 +22,8 @@ let
 in
   pkgs.mkShell {
     buildInputs = with pkgs; [
-      haskellPackages.dhall-json # 1.6.2
-      jekyll                     # 4.1.0
-      openjdk11                  # 11.0.6-internal
-      sbt                        # 1.3.12
+      jekyll    # 4.1.0
+      openjdk11 # 11.0.6-internal
+      sbt       # 1.3.12
     ];
   }
