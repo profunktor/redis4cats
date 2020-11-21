@@ -1,6 +1,6 @@
 SingleNode:
   restart: always
-  image: redis:5.0.0
+  image: redis:6.0.8
   ports:
     - "6379:6379"
   environment:
@@ -8,7 +8,7 @@ SingleNode:
 
 RedisCluster:
   restart: always
-  image: m0stwanted/redis-cluster:latest
+  image: grokzen/redis-cluster:6.0.8
   ports:
     - "30001:30001"
     - "30002:30002"
@@ -17,4 +17,5 @@ RedisCluster:
     - "30005:30005"
     - "30006:30006"
   environment:
+    - INITIAL_PORT=30001
     - DEBUG=false
