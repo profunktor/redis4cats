@@ -39,11 +39,11 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("connection api")(withRedis(connectionScenario))
 
-  test("pipelining")(withRedis(pipelineScenario))
+  test("pipelining".flaky)(withRedis(pipelineScenario))
 
   test("transactions: successful".ignore)(withRedis(transactionScenario))
 
-  test("transactions: canceled")(withRedis(canceledTransactionScenario))
+  test("transactions: canceled".flaky)(withRedis(canceledTransactionScenario))
 
   test("server")(withRedis(serverScenario))
 
