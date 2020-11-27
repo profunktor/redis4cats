@@ -408,7 +408,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
         case d    => FiniteDuration(d, TimeUnit.SECONDS).some
       }
 
-  private def toFiniteDuration(duration: Long): Option[FiniteDuration] =
+  private def toFiniteDuration(duration: java.lang.Long): Option[FiniteDuration] =
     duration match {
       case d if d < 0 => none[FiniteDuration]
       case d          => FiniteDuration(d, TimeUnit.SECONDS).some
