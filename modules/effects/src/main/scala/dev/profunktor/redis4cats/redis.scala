@@ -360,10 +360,10 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     if (cluster) conn.clusterSync else conn.sync.widen
 
   /******************************* Keys API *************************************/
-  def del(key: K*): F[Long] =
+  override def del(key: K*): F[Long] =
     async.flatMap(c => F.delay(c.del(key: _*))).futureLift.map(x => Long.box(x))
 
-  def exists(key: K*): F[Boolean] =
+  override def exists(key: K*): F[Boolean] =
     async
       .flatMap(c => F.delay(c.exists(key: _*)))
       .futureLift
@@ -375,7 +375,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     *
     * As expected by Redis' PEXPIRE and EXPIRE commands, respectively.
     */
-  def expire(key: K, expiresIn: FiniteDuration): F[Boolean] =
+  override def expire(key: K, expiresIn: FiniteDuration): F[Boolean] =
     async
       .flatMap { c =>
         expiresIn.unit match {
@@ -393,13 +393,13 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     *
     * It calls Redis' PEXPIREAT under the hood, which has milliseconds precision.
     */
-  def expireAt(key: K, at: Instant): F[Boolean] =
+  override def expireAt(key: K, at: Instant): F[Boolean] =
     async
       .flatMap(c => F.delay(c.pexpireat(key, at.toEpochMilli())))
       .futureLift
       .map(x => Boolean.box(x))
 
-  def objectIdletime(key: K): F[Option[FiniteDuration]] =
+  override def objectIdletime(key: K): F[Option[FiniteDuration]] =
     async
       .flatMap(c => F.delay(c.objectIdletime(key)))
       .futureLift
@@ -408,23 +408,23 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
         case d    => FiniteDuration(d, TimeUnit.SECONDS).some
       }
 
-  def ttl(key: K): F[Option[FiniteDuration]] =
+  private def toFiniteDuration(duration: java.lang.Long): Option[FiniteDuration] =
+    duration match {
+      case d if d < 0 => none[FiniteDuration]
+      case d          => FiniteDuration(d, TimeUnit.SECONDS).some
+    }
+
+  override def ttl(key: K): F[Option[FiniteDuration]] =
     async
       .flatMap(c => F.delay(c.ttl(key)))
       .futureLift
-      .map {
-        case d if d == -2 || d == -1 => none[FiniteDuration]
-        case d                       => FiniteDuration(d, TimeUnit.SECONDS).some
-      }
+      .map(toFiniteDuration)
 
-  def pttl(key: K): F[Option[FiniteDuration]] =
+  override def pttl(key: K): F[Option[FiniteDuration]] =
     async
       .flatMap(c => F.delay(c.pttl(key)))
       .futureLift
-      .map {
-        case d if d == -2 || d == -1 => none[FiniteDuration]
-        case d                       => FiniteDuration(d, TimeUnit.MILLISECONDS).some
-      }
+      .map(toFiniteDuration)
 
   override def scan: F[KeyScanCursor[K]] =
     async

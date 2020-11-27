@@ -3,7 +3,6 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / name := """redis4cats"""
 ThisBuild / crossScalaVersions := Seq("2.12.10", "2.13.2")
 
 // publishing
