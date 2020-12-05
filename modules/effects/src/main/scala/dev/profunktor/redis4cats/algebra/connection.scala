@@ -21,4 +21,6 @@ trait ConnectionCommands[F[_]] extends Ping[F]
 trait Ping[F[_]] {
   def ping: F[String]
   def select(index: Int): F[Unit]
+  def auth(password: CharSequence): F[Boolean]
+  def auth(username: String, password: CharSequence): F[Boolean]
 }
