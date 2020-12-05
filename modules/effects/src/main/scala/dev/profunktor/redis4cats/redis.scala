@@ -1248,6 +1248,18 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   override def select(index: Int): F[Unit] =
     conn.async.flatMap(c => blocker.delay(c.select(index))).void
 
+  override def auth(password: CharSequence): F[Boolean] =
+    async
+      .flatMap(c => F.delay(c.auth(password)))
+      .futureLift
+      .map(_ == "OK")
+
+  override def auth(username: String, password: CharSequence): F[Boolean] =
+    async
+      .flatMap(c => F.delay(c.auth(username, password)))
+      .futureLift
+      .map(_ == "OK")
+
   /******************************* Server API **********************************/
   override val flushAll: F[Unit] =
     async.flatMap(c => F.delay(c.flushall())).futureLift.void
