@@ -455,6 +455,8 @@ trait TestScenarios { self: FunSuite =>
       _ <- cmd.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
       exists <- cmd.scriptExists(sha42, "foobar")
       _ <- IO(assertEquals(exists, List(true, false)))
+      shaStatusDigest <- cmd.digest(statusScript)
+      _ <- IO(assertEquals(shaStatusScript, shaStatusDigest))
       _ <- cmd.scriptFlush
       exists2 <- cmd.scriptExists(sha42)
       _ <- IO(assertEquals(exists2, List(false)))

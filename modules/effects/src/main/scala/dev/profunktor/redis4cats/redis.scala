@@ -1332,18 +1332,18 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(output.convert(_))
 
-  override def evalSha(script: String, output: ScriptOutputType[V]): F[output.R] =
+  override def evalSha(digest: String, output: ScriptOutputType[V]): F[output.R] =
     async
-      .flatMap(c => F.delay(c.evalsha[output.Underlying](script, output.outputType)))
+      .flatMap(c => F.delay(c.evalsha[output.Underlying](digest, output.outputType)))
       .futureLift
       .map(output.convert(_))
 
-  override def evalSha(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
+  override def evalSha(digest: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
     async
       .flatMap(c =>
         F.delay(
           c.evalsha[output.Underlying](
-            script,
+            digest,
             output.outputType,
             // see comment in eval above
             keys.asInstanceOf[Seq[K with Object]].toArray
@@ -1353,12 +1353,12 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(output.convert(_))
 
-  override def evalSha(script: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
+  override def evalSha(digest: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
     async
       .flatMap(c =>
         F.delay(
           c.evalsha[output.Underlying](
-            script,
+            digest,
             output.outputType,
             // see comment in eval above
             keys.asInstanceOf[Seq[K with Object]].toArray,
@@ -1383,6 +1383,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
 
   override def scriptFlush: F[Unit] =
     async.flatMap(c => F.delay(c.scriptFlush())).futureLift.void
+
+  override def digest(script: String): F[String] = async.flatMap(c => F.delay(c.digest(script)))
 
   /** ***************************** HyperLoglog API **********************************/
   override def pfAdd(key: K, values: V*): F[Long] =
