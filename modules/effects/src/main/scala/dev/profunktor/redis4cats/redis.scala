@@ -686,8 +686,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     async.flatMap(c => F.delay(c.bitopXor(destination, sources: _*))).futureLift.void
 
   /******************************* Hashes API **********************************/
-  override def hDel(key: K, fields: K*): F[Unit] =
-    async.flatMap(c => F.delay(c.hdel(key, fields: _*))).futureLift.void
+  override def hDel(key: K, fields: K*): F[Long] =
+    async.flatMap(c => F.delay(c.hdel(key, fields: _*))).futureLift.map(x => Long.box(x))
 
   override def hExists(key: K, field: K): F[Boolean] =
     async
@@ -737,8 +737,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
-  override def hSet(key: K, field: K, value: V): F[Unit] =
-    async.flatMap(c => F.delay(c.hset(key, field, value))).futureLift.void
+  override def hSet(key: K, field: K, value: V): F[Boolean] =
+    async.flatMap(c => F.delay(c.hset(key, field, value))).futureLift.map(x => Boolean.box(x))
 
   override def hSetNx(key: K, field: K, value: V): F[Boolean] =
     async
