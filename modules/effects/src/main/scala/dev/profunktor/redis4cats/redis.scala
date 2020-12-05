@@ -1384,6 +1384,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   override def scriptFlush: F[Unit] =
     async.flatMap(c => F.delay(c.scriptFlush())).futureLift.void
 
+  override def digest(script: String): F[String] = async.flatMap(c => F.delay(c.digest(script)))
+
   /** ***************************** HyperLoglog API **********************************/
   override def pfAdd(key: K, values: V*): F[Long] =
     async

@@ -33,4 +33,5 @@ trait Scripting[F[_], K, V] {
   def scriptLoad(script: Array[Byte]): F[String]
   def scriptExists(digests: String*): F[List[Boolean]]
   def scriptFlush: F[Unit]
+  def digest(script: String): F[String]
 }
