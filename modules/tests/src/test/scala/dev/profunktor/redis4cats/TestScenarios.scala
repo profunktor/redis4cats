@@ -17,6 +17,7 @@
 package dev.profunktor.redis4cats
 
 import java.time.Instant
+import java.util.concurrent.TimeoutException
 
 import cats.data.NonEmptyList
 import cats.effect._
@@ -25,7 +26,7 @@ import dev.profunktor.redis4cats.data.KeyScanCursor
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.hlist._
-import dev.profunktor.redis4cats.pipeline.RedisPipeline
+import dev.profunktor.redis4cats.pipeline.{ PipelineError, RedisPipeline }
 import dev.profunktor.redis4cats.transactions.RedisTransaction
 import io.lettuce.core.GeoArgs
 import munit.FunSuite
@@ -378,20 +379,33 @@ trait TestScenarios { self: FunSuite =>
   def pipelineScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key1 = "testp1"
     val key2 = "testp2"
+    val key3 = "testp3"
 
     val operations =
-      cmd.set(key1, "osx") :: cmd.set(key2, "windows") :: cmd.get(key1) :: cmd.sIsMember("foo", "bar") ::
-          cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
+      cmd.set(key1, "osx") :: cmd.get(key3) :: cmd.set(key2, "linux") :: cmd.sIsMember("foo", "bar") :: HNil
 
-    RedisPipeline(cmd).exec(operations).map {
-      case _ ~: _ ~: res1 ~: res2 ~: _ ~: _ ~: res3 ~: HNil =>
-        assert(res1.contains("osx"))
-        assert(!res2)
-        assert(res3.contains("nix"))
-      case tr =>
-        fail(s"Unexpected result: $tr")
+    val runPipeline =
+      RedisPipeline(cmd)
+        .filterExec(operations)
+        .map {
+          case res1 ~: res2 ~: HNil =>
+            assertEquals(res1, Some("3"))
+            assert(!res2)
+        }
+        .onError {
+          case PipelineError       => fail("[Error] - Pipeline failed")
+          case _: TimeoutException => fail("[Error] - Timeout")
+        }
+
+    for {
+      _ <- cmd.set(key3, "3")
+      _ <- runPipeline
+      v1 <- cmd.get(key1)
+      v2 <- cmd.get(key2)
+    } yield {
+      assertEquals(v1, Some("osx"))
+      assertEquals(v2, Some("linux"))
     }
-
   }
 
   // With the current implementation (see `Runner#getTxDelay`), we cannot guarantee the commands
