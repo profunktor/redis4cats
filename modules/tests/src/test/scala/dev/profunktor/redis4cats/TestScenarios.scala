@@ -378,20 +378,29 @@ trait TestScenarios { self: FunSuite =>
   def pipelineScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key1 = "testp1"
     val key2 = "testp2"
+    val key3 = "testp3"
 
     val operations =
-      cmd.set(key1, "osx") :: cmd.set(key2, "windows") :: cmd.get(key1) :: cmd.sIsMember("foo", "bar") ::
-          cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
+      cmd.set(key1, "osx") :: cmd.get(key3) :: cmd.set(key2, "linux") :: cmd.sIsMember("foo", "bar") :: HNil
 
-    RedisPipeline(cmd).exec(operations).map {
-      case _ ~: _ ~: res1 ~: res2 ~: _ ~: _ ~: res3 ~: HNil =>
-        assert(res1.contains("osx"))
-        assert(!res2)
-        assert(res3.contains("nix"))
-      case tr =>
-        fail(s"Unexpected result: $tr")
+    val runPipeline =
+      RedisPipeline(cmd).filterExec(operations).map {
+        case res1 ~: res2 ~: HNil =>
+          assertEquals(res1, Some("3"))
+          assert(!res2)
+        case tr =>
+          fail(s"Unexpected result: $tr")
+      }
+
+    for {
+      _ <- cmd.set(key3, "3")
+      _ <- runPipeline
+      v1 <- cmd.get(key1)
+      v2 <- cmd.get(key2)
+    } yield {
+      assertEquals(v1, Some("osx"))
+      assertEquals(v2, Some("linux"))
     }
-
   }
 
   // With the current implementation (see `Runner#getTxDelay`), we cannot guarantee the commands

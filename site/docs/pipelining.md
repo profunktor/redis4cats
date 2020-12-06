@@ -15,6 +15,20 @@ Use [pipelining](https://redis.io/topics/pipelining) to speed up your queries by
 - `release`: either flush commands on success or log error on failure / cancellation.
 - `guarantee`: re-enable autoflush.
 
+## Caveats
+
+⚠️ **Pipelining shares the same asynchronous implementation of transactions, meaning the order of the commands cannot be guaranteed.** ⚠️
+
+This statement means that given the following set of operations.
+
+```scala
+val operations =
+  cmd.set(key1, "osx") :: cmd.set(key2, "linux") :: cmd.get(key1) ::
+    cmd.set(key1, "bar") :: cmd.set(key2, "foo") :: cmd.get(key1) :: HNil
+```
+
+The result of those two `get` operations will not be deterministic.
+
 ### RedisPipeline usage
 
 The API for disabling / enabling autoflush and flush commands manually is available for you to use but since the pattern is so common it is recommended to just use `RedisPipeline`. You can create a pipeline by passing the commands API as a parameter and invoke the `exec` function (or `filterExec`) given the set of commands you wish to send to the server.
@@ -53,32 +67,39 @@ def putStrLn(str: String): IO[Unit] = IO(println(str))
 
 val key1 = "testp1"
 val key2 = "testp2"
+val key3 = "testp3"
 
 val showResult: String => Option[String] => IO[Unit] = key =>
 _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s"$key: $s"))
 
 commandsApi.use { cmd => // RedisCommands[IO, String, String]
   val getters =
-    cmd.get(key1).flatTap(showResult(key1)) *>
-        cmd.get(key2).flatTap(showResult(key2))
+    cmd.get(key1).flatTap(showResult(key1)) >>
+        cmd.get(key2).flatTap(showResult(key2)) >>
+        cmd.get(key3).flatTap(showResult(key3)) >>
 
-  val operations =
-    cmd.set(key1, "noop") :: cmd.set(key2, "windows") :: cmd.get(key1) ::
-        cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
+   val operations =
+      cmd.set(key1, "osx") :: cmd.get(key3) :: cmd.set(key2, "linux") :: cmd.sIsMember("foo", "bar") :: HNil
+
+    val runPipeline =
+      RedisPipeline(cmd).filterExec(operations).map {
+        case res1 ~: res2 ~: HNil =>
+          assertEquals(res1, Some("3"))
+          assert(!res2)
+        case tr =>
+          fail(s"Unexpected result: $tr")
+      }
 
   val prog =
-    RedisPipeline(cmd)
-      .filterExec(operations)
-      .flatMap {
-        case res1 ~: res2 ~: HNil =>
-          putStrLn(s"res1: $res1, res2: $res2")
-      }
-      .onError {
-        case PipelineError =>
-          putStrLn("[Error] - Pipeline failed")
-        case _: TimeoutException =>
-          putStrLn("[Error] - Timeout")
-      }
+    for {
+      _  <- cmd.set(key3, "3")
+      _  <- runPipeline
+      v1 <- cmd.get(key1)
+      v2 <- cmd.get(key2)
+    } yield {
+      assertEquals(v1, Some("osx"))
+      assertEquals(v2, Some("linux"))
+    }
 
   getters >> prog >> getters >> putStrLn("keep doing stuff...")
 }
