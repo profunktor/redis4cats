@@ -1,4 +1,8 @@
+{ jdk ? "jdk11" }:
+
 let
+  java = pkgs.${jdk};
+
   config = {
     packageOverrides = pkgs: rec {
       sbt = pkgs.sbt.overrideAttrs (
@@ -6,7 +10,7 @@ let
           version = "1.3.13";
 
           patchPhase = ''
-            echo -java-home ${pkgs.openjdk11} >> conf/sbtopts
+            echo -java-home ${java} >> conf/sbtopts
           '';
         }
       );
@@ -18,12 +22,14 @@ let
     url    = "https://github.com/NixOS/nixpkgs-channels/archive/dcb64ea42e6.tar.gz";
     sha256 = "0i77sgs0gic6pwbkvk9lbpfshgizdrqyh18law2ji1409azc09w0";
   };
+
   pkgs = import nixpkgs { inherit config; };
 in
   pkgs.mkShell {
     buildInputs = with pkgs; [
-      jekyll    # 4.1.0
-      openjdk11 # 11.0.6-internal
-      sbt       # 1.3.12
+      gnupg
+      jekyll
+      java
+      sbt
     ];
   }
