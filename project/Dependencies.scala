@@ -4,9 +4,9 @@ object Dependencies {
 
   object V {
     val cats       = "2.2.0"
-    val catsEffect = "2.2.0"
+    val catsEffect = "2.3.0"
     val circe      = "0.13.0"
-    val fs2        = "2.4.5"
+    val fs2        = "2.4.6"
     val log4cats   = "1.1.1"
 
     val lettuce = "6.0.1.RELEASE"
@@ -14,9 +14,9 @@ object Dependencies {
 
     val betterMonadicFor = "0.3.1"
     val contextApplied   = "0.1.4"
-    val kindProjector    = "0.11.0"
+    val kindProjector    = "0.11.2"
 
-    val munit = "0.7.17"
+    val munit = "0.7.19"
   }
 
   object Libraries {

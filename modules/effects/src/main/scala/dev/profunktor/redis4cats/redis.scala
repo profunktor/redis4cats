@@ -363,7 +363,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   def del(key: K*): F[Long] =
     async.flatMap(c => blocker.delay(c.del(key: _*))).futureLift.map(x => Long.box(x))
 
-  def exists(key: K*): F[Boolean] =
+  override def exists(key: K*): F[Boolean] =
     async
       .flatMap(c => blocker.delay(c.exists(key: _*)))
       .futureLift
@@ -375,7 +375,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     *
     * As expected by Redis' PEXPIRE and EXPIRE commands, respectively.
     */
-  def expire(key: K, expiresIn: FiniteDuration): F[Boolean] =
+  override def expire(key: K, expiresIn: FiniteDuration): F[Boolean] =
     async
       .flatMap { c =>
         expiresIn.unit match {
@@ -393,13 +393,13 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     *
     * It calls Redis' PEXPIREAT under the hood, which has milliseconds precision.
     */
-  def expireAt(key: K, at: Instant): F[Boolean] =
+  override def expireAt(key: K, at: Instant): F[Boolean] =
     async
       .flatMap(c => blocker.delay(c.pexpireat(key, at.toEpochMilli())))
       .futureLift
       .map(x => Boolean.box(x))
 
-  def objectIdletime(key: K): F[Option[FiniteDuration]] =
+  override def objectIdletime(key: K): F[Option[FiniteDuration]] =
     async
       .flatMap(c => blocker.delay(c.objectIdletime(key)))
       .futureLift
@@ -408,23 +408,23 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
         case d    => FiniteDuration(d, TimeUnit.SECONDS).some
       }
 
-  def ttl(key: K): F[Option[FiniteDuration]] =
+  private def toFiniteDuration(duration: java.lang.Long): Option[FiniteDuration] =
+    duration match {
+      case d if d < 0 => none[FiniteDuration]
+      case d          => FiniteDuration(d, TimeUnit.SECONDS).some
+    }
+
+  override def ttl(key: K): F[Option[FiniteDuration]] =
     async
       .flatMap(c => blocker.delay(c.ttl(key)))
       .futureLift
-      .map {
-        case d if d == -2 || d == -1 => none[FiniteDuration]
-        case d                       => FiniteDuration(d, TimeUnit.SECONDS).some
-      }
+      .map(toFiniteDuration)
 
-  def pttl(key: K): F[Option[FiniteDuration]] =
+  override def pttl(key: K): F[Option[FiniteDuration]] =
     async
       .flatMap(c => blocker.delay(c.pttl(key)))
       .futureLift
-      .map {
-        case d if d == -2 || d == -1 => none[FiniteDuration]
-        case d                       => FiniteDuration(d, TimeUnit.MILLISECONDS).some
-      }
+      .map(toFiniteDuration)
 
   override def scan: F[KeyScanCursor[K]] =
     async
@@ -686,8 +686,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     async.flatMap(c => blocker.delay(c.bitopXor(destination, sources: _*))).futureLift.void
 
   /******************************* Hashes API **********************************/
-  override def hDel(key: K, fields: K*): F[Unit] =
-    async.flatMap(c => blocker.delay(c.hdel(key, fields: _*))).futureLift.void
+  override def hDel(key: K, fields: K*): F[Long] =
+    async.flatMap(c => blocker.delay(c.hdel(key, fields: _*))).futureLift.map(x => Long.box(x))
 
   override def hExists(key: K, field: K): F[Boolean] =
     async
@@ -737,8 +737,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
-  override def hSet(key: K, field: K, value: V): F[Unit] =
-    async.flatMap(c => blocker.delay(c.hset(key, field, value))).futureLift.void
+  override def hSet(key: K, field: K, value: V): F[Boolean] =
+    async.flatMap(c => blocker.delay(c.hset(key, field, value))).futureLift.map(x => Boolean.box(x))
 
   override def hSetNx(key: K, field: K, value: V): F[Boolean] =
     async
@@ -1254,6 +1254,18 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   override def select(index: Int): F[Unit] =
     conn.async.flatMap(c => blocker.delay(c.select(index))).void
 
+  override def auth(password: CharSequence): F[Boolean] =
+    async
+      .flatMap(c => F.delay(c.auth(password)))
+      .futureLift
+      .map(_ == "OK")
+
+  override def auth(username: String, password: CharSequence): F[Boolean] =
+    async
+      .flatMap(c => F.delay(c.auth(username, password)))
+      .futureLift
+      .map(_ == "OK")
+
   /******************************* Server API **********************************/
   override val flushAll: F[Unit] =
     async.flatMap(c => F.delay(c.flushall())).futureLift.void
@@ -1338,18 +1350,18 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(output.convert(_))
 
-  override def evalSha(script: String, output: ScriptOutputType[V]): F[output.R] =
+  override def evalSha(digest: String, output: ScriptOutputType[V]): F[output.R] =
     async
-      .flatMap(c => blocker.delay(c.evalsha[output.Underlying](script, output.outputType)))
+      .flatMap(c => blocker.delay(c.evalsha[output.Underlying](digest, output.outputType)))
       .futureLift
       .map(output.convert(_))
 
-  override def evalSha(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
+  override def evalSha(digest: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
     async
       .flatMap(c =>
         blocker.delay(
           c.evalsha[output.Underlying](
-            script,
+            digest,
             output.outputType,
             // see comment in eval above
             keys.asInstanceOf[Seq[K with Object]].toArray
@@ -1359,12 +1371,12 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .futureLift
       .map(output.convert(_))
 
-  override def evalSha(script: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
+  override def evalSha(digest: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
     async
       .flatMap(c =>
         blocker.delay(
           c.evalsha[output.Underlying](
-            script,
+            digest,
             output.outputType,
             // see comment in eval above
             keys.asInstanceOf[Seq[K with Object]].toArray,
@@ -1389,6 +1401,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
 
   override def scriptFlush: F[Unit] =
     async.flatMap(c => blocker.delay(c.scriptFlush())).futureLift.void
+
+  override def digest(script: String): F[String] = async.flatMap(c => F.delay(c.digest(script)))
 
   /** ***************************** HyperLoglog API **********************************/
   override def pfAdd(key: K, values: V*): F[Long] =

@@ -75,7 +75,8 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(w.contains("some value")))
       w <- cmd.hmGet(testKey, testField, testField2)
       _ <- IO(assertEquals(w, Map(testField -> "some value")))
-      _ <- cmd.hDel(testKey, testField)
+      d <- cmd.hDel(testKey, testField)
+      _ <- IO(assertEquals(d, 1L))
       z <- cmd.hGet(testKey, testField)
       _ <- IO(assert(z.isEmpty))
     } yield ()
@@ -475,6 +476,8 @@ trait TestScenarios { self: FunSuite =>
       _ <- cmd.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
       exists <- cmd.scriptExists(sha42, "foobar")
       _ <- IO(assertEquals(exists, List(true, false)))
+      shaStatusDigest <- cmd.digest(statusScript)
+      _ <- IO(assertEquals(shaStatusScript, shaStatusDigest))
       _ <- cmd.scriptFlush
       exists2 <- cmd.scriptExists(sha42)
       _ <- IO(assertEquals(exists2, List(false)))

@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats.algebra
 
 trait HashCommands[F[_], K, V] extends HashGetter[F, K, V] with HashSetter[F, K, V] with HashIncrement[F, K, V] {
-  def hDel(key: K, fields: K*): F[Unit]
+  def hDel(key: K, fields: K*): F[Long]
   def hExists(key: K, field: K): F[Boolean]
 }
 
@@ -32,7 +32,7 @@ trait HashGetter[F[_], K, V] {
 }
 
 trait HashSetter[F[_], K, V] {
-  def hSet(key: K, field: K, value: V): F[Unit]
+  def hSet(key: K, field: K, value: V): F[Boolean]
   def hSetNx(key: K, field: K, value: V): F[Boolean]
   def hmSet(key: K, fieldValues: Map[K, V]): F[Unit]
 }
