@@ -452,7 +452,7 @@ trait TestScenarios { self: FunSuite =>
     val tx = RedisTransaction(cmd)
 
     val commands =
-      cmd.set("tx-1", "v1") :: cmd.set("tx-2", "v2") :: cmd.set("tx-3", "v3") :: HNil
+      cmd.set("tx-1", "v1") :: IO.sleep(1.second) :: cmd.set("tx-2", "v2") :: cmd.set("tx-3", "v3") :: HNil
 
     // Transaction should be canceled
     IO.race(tx.exec(commands).attempt.void, IO.unit) >>
