@@ -21,15 +21,11 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effect.Log.NoOp._
-import munit.FunSuite
-import scala.concurrent.{ Await, ExecutionContext, Future }
+
+import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration.Duration
 
-abstract class Redis4CatsFunSuite(isCluster: Boolean) extends FunSuite {
-
-  implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
-  implicit val timer: Timer[IO]     = IO.timer(ExecutionContext.global)
-  implicit val clock: Clock[IO]     = timer.clock
+abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
   val flushAllFixture = new Fixture[Unit]("FLUSHALL") {
     def apply(): Unit = ()

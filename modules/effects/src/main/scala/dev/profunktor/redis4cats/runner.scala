@@ -50,7 +50,7 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Timer] {
   ): F[S] = exec[T, R](ops)(commands).map(_.filterUnit)
 
   /**
-    * This is unfortunately the easiest way to get transactions to work in a deterministic way. Details follows.
+    * This is unfortunately the easiest way to get optimistic locking to work in a deterministic way. Details follows.
     *
     * Every transactional command is forked, yielding a Fiber that is part of an HList. Modeling the transaction as
     * a `Resource`, we spawn all the fibers representing the commands and simulate a bit of delay to let the underlying

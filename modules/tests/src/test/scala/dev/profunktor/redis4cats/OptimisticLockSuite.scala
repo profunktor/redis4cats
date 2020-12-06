@@ -16,24 +16,17 @@
 
 package dev.profunktor.redis4cats
 
-import cats.Parallel
 import cats.data.EitherT
 import cats.effect._
 import cats.effect.concurrent._
-import cats.syntax.all._
+import cats.implicits._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.hlist.HNil
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.transactions._
-import munit.FunSuite
 
-import scala.concurrent.ExecutionContext
-
-class OptimisticLockSuite extends FunSuite {
-
-  implicit private val CS = IO.contextShift(ExecutionContext.global)
-  implicit private val T  = IO.timer(ExecutionContext.global)
+class OptimisticLockSuite extends IOSuite {
 
   private val redisURI    = "redis://localhost:6379"
   private val mkRedis     = RedisClient[IO].from(redisURI)
@@ -45,16 +38,12 @@ class OptimisticLockSuite extends FunSuite {
 
   test("Optimistic lock allows single update") {
     mkRedis
-      .use { client =>
-        setupTestData(client)
-          .productR(concurrentUpdates(client))
-      }
+      .use(client => setupTestData(client) >> concurrentUpdates(client))
       .map { results =>
         val (left, right) = results.separate
         assertEquals(left.size, Parallelism - 1)
         assertEquals(right.size, 1)
       }
-      .unsafeRunSync()
   }
 
   private def setupTestData(client: RedisClient): IO[Unit] =
@@ -64,9 +53,10 @@ class OptimisticLockSuite extends FunSuite {
     (Deferred[IO, Unit], Ref.of[IO, Int](0)).parTupled.flatMap {
       case (promise, counter) =>
         // A promise to make sure all the connections call WATCH before running the transaction
-        def attemptComplete =
-          counter.get.flatMap(count => promise.complete(()).attempt.whenA(count === Parallelism))
-        Parallel.parSequence(List.range(0, Parallelism).as(exclusiveUpdate(client, promise, counter, attemptComplete)))
+        def attemptComplete = counter.get.flatMap { count =>
+          promise.complete(()).attempt.void.whenA(count === Parallelism)
+        }
+        List.range(0, Parallelism).as(exclusiveUpdate(client, promise, counter, attemptComplete)).parSequence
     }
 
   private def exclusiveUpdate(
@@ -75,13 +65,13 @@ class OptimisticLockSuite extends FunSuite {
       counter: Ref[IO, Int],
       attemptComplete: IO[Unit]
   ): IO[Either[String, Unit]] =
-    commands(client).use { cmds =>
-      val tx = RedisTransaction(cmds)
+    commands(client).use { cmd =>
       EitherT
-        .right[String](cmds.watch(testKey))
+        .right[String](cmd.watch(testKey))
         .semiflatMap(_ => counter.update(_ + 1) >> attemptComplete >> promise.get)
         .flatMapF(_ =>
-          tx.exec(cmds.set(testKey, UpdatedValue) :: HNil)
+          RedisTransaction(cmd)
+            .exec(cmd.set(testKey, UpdatedValue) :: HNil)
             .void
             .as(Either.right[String, Unit](()))
             .recover {
