@@ -11,34 +11,33 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-18.04
-    steps:
-      - uses: "actions/checkout@v2.1.0"
-      - run: docker-compose up -d
-      - run: |
-          shasum build.sbt \
-            project/plugins.sbt \
-            project/build.properties \
-            project/Dependencies.scala > gha.cache.tmp
-      - name: "~/.sbt cache"
-        uses: "actions/cache@v2"
-        with:
-          key: "${{ runner.os }}-sbt-${{ hashFiles('gha.cache.tmp') }}"
-          path: "~/.sbt"
-          restore-keys: sbt
-      - name: "~/.cache/coursier cache"
-        uses: "actions/cache@v2"
-        with:
-          key: "${{ runner.os }}-coursier-${{ hashFiles('gha.cache.tmp') }}"
-          path: "~/.cache/coursier"
-          restore-keys: coursier
-      - name: "java ${{ matrix.java}} setup"
-        uses: "olafurpg/setup-java@v10"
-        with:
-          java-version: "${{ matrix.java}}"
-      - run: sbt buildRedis4Cats
-      - run: docker-compose down
     strategy:
       matrix:
         java:
-          - '8.0.242'
-          - '11.0.5'
+          - jdk8
+          - jdk11
+    steps:
+      - uses: actions/checkout@v2.3.2
+
+      - name: "Starting up Pulsar 🐳"
+        run: docker-compose up -d
+
+      - name: "Cache for sbt & coursier ♨️"
+        uses: coursier/cache-action@v4.1
+
+      - name: "Install Nix ❄️"
+        uses: cachix/install-nix-action@v12
+        with:
+          skip_adding_nixpkgs_channel: true
+
+      - name: "Install Cachix ❄️"
+        uses: cachix/cachix-action@v8
+        with:
+          name: scala-microsite
+          signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
+
+      - name: "Run with ${{ matrix.java }} 🚀"
+        run: nix-shell --argstr jdk "${{ matrix.java }}" --run "sbt buildRedis4Cats"
+
+      - name: "Shutting down Pulsar 🐳"
+        run: docker-compose down
