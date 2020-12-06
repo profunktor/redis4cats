@@ -9,10 +9,21 @@ position: 6
 
 Redis supports [transactions](https://redis.io/topics/transactions) via the `MULTI`, `EXEC` and `DISCARD` commands. `redis4cats` provides a `RedisTransaction` utility that models a transaction as a `Resource`.
 
+## Caveats
+
 Note that every command has to be forked (`.start`) because the commands need to be sent to the server asynchronously and no response will be received until either an `EXEC` or a `DISCARD` command is sent. Both forking and sending the final command is handled by `RedisTransaction`.
 
-These are internals, though. All you need to care about is what commands you want to run as part of a transaction
-and handle the possible errors and retry logic.
+These are internals, though. All you need to care about is what commands you want to run as part of a transaction and handle the possible errors and retry logic.
+
+##### Write-only commands
+
+⚠️ Only writing commands such as `set`, `hset` and `del` are supported. Although using `get` as part of a transaction would compile, the result will be non-deterministic due to the asynchronous nature of the implementation. ⚠️
+
+In the future, this might be supported but the only way to get it right is either to use the underlying synchronous API or to use a custom `ExecutionContext` so we can control the order of execution as well as when a command has been effectively dispatched. Arguably, though, the most common cases for transactional commands and optimistic locking involve *only writing* for which the existing API should be good enough.
+
+##### Concurrent transactions
+
+⚠️ if we want to run transactions concurrently, we need to acquire a connection per transaction (`RedisCommands`), as `MULTI` can not be called concurrently within the same connection, reason why it is recommended to share the same `RedisClient`. ⚠️
 
 ### Working with transactions
 
@@ -55,6 +66,7 @@ def putStrLn(str: String): IO[Unit] = IO(println(str))
 
 val key1 = "test1"
 val key2 = "test2"
+val key3 = "test3"
 
 val showResult: String => Option[String] => IO[Unit] = key =>
   _.fold(Log[IO].info(s"Key not found: $key"))(s => Log[IO].info(s"$key: $s"))
@@ -62,21 +74,23 @@ val showResult: String => Option[String] => IO[Unit] = key =>
 commandsApi.use { cmd => // RedisCommands[IO, String, String]
   val tx = RedisTransaction(cmd)
 
+  val setters = cmd.set(key3, "delete_me")
+
   val getters =
-    cmd.get(key1).flatTap(showResult(key1)) *>
+    cmd.get(key1).flatTap(showResult(key1)) >>
       cmd.get(key2).flatTap(showResult(key2))
 
   // the commands type is fully inferred
   // IO[Unit] :: IO[Option[String]] :: IO[Unit] :: HNil
-  val commands = cmd.set(key1, "foo") :: cmd.get(key1) :: cmd.set(key2, "bar") :: HNil
+  val commands = cmd.set(key1, "foo") :: cmd.del(key2) :: cmd.set(key3, "bar") :: HNil
 
   // the result type is inferred as well
   // Option[String] :: HNil
   val prog =
     tx.filterExec(commands)
       .flatMap {
-        case res1 ~: HNil =>
-          putStrLn(s"Key1 result: $res1")
+        case res ~: HNil =>
+          putStrLn(s"Key2 result: $res")
       }
       .onError {
         case TransactionAborted =>
@@ -87,7 +101,7 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
           Log[IO].error("[Error] - Timeout")
       }
 
-  getters >> prog >> getters.void
+  setters >> getters >> prog >> getters.void
 }
 ```
 
@@ -159,20 +173,16 @@ def txProgram(v1: String, v2: String) =
   mkRedis
     .use { cmd =>
       val getters =
-        cmd.get(key1).flatTap(showResult(key1)) *>
-            cmd.get(key2).flatTap(showResult(key2))
+        cmd.get(key1).flatTap(showResult(key1)) >>
+          cmd.get(key2).flatTap(showResult(key2)) >>
+          cmd.get(key2).flatTap(showResult(key3))
 
-      val operations =
-        cmd.set(key1, "sad") :: cmd.set(key2, "windows") :: cmd.get(key1) ::
-            cmd.set(key1, v1) :: cmd.set(key2, v2) :: cmd.get(key1) :: HNil
+      val operations = cmd.set(key1, v1) :: cmd.set(key2, v2) :: HNil
 
       val prog: IO[Unit] =
         RedisTransaction(cmd)
-          .filterExec(operations)
-          .flatMap {
-            case res1 ~: res2 ~: HNil =>
-              Log[IO].info(s"res1: $res1, res2: $res2")
-          }
+          .exec(operations)
+          .void
           .onError {
             case TransactionAborted =>
               Log[IO].error("[Error] - Transaction Aborted")
@@ -182,19 +192,16 @@ def txProgram(v1: String, v2: String) =
               Log[IO].error("[Error] - Timeout")
           }
 
-      val watching =
-        cmd.watch(key1, key2)
+      val watching = cmd.watch(key1, key2)
 
       getters >> watching >> prog >> getters >> Log[IO].info("keep doing stuff...")
     }
 ```
 
-Note that if we want to run transactions concurrently, we need to acquire a connection per transaction (`RedisCommands`), as `MULTI` can not be called concurrently within the same connection, reason why it is recommended to share the same `RedisClient`.
-
 Before executing the transaction, we invoke `cmd.watch(key1, key2)`. Next, let's run two concurrent transactions:
 
 ```scala mdoc:silent
-IO.race(txProgram("nix", "linux"), txProgram("foo", "bar")).void
+IO.race(txProgram("osx", "linux"), txProgram("foo", "bar")).void
 ```
 
 In this case, only the first transaction will be successful. The second one will be discarded. However, we want to eventually succeed most of the time, in which case we can retry a transaction until it succeeds (optimistic locking).
@@ -205,7 +212,7 @@ def retriableTx: IO[Unit] =
     case TransactionDiscarded => retriableTx
   }.uncancelable
 
-IO.race(txProgram("nix", "linux"), retriableTx).void
+IO.race(txProgram("nix", "guix"), retriableTx).void
 ```
 
 The first transaction will be successful, but ultimately, the second transaction will retry and set the values "foo" and "bar".

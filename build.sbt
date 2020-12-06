@@ -4,6 +4,7 @@ import Dependencies._
 import microsites.ExtraMdFileConfig
 
 ThisBuild / crossScalaVersions := Seq("2.12.10", "2.13.2")
+Test / parallelExecution := false
 
 // publishing
 ThisBuild / organization := "dev.profunktor"
@@ -198,6 +199,6 @@ lazy val microsite = project
   .dependsOn(`redis4cats-effects`, `redis4cats-streams`, examples)
 
 // CI build
-addCommandAlias("buildRedis4Cats", ";clean;+test;mdoc;doc")
+addCommandAlias("buildRedis4Cats", ";+test;mdoc;doc")
 addCommandAlias("buildSite", ";doc;makeMicrosite")
 addCommandAlias("publishSite", ";doc;publishMicrosite")

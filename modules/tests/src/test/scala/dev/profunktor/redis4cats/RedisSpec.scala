@@ -39,17 +39,20 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("connection api")(withRedis(connectionScenario))
 
-  test("pipelining".flaky)(withRedis(pipelineScenario))
+  test("pipelining")(withRedis(pipelineScenario))
+
+  test("server")(withRedis(serverScenario))
 
   test("transactions: successful")(withRedis(transactionScenario))
 
-  test("transactions: canceled".flaky)(withRedis(canceledTransactionScenario))
+  test("transactions (double set): successful")(withRedis(transactionDoubleSetScenario))
 
-  test("server")(withRedis(serverScenario))
+  test("transactions: canceled")(withRedis(canceledTransactionScenario))
 
   test("scripts")(withRedis(scriptsScenario))
 
   test("hyperloglog api")(withRedis(hyperloglogScenario))
+
 }
 
 object LongCodec extends JRedisCodec[String, Long] with ToByteBufEncoder[String, Long] {

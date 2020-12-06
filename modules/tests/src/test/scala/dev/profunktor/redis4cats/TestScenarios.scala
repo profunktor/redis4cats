@@ -394,23 +394,44 @@ trait TestScenarios { self: FunSuite =>
 
   }
 
+  // With the current implementation (see `Runner#getTxDelay`), we cannot guarantee the commands
+  // are executed in order with the async API but only that the execution is either successful or failed.
   def transactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
-    val key1 = "test1"
-    val key2 = "test2"
+    val key1 = "txtest1"
+    val val1 = "osx"
+    val key2 = "txtest2"
+    val val2 = "windows"
+    val key3 = "txtest3"
+    val val3 = "linux"
+    val del1 = "deleteme"
 
-    val operations =
-      cmd.set(key1, "osx") :: cmd.set(key2, "windows") :: cmd.get(key1) :: cmd.sIsMember("foo", "bar") ::
-          cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
+    val operations = cmd.set(key1, val1) :: cmd.set(key2, val2) :: cmd.set(key3, val3) :: cmd.del(del1) :: HNil
 
-    RedisTransaction(cmd).exec(operations).map {
-      case _ ~: _ ~: res1 ~: res2 ~: _ ~: _ ~: res3 ~: HNil =>
-        assert(res1.contains("osx"))
-        assert(!res2)
-        assert(res3.contains("nix"))
-      case tr =>
-        fail(s"Unexpected result: $tr")
+    for {
+      _ <- cmd.set(del1, "foo")
+      _ <- RedisTransaction(cmd).exec(operations).void
+      v1 <- cmd.get(key1)
+      v2 <- cmd.get(key2)
+      v3 <- cmd.get(key3)
+      d1 <- cmd.exists(del1)
+    } yield {
+      assertEquals(v1, Some(val1))
+      assertEquals(v2, Some(val2))
+      assertEquals(v3, Some(val3))
+      assert(!d1)
     }
+  }
 
+  // cannot guarantee the order of execution with the async API
+  def transactionDoubleSetScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+    val key = "txtest-double-set"
+
+    val operations = cmd.set(key, "osx") :: cmd.set(key, "nix") :: HNil
+
+    for {
+      _ <- RedisTransaction(cmd).exec(operations).void
+      v <- cmd.get(key)
+    } yield assert(v.contains("osx") || v.contains("nix"))
   }
 
   def canceledTransactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
