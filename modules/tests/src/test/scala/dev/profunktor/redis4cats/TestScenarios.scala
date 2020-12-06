@@ -438,11 +438,11 @@ trait TestScenarios { self: FunSuite =>
     val tx = RedisTransaction(cmd)
 
     val commands =
-      cmd.set(s"tx-1", s"v1") :: cmd.set(s"tx-2", s"v2") :: cmd.set(s"tx-3", s"v3") :: HNil
+      cmd.set("tx-1", "v1") :: cmd.set("tx-2", "v2") :: cmd.set("tx-3", "v3") :: HNil
 
     // Transaction should be canceled
-    IO.race(tx.exec(commands), IO.unit) >>
-      cmd.get("tx-1").map(x => assert(x.isEmpty)) // no keys written
+    IO.race(tx.exec(commands).attempt.void, IO.unit) >>
+      cmd.get("tx-1").map(assertEquals(_, None)) // no keys written
   }
 
   def scriptsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
