@@ -1,0 +1,15 @@
+name-template: 'v$NEXT_PATCH_VERSION'
+tag-template: 'v$NEXT_PATCH_VERSION'
+categories:
+  - title: '🔧 Internal Changes'
+    label: 'internal'
+  - title: '📗 Documentation'
+    label: 'documentation'
+  - title: '🤖 Dependency Updates'
+    label: 'dependency-update'
+exclude-labels:
+  - 'maintenance'
+template: |
+  ## 🚀 Changes
+
+  $CHANGES
