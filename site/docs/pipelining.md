@@ -76,19 +76,25 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
   val getters =
     cmd.get(key1).flatTap(showResult(key1)) >>
         cmd.get(key2).flatTap(showResult(key2)) >>
-        cmd.get(key3).flatTap(showResult(key3)) >>
+        cmd.get(key3).flatTap(showResult(key3))
 
    val operations =
       cmd.set(key1, "osx") :: cmd.get(key3) :: cmd.set(key2, "linux") :: cmd.sIsMember("foo", "bar") :: HNil
 
     val runPipeline =
-      RedisPipeline(cmd).filterExec(operations).map {
-        case res1 ~: res2 ~: HNil =>
-          assertEquals(res1, Some("3"))
-          assert(!res2)
-        case tr =>
-          fail(s"Unexpected result: $tr")
-      }
+      RedisPipeline(cmd)
+        .filterExec(operations)
+        .map {
+          case res1 ~: res2 ~: HNil =>
+            assert(res1.contains("3"))
+            assert(!res2)
+        }
+        .onError {
+          case PipelineError =>
+            putStrLn("[Error] - Pipeline failed")
+          case _: TimeoutException =>
+            putStrLn("[Error] - Timeout")
+        }
 
   val prog =
     for {
@@ -97,8 +103,8 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
       v1 <- cmd.get(key1)
       v2 <- cmd.get(key2)
     } yield {
-      assertEquals(v1, Some("osx"))
-      assertEquals(v2, Some("linux"))
+      assert(v1.contains("osx"))
+      assert(v2.contains("linux"))
     }
 
   getters >> prog >> getters >> putStrLn("keep doing stuff...")

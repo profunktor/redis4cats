@@ -17,6 +17,7 @@
 package dev.profunktor.redis4cats
 
 import java.time.Instant
+import java.util.concurrent.TimeoutException
 
 import cats.data.NonEmptyList
 import cats.effect._
@@ -25,7 +26,7 @@ import dev.profunktor.redis4cats.data.KeyScanCursor
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.hlist._
-import dev.profunktor.redis4cats.pipeline.RedisPipeline
+import dev.profunktor.redis4cats.pipeline.{ PipelineError, RedisPipeline }
 import dev.profunktor.redis4cats.transactions.RedisTransaction
 import io.lettuce.core.GeoArgs
 import munit.FunSuite
@@ -384,13 +385,17 @@ trait TestScenarios { self: FunSuite =>
       cmd.set(key1, "osx") :: cmd.get(key3) :: cmd.set(key2, "linux") :: cmd.sIsMember("foo", "bar") :: HNil
 
     val runPipeline =
-      RedisPipeline(cmd).filterExec(operations).map {
-        case res1 ~: res2 ~: HNil =>
-          assertEquals(res1, Some("3"))
-          assert(!res2)
-        case tr =>
-          fail(s"Unexpected result: $tr")
-      }
+      RedisPipeline(cmd)
+        .filterExec(operations)
+        .map {
+          case res1 ~: res2 ~: HNil =>
+            assertEquals(res1, Some("3"))
+            assert(!res2)
+        }
+        .onError {
+          case PipelineError       => fail("[Error] - Pipeline failed")
+          case _: TimeoutException => fail("[Error] - Timeout")
+        }
 
     for {
       _ <- cmd.set(key3, "3")
