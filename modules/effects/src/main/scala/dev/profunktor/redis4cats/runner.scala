@@ -81,8 +81,8 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Timer] {
         def cancelFibers[A](fibs: HList)(after: F[Unit])(err: Throwable): F[Unit] =
           joinOrCancel(fibs, HNil)(false).void.guarantee(after) >> promise.complete(err.asLeft)
 
-        def onErrorOrCancelation(fibs: HList)(e: Throwable = ops.mkError()): F[Unit] =
-          cancelFibers(fibs)(ops.onError)(e)
+        def onErrorOrCancelation(fibs: HList): F[Unit] =
+          cancelFibers(fibs)(ops.onError)(ops.mkError())
 
         F.debug(s"${ops.name} started - ID: $uuid") >>
           Resource
@@ -90,17 +90,17 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Timer] {
               case (fibs, ExitCase.Completed) =>
                 for {
                   _ <- F.debug(s"${ops.name} completed - ID: $uuid")
-                  _ <- ops.onComplete(onErrorOrCancelation(fibs))
+                  _ <- ops.onComplete(cancelFibers(fibs)(F.unit))
                   tr <- joinOrCancel(fibs, HNil)(true)
                   // Casting here is fine since we have a `Witness` that proves this true
                   _ <- promise.complete(tr.asInstanceOf[w.R].asRight)
                 } yield ()
               case (fibs, ExitCase.Error(e)) =>
                 F.error(s"${ops.name} failed: ${e.getMessage} - ID: $uuid") >>
-                    onErrorOrCancelation(fibs)()
+                    onErrorOrCancelation(fibs)
               case (fibs, ExitCase.Canceled) =>
                 F.error(s"${ops.name} canceled - ID: $uuid") >>
-                    onErrorOrCancelation(fibs)()
+                    onErrorOrCancelation(fibs)
             }
             .use(_ => F.sleep(txDelay).void)
             .guarantee(ops.afterCompletion) >> promise.get.rethrow.timeout(3.seconds)
