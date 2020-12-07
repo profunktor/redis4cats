@@ -456,7 +456,7 @@ trait TestScenarios { self: FunSuite =>
 
     // Transaction should be canceled
     cmd.get(key).flatMap(x => IO(println(s">>>> canceled tx-1 value: $x"))) >>
-      IO.race(tx.exec(commands).attempt.void, IO.sleep(20.millis).void) >>
+      IO.race(tx.exec(commands).attempt.void, IO.unit) >>
       cmd.get(key).map(assertEquals(_, None)) // no keys written
   }
 
