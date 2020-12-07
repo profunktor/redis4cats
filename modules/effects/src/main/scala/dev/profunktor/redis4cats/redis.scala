@@ -614,7 +614,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
 
   override def get(key: K): F[Option[V]] =
     async
-      .flatMap(c => F.delay{ showThread("GET"); c.get(key) })
+      .flatMap(c => blocker.delay{ showThread("GET"); c.get(key) })
       .futureLift
       .map(Option.apply)
 
