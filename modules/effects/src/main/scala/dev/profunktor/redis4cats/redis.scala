@@ -486,11 +486,16 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
         case _                                          => F.unit
       }
 
+  def putStrLn[A](a: => A): F[Unit] = F.delay(println(a))
+
   def discard: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => blocker.delay(c.discard())
-        case _                           => conn.async.flatMap(c => blocker.delay(c.discard()))
+        case c: RedisAsyncCommands[K, V] =>
+          putStrLn("Calling DISCARD") >> blocker
+                .delay(c.discard())
+                .onError { case e => putStrLn(s">>> Error on DISCARD: ${e.getMessage}") } <* putStrLn("After DISCARD")
+        case _ => conn.async.flatMap(c => blocker.delay(c.discard()))
       }
       .futureLift
       .void
