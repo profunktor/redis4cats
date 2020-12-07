@@ -17,8 +17,6 @@ jobs:
 
       - name: "Install Nix ❄️"
         uses: cachix/install-nix-action@v12
-        with:
-          skip_adding_nixpkgs_channel: true
 
       - name: "Install Cachix ❄️"
         uses: cachix/cachix-action@v8

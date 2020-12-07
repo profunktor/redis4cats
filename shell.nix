@@ -7,7 +7,7 @@ let
     packageOverrides = pkgs: rec {
       sbt = pkgs.sbt.overrideAttrs (
         old: rec {
-          version = "1.3.13";
+          version = "1.4.4";
 
           patchPhase = ''
             echo -java-home ${java} >> conf/sbtopts
