@@ -102,9 +102,9 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Timer] {
                     F.error(s"${ops.name} failed: ${e.getMessage} - ID: $uuid") >>
                     ops.onError.guarantee(cancelFibers(fibs)(ops.mkError())).uncancelable
               case (fibs, ExitCase.Canceled) =>
-                putStrLn(s">>> ID: $uuid - ExitCase.Canceled") >>
+                (putStrLn(s">>> ID: $uuid - ExitCase.Canceled - $fibs") >>
                     F.error(s"${ops.name} canceled - ID: $uuid") >>
-                    ops.onError.guarantee(cancelFibers(fibs)(ops.mkError())).uncancelable
+                    ops.onError.guarantee(cancelFibers(fibs)(ops.mkError()))).uncancelable
             }
             .use(_ => F.sleep(txDelay).void)
             .guarantee(ops.afterCompletion) >> promise.get.rethrow.timeout(3.seconds)
