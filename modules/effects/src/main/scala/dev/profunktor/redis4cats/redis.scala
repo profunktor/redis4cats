@@ -465,10 +465,12 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   /******************************* Transactions API **********************************/
   // When in a cluster, transactions should run against a single node.
 
+  def showThread(name: String): Unit = println(s">>> $name - ${Thread.currentThread().getName()}")
+
   def multi: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => blocker.delay(c.multi())
+        case c: RedisAsyncCommands[K, V] => blocker.delay { showThread("MULTI"); c.multi() }
         case _                           => conn.async.flatMap(c => blocker.delay(c.multi()))
       }
       .futureLift
@@ -493,7 +495,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .flatMap {
         case c: RedisAsyncCommands[K, V] =>
           putStrLn("Calling DISCARD") >> blocker
-                .delay(c.discard())
+                .delay { showThread("DISCARD"); c.discard() }
                 .onError { case e => putStrLn(s">>> Error on DISCARD: ${e.getMessage}") } <* putStrLn("After DISCARD")
         case _ => conn.async.flatMap(c => blocker.delay(c.discard()))
       }
@@ -539,7 +541,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .map(Option.apply)
 
   override def set(key: K, value: V): F[Unit] =
-    async.flatMap(c => blocker.delay(c.set(key, value))).futureLift.void
+    async.flatMap(c => blocker.delay { showThread("SET"); c.set(key, value) }).futureLift.void
 
   override def set(key: K, value: V, setArgs: SetArgs): F[Boolean] = {
     val jSetArgs = new JSetArgs()
@@ -611,7 +613,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
 
   override def get(key: K): F[Option[V]] =
     async
-      .flatMap(c => blocker.delay(c.get(key)))
+      .flatMap(c => blocker.delay{ showThread("GET"); c.get(key) })
       .futureLift
       .map(Option.apply)
 
