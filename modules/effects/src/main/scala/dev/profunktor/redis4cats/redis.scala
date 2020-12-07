@@ -500,6 +500,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
         case _ => conn.async.flatMap(c => blocker.delay(c.discard()))
       }
       .futureLift
+      .flatTap(s => putStrLn(s">>> DISCARD result: $s"))
       .void
 
   def watch(keys: K*): F[Unit] =
