@@ -465,12 +465,10 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   /******************************* Transactions API **********************************/
   // When in a cluster, transactions should run against a single node.
 
-  def showThread(name: String): Unit = println(s">>> $name - ${Thread.currentThread().getName()}")
-
   def multi: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => blocker.delay { showThread("MULTI"); c.multi() }
+        case c: RedisAsyncCommands[K, V] => blocker.delay(c.multi())
         case _                           => conn.async.flatMap(c => blocker.delay(c.multi()))
       }
       .futureLift
@@ -488,19 +486,13 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
         case _                                          => F.unit
       }
 
-  def putStrLn[A](a: => A): F[Unit] = F.delay(println(a))
-
   def discard: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] =>
-          putStrLn("Calling DISCARD") >> blocker
-                .delay { showThread("DISCARD"); c.discard() }
-                .onError { case e => putStrLn(s">>> Error on DISCARD: ${e.getMessage}") } <* putStrLn("After DISCARD")
-        case _ => conn.async.flatMap(c => blocker.delay(c.discard()))
+        case c: RedisAsyncCommands[K, V] => blocker.delay(c.discard())
+        case _                           => conn.async.flatMap(c => blocker.delay(c.discard()))
       }
       .futureLift
-      .flatTap(s => putStrLn(s">>> DISCARD result: $s"))
       .void
 
   def watch(keys: K*): F[Unit] =
@@ -542,7 +534,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       .map(Option.apply)
 
   override def set(key: K, value: V): F[Unit] =
-    async.flatMap(c => blocker.delay { showThread("SET"); c.set(key, value) }).futureLift.void
+    async.flatMap(c => blocker.delay(c.set(key, value))).futureLift.void
 
   override def set(key: K, value: V, setArgs: SetArgs): F[Boolean] = {
     val jSetArgs = new JSetArgs()
@@ -614,7 +606,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
 
   override def get(key: K): F[Option[V]] =
     async
-      .flatMap(c => blocker.delay { showThread("GET"); c.get(key) })
+      .flatMap(c => blocker.delay(c.get(key)))
       .futureLift
       .map(Option.apply)
 

@@ -456,13 +456,13 @@ trait TestScenarios { self: FunSuite =>
     val commands = cmd.set(key1, "v1") :: cmd.set(key2, "v2") :: cmd.set("tx-3", "v3") :: HNil
 
     // We race it with a plain `IO.unit` so the transaction may or may not start at all but the result should be the same
-    val verifyKey1 = cmd.get(key1).flatMap(x => IO(println(s">>>> canceled tx-2 value: $x"))) >>
-          IO.race(tx.exec(commands).attempt.void, IO.unit) >>
+    val verifyKey1 =
+      IO.race(tx.exec(commands).attempt.void, IO.unit) >>
           cmd.get(key1).map(assertEquals(_, None)) // no keys written
 
     // We race it with a sleep to make sure the transaction gets time to start running
-    val verifyKey2 = cmd.get(key2).flatMap(x => IO(println(s">>>> canceled tx-2 value: $x"))) >>
-          IO.race(tx.exec(commands).attempt.void, IO.sleep(20.millis).void) >>
+    val verifyKey2 =
+      IO.race(tx.exec(commands).attempt.void, IO.sleep(20.millis).void) >>
           cmd.get(key2).map(assertEquals(_, None)) // no keys written
 
     verifyKey1 >> verifyKey2
