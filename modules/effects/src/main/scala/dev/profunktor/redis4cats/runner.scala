@@ -100,7 +100,7 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Timer] {
               case (fibs, ExitCase.Error(e)) =>
                 putStrLn(s">>> ID: $uuid - ExitCase.Error: ${e.getMessage}") >>
                     F.error(s"${ops.name} failed: ${e.getMessage} - ID: $uuid") >>
-                    ops.onError.guarantee(cancelFibers(fibs)(F.unit)(ops.mkError()))
+                    cancelFibers(fibs)(ops.onError)(ops.mkError())
               case (fibs, ExitCase.Canceled) =>
                 putStrLn(s">>> ID: $uuid - ExitCase.Canceled - $fibs") >>
                     F.error(s"${ops.name} canceled - ID: $uuid") >>

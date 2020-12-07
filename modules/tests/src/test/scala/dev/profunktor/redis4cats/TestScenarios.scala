@@ -449,15 +449,23 @@ trait TestScenarios { self: FunSuite =>
   }
 
   def canceledTransactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
-    val key = "tx-1"
-    val tx  = RedisTransaction(cmd)
+    val key1 = "tx-1"
+    val key2 = "tx-2"
+    val tx   = RedisTransaction(cmd)
 
-    val commands = cmd.set(key, "v1") :: cmd.set("tx-2", "v2") :: cmd.set("tx-3", "v3") :: HNil
+    val commands = cmd.set(key1, "v1") :: cmd.set(key2, "v2") :: cmd.set("tx-3", "v3") :: HNil
 
-    // Transaction should be canceled
-    cmd.get(key).flatMap(x => IO(println(s">>>> canceled tx-1 value: $x"))) >>
-      IO.race(tx.exec(commands).attempt.void, IO.unit) >>
-      cmd.get(key).map(assertEquals(_, None)) // no keys written
+    // We race it with a plain `IO.unit` so the transaction may or may not start at all but the result should be the same
+    val verifyKey1 = cmd.get(key1).flatMap(x => IO(println(s">>>> canceled tx-2 value: $x"))) >>
+          IO.race(tx.exec(commands).attempt.void, IO.unit) >>
+          cmd.get(key1).map(assertEquals(_, None)) // no keys written
+
+    // We race it with a sleep to make sure the transaction gets time to start running
+    val verifyKey2 = cmd.get(key2).flatMap(x => IO(println(s">>>> canceled tx-2 value: $x"))) >>
+          IO.race(tx.exec(commands).attempt.void, IO.sleep(20.millis).void) >>
+          cmd.get(key2).map(assertEquals(_, None)) // no keys written
+
+    verifyKey1 >> verifyKey2
   }
 
   def scriptsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
