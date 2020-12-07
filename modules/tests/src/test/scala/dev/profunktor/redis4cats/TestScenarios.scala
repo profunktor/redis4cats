@@ -449,14 +449,15 @@ trait TestScenarios { self: FunSuite =>
   }
 
   def canceledTransactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
-    val tx = RedisTransaction(cmd)
+    val key = "tx-1"
+    val tx  = RedisTransaction(cmd)
 
-    val commands =
-      cmd.set("tx-1", "v1") :: IO.sleep(1.second) :: cmd.set("tx-2", "v2") :: cmd.set("tx-3", "v3") :: HNil
+    val commands = cmd.set(key, "v1") :: cmd.set("tx-2", "v2") :: cmd.set("tx-3", "v3") :: HNil
 
     // Transaction should be canceled
-    IO.race(tx.exec(commands).attempt.void, IO.unit) >>
-      cmd.get("tx-1").map(assertEquals(_, None)) // no keys written
+    cmd.get(key).flatMap(x => IO(println(s">>>> canceled tx-1 value: $x"))) >>
+      IO.race(tx.exec(commands).attempt.void, IO.sleep(50.millis).void) >>
+      cmd.get(key).map(assertEquals(_, None)) // no keys written
   }
 
   def scriptsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {

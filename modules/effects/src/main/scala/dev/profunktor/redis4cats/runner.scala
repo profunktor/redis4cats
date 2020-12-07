@@ -75,6 +75,8 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Timer] {
       }
     }
 
+  def putStrLn[A](a: => A): F[Unit] = F.delay(println(a))
+
   def exec[T <: HList, R <: HList](ops: Runner.Ops[F])(commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
     (Deferred[F, Either[Throwable, w.R]], F.delay(UUID.randomUUID), getTxDelay).tupled.flatMap {
       case (promise, uuid, txDelay) =>
@@ -83,20 +85,25 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Timer] {
 
         F.debug(s"${ops.name} started - ID: $uuid") >>
           Resource
-            .makeCase(ops.mainCmd >> runner(commands, HNil)) {
-              case ((fibs: HList), ExitCase.Completed) =>
+            .makeCase((ops.mainCmd >> runner(commands, HNil)).uncancelable) {
+              case (fibs, ExitCase.Completed) =>
                 for {
+                  _ <- putStrLn(s">>> ID: $uuid - ExitCase.Completed")
                   _ <- F.debug(s"${ops.name} completed - ID: $uuid")
                   _ <- ops.onComplete(cancelFibers(fibs))
+                  _ <- putStrLn(s">>> ID: $uuid - after onComplete")
                   tr <- joinOrCancel(fibs, HNil)(true)
                   // Casting here is fine since we have a `Witness` that proves this true
                   _ <- promise.complete(tr.asInstanceOf[w.R].asRight)
+                  _ <- putStrLn(s">>> ID: $uuid - after completing promise")
                 } yield ()
-              case ((fibs: HList), ExitCase.Error(e)) =>
-                F.error(s"${ops.name} failed: ${e.getMessage} - ID: $uuid") >>
+              case (fibs, ExitCase.Error(e)) =>
+                putStrLn(s">>> ID: $uuid - ExitCase.Error: ${e.getMessage}") >>
+                    F.error(s"${ops.name} failed: ${e.getMessage} - ID: $uuid") >>
                     ops.onError.guarantee(cancelFibers(fibs)(ops.mkError()))
-              case ((fibs: HList), ExitCase.Canceled) =>
-                F.error(s"${ops.name} canceled - ID: $uuid") >>
+              case (fibs, ExitCase.Canceled) =>
+                putStrLn(s">>> ID: $uuid - ExitCase.Canceled") >>
+                    F.error(s"${ops.name} canceled - ID: $uuid") >>
                     ops.onError.guarantee(cancelFibers(fibs)(ops.mkError()))
             }
             .use(_ => F.sleep(txDelay).void)
