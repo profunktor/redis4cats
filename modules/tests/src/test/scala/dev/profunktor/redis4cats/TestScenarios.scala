@@ -457,7 +457,7 @@ trait TestScenarios { self: FunSuite =>
     // Transaction should be canceled
     cmd.get(key).flatMap(x => IO(println(s">>>> canceled tx-1 value: $x"))) >>
       IO.race(tx.exec(commands).attempt.void, IO.unit) >>
-      cmd.get(key).map(assertEquals(_, None)) // no keys written
+      IO.sleep(100.millis) >> cmd.get(key).map(assertEquals(_, None)) // no keys written
   }
 
   def scriptsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
