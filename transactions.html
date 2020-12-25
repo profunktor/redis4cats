@@ -8,15 +8,9 @@
 
 <p>These are internals, though. All you need to care about is what commands you want to run as part of a transaction and handle the possible errors and retry logic.</p>
 
-<h5 id="write-only-commands">Write-only commands</h5>
-
-<p>⚠️ Only writing commands such as <code class="language-plaintext highlighter-rouge">set</code>, <code class="language-plaintext highlighter-rouge">hset</code> and <code class="language-plaintext highlighter-rouge">del</code> are supported. Although using <code class="language-plaintext highlighter-rouge">get</code> as part of a transaction would compile, the result will be non-deterministic due to the asynchronous nature of the implementation. ⚠️</p>
-
-<p>In the future, this might be supported but the only way to get it right is either to use the underlying synchronous API or to use a custom <code class="language-plaintext highlighter-rouge">ExecutionContext</code> so we can control the order of execution as well as when a command has been effectively dispatched. Arguably, though, the most common cases for transactional commands and optimistic locking involve <em>only writing</em> for which the existing API should be good enough.</p>
-
 <h5 id="concurrent-transactions">Concurrent transactions</h5>
 
-<p>⚠️ if we want to run transactions concurrently, we need to acquire a connection per transaction (<code class="language-plaintext highlighter-rouge">RedisCommands</code>), as <code class="language-plaintext highlighter-rouge">MULTI</code> can not be called concurrently within the same connection, reason why it is recommended to share the same <code class="language-plaintext highlighter-rouge">RedisClient</code>. ⚠️</p>
+<p>⚠️ in order to run transactions concurrently, you’d need to acquire a connection per transaction (<code class="language-plaintext highlighter-rouge">RedisCommands</code>), as <code class="language-plaintext highlighter-rouge">MULTI</code> can not be called concurrently within the same connection. For such cases, it is recommended to share the same <code class="language-plaintext highlighter-rouge">RedisClient</code>. ⚠️</p>
 
 <h3 id="working-with-transactions">Working with transactions</h3>
 
@@ -45,7 +39,7 @@
 <span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">cmd</span> <span class="k">=&gt;</span> <span class="c1">// RedisCommands[IO, String, String]</span>
   <span class="k">val</span> <span class="nv">tx</span> <span class="k">=</span> <span class="nc">RedisTransaction</span><span class="o">(</span><span class="n">cmd</span><span class="o">)</span>
 
-  <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key3</span><span class="o">,</span> <span class="s">"delete_me"</span><span class="o">)</span>
+  <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"delete_me"</span><span class="o">)</span> <span class="o">&gt;&gt;</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key3</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span>
 
   <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
     <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
@@ -53,15 +47,16 @@
 
   <span class="c1">// the commands type is fully inferred</span>
   <span class="c1">// IO[Unit] :: IO[Option[String]] :: IO[Unit] :: HNil</span>
-  <span class="k">val</span> <span class="nv">commands</span> <span class="k">=</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">del</span><span class="o">(</span><span class="n">key2</span><span class="o">)</span> <span class="o">::</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key3</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">)</span> <span class="o">::</span> <span class="nc">HNil</span>
+  <span class="k">val</span> <span class="nv">commands</span> <span class="k">=</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">del</span><span class="o">(</span><span class="n">key2</span><span class="o">)</span> <span class="o">::</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key3</span><span class="o">)</span> <span class="o">::</span> <span class="nc">HNil</span>
 
   <span class="c1">// the result type is inferred as well</span>
   <span class="c1">// Option[String] :: HNil</span>
   <span class="k">val</span> <span class="nv">prog</span> <span class="k">=</span>
     <span class="nv">tx</span><span class="o">.</span><span class="py">filterExec</span><span class="o">(</span><span class="n">commands</span><span class="o">)</span>
       <span class="o">.</span><span class="py">flatMap</span> <span class="o">{</span>
-        <span class="k">case</span> <span class="n">res</span> <span class="o">~:</span> <span class="nc">HNil</span> <span class="k">=&gt;</span>
-          <span class="nf">putStrLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Key2 result: $res"</span><span class="o">)</span>
+        <span class="k">case</span> <span class="n">res1</span> <span class="o">~:</span> <span class="n">res2</span> <span class="o">~:</span> <span class="nc">HNil</span> <span class="k">=&gt;</span>
+          <span class="nf">putStrLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Key2 result: $res1"</span><span class="o">)</span> <span class="o">&gt;&gt;</span>
+            <span class="nf">putStrLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Key3 result: $res2"</span><span class="o">)</span>
       <span class="o">}</span>
       <span class="o">.</span><span class="py">onError</span> <span class="o">{</span>
         <span class="k">case</span> <span class="nc">TransactionAborted</span> <span class="k">=&gt;</span>
@@ -107,7 +102,7 @@
 <span class="o">}</span>
 </code></pre></div></div>
 
-<p>You should never pass a transactional command: <code class="language-plaintext highlighter-rouge">MULTI</code>, <code class="language-plaintext highlighter-rouge">EXEC</code> or <code class="language-plaintext highlighter-rouge">DISCARD</code>.</p>
+<p>You should never pass a transactional command: <code class="language-plaintext highlighter-rouge">MULTI</code>, <code class="language-plaintext highlighter-rouge">EXEC</code> or <code class="language-plaintext highlighter-rouge">DISCARD</code>. These commands are made available in case you want to handle transactions manually, which you should do <em>at your own risk</em>.</p>
 
 <p>The following example will result in a successful transaction on Redis. Yet, the operation will end up raising the error passed as a command.</p>
 
