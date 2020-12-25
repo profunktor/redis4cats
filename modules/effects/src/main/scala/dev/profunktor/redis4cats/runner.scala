@@ -16,15 +16,17 @@
 
 package dev.profunktor.redis4cats
 
+import java.util.UUID
+
+import scala.concurrent.duration._
+
+import cats.Parallel
 import cats.effect._
-import cats.effect.concurrent.Deferred
+import cats.effect.concurrent.{ Deferred, Ref }
 import cats.effect.implicits._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
-import java.util.UUID
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration._
 
 object Runner {
   type CancelFibers[F[_]] = Throwable => F[Unit]
@@ -38,79 +40,61 @@ object Runner {
       mkError: () => Throwable
   )
 
-  def apply[F[_]: Concurrent: Log: Timer]: RunnerPartiallyApplied[F] =
+  def apply[F[_]: Concurrent: Log: Parallel: Timer]: RunnerPartiallyApplied[F] =
     new RunnerPartiallyApplied[F]
 }
 
-private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Timer] {
+private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel: Timer] {
 
   def filterExec[T <: HList, R <: HList, S <: HList](ops: Runner.Ops[F])(commands: T)(
       implicit w: Witness.Aux[T, R],
       f: Filter.Aux[R, S]
   ): F[S] = exec[T, R](ops)(commands).map(_.filterUnit)
 
-  /**
-    * This is unfortunately the easiest way to get optimistic locking to work in a deterministic way. Details follows.
-    *
-    * Every transactional command is forked, yielding a Fiber that is part of an HList. Modeling the transaction as
-    * a `Resource`, we spawn all the fibers representing the commands and simulate a bit of delay to let the underlying
-    * `ExecutionContext` schedule them before be proceed with the finalizer of the transaction, which always means
-    * calling EXEC in a successful transaction.
-    *
-    * Without this tiny delay, we sometimes get into a race condition where not all the fibers have been scheduled
-    * (meaning they haven't yet reached Redis), and where EXEC reaches the server before all the commands, making
-    * the transaction result successful but not always deterministic.
-    *
-    * The `OptimisticLockSuite` tests the determinism of this implementation.
-    *
-    * A proper way to implement this might be to manage our own `ExecutionContext` so we could tell exactly when all the
-    * fibers have been scheduled, and only then trigger the EXEC command. This would change the API, though, and it is
-    * not as easy as it sounds but we can try and experiment with this in the future, if the time allows it.
-    */
-  private def getTxDelay: F[FiniteDuration] =
-    F.delay {
-      Duration(sys.env.getOrElse("REDIS4CATS_TX_DELAY", "50.millis")) match {
-        case fd: FiniteDuration => fd
-        case x                  => FiniteDuration(x.toMillis, TimeUnit.MILLISECONDS)
-      }
-    }
-
   def exec[T <: HList, R <: HList](ops: Runner.Ops[F])(commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
-    (Deferred[F, Either[Throwable, w.R]], F.delay(UUID.randomUUID), getTxDelay).tupled.flatMap {
-      case (promise, uuid, txDelay) =>
-        def cancelFibers[A](fibs: HList)(after: F[Unit])(err: Throwable): F[Unit] =
-          joinOrCancel(fibs, HNil)(false).void.guarantee(after) >> promise.complete(err.asLeft)
+    (Deferred[F, Either[Throwable, w.R]], F.delay(UUID.randomUUID)).tupled.flatMap {
+      case (promise, uuid) =>
+        def cancelFibers[A](fibs: HList)(err: Throwable): F[Unit] =
+          joinOrCancel(fibs, HNil)(false) >> promise.complete(err.asLeft)
 
         def onErrorOrCancelation(fibs: HList): F[Unit] =
-          cancelFibers(fibs)(ops.onError)(ops.mkError())
+          cancelFibers(fibs)(ops.mkError()).guarantee(ops.onError)
 
-        F.debug(s"${ops.name} started - ID: $uuid") >>
-          Resource
-            .makeCase(ops.mainCmd >> runner(commands, HNil)) {
-              case (fibs, ExitCase.Completed) =>
-                for {
-                  _ <- F.debug(s"${ops.name} completed - ID: $uuid")
-                  _ <- ops.onComplete(cancelFibers(fibs)(F.unit))
-                  tr <- joinOrCancel(fibs, HNil)(true)
-                  // Casting here is fine since we have a `Witness` that proves this true
-                  _ <- promise.complete(tr.asInstanceOf[w.R].asRight)
-                } yield ()
-              case (fibs, ExitCase.Error(e)) =>
-                F.error(s"${ops.name} failed: ${e.getMessage} - ID: $uuid") >>
-                    onErrorOrCancelation(fibs)
-              case (fibs, ExitCase.Canceled) =>
-                F.error(s"${ops.name} canceled - ID: $uuid") >>
-                    onErrorOrCancelation(fibs)
-            }
-            .use(_ => F.sleep(txDelay).void)
-            .guarantee(ops.afterCompletion) >> promise.get.rethrow.timeout(3.seconds)
+        (Deferred[F, Unit], Ref.of[F, Int](0)).tupled
+          .flatMap {
+            case (gate, counter) =>
+              // wait for commands to be scheduled
+              val synchronizer: F[Unit] =
+                counter.modify {
+                  case n if n === (commands.size - 1) => n + 1 -> gate.complete(())
+                  case n                              => n + 1 -> F.unit
+                }.flatten
+
+              F.debug(s"${ops.name} started - ID: $uuid") >>
+                (ops.mainCmd >> runner(synchronizer, commands, HNil))
+                  .bracketCase(_ => gate.get) {
+                    case (fibs, ExitCase.Completed) =>
+                      for {
+                        _ <- F.debug(s"${ops.name} completed - ID: $uuid")
+                        _ <- ops.onComplete(cancelFibers(fibs))
+                        r <- joinOrCancel(fibs, HNil)(true)
+                        // Casting here is fine since we have a `Witness` that proves this true
+                        _ <- promise.complete(r.asInstanceOf[w.R].asRight)
+                      } yield ()
+                    case (fibs, ExitCase.Error(e)) =>
+                      F.error(s"${ops.name} failed: ${e.getMessage} - ID: $uuid") >> onErrorOrCancelation(fibs)
+                    case (fibs, ExitCase.Canceled) =>
+                      F.error(s"${ops.name} canceled - ID: $uuid") >> onErrorOrCancelation(fibs)
+                  }
+                  .guarantee(ops.afterCompletion) >> promise.get.rethrow.timeout(3.seconds)
+          }
     }
 
   // Forks every command in order
-  private def runner[H <: HList, G <: HList](ys: H, res: G): F[HList] =
+  private def runner[H <: HList, G <: HList](f: F[Unit], ys: H, res: G): F[HList] =
     ys match {
       case HNil                           => F.pure(res)
-      case HCons((h: F[_] @unchecked), t) => h.start.flatMap(fb => runner(t, fb :: res))
+      case HCons((h: F[_] @unchecked), t) => (h, f).parTupled.map(_._1).start.flatMap(fb => runner(f, t, fb :: res))
     }
 
   // Joins or cancel fibers correspondent to previous executed commands

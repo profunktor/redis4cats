@@ -15,15 +15,9 @@ Note that every command has to be forked (`.start`) because the commands need to
 
 These are internals, though. All you need to care about is what commands you want to run as part of a transaction and handle the possible errors and retry logic.
 
-##### Write-only commands
-
-⚠️ Only writing commands such as `set`, `hset` and `del` are supported. Although using `get` as part of a transaction would compile, the result will be non-deterministic due to the asynchronous nature of the implementation. ⚠️
-
-In the future, this might be supported but the only way to get it right is either to use the underlying synchronous API or to use a custom `ExecutionContext` so we can control the order of execution as well as when a command has been effectively dispatched. Arguably, though, the most common cases for transactional commands and optimistic locking involve *only writing* for which the existing API should be good enough.
-
 ##### Concurrent transactions
 
-⚠️ if we want to run transactions concurrently, we need to acquire a connection per transaction (`RedisCommands`), as `MULTI` can not be called concurrently within the same connection, reason why it is recommended to share the same `RedisClient`. ⚠️
+⚠️ in order to run transactions concurrently, you'd need to acquire a connection per transaction (`RedisCommands`), as `MULTI` can not be called concurrently within the same connection. For such cases, it is recommended to share the same `RedisClient`. ⚠️
 
 ### Working with transactions
 
@@ -74,7 +68,7 @@ val showResult: String => Option[String] => IO[Unit] = key =>
 commandsApi.use { cmd => // RedisCommands[IO, String, String]
   val tx = RedisTransaction(cmd)
 
-  val setters = cmd.set(key3, "delete_me")
+  val setters = cmd.set(key2, "delete_me") >> cmd.set(key3, "foo")
 
   val getters =
     cmd.get(key1).flatTap(showResult(key1)) >>
@@ -82,15 +76,16 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
 
   // the commands type is fully inferred
   // IO[Unit] :: IO[Option[String]] :: IO[Unit] :: HNil
-  val commands = cmd.set(key1, "foo") :: cmd.del(key2) :: cmd.set(key3, "bar") :: HNil
+  val commands = cmd.set(key1, "foo") :: cmd.del(key2) :: cmd.get(key3) :: HNil
 
   // the result type is inferred as well
   // Option[String] :: HNil
   val prog =
     tx.filterExec(commands)
       .flatMap {
-        case res ~: HNil =>
-          putStrLn(s"Key2 result: $res")
+        case res1 ~: res2 ~: HNil =>
+          putStrLn(s"Key2 result: $res1") >>
+            putStrLn(s"Key3 result: $res2")
       }
       .onError {
         case TransactionAborted =>
@@ -135,7 +130,7 @@ commandsApi.use { cmd =>
 }
 ```
 
-You should never pass a transactional command: `MULTI`, `EXEC` or `DISCARD`.
+You should never pass a transactional command: `MULTI`, `EXEC` or `DISCARD`. These commands are made available in case you want to handle transactions manually, which you should do *at your own risk*.
 
 The following example will result in a successful transaction on Redis. Yet, the operation will end up raising the error passed as a command.
 

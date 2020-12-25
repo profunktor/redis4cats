@@ -37,6 +37,15 @@ object hlist {
         }
       go(this, HNil)
     }
+
+    def size: Int = {
+      def go(ys: HList, acc: Int): Int =
+        ys match {
+          case HNil        => acc
+          case HCons(_, t) => go(t, acc + 1)
+        }
+      go(this, 0)
+    }
   }
 
   final case class HCons[+H, +Tail <: HList](head: H, tail: Tail) extends HList

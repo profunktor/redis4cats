@@ -61,10 +61,12 @@ class HListSpec extends FunSuite {
   test("Conversion from standard list") {
     val lt = List("a", "b", "c")
     val hl = "a" :: "b" :: "c" :: HNil
-    assert(hl == HList.fromList(lt))
+    assertEquals[HList, HList](hl, HList.fromList(lt))
+    assertEquals(hl.size, lt.size)
 
     val el = List.empty[Int]
-    assert(HNil == HList.fromList(el))
+    assertEquals[HList, HList](HNil, HList.fromList(el))
+    assertEquals(HNil.size, el.size)
   }
 
 }
