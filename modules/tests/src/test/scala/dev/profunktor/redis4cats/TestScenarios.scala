@@ -197,7 +197,7 @@ trait TestScenarios { self: FunSuite =>
     val key2 = "key2"
     for {
       x <- cmd.get(key1)
-      _ <- IO(assert(x.isEmpty))
+      _ <- IO(assertEquals(x, None))
       exist1 <- cmd.exists(key1)
       _ <- IO(assert(!exist1))
       idletime1 <- cmd.objectIdletime(key1)
@@ -408,8 +408,6 @@ trait TestScenarios { self: FunSuite =>
     }
   }
 
-  // With the current implementation (see `Runner#getTxDelay`), we cannot guarantee the commands
-  // are executed in order with the async API but only that the execution is either successful or failed.
   def transactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key1 = "txtest1"
     val val1 = "osx"
@@ -419,24 +417,25 @@ trait TestScenarios { self: FunSuite =>
     val val3 = "linux"
     val del1 = "deleteme"
 
-    val operations = cmd.set(key1, val1) :: cmd.set(key2, val2) :: cmd.set(key3, val3) :: cmd.del(del1) :: HNil
+    val operations = cmd.set(key2, val2) :: cmd.get(key1) :: cmd.set(key3, val3) :: cmd.del(del1) :: HNil
 
-    for {
-      _ <- cmd.set(del1, "foo")
-      _ <- RedisTransaction(cmd).exec(operations).void
-      v1 <- cmd.get(key1)
-      v2 <- cmd.get(key2)
-      v3 <- cmd.get(key3)
-      d1 <- cmd.exists(del1)
-    } yield {
-      assertEquals(v1, Some(val1))
-      assertEquals(v2, Some(val2))
-      assertEquals(v3, Some(val3))
-      assert(!d1)
-    }
+    cmd.set(del1, "foo") >> cmd.set(key1, val1) >>
+      RedisTransaction(cmd)
+        .filterExec(operations)
+        .map {
+          case res1 ~: res2 ~: HNil =>
+            assertEquals(res1, Some(val1))
+            assertEquals(res2, 1L)
+        }
+        .flatMap { _ =>
+          (cmd.get(key2), cmd.get(key3)).mapN {
+            case (x, y) =>
+              assertEquals(x, Some(val2))
+              assertEquals(y, Some(val3))
+          }
+        }
   }
 
-  // cannot guarantee the order of execution with the async API
   def transactionDoubleSetScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val key = "txtest-double-set"
 
@@ -456,16 +455,7 @@ trait TestScenarios { self: FunSuite =>
     val commands = cmd.set(key1, "v1") :: cmd.set(key2, "v2") :: cmd.set("tx-3", "v3") :: HNil
 
     // We race it with a plain `IO.unit` so the transaction may or may not start at all but the result should be the same
-    val verifyKey1 =
-      IO.race(tx.exec(commands).attempt.void, IO.unit) >>
-          cmd.get(key1).map(assertEquals(_, None)) // no keys written
-
-    // We race it with a sleep to make sure the transaction gets time to start running
-    val verifyKey2 =
-      IO.race(tx.exec(commands).attempt.void, IO.sleep(20.millis).void) >>
-          cmd.get(key2).map(assertEquals(_, None)) // no keys written
-
-    verifyKey1 >> verifyKey2
+    IO.race(tx.exec(commands), IO.unit) >> cmd.get(key1).map(assertEquals(_, None)) // no keys written
   }
 
   def scriptsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
