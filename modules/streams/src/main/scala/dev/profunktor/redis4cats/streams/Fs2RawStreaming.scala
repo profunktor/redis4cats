@@ -23,9 +23,8 @@ import dev.profunktor.redis4cats.effect.JRFuture
 import dev.profunktor.redis4cats.streams.data._
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
-
 import dev.profunktor.redis4cats.JavaConversions._
-import io.lettuce.core.XAddArgs
+import io.lettuce.core.{ XAddArgs, XReadArgs }
 
 private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
     val client: StatefulRedisConnection[K, V],
@@ -42,7 +41,7 @@ private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
   override def xRead(streams: Set[StreamingOffset[K]]): F[List[XReadMessage[K, V]]] = {
     val offsets = streams.map(s => StreamOffset.from(s.key, s.offset)).toSeq
     JRFuture {
-      F.delay(client.async().xread(offsets: _*))
+      F.delay(client.async().xread(XReadArgs.Builder.block(0), offsets: _*))
     }(blocker).map { list =>
       list.asScala.toList.map { msg =>
         XReadMessage[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap)
