@@ -33,21 +33,23 @@ class Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     blocker: Blocker
 ) extends SubscribeCommands[Stream[F, *], K, V] {
 
-  override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
+  override def subscribe(channels: RedisChannel[K]*): Stream[F, V] =
     Stream
       .eval(
         state.get.flatMap { st =>
-          PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) <*
-            JRFuture(F.delay(subConnection.async().subscribe(channel.underlying)))(blocker)
+          PubSubInternals[F, K, V](state, subConnection).apply(channels)(st) <*
+            JRFuture(F.delay(subConnection.async().subscribe(channels.map(_.underlying): _*)))(blocker)
         }
       )
       .flatMap(_.subscribe(500).unNone)
 
-  override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
+  override def unsubscribe(channels: RedisChannel[K]*): Stream[F, Unit] =
     Stream.eval {
-      JRFuture(F.delay(subConnection.async().unsubscribe(channel.underlying)))(blocker).void
+      JRFuture(F.delay(subConnection.async().unsubscribe(channels.map(_.underlying): _*)))(blocker).void
         .guarantee(state.get.flatMap { st =>
-          st.get(channel.underlying).fold(().pure)(_.publish1(none[V])) *> state.update(_ - channel.underlying)
+          st.get(channels.head.underlying).fold(().pure)(_.publish1(none[V])) *> state.update(
+            _ -- channels.map(_.underlying)
+          )
         })
     }
 

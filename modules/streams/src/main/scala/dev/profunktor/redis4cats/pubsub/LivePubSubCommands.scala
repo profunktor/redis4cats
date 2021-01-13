@@ -38,16 +38,16 @@ class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     new Subscriber[F, K, V](state, subConnection, blocker)
   private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection, blocker)
 
-  override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
-    subCommands.subscribe(channel)
+  override def subscribe(channels: RedisChannel[K]*): Stream[F, V] =
+    subCommands.subscribe(channels: _*)
 
-  override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
-    subCommands.unsubscribe(channel)
+  override def unsubscribe(channels: RedisChannel[K]*): Stream[F, Unit] =
+    subCommands.unsubscribe(channels: _*)
 
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
     _.evalMap { message =>
       state.get.flatMap { st =>
-        PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) *>
+        PubSubInternals[F, K, V](state, subConnection).apply(Seq(channel))(st) *>
           JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message)))(blocker)
       }.void
     }

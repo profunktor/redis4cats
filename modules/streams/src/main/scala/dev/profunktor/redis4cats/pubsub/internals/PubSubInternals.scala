@@ -20,7 +20,6 @@ import cats.effect.ConcurrentEffect
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
 import cats.syntax.all._
-import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.effect.Log
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnection }
@@ -28,14 +27,11 @@ import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnecti
 object PubSubInternals {
 
   private[redis4cats] def defaultListener[F[_]: ConcurrentEffect, K, V](
-      channel: RedisChannel[K],
       topic: Topic[F, Option[V]]
   ): RedisPubSubListener[K, V] =
     new RedisPubSubListener[K, V] {
       override def message(ch: K, msg: V): Unit =
-        if (ch == channel.underlying) {
-          topic.publish1(Option(msg)).toIO.unsafeRunAsync(_ => ())
-        }
+        topic.publish1(Option(msg)).toIO.unsafeRunAsync(_ => ())
       override def message(pattern: K, channel: K, message: V): Unit = this.message(channel, message)
       override def psubscribed(pattern: K, count: Long): Unit        = ()
       override def subscribed(channel: K, count: Long): Unit         = ()
@@ -46,14 +42,14 @@ object PubSubInternals {
   private[redis4cats] def apply[F[_]: ConcurrentEffect: Log, K, V](
       state: Ref[F, PubSubState[F, K, V]],
       subConnection: StatefulRedisPubSubConnection[K, V]
-  ): GetOrCreateTopicListener[F, K, V] = { channel => st =>
-    st.get(channel.underlying)
+  ): GetOrCreateTopicListener[F, K, V] = { channels => st =>
+    st.get(channels.head.underlying)
       .fold {
         Topic[F, Option[V]](None).flatTap { topic =>
-          val listener = defaultListener(channel, topic)
-          F.info(s"Creating listener for channel: $channel") *>
+          val listener: RedisPubSubListener[K, V] = defaultListener(topic)
+          F.info(s"Creating listener for channels: ${channels.map(_.underlying).mkString(",")}") *>
             F.delay(subConnection.addListener(listener)) *>
-            state.update(_.updated(channel.underlying, topic))
+            state.update(_.updated(channels.head.underlying, topic))
         }
       }(F.pure)
   }
