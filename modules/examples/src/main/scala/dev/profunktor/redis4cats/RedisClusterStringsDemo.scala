@@ -31,7 +31,7 @@ object RedisClusterStringsDemo extends LoggerIOApp {
       _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
     val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
-      Redis[IO].clusterUtf8(redisClusterURI)
+      Redis[IO].clusterUtf8(redisClusterURI)()
 
     commandsApi
       .use { cmd =>

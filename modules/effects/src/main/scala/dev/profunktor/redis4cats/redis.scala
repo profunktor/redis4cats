@@ -39,6 +39,7 @@ import io.lettuce.core.{
   ZStoreArgs,
   Limit => JLimit,
   Range => JRange,
+  ReadFrom => JReadFrom,
   SetArgs => JSetArgs
 }
 import io.lettuce.core.api.async.RedisAsyncCommands
@@ -69,12 +70,14 @@ object Redis {
   private[redis4cats] def acquireAndReleaseCluster[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
+      readFrom: Option[JReadFrom],
       blocker: Blocker
   ): (F[RedisCluster[F, K, V]], RedisCluster[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture(
         blocker.delay(client.underlying.connectAsync[K, V](codec.underlying))
       )(blocker)
+      .flatTap(c => F.delay(readFrom.foreach(c.setReadFrom)))
       .map(c => new RedisCluster(new RedisStatefulClusterConnection(c, blocker), blocker))
 
     val release: RedisCluster[F, K, V] => F[Unit] = c =>
@@ -86,6 +89,7 @@ object Redis {
   private[redis4cats] def acquireAndReleaseClusterByNode[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
+      readFrom: Option[JReadFrom],
       nodeId: NodeId,
       blocker: Blocker
   ): (F[BaseRedis[F, K, V]], BaseRedis[F, K, V] => F[Unit]) = {
@@ -93,6 +97,7 @@ object Redis {
       .fromCompletableFuture(
         blocker.delay(client.underlying.connectAsync[K, V](codec.underlying))
       )(blocker)
+      .flatTap(c => F.delay(readFrom.foreach(c.setReadFrom)))
       .map { c =>
         new BaseRedis[F, K, V](new RedisStatefulClusterConnection(c, blocker), cluster = true, blocker) {
           override def async: F[RedisClusterAsyncCommands[K, V]] =
@@ -219,11 +224,11 @@ object Redis {
     def cluster[K, V](
         codec: RedisCodec[K, V],
         uris: String*
-    ): Resource[F, RedisCommands[F, K, V]] =
+    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
       for {
         redisUris <- Resource.liftF(uris.toList.traverse(RedisURI.make[F](_)))
         client <- RedisClusterClient[F](redisUris: _*)
-        redis <- this.fromClusterClient[K, V](client, codec)
+        redis <- this.fromClusterClient[K, V](client, codec)(readFrom)
       } yield redis
 
     /**
@@ -245,8 +250,8 @@ object Redis {
       * Note: if you need to create multiple connections, use either [[fromClusterClient]]
       * or [[fromClusterClientByNode]] instead, which allows you to re-use the same client.
       */
-    def clusterUtf8(uris: String*): Resource[F, RedisCommands[F, String, String]] =
-      cluster(RedisCodec.Utf8, uris: _*)
+    def clusterUtf8(uris: String*)(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, String, String]] =
+      cluster(RedisCodec.Utf8, uris: _*)(readFrom)
 
     /**
       * Creates a [[RedisCommands]] for a cluster connection
@@ -271,9 +276,9 @@ object Redis {
     def fromClusterClient[K, V](
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V]
-    ): Resource[F, RedisCommands[F, K, V]] =
+    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
       mkBlocker[F].flatMap { blocker =>
-        val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, blocker)
+        val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, readFrom, blocker)
         Resource.make(acquire)(release).widen
       }
 
@@ -302,9 +307,9 @@ object Redis {
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V],
         nodeId: NodeId
-    ): Resource[F, RedisCommands[F, K, V]] =
+    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
       mkBlocker[F].flatMap { blocker =>
-        val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, nodeId, blocker)
+        val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, readFrom, nodeId, blocker)
         Resource.make(acquire)(release).widen
       }
 

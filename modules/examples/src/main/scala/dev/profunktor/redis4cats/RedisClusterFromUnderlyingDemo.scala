@@ -59,7 +59,7 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
                        client
                      })(client => JRFuture.fromCompletableFuture(IO(client.shutdownAsync()))(blocker).void)
         client = RedisClusterClient.fromUnderlying(underlying)
-        redis <- Redis[IO].fromClusterClient(client, stringCodec)
+        redis <- Redis[IO].fromClusterClient(client, stringCodec)()
       } yield redis
 
     commandsApi

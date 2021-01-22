@@ -36,7 +36,7 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
       for {
         uri <- Resource.liftF(RedisURI.make[IO](redisClusterURI))
         client <- RedisClusterClient[IO](uri)
-        redis <- Redis[IO].fromClusterClient(client, stringCodec)
+        redis <- Redis[IO].fromClusterClient(client, stringCodec)()
       } yield client -> redis
 
     commandsApi
@@ -46,7 +46,7 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
             for {
               _ <- Resource.liftF(cmd.set(key1, "empty"))
               nodeId <- Resource.liftF(RedisClusterClient.nodeId[IO](client, key1))
-              nodeCmd <- Redis[IO].fromClusterClientByNode(client, stringCodec, nodeId)
+              nodeCmd <- Redis[IO].fromClusterClientByNode(client, stringCodec, nodeId)()
             } yield nodeCmd
 
           // Transactions are only supported on a single node
