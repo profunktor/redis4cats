@@ -9,7 +9,7 @@ pull_request_rules:
     conditions:
       - author=scala-steward
       - "status-success=Build (jdk8)"
-      - "status-success=Build (jdk11)"
+      - "status-success=Build (jdk12)"
     actions:
       merge:
         method: merge

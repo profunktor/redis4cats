@@ -15,7 +15,7 @@ jobs:
       matrix:
         java:
           - jdk8
-          - jdk11
+          - jdk12
     steps:
       - uses: actions/checkout@v2.3.2
 

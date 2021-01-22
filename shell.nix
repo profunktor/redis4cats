@@ -1,4 +1,4 @@
-{ jdk ? "jdk11" }:
+{ jdk ? "jdk12" }:
 
 let
   java = pkgs.${jdk};
