@@ -21,9 +21,9 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effect.Log.NoOp._
-import dev.profunktor.redis4cats.streams.{RedisStream, Streaming}
+import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration.Duration
 
 abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
@@ -47,13 +47,12 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
   def withRedis[A](f: RedisCommands[IO, String, String] => IO[A]): Future[Unit] =
     withAbstractRedis[A, String, String](f)(stringCodec)
 
-  def withRedisStream[A](f: Streaming[fs2.Stream[IO, *], String, String] => IO[A]): Future[Unit] = {
+  def withRedisStream[A](f: Streaming[fs2.Stream[IO, *], String, String] => IO[A]): Future[Unit] =
     (for {
       client <- fs2.Stream.resource(RedisClient[IO].from("redis://localhost"))
       streams <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
       results <- fs2.Stream.eval(f(streams))
     } yield results).compile.drain.void.unsafeToFuture()
-  }
 
   private def flushAll(): Future[Unit] =
     if (isCluster) withRedisCluster(_.flushAll)
@@ -71,7 +70,7 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
     for {
       uris <- Resource.liftF(redisUri)
       client <- RedisClusterClient[IO](uris: _*)
-      cluster <- Redis[IO].fromClusterClient(client, codec)
+      cluster <- Redis[IO].fromClusterClient(client, codec)()
     } yield cluster
 
   def withAbstractRedisCluster[A, K, V](
