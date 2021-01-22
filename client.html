@@ -132,14 +132,14 @@
   <span class="k">for</span> <span class="o">{</span>
     <span class="n">uri</span>    <span class="k">&lt;-</span> <span class="nv">Resource</span><span class="o">.</span><span class="py">liftF</span><span class="o">(</span><span class="nv">RedisURI</span><span class="o">.</span><span class="py">make</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span><span class="s">"redis://localhost:30001"</span><span class="o">))</span>
     <span class="n">client</span> <span class="k">&lt;-</span> <span class="nc">RedisClusterClient</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span><span class="n">uri</span><span class="o">)</span>
-    <span class="n">redis</span>  <span class="k">&lt;-</span> <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">fromClusterClient</span><span class="o">(</span><span class="n">client</span><span class="o">,</span> <span class="n">stringCodec</span><span class="o">)</span>
+    <span class="n">redis</span>  <span class="k">&lt;-</span> <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">fromClusterClient</span><span class="o">(</span><span class="n">client</span><span class="o">,</span> <span class="n">stringCodec</span><span class="o">)()</span>
   <span class="o">}</span> <span class="k">yield</span> <span class="n">redis</span>
 </code></pre></div></div>
 
 <p>You can also make it simple if you don’t need to re-use the client.</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">val</span> <span class="nv">clusterUtf8Api</span><span class="k">:</span> <span class="kt">Resource</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">StringCommands</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">String</span>, <span class="kt">String</span><span class="o">]]</span> <span class="k">=</span>
-  <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">clusterUtf8</span><span class="o">(</span><span class="s">"redis://localhost:30001"</span><span class="o">)</span>
+  <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">clusterUtf8</span><span class="o">(</span><span class="s">"redis://localhost:30001"</span><span class="o">)()</span>
 </code></pre></div></div>
 
 <h2 id="master--replica-connection">Master / Replica connection</h2>
