@@ -148,7 +148,7 @@ val clusterApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost:30001"))
     client <- RedisClusterClient[IO](uri)
-    redis  <- Redis[IO].fromClusterClient(client, stringCodec)
+    redis  <- Redis[IO].fromClusterClient(client, stringCodec)()
   } yield redis
 ```
 
@@ -156,7 +156,7 @@ You can also make it simple if you don't need to re-use the client.
 
 ```scala mdoc:silent
 val clusterUtf8Api: Resource[IO, StringCommands[IO, String, String]] =
-  Redis[IO].clusterUtf8("redis://localhost:30001")
+  Redis[IO].clusterUtf8("redis://localhost:30001")()
 ```
 
 ## Master / Replica connection
