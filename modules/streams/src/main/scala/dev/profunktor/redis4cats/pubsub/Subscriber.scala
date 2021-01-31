@@ -36,21 +36,35 @@ class Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
   override def subscribe(channels: RedisChannel[K]*): Stream[F, V] =
     Stream
       .eval(
-        state.get.flatMap { st =>
-          PubSubInternals[F, K, V](state, subConnection).apply(channels)(st) <*
+        PubSubInternals[F, K, V](state).apply(channels) <*
             JRFuture(F.delay(subConnection.async().subscribe(channels.map(_.underlying): _*)))(blocker)
-        }
       )
       .flatMap(_.subscribe(500).unNone)
 
   override def unsubscribe(channels: RedisChannel[K]*): Stream[F, Unit] =
     Stream.eval {
       JRFuture(F.delay(subConnection.async().unsubscribe(channels.map(_.underlying): _*)))(blocker).void
-        .guarantee(state.get.flatMap { st =>
-          st.get(channels.head.underlying).fold(().pure)(_.publish1(none[V])) *> state.update(
-            _ -- channels.map(_.underlying)
-          )
-        })
+        .guarantee(state.update(_ -- channels.map(_.underlying)))
     }
 
+  private val listener = PubSubInternals.defaultListener(state)
+
+  private def addListener(): F[Subscriber[F, K, V]] = F.delay {
+    subConnection.addListener(listener)
+    this
+  }
+
+  private def removeListener(): F[Unit] = state.get.map { st =>
+    subConnection.async().unsubscribe(st.keys.toVector: _*)
+    subConnection.removeListener(listener)
+  }
+}
+
+object Subscriber {
+  def resource[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
+      state: Ref[F, PubSubState[F, K, V]],
+      conn: StatefulRedisPubSubConnection[K, V],
+      blocker: Blocker
+  ): Resource[F, Subscriber[F, K, V]] =
+    Resource.make(new Subscriber(state, conn, blocker).addListener())(_.removeListener())
 }

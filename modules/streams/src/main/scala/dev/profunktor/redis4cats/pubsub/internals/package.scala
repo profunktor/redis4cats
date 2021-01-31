@@ -22,5 +22,5 @@ import fs2.concurrent.Topic
 package object internals {
   private[pubsub] type PubSubState[F[_], K, V] = Map[K, Topic[F, Option[V]]]
   private[pubsub] type GetOrCreateTopicListener[F[_], K, V] =
-    Seq[RedisChannel[K]] => PubSubState[F, K, V] => F[Topic[F, Option[V]]]
+    Seq[RedisChannel[K]] => F[Topic[F, Option[V]]]
 }

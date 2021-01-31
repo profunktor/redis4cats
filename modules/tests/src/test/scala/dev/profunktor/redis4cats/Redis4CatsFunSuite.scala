@@ -21,6 +21,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effect.Log.NoOp._
+import dev.profunktor.redis4cats.pubsub.{ PubSub, PubSubCommands }
 import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
 
 import scala.concurrent.{ Await, Future }
@@ -52,6 +53,13 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
       client <- fs2.Stream.resource(RedisClient[IO].from("redis://localhost"))
       streams <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
       results <- fs2.Stream.eval(f(streams))
+    } yield results).compile.drain.void.unsafeToFuture()
+
+  def withRedisPubSub[A](f: PubSubCommands[fs2.Stream[IO, *], String, String] => IO[A]): Future[Unit] =
+    (for {
+      client <- fs2.Stream.resource(RedisClient[IO].from("redis://localhost"))
+      pubSub <- fs2.Stream.resource(PubSub.mkPubSubConnection[IO, String, String](client, stringCodec))
+      results <- fs2.Stream.eval(f(pubSub))
     } yield results).compile.drain.void.unsafeToFuture()
 
   private def flushAll(): Future[Unit] =

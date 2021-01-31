@@ -18,24 +18,19 @@ package dev.profunktor.redis4cats
 package pubsub
 
 import cats.effect._
-import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
-import dev.profunktor.redis4cats.pubsub.data.Subscription
-import dev.profunktor.redis4cats.pubsub.internals.{ PubSubInternals, PubSubState }
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
-    state: Ref[F, PubSubState[F, K, V]],
-    subConnection: StatefulRedisPubSubConnection[K, V],
     pubConnection: StatefulRedisPubSubConnection[K, V],
-    blocker: Blocker
+    blocker: Blocker,
+    subCommands: SubscribeCommands[Stream[F, *], K, V]
 ) extends PubSubCommands[Stream[F, *], K, V] {
 
-  private[redis4cats] val subCommands: SubscribeCommands[Stream[F, *], K, V] =
-    new Subscriber[F, K, V](state, subConnection, blocker)
   private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection, blocker)
 
   override def subscribe(channels: RedisChannel[K]*): Stream[F, V] =
@@ -45,12 +40,7 @@ class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     subCommands.unsubscribe(channels: _*)
 
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
-    _.evalMap { message =>
-      state.get.flatMap { st =>
-        PubSubInternals[F, K, V](state, subConnection).apply(Seq(channel))(st) *>
-          JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message)))(blocker)
-      }.void
-    }
+    _.evalMap(message => JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message)))(blocker)).void
 
   override def pubSubChannels: Stream[F, List[K]] =
     pubSubStats.pubSubChannels

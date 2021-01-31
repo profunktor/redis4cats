@@ -63,7 +63,8 @@ object PubSub {
         state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         sConn <- Resource.make(acquire)(release)
         pConn <- Resource.make(acquire)(release)
-      } yield new LivePubSubCommands[F, K, V](state, sConn, pConn, blocker)
+        sub <- Subscriber.resource(state, sConn, blocker)
+      } yield new LivePubSubCommands[F, K, V](pConn, blocker, sub)
     }
 
   /**
@@ -94,7 +95,8 @@ object PubSub {
       for {
         state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         conn <- Resource.make(acquire)(release)
-      } yield new Subscriber(state, conn, blocker)
+        subscriber <- Subscriber.resource(state, conn, blocker)
+      } yield subscriber
     }
 
 }
