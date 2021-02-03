@@ -72,5 +72,4 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(false) {
         .map(a => assertEquals(a.flatMap(_.toVector).sorted, Vector("one", "two").sorted))
     }
   }
-
 }
