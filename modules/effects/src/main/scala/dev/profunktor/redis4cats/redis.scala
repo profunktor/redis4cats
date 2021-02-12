@@ -550,8 +550,10 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     }
 
     setArgs.ttl.foreach {
-      case SetArg.Ttl.Px(d) => jSetArgs.px(d.toMillis)
-      case SetArg.Ttl.Ex(d) => jSetArgs.ex(d.toSeconds)
+      case SetArg.Ttl.Px(d)   => jSetArgs.px(d.toMillis)
+      case SetArg.Ttl.Ex(d)   => jSetArgs.ex(d.toSeconds)
+      case SetArg.Ttl.Pxat(t) => jSetArgs.pxAt(t)
+      case SetArg.Ttl.Exat(t) => jSetArgs.exAt(t)
     }
 
     async
