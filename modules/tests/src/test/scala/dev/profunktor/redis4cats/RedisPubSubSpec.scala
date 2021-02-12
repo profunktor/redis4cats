@@ -46,7 +46,7 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(false) {
         .Stream("one")
         .through(redis.publish(channelFour))
         .concurrently(fs2.Stream("two", "three").through(redis.publish(channelFive)))
-        .delayBy(100.millis)
+        .delayBy(101.millis)
         .compile
         .drain
 
