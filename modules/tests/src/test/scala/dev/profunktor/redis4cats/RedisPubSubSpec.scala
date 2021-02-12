@@ -44,8 +44,9 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(false) {
       val ch5 = redis.subscribe(channelFive).take(2).compile.toVector
       val publisher = fs2
         .Stream("one")
+        .repeatN(3)
         .through(redis.publish(channelFour))
-        .concurrently(fs2.Stream("two", "three").through(redis.publish(channelFive)))
+        .concurrently(fs2.Stream("two", "three").repeatN(3).through(redis.publish(channelFive)))
         .delayBy(101.millis)
         .compile
         .drain
