@@ -18,8 +18,9 @@ package dev.profunktor.redis4cats
 package pubsub
 
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.Ref
 import cats.effect.implicits._
+import cats.effect.std.Dispatcher
 import cats.syntax.all._
 import dev.profunktor.redis4cats.pubsub.internals.{ PubSubInternals, PubSubState }
 import dev.profunktor.redis4cats.data.RedisChannel
@@ -27,27 +28,28 @@ import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-class Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
+class Subscriber[F[_]: Async: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
-    subConnection: StatefulRedisPubSubConnection[K, V],
-    blocker: Blocker
+    subConnection: StatefulRedisPubSubConnection[K, V]
 ) extends SubscribeCommands[Stream[F, *], K, V] {
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
-    Stream
-      .eval(
-        state.get.flatMap { st =>
-          PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) <*
-            JRFuture(F.delay(subConnection.async().subscribe(channel.underlying)))(blocker)
-        }
-      )
-      .flatMap(_.subscribe(500).unNone)
+    Stream.resource(Dispatcher[F]).flatMap { implicit dispatcher =>
+      Stream
+        .eval(
+          state.get.flatMap { st =>
+            PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) <*
+              JRFuture(F.delay(subConnection.async().subscribe(channel.underlying)))
+          }
+        )
+        .flatMap(_.subscribe(500).unNone)
+    }
 
   override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
     Stream.eval {
-      JRFuture(F.delay(subConnection.async().unsubscribe(channel.underlying)))(blocker).void
+      JRFuture(F.delay(subConnection.async().unsubscribe(channel.underlying))).void
         .guarantee(state.get.flatMap { st =>
-          st.get(channel.underlying).fold(().pure)(_.publish1(none[V])) *> state.update(_ - channel.underlying)
+          st.get(channel.underlying).fold(F.unit)(_.publish1(none[V])) *> state.update(_ - channel.underlying)
         })
     }
 

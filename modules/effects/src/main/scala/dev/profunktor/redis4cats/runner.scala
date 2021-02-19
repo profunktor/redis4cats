@@ -20,9 +20,7 @@ import java.util.UUID
 
 import scala.concurrent.duration._
 
-import cats.Parallel
 import cats.effect._
-import cats.effect.concurrent.{ Deferred, Ref }
 import cats.effect.implicits._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.effect.Log
@@ -40,11 +38,11 @@ object Runner {
       mkError: () => Throwable
   )
 
-  def apply[F[_]: Concurrent: Log: Parallel: Timer]: RunnerPartiallyApplied[F] =
+  def apply[F[_]: Async: Log]: RunnerPartiallyApplied[F] =
     new RunnerPartiallyApplied[F]
 }
 
-private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel: Timer] {
+private[redis4cats] class RunnerPartiallyApplied[F[_]: Async: Log] {
 
   def filterExec[T <: HList, R <: HList, S <: HList](ops: Runner.Ops[F])(commands: T)(
       implicit w: Witness.Aux[T, R],
@@ -55,7 +53,7 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel
     (Deferred[F, Either[Throwable, w.R]], F.delay(UUID.randomUUID)).tupled.flatMap {
       case (promise, uuid) =>
         def cancelFibers[A](fibs: HList)(err: Throwable): F[Unit] =
-          joinOrCancel(fibs, HNil)(false) >> promise.complete(err.asLeft)
+          joinOrCancel(fibs, HNil)(false) >> promise.complete(err.asLeft).void
 
         def onErrorOrCancelation(fibs: HList): F[Unit] =
           cancelFibers(fibs)(ops.mkError()).guarantee(ops.onError)
@@ -66,14 +64,14 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel
               // wait for commands to be scheduled
               val synchronizer: F[Unit] =
                 counter.modify {
-                  case n if n === (commands.size - 1) => n + 1 -> gate.complete(())
+                  case n if n === (commands.size - 1) => n + 1 -> gate.complete(()).void
                   case n                              => n + 1 -> F.unit
                 }.flatten
 
               F.debug(s"${ops.name} started - ID: $uuid") >>
                 (ops.mainCmd >> runner(synchronizer, commands, HNil))
                   .bracketCase(_ => gate.get) {
-                    case (fibs, ExitCase.Completed) =>
+                    case (fibs, Outcome.Succeeded(_)) =>
                       for {
                         _ <- F.debug(s"${ops.name} completed - ID: $uuid")
                         _ <- ops.onComplete(cancelFibers(fibs))
@@ -81,9 +79,9 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel
                         // Casting here is fine since we have a `Witness` that proves this true
                         _ <- promise.complete(r.asInstanceOf[w.R].asRight)
                       } yield ()
-                    case (fibs, ExitCase.Error(e)) =>
+                    case (fibs, Outcome.Errored(e)) =>
                       F.error(s"${ops.name} failed: ${e.getMessage} - ID: $uuid") >> onErrorOrCancelation(fibs)
-                    case (fibs, ExitCase.Canceled) =>
+                    case (fibs, Outcome.Canceled()) =>
                       F.error(s"${ops.name} canceled - ID: $uuid") >> onErrorOrCancelation(fibs)
                   }
                   .guarantee(ops.afterCompletion) >> promise.get.rethrow.timeout(3.seconds)
@@ -101,9 +99,9 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel
   private def joinOrCancel[H <: HList, G <: HList](ys: H, res: G)(isJoin: Boolean): F[HList] =
     ys match {
       case HNil => F.pure(res)
-      case HCons((h: Fiber[F, Any] @unchecked), t) if isJoin =>
+      case HCons((h: Fiber[F, Throwable, Any] @unchecked), t) if isJoin =>
         h.join.flatMap(x => joinOrCancel(t, x :: res)(isJoin))
-      case HCons((h: Fiber[F, Any] @unchecked), t) =>
+      case HCons((h: Fiber[F, Throwable, Any] @unchecked), t) =>
         h.cancel.flatMap(x => joinOrCancel(t, x :: res)(isJoin))
       case HCons(h, t) =>
         F.error(s"Unexpected result: ${h.toString}") >> joinOrCancel(t, res)(isJoin)

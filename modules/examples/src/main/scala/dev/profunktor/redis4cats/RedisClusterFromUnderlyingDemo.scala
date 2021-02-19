@@ -18,14 +18,12 @@ package dev.profunktor.redis4cats
 
 import java.time.Duration
 
-import cats.effect.{ Blocker, IO, Resource }
+import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.connection.{ RedisClusterClient, RedisURI }
 import dev.profunktor.redis4cats.effect.JRFuture
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import io.lettuce.core.TimeoutOptions
 import io.lettuce.core.cluster.{ ClusterClientOptions, RedisClusterClient => JRedisClusterClient }
-
-import scala.concurrent.ExecutionContext
 
 object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
 
@@ -36,8 +34,7 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
 
     val commandsApi =
       for {
-        uri <- Resource.liftF(RedisURI.make[IO](redisClusterURI))
-        blocker = Blocker.liftExecutionContext(ExecutionContext.global)
+        uri <- Resource.eval(RedisURI.make[IO](redisClusterURI))
         underlying <- Resource.make(IO {
                        val timeoutOptions =
                          TimeoutOptions
@@ -57,7 +54,7 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
                        val client = JRedisClusterClient.create(uri.underlying)
                        client.setOptions(clusterOptions)
                        client
-                     })(client => JRFuture.fromCompletableFuture(IO(client.shutdownAsync()))(blocker).void)
+                     })(client => JRFuture.fromCompletableFuture(IO(client.shutdownAsync())).void)
         client = RedisClusterClient.fromUnderlying(underlying)
         redis <- Redis[IO].fromClusterClient(client, stringCodec)()
       } yield redis

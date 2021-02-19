@@ -18,47 +18,43 @@ package dev.profunktor.redis4cats.effect
 
 import java.util.concurrent.CompletableFuture
 
-import cats.effect.{ Blocker, ContextShift, IO }
-import scala.concurrent.ExecutionContext
+import cats.effect.{ IO }
 import munit.FunSuite
+import cats.effect.unsafe.implicits.global
 
 class JRFutureSpec extends FunSuite {
-
-  implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
   val currentThread: IO[String] = IO(Thread.currentThread().getName)
 
   test("it shifts back once the Future is converted") {
-    val ioa =
-      Blocker[IO].use { blocker =>
-        JRFuture.fromCompletableFuture[IO, String] {
-          IO {
-            val jFuture = new CompletableFuture[String]()
-            jFuture.complete("foo")
-            jFuture
-          }
-        }(blocker)
+    val ioa = {
+      JRFuture.fromCompletableFuture[IO, String] {
+        IO {
+          val jFuture = new CompletableFuture[String]()
+          jFuture.complete("foo")
+          jFuture
+        }
       }
+    }
 
     (ioa *> currentThread)
-      .flatMap(t => IO(assert(t.contains("scala-execution-context-global"))))
+      .flatMap(t => IO { println(s"thread: $t"); assert(t.contains("io-compute")) })
       .unsafeToFuture()
   }
 
   test("it shifts back even when the CompletableFuture fails") {
-    val ioa =
-      Blocker[IO].use { blocker =>
-        JRFuture.fromCompletableFuture[IO, String] {
-          IO {
-            val jFuture = new CompletableFuture[String]()
-            jFuture.completeExceptionally(new RuntimeException("Purposely fail"))
-            jFuture
-          }
-        }(blocker)
+    val ioa = {
+      JRFuture.fromCompletableFuture[IO, String] {
+        IO {
+          val jFuture = new CompletableFuture[String]()
+          jFuture.completeExceptionally(new RuntimeException("Purposely fail"))
+          jFuture
+        }
       }
+    }
 
     (ioa.attempt *> currentThread)
-      .flatMap(t => IO(assert(t.contains("scala-execution-context-global"))))
+      .flatMap(t => IO { println(t); assert(t.contains("io-compute")) })
       .unsafeToFuture()
   }
 

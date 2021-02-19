@@ -27,15 +27,14 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 import dev.profunktor.redis4cats.JavaConversions._
 
-class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
-    pubConnection: StatefulRedisPubSubConnection[K, V],
-    blocker: Blocker
+class LivePubSubStats[F[_]: Async, K, V](
+    pubConnection: StatefulRedisPubSubConnection[K, V]
 ) extends PubSubStats[Stream[F, *], K] {
 
   override def pubSubChannels: Stream[F, List[K]] =
     Stream
       .eval {
-        JRFuture(F.delay(pubConnection.async().pubsubChannels()))(blocker)
+        JRFuture(F.delay(pubConnection.async().pubsubChannels()))
       }
       .map(_.asScala.toList)
 
@@ -44,7 +43,7 @@ class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
     Stream.eval {
-      JRFuture(F.delay(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*)))(blocker).flatMap { kv =>
+      JRFuture(F.delay(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*))).flatMap { kv =>
         F.delay(kv.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), n) })
       }
     }

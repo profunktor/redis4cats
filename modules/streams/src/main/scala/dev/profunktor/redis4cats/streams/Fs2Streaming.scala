@@ -18,62 +18,55 @@ package dev.profunktor.redis4cats
 package streams
 
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
-import dev.profunktor.redis4cats.effect.JRFuture._
 import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
 import io.lettuce.core.{ ReadFrom => JReadFrom }
 
 object RedisStream {
 
-  def mkStreamingConnection[F[_]: Concurrent: ContextShift: Log, K, V](
+  def mkStreamingConnection[F[_]: Async: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Stream[F, Streaming[Stream[F, *], K, V]] =
     Stream.resource(mkStreamingConnectionResource(client, codec))
 
-  def mkStreamingConnectionResource[F[_]: Concurrent: ContextShift: Log, K, V](
+  def mkStreamingConnectionResource[F[_]: Async: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, Streaming[Stream[F, *], K, V]] =
-    mkBlocker[F].flatMap { blocker =>
-      val acquire = JRFuture
-        .fromConnectionFuture(F.delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)))(
-          blocker
-        )
-        .map(new RedisRawStreaming(_, blocker))
+  ): Resource[F, Streaming[Stream[F, *], K, V]] = {
+    val acquire = JRFuture
+      .fromConnectionFuture(F.delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)))
+      .map(new RedisRawStreaming(_))
 
-      val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
-        JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync()))(blocker) *>
-            F.info(s"Releasing Streaming connection: ${client.uri.underlying}")
+    val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
+      JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync())) *>
+          F.info(s"Releasing Streaming connection: ${client.uri.underlying}")
 
-      Resource.make(acquire)(release).map(rs => new RedisStream(rs))
-    }
+    Resource.make(acquire)(release).map(rs => new RedisStream(rs))
+  }
 
-  def mkMasterReplicaConnection[F[_]: Concurrent: ContextShift: Log, K, V](
+  def mkMasterReplicaConnection[F[_]: Async: Log, K, V](
       codec: RedisCodec[K, V],
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, *], K, V]] =
     Stream.resource(mkMasterReplicaConnectionResource(codec, uris: _*)(readFrom))
 
-  def mkMasterReplicaConnectionResource[F[_]: Concurrent: ContextShift: Log, K, V](
+  def mkMasterReplicaConnectionResource[F[_]: Async: Log, K, V](
       codec: RedisCodec[K, V],
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Resource[F, Streaming[Stream[F, *], K, V]] =
-    mkBlocker[F].flatMap { blocker =>
-      RedisMasterReplica[F].make(codec, uris: _*)(readFrom).map { conn =>
-        new RedisStream(new RedisRawStreaming(conn.underlying, blocker))
-      }
+    RedisMasterReplica[F].make(codec, uris: _*)(readFrom).map { conn =>
+      new RedisStream(new RedisRawStreaming(conn.underlying))
     }
 
 }
 
-class RedisStream[F[_]: Concurrent, K, V](rawStreaming: RedisRawStreaming[F, K, V])
-    extends Streaming[Stream[F, *], K, V] {
+class RedisStream[F[_]: Async, K, V](rawStreaming: RedisRawStreaming[F, K, V]) extends Streaming[Stream[F, *], K, V] {
 
   private[streams] val nextOffset: K => XReadMessage[K, V] => StreamingOffset[K] =
     key => msg => StreamingOffset.Custom(key, msg.id.value)
@@ -92,7 +85,7 @@ class RedisStream[F[_]: Concurrent, K, V](rawStreaming: RedisRawStreaming[F, K, 
         list <- Stream.eval(rawStreaming.xRead(offsets.values.toSet))
         newOffsets = offsetsByKey(list).collect { case (key, Some(value)) => key -> value }.toList
         _ <- Stream.eval(newOffsets.map { case (k, v) => ref.update(_.updated(k, v)) }.sequence)
-        result <- Stream.fromIterator(list.iterator)
+        result <- Stream.fromIterator(list.iterator, 100)
       } yield result).repeat
     }
   }

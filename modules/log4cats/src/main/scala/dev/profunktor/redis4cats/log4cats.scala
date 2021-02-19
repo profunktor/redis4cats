@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats
 
 import dev.profunktor.redis4cats.effect.Log
-import io.chrisdavenport.log4cats.Logger
+import org.typelevel.log4cats.Logger
 
 object log4cats {
 

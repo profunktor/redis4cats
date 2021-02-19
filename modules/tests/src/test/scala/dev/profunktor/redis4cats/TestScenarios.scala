@@ -35,9 +35,6 @@ import scala.concurrent.duration._
 
 trait TestScenarios { self: FunSuite =>
 
-  implicit def cs: ContextShift[IO]
-  implicit def timer: Timer[IO]
-
   def locationScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val _BuenosAires  = GeoLocation(Longitude(-58.3816), Latitude(-34.6037), "Buenos Aires")
     val _RioDeJaneiro = GeoLocation(Longitude(-43.1729), Latitude(-22.9068), "Rio de Janeiro")

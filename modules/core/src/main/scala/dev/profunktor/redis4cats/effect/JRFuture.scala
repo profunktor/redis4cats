@@ -17,78 +17,57 @@
 package dev.profunktor.redis4cats.effect
 
 import cats.effect._
-import cats.effect.implicits._
 import cats.syntax.all._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
 import java.util.concurrent._
-
-trait RedisBlocker {
-  def ec: Blocker
-}
-
-object RedisBlocker {
-  def apply(blocker: Blocker): RedisBlocker =
-    new RedisBlocker {
-      def ec: Blocker = blocker
-    }
-}
 
 object JRFuture {
 
   private[redis4cats] type JFuture[A] = CompletionStage[A] with Future[A]
 
-  private[redis4cats] def mkBlocker[F[_]: Sync]: Resource[F, Blocker] =
-    Blocker.fromExecutorService(F.delay(Executors.newFixedThreadPool(1)))
-
-  def apply[F[_]: Concurrent: ContextShift, A](
+  def apply[F[_]: Async, A](
       fa: F[RedisFuture[A]]
-  )(blocker: Blocker): F[A] =
-    liftJFuture[F, RedisFuture[A], A](fa)(blocker)
+  ): F[A] =
+    liftJFuture[F, RedisFuture[A], A](fa)
 
-  def fromConnectionFuture[F[_]: Concurrent: ContextShift, A](
+  def fromConnectionFuture[F[_]: Async, A](
       fa: F[ConnectionFuture[A]]
-  )(blocker: Blocker): F[A] =
-    liftJFuture[F, ConnectionFuture[A], A](fa)(blocker)
+  ): F[A] =
+    liftJFuture[F, ConnectionFuture[A], A](fa)
 
-  def fromCompletableFuture[F[_]: Concurrent: ContextShift, A](
+  def fromCompletableFuture[F[_]: Async, A](
       fa: F[CompletableFuture[A]]
-  )(blocker: Blocker): F[A] =
-    liftJFuture[F, CompletableFuture[A], A](fa)(blocker)
+  ): F[A] =
+    liftJFuture[F, CompletableFuture[A], A](fa)
 
-  implicit class FutureLiftOps[F[_]: Concurrent: ContextShift: Log, A](fa: F[RedisFuture[A]]) {
-    def futureLift(implicit rb: RedisBlocker): F[A] =
-      liftJFuture[F, RedisFuture[A], A](fa)(rb.ec).onError {
+  implicit class FutureLiftOps[F[_]: Async: Log, A](fa: F[RedisFuture[A]]) {
+    def futureLift: F[A] =
+      liftJFuture[F, RedisFuture[A], A](fa).onError {
         case e: ExecutionException => F.error(s"${e.getMessage()} - ${Option(e.getCause())}")
       }
   }
 
   private[redis4cats] def liftJFuture[
-      F[_]: Concurrent: ContextShift,
+      F[_]: Async,
       G <: JFuture[A],
       A
-  ](fa: F[G])(blocker: Blocker): F[A] = {
-    val lifted: F[A] = blocker.blockOn {
-      fa.flatMap { f =>
-        blocker.blockOn {
-          F.cancelable { cb =>
-            f.handle[Unit] { (res: A, err: Throwable) =>
-              err match {
-                case null =>
-                  cb(Right(res))
-                case _: CancellationException =>
-                  ()
-                case ex: CompletionException if ex.getCause ne null =>
-                  cb(Left(ex.getCause))
-                case ex =>
-                  cb(Left(ex))
-              }
-            }
-            blocker.delay(f.cancel(true)).void
+  ](fa: F[G]): F[A] =
+    fa.flatMap { f =>
+      F.async { cb =>
+        f.handle[Unit] { (res: A, err: Throwable) =>
+          err match {
+            case null =>
+              cb(Right(res))
+            case _: CancellationException =>
+              ()
+            case ex: CompletionException if ex.getCause ne null =>
+              cb(Left(ex.getCause))
+            case ex =>
+              cb(Left(ex))
           }
         }
+        F.blocking(f.cancel(true)).as(None)
       }
     }
-    lifted.guarantee(F.shift)
-  }
 
 }

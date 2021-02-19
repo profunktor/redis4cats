@@ -25,7 +25,7 @@ import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
 
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration.Duration
-
+import cats.effect.unsafe.implicits.global
 abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
   val flushAllFixture = new Fixture[Unit]("FLUSHALL") {
@@ -68,7 +68,7 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
   private def mkRedisCluster[K, V](codec: RedisCodec[K, V]): Resource[IO, RedisCommands[IO, K, V]] =
     for {
-      uris <- Resource.liftF(redisUri)
+      uris <- Resource.eval(redisUri)
       client <- RedisClusterClient[IO](uris: _*)
       cluster <- Redis[IO].fromClusterClient(client, codec)()
     } yield cluster

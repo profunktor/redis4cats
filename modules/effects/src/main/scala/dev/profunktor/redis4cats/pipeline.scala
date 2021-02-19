@@ -27,7 +27,7 @@ object pipeline {
 
   case object PipelineError extends NoStackTrace
 
-  case class RedisPipeline[F[_]: Concurrent: Log: Parallel: Timer, K, V](
+  case class RedisPipeline[F[_]: Async: Log: Parallel, K, V](
       cmd: RedisCommands[F, K, V]
   ) {
 
