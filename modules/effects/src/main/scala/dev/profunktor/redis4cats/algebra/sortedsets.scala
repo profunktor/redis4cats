@@ -63,6 +63,6 @@ trait SortedSetSetter[F[_], K, V] {
   def zRem(key: K, values: V*): F[Long]
   def zRemRangeByLex(key: K, range: ZRange[V]): F[Long]
   def zRemRangeByRank(key: K, start: Long, stop: Long): F[Long]
-  def zRemRangeByScore(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Long]
+  def zRemRangeByScore[T: Numeric](key: K, range: ZRange[T]): F[Long]
   def zUnionStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Long]
 }
