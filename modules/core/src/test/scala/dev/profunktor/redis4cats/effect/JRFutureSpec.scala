@@ -38,7 +38,7 @@ class JRFutureSpec extends FunSuite {
     }
 
     (ioa *> currentThread)
-      .flatMap(t => IO { println(s"thread: $t"); assert(t.contains("io-compute")) })
+      .flatMap(t => IO(assert(t.contains("io-compute"))))
       .unsafeToFuture()
   }
 
@@ -54,7 +54,7 @@ class JRFutureSpec extends FunSuite {
     }
 
     (ioa.attempt *> currentThread)
-      .flatMap(t => IO { println(t); assert(t.contains("io-compute")) })
+      .flatMap(t => IO(assert(t.contains("io-compute"))))
       .unsafeToFuture()
   }
 
