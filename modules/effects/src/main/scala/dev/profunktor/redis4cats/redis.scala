@@ -1157,7 +1157,7 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   override def zRemRangeByRank(key: K, start: Long, stop: Long): F[Long] =
     async.flatMap(c => F.delay(c.zremrangebyrank(key, start, stop)).evalOn(ec)).futureLift.map(x => Long.box(x))
 
-  override def zRemRangeByScore(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Long] =
+  override def zRemRangeByScore[T: Numeric](key: K, range: ZRange[T]): F[Long] =
     async.flatMap(c => F.delay(c.zremrangebyscore(key, range.asJavaRange)).evalOn(ec)).futureLift.map(x => Long.box(x))
 
   override def zUnionStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Long] = {
