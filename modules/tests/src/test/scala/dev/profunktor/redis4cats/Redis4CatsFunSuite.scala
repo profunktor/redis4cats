@@ -42,7 +42,11 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
   private val stringCodec = RedisCodec.Utf8
 
   def withAbstractRedis[A, K, V](f: RedisCommands[IO, K, V] => IO[A])(codec: RedisCodec[K, V]): Future[Unit] =
-    Redis[IO].simple("redis://localhost", codec).use(f).as(assert(true)).unsafeToFuture()
+    Redis[IO]
+      .simple("redis://localhost", codec)
+      .use(f)
+      .as(assert(true))
+      .unsafeToFuture()
 
   def withRedis[A](f: RedisCommands[IO, String, String] => IO[A]): Future[Unit] =
     withAbstractRedis[A, String, String](f)(stringCodec)

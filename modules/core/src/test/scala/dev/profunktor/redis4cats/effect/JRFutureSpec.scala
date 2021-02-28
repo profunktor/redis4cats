@@ -21,10 +21,14 @@ import java.util.concurrent.CompletableFuture
 import cats.effect.{ IO }
 import munit.FunSuite
 import cats.effect.unsafe.implicits.global
+import scala.concurrent.ExecutionContext
+import java.util.concurrent.Executors
 
 class JRFutureSpec extends FunSuite {
 
   val currentThread: IO[String] = IO(Thread.currentThread().getName)
+
+  def ec = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1)) // TODO: graceful shutdown
 
   test("it shifts back once the Future is converted") {
     val ioa = {
@@ -34,7 +38,7 @@ class JRFutureSpec extends FunSuite {
           jFuture.complete("foo")
           jFuture
         }
-      }
+      }(ec)
     }
 
     (ioa *> currentThread)
@@ -50,7 +54,7 @@ class JRFutureSpec extends FunSuite {
           jFuture.completeExceptionally(new RuntimeException("Purposely fail"))
           jFuture
         }
-      }
+      }(ec)
     }
 
     (ioa.attempt *> currentThread)

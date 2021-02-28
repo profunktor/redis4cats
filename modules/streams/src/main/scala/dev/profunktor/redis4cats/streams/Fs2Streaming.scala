@@ -23,6 +23,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.effect.JRFuture.mkEc
 import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
 import io.lettuce.core.{ ReadFrom => JReadFrom }
@@ -38,13 +39,13 @@ object RedisStream {
   def mkStreamingConnectionResource[F[_]: Async: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, Streaming[Stream[F, *], K, V]] = {
+  ): Resource[F, Streaming[Stream[F, *], K, V]] = mkEc.flatMap { ec =>
     val acquire = JRFuture
-      .fromConnectionFuture(F.delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)))
-      .map(new RedisRawStreaming(_))
+      .fromConnectionFuture(F.delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)))(ec)
+      .map(new RedisRawStreaming(_, ec))
 
     val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
-      JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync())) *>
+      JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync()))(ec) *>
           F.info(s"Releasing Streaming connection: ${client.uri.underlying}")
 
     Resource.make(acquire)(release).map(rs => new RedisStream(rs))
@@ -60,8 +61,10 @@ object RedisStream {
       codec: RedisCodec[K, V],
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Resource[F, Streaming[Stream[F, *], K, V]] =
-    RedisMasterReplica[F].make(codec, uris: _*)(readFrom).map { conn =>
-      new RedisStream(new RedisRawStreaming(conn.underlying))
+    mkEc[F].flatMap { ec =>
+      RedisMasterReplica[F].make(codec, uris: _*)(readFrom).map { conn =>
+        new RedisStream(new RedisRawStreaming(conn.underlying, ec))
+      }
     }
 
 }

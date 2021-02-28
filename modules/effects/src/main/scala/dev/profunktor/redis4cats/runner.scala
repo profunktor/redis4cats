@@ -100,7 +100,7 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Async: Log] {
     ys match {
       case HNil => F.pure(res)
       case HCons((h: Fiber[F, Throwable, Any] @unchecked), t) if isJoin =>
-        h.join.flatMap(x => joinOrCancel(t, x :: res)(isJoin))
+        h.joinWithNever.flatMap(x => joinOrCancel(t, x :: res)(isJoin))
       case HCons((h: Fiber[F, Throwable, Any] @unchecked), t) =>
         h.cancel.flatMap(x => joinOrCancel(t, x :: res)(isJoin))
       case HCons(h, t) =>

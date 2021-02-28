@@ -22,7 +22,9 @@ import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.effect.JRFuture.mkEc
 import io.lettuce.core.{ ClientOptions, RedisClient => JRedisClient, RedisURI => JRedisURI }
+import scala.concurrent.ExecutionContext
 
 sealed abstract case class RedisClient private (underlying: JRedisClient, uri: RedisURI)
 
@@ -31,7 +33,8 @@ object RedisClient {
   private[redis4cats] def acquireAndRelease[F[_]: Async: Log](
       uri: => RedisURI,
       opts: ClientOptions,
-      config: Redis4CatsConfig
+      config: Redis4CatsConfig,
+      ec: ExecutionContext
   ): (F[RedisClient], RedisClient => F[Unit]) = {
     val acquire: F[RedisClient] = F.delay {
       val jClient: JRedisClient = JRedisClient.create(uri.underlying)
@@ -50,7 +53,7 @@ object RedisClient {
                   TimeUnit.NANOSECONDS
                 )
               )
-            )
+            )(ec)
             .void
 
     (acquire, release)
@@ -58,10 +61,11 @@ object RedisClient {
 
   private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Async: Log](
       opts: ClientOptions,
-      config: Redis4CatsConfig
+      config: Redis4CatsConfig,
+      ec: ExecutionContext
   ): F[(F[RedisClient], RedisClient => F[Unit])] =
     F.delay(RedisURI.fromUnderlying(new JRedisURI()))
-      .map(uri => acquireAndRelease(uri, opts, config))
+      .map(uri => acquireAndRelease(uri, opts, config, ec))
 
   class RedisClientPartiallyApplied[F[_]: Async: Log] {
 
@@ -138,8 +142,8 @@ object RedisClient {
         uri: => RedisURI,
         opts: ClientOptions,
         config: Redis4CatsConfig = Redis4CatsConfig()
-    ): Resource[F, RedisClient] = {
-      val (acquire, release) = acquireAndRelease(uri, opts, config)
+    ): Resource[F, RedisClient] = mkEc.flatMap { ec =>
+      val (acquire, release) = acquireAndRelease(uri, opts, config, ec)
       Resource.make(acquire)(release)
     }
   }

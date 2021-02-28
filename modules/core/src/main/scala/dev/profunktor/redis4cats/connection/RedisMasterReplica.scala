@@ -22,8 +22,10 @@ import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.effect.JRFuture.mkEc
 import io.lettuce.core.masterreplica.{ MasterReplica, StatefulRedisMasterReplicaConnection }
 import io.lettuce.core.{ ClientOptions, ReadFrom => JReadFrom }
+import scala.concurrent.ExecutionContext
 
 /**
   * It encapsulates an underlying `MasterReplica` connection
@@ -36,6 +38,7 @@ object RedisMasterReplica {
       client: RedisClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
+      ec: ExecutionContext,
       uris: RedisURI*
   ): (F[RedisMasterReplica[K, V]], RedisMasterReplica[K, V] => F[Unit]) = {
 
@@ -47,7 +50,7 @@ object RedisMasterReplica {
             F.delay {
               MasterReplica.connectAsync[K, V](client.underlying, codec.underlying, uris.map(_.underlying).asJava)
             }
-          )
+          )(ec)
           .map(new RedisMasterReplica(_) {})
 
       readFrom.fold(connection)(rf => connection.flatMap(c => F.delay(c.underlying.setReadFrom(rf)) *> c.pure[F]))
@@ -55,7 +58,7 @@ object RedisMasterReplica {
 
     val release: RedisMasterReplica[K, V] => F[Unit] = connection =>
       F.info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>
-          JRFuture.fromCompletableFuture(F.delay(connection.underlying.closeAsync())).void
+          JRFuture.fromCompletableFuture(F.delay(connection.underlying.closeAsync()))(ec).void
 
     (acquire, release)
   }
@@ -108,14 +111,15 @@ object RedisMasterReplica {
         config: Redis4CatsConfig,
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
-      Resource.eval(RedisClient.acquireAndReleaseWithoutUri[F](opts, config)).flatMap {
-        case (acquireClient, releaseClient) =>
-          Resource.make(acquireClient)(releaseClient).flatMap { client =>
-            val (acquire, release) = acquireAndRelease(client, codec, readFrom, uris: _*)
-            Resource.make(acquire)(release)
-          }
+      mkEc.flatMap { ec =>
+        Resource.eval(RedisClient.acquireAndReleaseWithoutUri[F](opts, config, ec)).flatMap {
+          case (acquireClient, releaseClient) =>
+            Resource.make(acquireClient)(releaseClient).flatMap { client =>
+              val (acquire, release) = acquireAndRelease(client, codec, readFrom, ec, uris: _*)
+              Resource.make(acquire)(release)
+            }
+        }
       }
-
   }
 
   def apply[F[_]: Async: Log]: MasterReplicaPartiallyApplied[F] =

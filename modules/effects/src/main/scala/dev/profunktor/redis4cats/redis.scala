@@ -21,10 +21,11 @@ import java.util.concurrent.TimeUnit
 
 import cats.data.NonEmptyList
 import cats.effect._
+import cats.effect.syntax.all._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisBlocker }
 import dev.profunktor.redis4cats.effect.JRFuture._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.transactions.TransactionDiscarded
@@ -47,18 +48,20 @@ import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 
 import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext
 
 object Redis {
 
   private[redis4cats] def acquireAndRelease[F[_]: Async: Log, K, V](
       client: RedisClient,
-      codec: RedisCodec[K, V]
+      codec: RedisCodec[K, V],
+      ec: ExecutionContext
   ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromConnectionFuture(
-        F.blocking(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
-      )
-      .map(c => new Redis(new RedisStatefulConnection(c)))
+        F.delay(client.underlying.connectAsync(codec.underlying, client.uri.underlying)).evalOn(ec)
+      )(ec)
+      .map(c => new Redis(new RedisStatefulConnection(c, ec), ec))
 
     val release: Redis[F, K, V] => F[Unit] = c =>
       F.info(s"Releasing Commands connection: ${client.uri.underlying}") *> c.conn.close
@@ -69,14 +72,15 @@ object Redis {
   private[redis4cats] def acquireAndReleaseCluster[F[_]: Async: Log, K, V](
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
-      readFrom: Option[JReadFrom]
+      readFrom: Option[JReadFrom],
+      ec: ExecutionContext
   ): (F[RedisCluster[F, K, V]], RedisCluster[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture(
-        F.blocking(client.underlying.connectAsync[K, V](codec.underlying))
-      )
+        F.delay(client.underlying.connectAsync[K, V](codec.underlying)).evalOn(ec)
+      )(ec)
       .flatTap(c => F.delay(readFrom.foreach(c.setReadFrom)))
-      .map(c => new RedisCluster(new RedisStatefulClusterConnection(c)))
+      .map(c => new RedisCluster(new RedisStatefulClusterConnection(c, ec), ec))
 
     val release: RedisCluster[F, K, V] => F[Unit] = c =>
       F.info(s"Releasing cluster Commands connection: ${client.underlying}") *> c.conn.close
@@ -88,15 +92,16 @@ object Redis {
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
-      nodeId: NodeId
+      nodeId: NodeId,
+      ec: ExecutionContext
   ): (F[BaseRedis[F, K, V]], BaseRedis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture(
-        F.blocking(client.underlying.connectAsync[K, V](codec.underlying))
-      )
+        F.delay(client.underlying.connectAsync[K, V](codec.underlying)).evalOn(ec)
+      )(ec)
       .flatTap(c => F.delay(readFrom.foreach(c.setReadFrom)))
       .map { c =>
-        new BaseRedis[F, K, V](new RedisStatefulClusterConnection(c), cluster = true) {
+        new BaseRedis[F, K, V](new RedisStatefulClusterConnection(c, ec), cluster = true, ec) {
           override def async: F[RedisClusterAsyncCommands[K, V]] =
             if (cluster) conn.byNode(nodeId).widen[RedisClusterAsyncCommands[K, V]]
             else conn.async.widen[RedisClusterAsyncCommands[K, V]]
@@ -193,8 +198,8 @@ object Redis {
     def fromClient[K, V](
         client: RedisClient,
         codec: RedisCodec[K, V]
-    ): Resource[F, RedisCommands[F, K, V]] = {
-      val (acquire, release) = acquireAndRelease(client, codec)
+    ): Resource[F, RedisCommands[F, K, V]] = mkEc[F].flatMap { ec =>
+      val (acquire, release) = acquireAndRelease(client, codec, ec)
       Resource.make(acquire)(release).widen
     }
 
@@ -272,8 +277,8 @@ object Redis {
     def fromClusterClient[K, V](
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V]
-    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] = {
-      val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, readFrom)
+    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] = mkEc[F].flatMap { ec =>
+      val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, readFrom, ec)
       Resource.make(acquire)(release).widen
     }
 
@@ -302,8 +307,8 @@ object Redis {
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V],
         nodeId: NodeId
-    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] = {
-      val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, readFrom, nodeId)
+    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] = mkEc[F].flatMap { ec =>
+      val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, readFrom, nodeId, ec)
       Resource.make(acquire)(release).widen
     }
 
@@ -324,9 +329,11 @@ object Redis {
     def masterReplica[K, V](
         conn: RedisMasterReplica[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      Resource.eval {
-        F.delay(new RedisStatefulConnection(conn.underlying))
-          .map(c => new Redis[F, K, V](c))
+      mkEc.flatMap { ec =>
+        Resource.eval {
+          F.delay(new RedisStatefulConnection(conn.underlying, ec))
+            .map(c => new Redis[F, K, V](c, ec))
+        }
       }
 
   }
@@ -337,14 +344,18 @@ object Redis {
 
 private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
     val conn: RedisConnection[F, K, V],
-    val cluster: Boolean
+    val cluster: Boolean,
+    ec: ExecutionContext
 ) extends RedisCommands[F, K, V]
     with RedisConversionOps {
 
   def liftK[G[_]: Async: Log]: RedisCommands[G, K, V] =
-    new BaseRedis[G, K, V](conn.liftK[G], cluster)
+    new BaseRedis[G, K, V](conn.liftK[G], cluster, ec)
 
   import dev.profunktor.redis4cats.JavaConversions._
+
+  // To avoid passing it to every `futureLift`		
+  implicit val redisEc = RedisBlocker(ec)
 
   def async: F[RedisClusterAsyncCommands[K, V]] =
     if (cluster) conn.clusterAsync else conn.async.widen
@@ -354,11 +365,12 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
 
   /******************************* Keys API *************************************/
   def del(key: K*): F[Long] =
-    async.flatMap(c => F.blocking(c.del(key: _*))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.del(key: _*))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def exists(key: K*): F[Boolean] =
     async
-      .flatMap(c => F.blocking(c.exists(key: _*)))
+      .flatMap(c => F.delay(c.exists(key: _*)))
+      .evalOn(ec)
       .futureLift
       .map(x => x == key.size.toLong)
 
@@ -373,9 +385,9 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
       .flatMap { c =>
         expiresIn.unit match {
           case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS =>
-            F.blocking(c.pexpire(key, expiresIn.toMillis))
+            F.delay(c.pexpire(key, expiresIn.toMillis)).evalOn(ec)
           case _ =>
-            F.blocking(c.expire(key, expiresIn.toSeconds))
+            F.delay(c.expire(key, expiresIn.toSeconds)).evalOn(ec)
         }
       }
       .futureLift
@@ -388,13 +400,15 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
     */
   override def expireAt(key: K, at: Instant): F[Boolean] =
     async
-      .flatMap(c => F.blocking(c.pexpireat(key, at.toEpochMilli())))
+      .flatMap(c => F.delay(c.pexpireat(key, at.toEpochMilli())))
+      .evalOn(ec)
       .futureLift
       .map(x => Boolean.box(x))
 
   override def objectIdletime(key: K): F[Option[FiniteDuration]] =
     async
-      .flatMap(c => F.blocking(c.objectIdletime(key)))
+      .flatMap(c => F.delay(c.objectIdletime(key)))
+      .evalOn(ec)
       .futureLift
       .map {
         case null => none[FiniteDuration]
@@ -409,49 +423,57 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
 
   override def ttl(key: K): F[Option[FiniteDuration]] =
     async
-      .flatMap(c => F.blocking(c.ttl(key)))
+      .flatMap(c => F.delay(c.ttl(key)))
+      .evalOn(ec)
       .futureLift
       .map(toFiniteDuration)
 
   override def pttl(key: K): F[Option[FiniteDuration]] =
     async
-      .flatMap(c => F.blocking(c.pttl(key)))
+      .flatMap(c => F.delay(c.pttl(key)))
+      .evalOn(ec)
       .futureLift
       .map(toFiniteDuration)
 
   override def scan: F[KeyScanCursor[K]] =
     async
-      .flatMap(c => F.blocking(c.scan()))
+      .flatMap(c => F.delay(c.scan()))
+      .evalOn(ec)
       .futureLift
       .map(KeyScanCursor[K])
 
   override def scan(cursor: Long): F[KeyScanCursor[K]] =
     async
-      .flatMap(c => F.blocking(c.scan(JScanCursor.of(cursor.toString))))
+      .flatMap(c => F.delay(c.scan(JScanCursor.of(cursor.toString))))
+      .evalOn(ec)
       .futureLift
       .map(KeyScanCursor[K])
 
   override def scan(previous: KeyScanCursor[K]): F[KeyScanCursor[K]] =
     async
-      .flatMap(c => F.blocking(c.scan(previous.underlying)))
+      .flatMap(c => F.delay(c.scan(previous.underlying)))
+      .evalOn(ec)
       .futureLift
       .map(KeyScanCursor[K])
 
   override def scan(scanArgs: ScanArgs): F[KeyScanCursor[K]] =
     async
-      .flatMap(c => F.blocking(c.scan(scanArgs.underlying)))
+      .flatMap(c => F.delay(c.scan(scanArgs.underlying)))
+      .evalOn(ec)
       .futureLift
       .map(KeyScanCursor[K])
 
   override def scan(cursor: Long, scanArgs: ScanArgs): F[KeyScanCursor[K]] =
     async
-      .flatMap(c => F.blocking(c.scan(JScanCursor.of(cursor.toString), scanArgs.underlying)))
+      .flatMap(c => F.delay(c.scan(JScanCursor.of(cursor.toString), scanArgs.underlying)))
+      .evalOn(ec)
       .futureLift
       .map(KeyScanCursor[K])
 
   override def scan(previous: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]] =
     async
-      .flatMap(c => F.blocking(c.scan(previous.underlying, scanArgs.underlying)))
+      .flatMap(c => F.delay(c.scan(previous.underlying, scanArgs.underlying)))
+      .evalOn(ec)
       .futureLift
       .map(KeyScanCursor[K])
 
@@ -461,8 +483,8 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   def multi: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => F.blocking(c.multi())
-        case _                           => conn.async.flatMap(c => F.blocking(c.multi()))
+        case c: RedisAsyncCommands[K, V] => F.delay(c.multi()).evalOn(ec)
+        case _                           => conn.async.flatMap(c => F.delay(c.multi())).evalOn(ec)
       }
       .futureLift
       .void
@@ -470,8 +492,8 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   def exec: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => F.blocking(c.exec())
-        case _                           => conn.async.flatMap(c => F.blocking(c.exec()))
+        case c: RedisAsyncCommands[K, V] => F.delay(c.exec()).evalOn(ec)
+        case _                           => conn.async.flatMap(c => F.delay(c.exec())).evalOn(ec)
       }
       .futureLift
       .flatMap {
@@ -482,8 +504,8 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   def discard: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => F.blocking(c.discard())
-        case _                           => conn.async.flatMap(c => F.blocking(c.discard()))
+        case c: RedisAsyncCommands[K, V] => F.delay(c.discard()).evalOn(ec)
+        case _                           => conn.async.flatMap(c => F.delay(c.discard())).evalOn(ec)
       }
       .futureLift
       .void
@@ -491,8 +513,8 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   def watch(keys: K*): F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => F.blocking(c.watch(keys: _*))
-        case _                           => conn.async.flatMap(c => F.blocking(c.watch(keys: _*)))
+        case c: RedisAsyncCommands[K, V] => F.delay(c.watch(keys: _*)).evalOn(ec)
+        case _                           => conn.async.flatMap(c => F.delay(c.watch(keys: _*))).evalOn(ec)
       }
       .futureLift
       .void
@@ -500,34 +522,35 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   def unwatch: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => F.blocking(c.unwatch())
-        case _                           => conn.async.flatMap(c => F.blocking(c.unwatch()))
+        case c: RedisAsyncCommands[K, V] => F.delay(c.unwatch()).evalOn(ec)
+        case _                           => conn.async.flatMap(c => F.delay(c.unwatch())).evalOn(ec)
       }
       .futureLift
       .void
 
   /******************************* AutoFlush API **********************************/
   override def enableAutoFlush: F[Unit] =
-    (async.flatMap(c => F.blocking(c.setAutoFlushCommands(true))))
+    (async.flatMap(c => F.delay(c.setAutoFlushCommands(true)))).evalOn(ec)
 
   override def disableAutoFlush: F[Unit] =
-    (async.flatMap(c => F.blocking(c.setAutoFlushCommands(false))))
+    (async.flatMap(c => F.delay(c.setAutoFlushCommands(false)))).evalOn(ec)
 
   override def flushCommands: F[Unit] =
-    (async.flatMap(c => F.blocking(c.flushCommands())))
+    (async.flatMap(c => F.delay(c.flushCommands()))).evalOn(ec)
 
   /******************************* Strings API **********************************/
   override def append(key: K, value: V): F[Unit] =
-    async.flatMap(c => F.blocking(c.append(key, value))).futureLift.void
+    async.flatMap(c => F.delay(c.append(key, value))).evalOn(ec).futureLift.void
 
   override def getSet(key: K, value: V): F[Option[V]] =
     async
-      .flatMap(c => F.blocking(c.getset(key, value)))
+      .flatMap(c => F.delay(c.getset(key, value)))
+      .evalOn(ec)
       .futureLift
       .map(Option.apply)
 
   override def set(key: K, value: V): F[Unit] =
-    async.flatMap(c => F.blocking(c.set(key, value))).futureLift.void
+    async.flatMap(c => F.delay(c.set(key, value))).evalOn(ec).futureLift.void
 
   override def set(key: K, value: V, setArgs: SetArgs): F[Boolean] = {
     val jSetArgs = new JSetArgs()
@@ -543,414 +566,467 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
     }
 
     async
-      .flatMap(c => F.blocking(c.set(key, value, jSetArgs)))
+      .flatMap(c => F.delay(c.set(key, value, jSetArgs)))
+      .evalOn(ec)
       .futureLift
       .map(_ == "OK")
   }
 
   override def setNx(key: K, value: V): F[Boolean] =
     async
-      .flatMap(c => F.blocking(c.setnx(key, value)))
+      .flatMap(c => F.delay(c.setnx(key, value)))
+      .evalOn(ec)
       .futureLift
       .map(x => Boolean.box(x))
 
   override def setEx(key: K, value: V, expiresIn: FiniteDuration): F[Unit] = {
     val command = expiresIn.unit match {
       case TimeUnit.MILLISECONDS =>
-        async.flatMap(c => F.blocking(c.psetex(key, expiresIn.toMillis, value)))
+        async.flatMap(c => F.delay(c.psetex(key, expiresIn.toMillis, value))).evalOn(ec)
       case _ =>
-        async.flatMap(c => F.blocking(c.setex(key, expiresIn.toSeconds, value)))
+        async.flatMap(c => F.delay(c.setex(key, expiresIn.toSeconds, value))).evalOn(ec)
     }
     command.futureLift.void
   }
 
   override def setRange(key: K, value: V, offset: Long): F[Unit] =
-    async.flatMap(c => F.blocking(c.setrange(key, offset, value))).futureLift.void
+    async.flatMap(c => F.delay(c.setrange(key, offset, value))).evalOn(ec).futureLift.void
 
   override def decr(key: K)(implicit N: Numeric[V]): F[Long] =
     async
-      .flatMap(c => F.blocking(c.decr(key)))
+      .flatMap(c => F.delay(c.decr(key)))
+      .evalOn(ec)
       .futureLift
       .map(x => Long.box(x))
 
   override def decrBy(key: K, amount: Long)(implicit N: Numeric[V]): F[Long] =
     async
-      .flatMap(c => F.blocking(c.incrby(key, amount)))
+      .flatMap(c => F.delay(c.incrby(key, amount)))
+      .evalOn(ec)
       .futureLift
       .map(x => Long.box(x))
 
   override def incr(key: K)(implicit N: Numeric[V]): F[Long] =
     async
-      .flatMap(c => F.blocking(c.incr(key)))
+      .flatMap(c => F.delay(c.incr(key)))
+      .evalOn(ec)
       .futureLift
       .map(x => Long.box(x))
 
   override def incrBy(key: K, amount: Long)(implicit N: Numeric[V]): F[Long] =
     async
-      .flatMap(c => F.blocking(c.incrby(key, amount)))
+      .flatMap(c => F.delay(c.incrby(key, amount)))
+      .evalOn(ec)
       .futureLift
       .map(x => Long.box(x))
 
   override def incrByFloat(key: K, amount: Double)(implicit N: Numeric[V]): F[Double] =
     async
-      .flatMap(c => F.blocking(c.incrbyfloat(key, amount)))
+      .flatMap(c => F.delay(c.incrbyfloat(key, amount)))
+      .evalOn(ec)
       .futureLift
       .map(x => Double.box(x))
 
   override def get(key: K): F[Option[V]] =
     async
-      .flatMap(c => F.blocking(c.get(key)))
+      .flatMap(c => F.delay(c.get(key)))
+      .evalOn(ec)
       .futureLift
       .map(Option.apply)
 
   override def getBit(key: K, offset: Long): F[Option[Long]] =
     async
-      .flatMap(c => F.blocking(c.getbit(key, offset)))
+      .flatMap(c => F.delay(c.getbit(key, offset)))
+      .evalOn(ec)
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
   override def getRange(key: K, start: Long, end: Long): F[Option[V]] =
     async
-      .flatMap(c => F.blocking(c.getrange(key, start, end)))
+      .flatMap(c => F.delay(c.getrange(key, start, end)))
+      .evalOn(ec)
       .futureLift
       .map(Option.apply)
 
   override def strLen(key: K): F[Option[Long]] =
     async
-      .flatMap(c => F.blocking(c.strlen(key)))
+      .flatMap(c => F.delay(c.strlen(key)))
+      .evalOn(ec)
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
   override def mGet(keys: Set[K]): F[Map[K, V]] =
     async
-      .flatMap(c => F.blocking(c.mget(keys.toSeq: _*)))
+      .flatMap(c => F.delay(c.mget(keys.toSeq: _*)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toList.collect { case kv if kv.hasValue => kv.getKey -> kv.getValue }.toMap)
 
   override def mSet(keyValues: Map[K, V]): F[Unit] =
-    async.flatMap(c => F.blocking(c.mset(keyValues.asJava))).futureLift.void
+    async.flatMap(c => F.delay(c.mset(keyValues.asJava))).evalOn(ec).futureLift.void
 
   override def mSetNx(keyValues: Map[K, V]): F[Boolean] =
     async
-      .flatMap(c => F.blocking(c.msetnx(keyValues.asJava)))
+      .flatMap(c => F.delay(c.msetnx(keyValues.asJava)))
+      .evalOn(ec)
       .futureLift
       .map(x => Boolean.box(x))
 
   override def bitCount(key: K): F[Long] =
     async
-      .flatMap(c => F.blocking(c.bitcount(key)))
+      .flatMap(c => F.delay(c.bitcount(key)))
+      .evalOn(ec)
       .futureLift
       .map(x => Long.box(x))
 
   override def bitCount(key: K, start: Long, end: Long): F[Long] =
     async
-      .flatMap(c => F.blocking(c.bitcount(key, start, end)))
+      .flatMap(c => F.delay(c.bitcount(key, start, end)))
+      .evalOn(ec)
       .futureLift
       .map(x => Long.box(x))
 
   override def bitPos(key: K, state: Boolean): F[Long] =
     async
-      .flatMap(c => F.blocking(c.bitpos(key, state)))
+      .flatMap(c => F.delay(c.bitpos(key, state)))
+      .evalOn(ec)
       .futureLift
       .map(x => Long.box(x))
 
   override def bitPos(key: K, state: Boolean, start: Long): F[Long] =
     async
-      .flatMap(c => F.blocking(c.bitpos(key, state, start)))
+      .flatMap(c => F.delay(c.bitpos(key, state, start)))
+      .evalOn(ec)
       .futureLift
       .map(x => Long.box(x))
 
   override def bitPos(key: K, state: Boolean, start: Long, end: Long): F[Long] =
     async
-      .flatMap(c => F.blocking(c.bitpos(key, state, start, end)))
+      .flatMap(c => F.delay(c.bitpos(key, state, start, end)))
+      .evalOn(ec)
       .futureLift
       .map(x => Long.box(x))
 
   override def bitOpAnd(destination: K, sources: K*): F[Unit] =
-    async.flatMap(c => F.blocking(c.bitopAnd(destination, sources: _*))).futureLift.void
+    async.flatMap(c => F.delay(c.bitopAnd(destination, sources: _*))).evalOn(ec).futureLift.void
 
   override def bitOpNot(destination: K, source: K): F[Unit] =
-    async.flatMap(c => F.blocking(c.bitopNot(destination, source))).futureLift.void
+    async.flatMap(c => F.delay(c.bitopNot(destination, source))).evalOn(ec).futureLift.void
 
   override def bitOpOr(destination: K, sources: K*): F[Unit] =
-    async.flatMap(c => F.blocking(c.bitopOr(destination, sources: _*))).futureLift.void
+    async.flatMap(c => F.delay(c.bitopOr(destination, sources: _*))).evalOn(ec).futureLift.void
 
   override def bitOpXor(destination: K, sources: K*): F[Unit] =
-    async.flatMap(c => F.blocking(c.bitopXor(destination, sources: _*))).futureLift.void
+    async.flatMap(c => F.delay(c.bitopXor(destination, sources: _*))).evalOn(ec).futureLift.void
 
   /******************************* Hashes API **********************************/
   override def hDel(key: K, fields: K*): F[Long] =
-    async.flatMap(c => F.blocking(c.hdel(key, fields: _*))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.hdel(key, fields: _*))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def hExists(key: K, field: K): F[Boolean] =
     async
-      .flatMap(c => F.blocking(c.hexists(key, field)))
+      .flatMap(c => F.delay(c.hexists(key, field)))
+      .evalOn(ec)
       .futureLift
       .map(x => Boolean.box(x))
 
   override def hGet(key: K, field: K): F[Option[V]] =
     async
-      .flatMap(c => F.blocking(c.hget(key, field)))
+      .flatMap(c => F.delay(c.hget(key, field)))
+      .evalOn(ec)
       .futureLift
       .map(Option.apply)
 
   override def hGetAll(key: K): F[Map[K, V]] =
     async
-      .flatMap(c => F.blocking(c.hgetall(key)))
+      .flatMap(c => F.delay(c.hgetall(key)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toMap)
 
   override def hmGet(key: K, fields: K*): F[Map[K, V]] =
     async
-      .flatMap(c => F.blocking(c.hmget(key, fields: _*)))
+      .flatMap(c => F.delay(c.hmget(key, fields: _*)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toList.collect { case kv if kv.hasValue => kv.getKey -> kv.getValue }.toMap)
 
   override def hKeys(key: K): F[List[K]] =
     async
-      .flatMap(c => F.blocking(c.hkeys(key)))
+      .flatMap(c => F.delay(c.hkeys(key)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toList)
 
   override def hVals(key: K): F[List[V]] =
     async
-      .flatMap(c => F.blocking(c.hvals(key)))
+      .flatMap(c => F.delay(c.hvals(key)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toList)
 
   override def hStrLen(key: K, field: K): F[Option[Long]] =
     async
-      .flatMap(c => F.blocking(c.hstrlen(key, field)))
+      .flatMap(c => F.delay(c.hstrlen(key, field)))
+      .evalOn(ec)
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
   override def hLen(key: K): F[Option[Long]] =
     async
-      .flatMap(c => F.blocking(c.hlen(key)))
+      .flatMap(c => F.delay(c.hlen(key)))
+      .evalOn(ec)
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
   override def hSet(key: K, field: K, value: V): F[Boolean] =
-    async.flatMap(c => F.blocking(c.hset(key, field, value))).futureLift.map(x => Boolean.box(x))
+    async.flatMap(c => F.delay(c.hset(key, field, value)).evalOn(ec)).futureLift.map(x => Boolean.box(x))
 
   override def hSetNx(key: K, field: K, value: V): F[Boolean] =
     async
-      .flatMap(c => F.blocking(c.hsetnx(key, field, value)))
+      .flatMap(c => F.delay(c.hsetnx(key, field, value)))
+      .evalOn(ec)
       .futureLift
       .map(x => Boolean.box(x))
 
   override def hmSet(key: K, fieldValues: Map[K, V]): F[Unit] =
-    async.flatMap(c => F.blocking(c.hmset(key, fieldValues.asJava))).futureLift.void
+    async.flatMap(c => F.delay(c.hmset(key, fieldValues.asJava))).evalOn(ec).futureLift.void
 
   override def hIncrBy(key: K, field: K, amount: Long)(implicit N: Numeric[V]): F[Long] =
     async
-      .flatMap(c => F.blocking(c.hincrby(key, field, amount)))
+      .flatMap(c => F.delay(c.hincrby(key, field, amount)))
+      .evalOn(ec)
       .futureLift
       .map(x => Long.box(x))
 
   override def hIncrByFloat(key: K, field: K, amount: Double)(implicit N: Numeric[V]): F[Double] =
     async
-      .flatMap(c => F.blocking(c.hincrbyfloat(key, field, amount)))
+      .flatMap(c => F.delay(c.hincrbyfloat(key, field, amount)))
+      .evalOn(ec)
       .futureLift
       .map(x => Double.box(x))
 
   /******************************* Sets API **********************************/
   override def sIsMember(key: K, value: V): F[Boolean] =
     async
-      .flatMap(c => F.blocking(c.sismember(key, value)))
+      .flatMap(c => F.delay(c.sismember(key, value)))
+      .evalOn(ec)
       .futureLift
       .map(x => Boolean.box(x))
 
   override def sAdd(key: K, values: V*): F[Long] =
-    async.flatMap(c => F.blocking(c.sadd(key, values: _*))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.sadd(key, values: _*))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def sDiffStore(destination: K, keys: K*): F[Long] =
-    async.flatMap(c => F.blocking(c.sdiffstore(destination, keys: _*))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.sdiffstore(destination, keys: _*))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def sInterStore(destination: K, keys: K*): F[Long] =
-    async.flatMap(c => F.blocking(c.sinterstore(destination, keys: _*))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.sinterstore(destination, keys: _*))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def sMove(source: K, destination: K, value: V): F[Boolean] =
-    async.flatMap(c => F.blocking(c.smove(source, destination, value))).futureLift.map(x => Boolean.box(x))
+    async.flatMap(c => F.delay(c.smove(source, destination, value)).evalOn(ec)).futureLift.map(x => Boolean.box(x))
 
   override def sPop(key: K): F[Option[V]] =
     async
-      .flatMap(c => F.blocking(c.spop(key)))
+      .flatMap(c => F.delay(c.spop(key)))
+      .evalOn(ec)
       .futureLift
       .map(Option.apply)
 
   override def sPop(key: K, count: Long): F[Set[V]] =
     async
-      .flatMap(c => F.blocking(c.spop(key, count)))
+      .flatMap(c => F.delay(c.spop(key, count)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toSet)
 
   override def sRem(key: K, values: V*): F[Unit] =
-    async.flatMap(c => F.blocking(c.srem(key, values: _*))).futureLift.void
+    async.flatMap(c => F.delay(c.srem(key, values: _*))).evalOn(ec).futureLift.void
 
   override def sCard(key: K): F[Long] =
     async
-      .flatMap(c => F.blocking(c.scard(key)))
+      .flatMap(c => F.delay(c.scard(key)))
+      .evalOn(ec)
       .futureLift
       .map(x => Long.box(x))
 
   override def sDiff(keys: K*): F[Set[V]] =
     async
-      .flatMap(c => F.blocking(c.sdiff(keys: _*)))
+      .flatMap(c => F.delay(c.sdiff(keys: _*)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toSet)
 
   override def sInter(keys: K*): F[Set[V]] =
     async
-      .flatMap(c => F.blocking(c.sinter(keys: _*)))
+      .flatMap(c => F.delay(c.sinter(keys: _*)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toSet)
 
   override def sMembers(key: K): F[Set[V]] =
     async
-      .flatMap(c => F.blocking(c.smembers(key)))
+      .flatMap(c => F.delay(c.smembers(key)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toSet)
 
   override def sRandMember(key: K): F[Option[V]] =
     async
-      .flatMap(c => F.blocking(c.srandmember(key)))
+      .flatMap(c => F.delay(c.srandmember(key)))
+      .evalOn(ec)
       .futureLift
       .map(Option.apply)
 
   override def sRandMember(key: K, count: Long): F[List[V]] =
     async
-      .flatMap(c => F.blocking(c.srandmember(key, count)))
+      .flatMap(c => F.delay(c.srandmember(key, count)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toList)
 
   override def sUnion(keys: K*): F[Set[V]] =
     async
-      .flatMap(c => F.blocking(c.sunion(keys: _*)))
+      .flatMap(c => F.delay(c.sunion(keys: _*)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toSet)
 
   override def sUnionStore(destination: K, keys: K*): F[Unit] =
-    async.flatMap(c => F.blocking(c.sunionstore(destination, keys: _*))).futureLift.void
+    async.flatMap(c => F.delay(c.sunionstore(destination, keys: _*))).evalOn(ec).futureLift.void
 
   /******************************* Lists API **********************************/
   override def lIndex(key: K, index: Long): F[Option[V]] =
     async
-      .flatMap(c => F.blocking(c.lindex(key, index)))
+      .flatMap(c => F.delay(c.lindex(key, index)))
+      .evalOn(ec)
       .futureLift
       .map(Option.apply)
 
   override def lLen(key: K): F[Option[Long]] =
     async
-      .flatMap(c => F.blocking(c.llen(key)))
+      .flatMap(c => F.delay(c.llen(key)))
+      .evalOn(ec)
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
   override def lRange(key: K, start: Long, stop: Long): F[List[V]] =
     async
-      .flatMap(c => F.blocking(c.lrange(key, start, stop)))
+      .flatMap(c => F.delay(c.lrange(key, start, stop)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toList)
 
   override def blPop(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, V)]] =
     async
-      .flatMap(c => F.blocking(c.blpop(timeout.toSecondsOrZero, keys.toList: _*)))
+      .flatMap(c => F.delay(c.blpop(timeout.toSecondsOrZero, keys.toList: _*)))
+      .evalOn(ec)
       .futureLift
       .map(Option(_).map(kv => kv.getKey -> kv.getValue))
 
   override def brPop(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, V)]] =
     async
-      .flatMap(c => F.blocking(c.brpop(timeout.toSecondsOrZero, keys.toList: _*)))
+      .flatMap(c => F.delay(c.brpop(timeout.toSecondsOrZero, keys.toList: _*)))
+      .evalOn(ec)
       .futureLift
       .map(Option(_).map(kv => kv.getKey -> kv.getValue))
 
   override def brPopLPush(timeout: Duration, source: K, destination: K): F[Option[V]] =
     async
-      .flatMap(c => F.blocking(c.brpoplpush(timeout.toSecondsOrZero, source, destination)))
+      .flatMap(c => F.delay(c.brpoplpush(timeout.toSecondsOrZero, source, destination)))
+      .evalOn(ec)
       .futureLift
       .map(Option.apply)
 
   override def lPop(key: K): F[Option[V]] =
     async
-      .flatMap(c => F.blocking(c.lpop(key)))
+      .flatMap(c => F.delay(c.lpop(key)))
+      .evalOn(ec)
       .futureLift
       .map(Option.apply)
 
   override def lPush(key: K, values: V*): F[Long] =
-    async.flatMap(c => F.blocking(c.lpush(key, values: _*))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.lpush(key, values: _*))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def lPushX(key: K, values: V*): F[Long] =
-    async.flatMap(c => F.blocking(c.lpushx(key, values: _*))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.lpushx(key, values: _*))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def rPop(key: K): F[Option[V]] =
     async
-      .flatMap(c => F.blocking(c.rpop(key)))
+      .flatMap(c => F.delay(c.rpop(key)))
+      .evalOn(ec)
       .futureLift
       .map(Option.apply)
 
   override def rPopLPush(source: K, destination: K): F[Option[V]] =
     async
-      .flatMap(c => F.blocking(c.rpoplpush(source, destination)))
+      .flatMap(c => F.delay(c.rpoplpush(source, destination)))
+      .evalOn(ec)
       .futureLift
       .map(Option.apply)
 
   override def rPush(key: K, values: V*): F[Long] =
-    async.flatMap(c => F.blocking(c.rpush(key, values: _*))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.rpush(key, values: _*))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def rPushX(key: K, values: V*): F[Long] =
-    async.flatMap(c => F.blocking(c.rpushx(key, values: _*))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.rpushx(key, values: _*))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def lInsertAfter(key: K, pivot: V, value: V): F[Long] =
-    async.flatMap(c => F.blocking(c.linsert(key, false, pivot, value))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.linsert(key, false, pivot, value))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def lInsertBefore(key: K, pivot: V, value: V): F[Long] =
-    async.flatMap(c => F.blocking(c.linsert(key, true, pivot, value))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.linsert(key, true, pivot, value))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def lRem(key: K, count: Long, value: V): F[Long] =
-    async.flatMap(c => F.blocking(c.lrem(key, count, value))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.lrem(key, count, value))).evalOn(ec).futureLift.map(x => Long.box(x))
 
   override def lSet(key: K, index: Long, value: V): F[Unit] =
-    async.flatMap(c => F.blocking(c.lset(key, index, value))).futureLift.void
+    async.flatMap(c => F.delay(c.lset(key, index, value))).evalOn(ec).futureLift.void
 
   override def lTrim(key: K, start: Long, stop: Long): F[Unit] =
-    async.flatMap(c => F.blocking(c.ltrim(key, start, stop))).futureLift.void
+    async.flatMap(c => F.delay(c.ltrim(key, start, stop))).evalOn(ec).futureLift.void
 
   /******************************* Geo API **********************************/
   override def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double] =
     async
-      .flatMap(c => F.blocking(c.geodist(key, from, to, unit)))
+      .flatMap(c => F.delay(c.geodist(key, from, to, unit)))
+      .evalOn(ec)
       .futureLift
       .map(x => Double.box(x))
 
   override def geoHash(key: K, values: V*): F[List[Option[String]]] =
     async
-      .flatMap(c => F.blocking(c.geohash(key, values: _*)))
+      .flatMap(c => F.delay(c.geohash(key, values: _*)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toList.map(x => Option(x.getValue)))
 
   override def geoPos(key: K, values: V*): F[List[GeoCoordinate]] =
     async
-      .flatMap(c => F.blocking(c.geopos(key, values: _*)))
+      .flatMap(c => F.delay(c.geopos(key, values: _*)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toList.map(c => GeoCoordinate(c.getX.doubleValue(), c.getY.doubleValue())))
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit): F[Set[V]] =
     async
-      .flatMap(c => F.blocking(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit)))
+      .flatMap(c => F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toSet)
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, args: GeoArgs): F[List[GeoRadiusResult[V]]] =
     async
       .flatMap(c =>
-        F.blocking(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit, args))
+        F.delay(c.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit, args)).evalOn(ec)
       )
       .futureLift
       .map(_.asScala.toList.map(_.asGeoRadiusResult))
 
   override def geoRadiusByMember(key: K, value: V, dist: Distance, unit: GeoArgs.Unit): F[Set[V]] =
     async
-      .flatMap(c => F.blocking(c.georadiusbymember(key, value, dist.value, unit)))
+      .flatMap(c => F.delay(c.georadiusbymember(key, value, dist.value, unit)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toSet)
 
@@ -962,28 +1038,33 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
       args: GeoArgs
   ): F[List[GeoRadiusResult[V]]] =
     async
-      .flatMap(c => F.blocking(c.georadiusbymember(key, value, dist.value, unit, args)))
+      .flatMap(c => F.delay(c.georadiusbymember(key, value, dist.value, unit, args)))
+      .evalOn(ec)
       .futureLift
       .map(_.asScala.toList.map(_.asGeoRadiusResult))
 
   override def geoAdd(key: K, geoValues: GeoLocation[V]*): F[Unit] = {
     val triplets = geoValues.flatMap(g => Seq[Any](g.lon.value, g.lat.value, g.value)).asInstanceOf[Seq[AnyRef]]
-    async.flatMap(c => F.blocking(c.geoadd(key, triplets: _*))).futureLift.void
+    async
+      .flatMap(c => F.delay(c.geoadd(key, triplets: _*)).evalOn(ec))
+      .futureLift
+      .void
   }
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, storage: GeoRadiusKeyStorage[K]): F[Unit] =
     conn.async
       .flatMap { c =>
-        F.blocking {
-          c.georadius(
-            key,
-            geoRadius.lon.value,
-            geoRadius.lat.value,
-            geoRadius.dist.value,
-            unit,
-            storage.asGeoRadiusStoreArgs
-          )
-        }
+        F.delay {
+            c.georadius(
+              key,
+              geoRadius.lon.value,
+              geoRadius.lat.value,
+              geoRadius.dist.value,
+              unit,
+              storage.asGeoRadiusStoreArgs
+            )
+          }
+          .evalOn(ec)
       }
       .futureLift
       .void
@@ -991,16 +1072,17 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, storage: GeoRadiusDistStorage[K]): F[Unit] =
     conn.async
       .flatMap { c =>
-        F.blocking {
-          c.georadius(
-            key,
-            geoRadius.lon.value,
-            geoRadius.lat.value,
-            geoRadius.dist.value,
-            unit,
-            storage.asGeoRadiusStoreArgs
-          )
-        }
+        F.delay {
+            c.georadius(
+              key,
+              geoRadius.lon.value,
+              geoRadius.lat.value,
+              geoRadius.dist.value,
+              unit,
+              storage.asGeoRadiusStoreArgs
+            )
+          }
+          .evalOn(ec)
       }
       .futureLift
       .void
@@ -1013,7 +1095,7 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
       storage: GeoRadiusKeyStorage[K]
   ): F[Unit] =
     async
-      .flatMap(c => F.blocking(c.georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs)))
+      .flatMap(c => F.delay(c.georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs)).evalOn(ec))
       .futureLift
       .void
 
@@ -1025,7 +1107,7 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
       storage: GeoRadiusDistStorage[K]
   ): F[Unit] =
     async
-      .flatMap(c => F.blocking(c.georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs)))
+      .flatMap(c => F.delay(c.georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs)).evalOn(ec))
       .futureLift
       .void
 
@@ -1033,76 +1115,82 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   override def zAdd(key: K, args: Option[ZAddArgs], values: ScoreWithValue[V]*): F[Long] = {
     val res = args match {
       case Some(x) =>
-        async.flatMap(c => F.blocking(c.zadd(key, x, values.map(s => ScoredValue.just(s.score.value, s.value)): _*)))
+        async
+          .flatMap(c => F.delay(c.zadd(key, x, values.map(s => ScoredValue.just(s.score.value, s.value)): _*)))
+          .evalOn(ec)
       case None =>
-        async.flatMap(c => F.blocking(c.zadd(key, values.map(s => ScoredValue.just(s.score.value, s.value)): _*)))
+        async
+          .flatMap(c => F.delay(c.zadd(key, values.map(s => ScoredValue.just(s.score.value, s.value)): _*)))
+          .evalOn(ec)
     }
     res.futureLift.map(x => Long.box(x))
   }
 
   override def zAddIncr(key: K, args: Option[ZAddArgs], member: ScoreWithValue[V]): F[Double] = {
     val res = args match {
-      case Some(x) => async.flatMap(c => F.blocking(c.zaddincr(key, x, member.score.value, member.value)))
-      case None    => async.flatMap(c => F.blocking(c.zaddincr(key, member.score.value, member.value)))
+      case Some(x) => async.flatMap(c => F.delay(c.zaddincr(key, x, member.score.value, member.value)).evalOn(ec))
+      case None    => async.flatMap(c => F.delay(c.zaddincr(key, member.score.value, member.value)).evalOn(ec))
     }
     res.futureLift.map(x => Double.box(x))
   }
 
   override def zIncrBy(key: K, member: V, amount: Double): F[Double] =
-    async.flatMap(c => F.blocking(c.zincrby(key, amount, member))).futureLift.map(x => Double.box(x))
+    async.flatMap(c => F.delay(c.zincrby(key, amount, member)).evalOn(ec)).futureLift.map(x => Double.box(x))
 
   override def zInterStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Long] = {
     val res = args match {
-      case Some(x) => async.flatMap(c => F.blocking(c.zinterstore(destination, x, keys: _*)))
-      case None    => async.flatMap(c => F.blocking(c.zinterstore(destination, keys: _*)))
+      case Some(x) => async.flatMap(c => F.delay(c.zinterstore(destination, x, keys: _*)).evalOn(ec))
+      case None    => async.flatMap(c => F.delay(c.zinterstore(destination, keys: _*)).evalOn(ec))
     }
     res.futureLift.map(x => Long.box(x))
   }
 
   override def zRem(key: K, values: V*): F[Long] =
-    async.flatMap(c => F.blocking(c.zrem(key, values: _*))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.zrem(key, values: _*)).evalOn(ec)).futureLift.map(x => Long.box(x))
 
   override def zRemRangeByLex(key: K, range: ZRange[V]): F[Long] =
     async
-      .flatMap(c => F.blocking(c.zremrangebylex(key, JRange.create[V](range.start, range.end))))
+      .flatMap(c => F.delay(c.zremrangebylex(key, JRange.create[V](range.start, range.end))).evalOn(ec))
       .futureLift
       .map(x => Long.box(x))
 
   override def zRemRangeByRank(key: K, start: Long, stop: Long): F[Long] =
-    async.flatMap(c => F.blocking(c.zremrangebyrank(key, start, stop))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.zremrangebyrank(key, start, stop)).evalOn(ec)).futureLift.map(x => Long.box(x))
 
   override def zRemRangeByScore(key: K, range: ZRange[V])(implicit ev: Numeric[V]): F[Long] =
-    async.flatMap(c => F.blocking(c.zremrangebyscore(key, range.asJavaRange))).futureLift.map(x => Long.box(x))
+    async.flatMap(c => F.delay(c.zremrangebyscore(key, range.asJavaRange)).evalOn(ec)).futureLift.map(x => Long.box(x))
 
   override def zUnionStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Long] = {
     val res = args match {
-      case Some(x) => async.flatMap(c => F.blocking(c.zunionstore(destination, x, keys: _*)))
-      case None    => async.flatMap(c => F.blocking(c.zunionstore(destination, keys: _*)))
+      case Some(x) => async.flatMap(c => F.delay(c.zunionstore(destination, x, keys: _*)).evalOn(ec))
+      case None    => async.flatMap(c => F.delay(c.zunionstore(destination, keys: _*)).evalOn(ec))
     }
     res.futureLift.map(x => Long.box(x))
   }
 
   override def zCard(key: K): F[Option[Long]] =
     async
-      .flatMap(c => F.blocking(c.zcard(key)))
+      .flatMap(c => F.delay(c.zcard(key)))
+      .evalOn(ec)
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
   override def zCount[T: Numeric](key: K, range: ZRange[T]): F[Option[Long]] =
     async
-      .flatMap(c => F.blocking(c.zcount(key, range.asJavaRange)))
+      .flatMap(c => F.delay(c.zcount(key, range.asJavaRange)))
+      .evalOn(ec)
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
   override def zLexCount(key: K, range: ZRange[V]): F[Option[Long]] =
     async
-      .flatMap(c => F.blocking(c.zlexcount(key, JRange.create[V](range.start, range.end))))
+      .flatMap(c => F.delay(c.zlexcount(key, JRange.create[V](range.start, range.end))).evalOn(ec))
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
   override def zRange(key: K, start: Long, stop: Long): F[List[V]] =
     async
-      .flatMap(c => F.blocking(c.zrange(key, start, stop)))
+      .flatMap(c => F.delay(c.zrange(key, start, stop)).evalOn(ec))
       .futureLift
       .map(_.asScala.toList)
 
@@ -1110,9 +1198,10 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
     val res = limit match {
       case Some(x) =>
         async.flatMap(c =>
-          F.blocking(c.zrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
+          F.delay(c.zrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)))
+            .evalOn(ec)
         )
-      case None => async.flatMap(c => F.blocking(c.zrangebylex(key, JRange.create[V](range.start, range.end))))
+      case None => async.flatMap(c => F.delay(c.zrangebylex(key, JRange.create[V](range.start, range.end)))).evalOn(ec)
     }
     res.futureLift.map(_.asScala.toList)
   }
@@ -1120,8 +1209,10 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   override def zRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]] = {
     val res = limit match {
       case Some(x) =>
-        async.flatMap(c => F.blocking(c.zrangebyscore(key, range.asJavaRange, JLimit.create(x.offset, x.count))))
-      case None => async.flatMap(c => F.blocking(c.zrangebyscore(key, range.asJavaRange)))
+        async
+          .flatMap(c => F.delay(c.zrangebyscore(key, range.asJavaRange, JLimit.create(x.offset, x.count))))
+          .evalOn(ec)
+      case None => async.flatMap(c => F.delay(c.zrangebyscore(key, range.asJavaRange))).evalOn(ec)
     }
     res.futureLift.map(_.asScala.toList)
   }
@@ -1134,28 +1225,28 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
     val res = limit match {
       case Some(x) =>
         async.flatMap(c =>
-          F.blocking(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
+          F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count))).evalOn(ec)
         )
-      case None => async.flatMap(c => F.blocking(c.zrangebyscoreWithScores(key, range.asJavaRange)))
+      case None => async.flatMap(c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange))).evalOn(ec)
     }
     res.futureLift.map(_.asScala.toList.map(_.asScoreWithValues))
   }
 
   override def zRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]] =
     async
-      .flatMap(c => F.blocking(c.zrangeWithScores(key, start, stop)))
+      .flatMap(c => F.delay(c.zrangeWithScores(key, start, stop)).evalOn(ec))
       .futureLift
       .map(_.asScala.toList.map(_.asScoreWithValues))
 
   override def zRank(key: K, value: V): F[Option[Long]] =
     async
-      .flatMap(c => F.blocking(c.zrank(key, value)))
+      .flatMap(c => F.delay(c.zrank(key, value)).evalOn(ec))
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
   override def zRevRange(key: K, start: Long, stop: Long): F[List[V]] =
     async
-      .flatMap(c => F.blocking(c.zrevrange(key, start, stop)))
+      .flatMap(c => F.delay(c.zrevrange(key, start, stop)).evalOn(ec))
       .futureLift
       .map(_.asScala.toList)
 
@@ -1167,7 +1258,8 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
             c.zrevrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count))
           )
         )
-      case None => async.flatMap(c => F.blocking(c.zrevrangebylex(key, JRange.create[V](range.start, range.end))))
+      case None =>
+        async.flatMap(c => F.delay(c.zrevrangebylex(key, JRange.create[V](range.start, range.end)))).evalOn(ec)
     }
     res.futureLift.map(_.asScala.toList)
   }
@@ -1175,8 +1267,12 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   override def zRevRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]] = {
     val res = limit match {
       case Some(x) =>
-        async.flatMap(c => F.blocking(c.zrevrangebyscore(key, range.asJavaRange, JLimit.create(x.offset, x.count))))
-      case None => async.flatMap(c => F.blocking(c.zrevrangebyscore(key, range.asJavaRange)))
+        async
+          .flatMap(c =>
+            F.delay(c.zrevrangebyscore(key, range.asJavaRange, JLimit.create(x.offset, x.count))).evalOn(ec)
+          )
+
+      case None => async.flatMap(c => F.delay(c.zrevrangebyscore(key, range.asJavaRange)).evalOn(ec))
     }
     res.futureLift.map(_.asScala.toList)
   }
@@ -1189,52 +1285,73 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
     val res = limit match {
       case Some(x) =>
         async.flatMap(c =>
-          F.blocking(c.zrevrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
+          F.delay(c.zrevrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count))).evalOn(ec)
         )
-      case None => async.flatMap(c => F.blocking(c.zrangebyscoreWithScores(key, range.asJavaRange)))
+      case None => async.flatMap(c => F.delay(c.zrangebyscoreWithScores(key, range.asJavaRange)).evalOn(ec))
     }
     res.futureLift.map(_.asScala.toList.map(_.asScoreWithValues))
   }
 
   override def zRevRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]] =
     async
-      .flatMap(c => F.blocking(c.zrevrangeWithScores(key, start, stop)))
+      .flatMap(c =>
+        F.delay(c.zrevrangeWithScores(key, start, stop))
+          .evalOn(ec)
+      )
       .futureLift
       .map(_.asScala.toList.map(_.asScoreWithValues))
 
   override def zRevRank(key: K, value: V): F[Option[Long]] =
     async
-      .flatMap(c => F.blocking(c.zrevrank(key, value)))
+      .flatMap(c =>
+        F.delay(c.zrevrank(key, value))
+          .evalOn(ec)
+      )
       .futureLift
       .map(x => Option(Long.unbox(x)))
 
   override def zScore(key: K, value: V): F[Option[Double]] =
     async
-      .flatMap(c => F.blocking(c.zscore(key, value)))
+      .flatMap(c =>
+        F.delay(c.zscore(key, value))
+          .evalOn(ec)
+      )
       .futureLift
       .map(x => Option(Double.unbox(x)))
 
   override def zPopMin(key: K, count: Long): F[List[ScoreWithValue[V]]] =
     async
-      .flatMap(c => F.blocking(c.zpopmin(key, count)))
+      .flatMap(c =>
+        F.delay(c.zpopmin(key, count))
+          .evalOn(ec)
+      )
       .futureLift
       .map(_.asScala.toList.map(_.asScoreWithValues))
 
   override def zPopMax(key: K, count: Long): F[List[ScoreWithValue[V]]] =
     async
-      .flatMap(c => F.blocking(c.zpopmax(key, count)))
+      .flatMap(c =>
+        F.delay(c.zpopmax(key, count))
+          .evalOn(ec)
+      )
       .futureLift
       .map(_.asScala.toList.map(_.asScoreWithValues))
 
   override def bzPopMin(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
     async
-      .flatMap(c => F.blocking(c.bzpopmin(timeout.toSecondsOrZero, keys.toList: _*)))
+      .flatMap(c =>
+        F.delay(c.bzpopmin(timeout.toSecondsOrZero, keys.toList: _*))
+          .evalOn(ec)
+      )
       .futureLift
       .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
   override def bzPopMax(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
     async
-      .flatMap(c => F.blocking(c.bzpopmax(timeout.toSecondsOrZero, keys.toList: _*)))
+      .flatMap(c =>
+        F.delay(c.bzpopmax(timeout.toSecondsOrZero, keys.toList: _*))
+          .evalOn(ec)
+      )
       .futureLift
       .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
@@ -1243,7 +1360,7 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
     async.flatMap(c => F.delay(c.ping())).futureLift
 
   override def select(index: Int): F[Unit] =
-    conn.async.flatMap(c => F.blocking(c.select(index))).void
+    conn.async.flatMap(c => F.delay(c.select(index)).evalOn(ec)).void
 
   override def auth(password: CharSequence): F[Boolean] =
     async
@@ -1266,7 +1383,10 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
 
   override def keys(key: K): F[List[K]] =
     async
-      .flatMap(c => F.blocking(c.keys(key)))
+      .flatMap(c =>
+        F.delay(c.keys(key))
+          .evalOn(ec)
+      )
       .futureLift
       .map(_.asScala.toList)
 
@@ -1305,22 +1425,26 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
 
   override def eval(script: String, output: ScriptOutputType[V]): F[output.R] =
     async
-      .flatMap(c => F.blocking(c.eval[output.Underlying](script, output.outputType)))
+      .flatMap(c =>
+        F.delay(c.eval[output.Underlying](script, output.outputType))
+          .evalOn(ec)
+      )
       .futureLift
       .map(r => output.convert(r))
 
   override def eval(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
     async
       .flatMap(c =>
-        F.blocking(
-          c.eval[output.Underlying](
-            script,
-            output.outputType,
-            // The Object requirement comes from the limitations of Java Generics. It is safe to assume K <: Object as
-            // the underlying JRedisCodec would also only support K <: Object.
-            keys.asInstanceOf[Seq[K with Object]].toArray
+        F.delay(
+            c.eval[output.Underlying](
+              script,
+              output.outputType,
+              // The Object requirement comes from the limitations of Java Generics. It is safe to assume K <: Object as
+              // the underlying JRedisCodec would also only support K <: Object.
+              keys.asInstanceOf[Seq[K with Object]].toArray
+            )
           )
-        )
+          .evalOn(ec)
       )
       .futureLift
       .map(output.convert(_))
@@ -1328,36 +1452,41 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   override def eval(script: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
     async
       .flatMap(c =>
-        F.blocking(
-          c.eval[output.Underlying](
-            script,
-            output.outputType,
-            // see comment in eval above
-            keys.asInstanceOf[Seq[K with Object]].toArray,
-            values: _*
+        F.delay(
+            c.eval[output.Underlying](
+              script,
+              output.outputType,
+              // see comment in eval above
+              keys.asInstanceOf[Seq[K with Object]].toArray,
+              values: _*
+            )
           )
-        )
+          .evalOn(ec)
       )
       .futureLift
       .map(output.convert(_))
 
   override def evalSha(digest: String, output: ScriptOutputType[V]): F[output.R] =
     async
-      .flatMap(c => F.blocking(c.evalsha[output.Underlying](digest, output.outputType)))
+      .flatMap(c =>
+        F.delay(c.evalsha[output.Underlying](digest, output.outputType))
+          .evalOn(ec)
+      )
       .futureLift
       .map(output.convert(_))
 
   override def evalSha(digest: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
     async
       .flatMap(c =>
-        F.blocking(
-          c.evalsha[output.Underlying](
-            digest,
-            output.outputType,
-            // see comment in eval above
-            keys.asInstanceOf[Seq[K with Object]].toArray
+        F.delay(
+            c.evalsha[output.Underlying](
+              digest,
+              output.outputType,
+              // see comment in eval above
+              keys.asInstanceOf[Seq[K with Object]].toArray
+            )
           )
-        )
+          .evalOn(ec)
       )
       .futureLift
       .map(output.convert(_))
@@ -1365,52 +1494,65 @@ private[redis4cats] class BaseRedis[F[_]: Async: Log, K, V](
   override def evalSha(digest: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
     async
       .flatMap(c =>
-        F.blocking(
-          c.evalsha[output.Underlying](
-            digest,
-            output.outputType,
-            // see comment in eval above
-            keys.asInstanceOf[Seq[K with Object]].toArray,
-            values: _*
+        F.delay(
+            c.evalsha[output.Underlying](
+              digest,
+              output.outputType,
+              // see comment in eval above
+              keys.asInstanceOf[Seq[K with Object]].toArray,
+              values: _*
+            )
           )
-        )
+          .evalOn(ec)
       )
       .futureLift
       .map(output.convert(_))
 
   override def scriptLoad(script: String): F[String] =
-    async.flatMap(c => F.blocking(c.scriptLoad(script))).futureLift
+    async.flatMap(c => F.delay(c.scriptLoad(script)).evalOn(ec)).futureLift
 
   override def scriptLoad(script: Array[Byte]): F[String] =
-    async.flatMap(c => F.blocking(c.scriptLoad(script))).futureLift
+    async.flatMap(c => F.delay(c.scriptLoad(script)).evalOn(ec)).futureLift
 
   override def scriptExists(digests: String*): F[List[Boolean]] =
     async
-      .flatMap(c => F.blocking(c.scriptExists(digests: _*)))
+      .flatMap(c =>
+        F.delay(c.scriptExists(digests: _*))
+          .evalOn(ec)
+      )
       .futureLift
       .map(_.asScala.map(Boolean.unbox(_)).toList)
 
   override def scriptFlush: F[Unit] =
-    async.flatMap(c => F.blocking(c.scriptFlush())).futureLift.void
+    async.flatMap(c => F.delay(c.scriptFlush())).evalOn(ec).futureLift.void
 
   override def digest(script: String): F[String] = async.flatMap(c => F.delay(c.digest(script)))
 
   /** ***************************** HyperLoglog API **********************************/
   override def pfAdd(key: K, values: V*): F[Long] =
     async
-      .flatMap(c => F.blocking(c.pfadd(key, values: _*)))
+      .flatMap(c =>
+        F.delay(c.pfadd(key, values: _*))
+          .evalOn(ec)
+      )
       .futureLift
       .map(Long.box(_))
 
   override def pfCount(key: K): F[Long] =
     async
-      .flatMap(c => F.blocking(c.pfcount(key)))
+      .flatMap(c =>
+        F.delay(c.pfcount(key))
+          .evalOn(ec)
+      )
       .futureLift
       .map(Long.box(_))
 
   override def pfMerge(outputKey: K, inputKeys: K*): F[Unit] =
     async
-      .flatMap(c => F.blocking(c.pfmerge(outputKey, inputKeys: _*)))
+      .flatMap(c =>
+        F.delay(c.pfmerge(outputKey, inputKeys: _*))
+          .evalOn(ec)
+      )
       .futureLift
       .void
 }
@@ -1475,9 +1617,11 @@ private[redis4cats] trait RedisConversionOps {
 }
 
 private[redis4cats] class Redis[F[_]: Async: Log, K, V](
-    connection: RedisStatefulConnection[F, K, V]
-) extends BaseRedis[F, K, V](connection, cluster = false)
+    connection: RedisStatefulConnection[F, K, V],
+    ec: ExecutionContext
+) extends BaseRedis[F, K, V](connection, cluster = false, ec)
 
 private[redis4cats] class RedisCluster[F[_]: Async: Log, K, V](
-    connection: RedisStatefulClusterConnection[F, K, V]
-) extends BaseRedis[F, K, V](connection, cluster = true)
+    connection: RedisStatefulClusterConnection[F, K, V],
+    ec: ExecutionContext
+) extends BaseRedis[F, K, V](connection, cluster = true, ec)
