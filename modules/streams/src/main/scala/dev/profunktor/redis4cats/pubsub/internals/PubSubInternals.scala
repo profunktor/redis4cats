@@ -17,7 +17,6 @@
 package dev.profunktor.redis4cats.pubsub.internals
 
 import cats.effect.{ Async, Ref }
-import cats.effect.Ref
 import cats.effect.std.Dispatcher
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
