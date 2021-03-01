@@ -25,11 +25,11 @@ import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
 import dev.profunktor.redis4cats.JavaConversions._
 import io.lettuce.core.{ XAddArgs, XReadArgs }
-import dev.profunktor.redis4cats.effect.RedisBlocker
+import dev.profunktor.redis4cats.effect.RedisEc
 
 private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
     val client: StatefulRedisConnection[K, V],
-    blocker: RedisBlocker
+    redisEc: RedisEc
 ) extends RawStreaming[F, K, V] {
 
   override def xAdd(key: K, body: Map[K, V], approxMaxlen: Option[Long] = None): F[MessageId] =
@@ -37,13 +37,13 @@ private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
       val args = approxMaxlen.map(XAddArgs.Builder.maxlen(_).approximateTrimming(true))
 
       F.delay(client.async().xadd(key, args.orNull, body.asJava))
-    }(blocker).map(MessageId)
+    }(redisEc).map(MessageId)
 
   override def xRead(streams: Set[StreamingOffset[K]]): F[List[XReadMessage[K, V]]] = {
     val offsets = streams.map(s => StreamOffset.from(s.key, s.offset)).toSeq
     JRFuture {
       F.delay(client.async().xread(XReadArgs.Builder.block(0), offsets: _*))
-    }(blocker).map { list =>
+    }(redisEc).map { list =>
       list.asScala.toList.map { msg =>
         XReadMessage[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap)
       }

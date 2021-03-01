@@ -24,17 +24,17 @@ import dev.profunktor.redis4cats.effect.JRFuture
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
-import dev.profunktor.redis4cats.effect.RedisBlocker
+import dev.profunktor.redis4cats.effect.RedisEc
 
 class Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V],
-    blocker: RedisBlocker
+    redisEc: RedisEc
 ) extends PublishCommands[Stream[F, *], K, V] {
 
-  private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection, blocker)
+  private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection, redisEc)
 
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
-    _.evalMap(message => JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message)))(blocker).void)
+    _.evalMap(message => JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message)))(redisEc).void)
 
   override def pubSubChannels: Stream[F, List[K]] =
     pubSubStats.pubSubChannels

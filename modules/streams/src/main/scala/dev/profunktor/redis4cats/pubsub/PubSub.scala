@@ -22,27 +22,26 @@ import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.JRFuture._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import fs2.Stream
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
-import dev.profunktor.redis4cats.effect.RedisBlocker
+import dev.profunktor.redis4cats.effect.RedisEc
 
 object PubSub {
 
   private[redis4cats] def acquireAndRelease[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V],
-      blocker: RedisBlocker
+      redisEc: RedisEc
   ): (F[StatefulRedisPubSubConnection[K, V]], StatefulRedisPubSubConnection[K, V] => F[Unit]) = {
 
     val acquire: F[StatefulRedisPubSubConnection[K, V]] = JRFuture.fromConnectionFuture(
       F.delay(client.underlying.connectPubSubAsync(codec.underlying, client.uri.underlying))
-    )(blocker)
+    )(redisEc)
 
     val release: StatefulRedisPubSubConnection[K, V] => F[Unit] = c =>
-      JRFuture.fromCompletableFuture(F.delay(c.closeAsync()))(blocker) *>
+      JRFuture.fromCompletableFuture(F.delay(c.closeAsync()))(redisEc) *>
           F.info(s"Releasing PubSub connection: ${client.uri.underlying}")
 
     (acquire, release)
@@ -57,14 +56,14 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PubSubCommands[Stream[F, *], K, V]] =
-    mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, blocker)
+    RedisEc[F].flatMap { redisEc =>
+      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, redisEc)
       // One exclusive connection for subscriptions and another connection for publishing / stats
       for {
         state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         sConn <- Resource.make(acquire)(release)
         pConn <- Resource.make(acquire)(release)
-      } yield new LivePubSubCommands[F, K, V](state, sConn, pConn, blocker)
+      } yield new LivePubSubCommands[F, K, V](state, sConn, pConn, redisEc)
     }
 
   /**
@@ -76,9 +75,9 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PublishCommands[Stream[F, *], K, V]] =
-    mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, blocker)
-      Resource.make(acquire)(release).map(new Publisher[F, K, V](_, blocker))
+    RedisEc[F].flatMap { redisEc =>
+      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, redisEc)
+      Resource.make(acquire)(release).map(new Publisher[F, K, V](_, redisEc))
     }
 
   /**
@@ -90,12 +89,12 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, SubscribeCommands[Stream[F, *], K, V]] =
-    mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, blocker)
+    RedisEc[F].flatMap { redisEc =>
+      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, redisEc)
       for {
         state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         conn <- Resource.make(acquire)(release)
-      } yield new Subscriber(state, conn, blocker)
+      } yield new Subscriber(state, conn, redisEc)
     }
 
 }

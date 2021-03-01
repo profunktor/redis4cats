@@ -22,9 +22,8 @@ import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
-import dev.profunktor.redis4cats.effect.JRFuture._
 import io.lettuce.core.{ ClientOptions, RedisClient => JRedisClient, RedisURI => JRedisURI }
-import dev.profunktor.redis4cats.effect.RedisBlocker
+import dev.profunktor.redis4cats.effect.RedisEc
 
 sealed abstract case class RedisClient private (underlying: JRedisClient, uri: RedisURI)
 
@@ -34,7 +33,7 @@ object RedisClient {
       uri: => RedisURI,
       opts: ClientOptions,
       config: Redis4CatsConfig,
-      blocker: RedisBlocker
+      redisEc: RedisEc
   ): (F[RedisClient], RedisClient => F[Unit]) = {
     val acquire: F[RedisClient] = F.delay {
       val jClient: JRedisClient = JRedisClient.create(uri.underlying)
@@ -53,7 +52,7 @@ object RedisClient {
                   TimeUnit.NANOSECONDS
                 )
               )
-            )(blocker)
+            )(redisEc)
             .void
 
     (acquire, release)
@@ -62,10 +61,10 @@ object RedisClient {
   private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log](
       opts: ClientOptions,
       config: Redis4CatsConfig,
-      blocker: RedisBlocker
+      redisEc: RedisEc
   ): F[(F[RedisClient], RedisClient => F[Unit])] =
     F.delay(RedisURI.fromUnderlying(new JRedisURI()))
-      .map(uri => acquireAndRelease(uri, opts, config, blocker))
+      .map(uri => acquireAndRelease(uri, opts, config, redisEc))
 
   class RedisClientPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
 
@@ -143,8 +142,8 @@ object RedisClient {
         opts: ClientOptions,
         config: Redis4CatsConfig = Redis4CatsConfig()
     ): Resource[F, RedisClient] =
-      mkBlocker[F].flatMap { blocker =>
-        val (acquire, release) = acquireAndRelease(uri, opts, config, blocker)
+      RedisEc[F].flatMap { redisEc =>
+        val (acquire, release) = acquireAndRelease(uri, opts, config, redisEc)
         Resource.make(acquire)(release)
       }
   }
