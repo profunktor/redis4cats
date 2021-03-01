@@ -22,22 +22,6 @@ import cats.syntax.all._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
 import java.util.concurrent._
 
-trait RedisEc {
-  def delay[F[_]: Sync: ContextShift, A](thunk: => A): F[A]
-  def eval[F[_]: ContextShift, A](fa: F[A]): F[A]
-}
-
-object RedisEc {
-  private def apply(blocker: Blocker): RedisEc =
-    new RedisEc {
-      override def delay[F[_]: Sync: ContextShift, A](thunk: => A): F[A] = blocker.delay(thunk)
-      override def eval[F[_]: ContextShift, A](fa: F[A]): F[A]           = blocker.blockOn(fa)
-    }
-
-  def apply[F[_]: Sync]: Resource[F, RedisEc] =
-    Blocker.fromExecutorService(F.delay(Executors.newFixedThreadPool(1))).map(RedisEc.apply)
-}
-
 object JRFuture {
 
   private[redis4cats] type JFuture[A] = CompletionStage[A] with Future[A]
