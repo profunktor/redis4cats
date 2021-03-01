@@ -45,17 +45,20 @@ object RedisScriptsDemo extends LoggerIOApp {
           _ <- putStrLn(s"We can even return lists: $list")
           randomScript = "math.randomseed(tonumber(ARGV[1])); return math.random() * 1000"
           shaRandom <- cmd.scriptLoad(randomScript)
-          List(exists) <- cmd.scriptExists(shaRandom)
+          l <- cmd.scriptExists(shaRandom)
+          List(exists) = l
           _ <- putStrLn(s"Script is cached on Redis: $exists")
           // seeding the RNG with 7
           random <- cmd.evalSha(shaRandom, ScriptOutputType.Integer, Nil, List("7"))
           _ <- putStrLn(s"Execution of cached script returns a pseudo-random number: $random")
           scriptDigest <- cmd.digest(randomScript)
-          List(exists3) <- cmd.scriptExists(scriptDigest)
+          l <- cmd.scriptExists(scriptDigest)
+          List(exists3) = l
           _ <- putStrLn(s"Locally computed script digest is the same sha as Redis: $exists3")
-          () <- cmd.scriptFlush
+          _ <- cmd.scriptFlush
           _ <- putStrLn("Flushed all cached scripts!")
-          List(exists2) <- cmd.scriptExists(shaRandom)
+          l <- cmd.scriptExists(shaRandom)
+          List(exists2) = l
           _ <- putStrLn(s"Script is still cached on Redis: $exists2")
         } yield ()
       }
