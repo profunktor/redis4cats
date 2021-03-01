@@ -39,15 +39,13 @@ object RedisStream {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, Streaming[Stream[F, *], K, V]] =
-    RedisEc[F].flatMap { redisEc =>
+    RedisEc.make[F].flatMap { implicit redisEc =>
       val acquire = JRFuture
-        .fromConnectionFuture(F.delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)))(
-          redisEc
-        )
-        .map(new RedisRawStreaming(_, redisEc))
+        .fromConnectionFuture(F.delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)))
+        .map(new RedisRawStreaming(_))
 
       val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
-        JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync()))(redisEc) *>
+        JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync())) *>
             F.info(s"Releasing Streaming connection: ${client.uri.underlying}")
 
       Resource.make(acquire)(release).map(rs => new RedisStream(rs))
@@ -63,9 +61,9 @@ object RedisStream {
       codec: RedisCodec[K, V],
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Resource[F, Streaming[Stream[F, *], K, V]] =
-    RedisEc[F].flatMap { redisEc =>
+    RedisEc.make[F].flatMap { implicit redisEc =>
       RedisMasterReplica[F].make(codec, uris: _*)(readFrom).map { conn =>
-        new RedisStream(new RedisRawStreaming(conn.underlying, redisEc))
+        new RedisStream(new RedisRawStreaming(conn.underlying))
       }
     }
 

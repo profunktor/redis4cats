@@ -22,28 +22,28 @@ import cats.syntax.all._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
 import java.util.concurrent._
 
-object JRFuture {
+private[redis4cats] object JRFuture {
 
   private[redis4cats] type JFuture[A] = CompletionStage[A] with Future[A]
 
   def apply[F[_]: Concurrent: ContextShift, A](
       fa: F[RedisFuture[A]]
-  )(redisEc: RedisEc): F[A] =
-    liftJFuture[F, RedisFuture[A], A](fa)(redisEc)
+  )(implicit redisEc: RedisEc[F]): F[A] =
+    liftJFuture[F, RedisFuture[A], A](fa)
 
   def fromConnectionFuture[F[_]: Concurrent: ContextShift, A](
       fa: F[ConnectionFuture[A]]
-  )(redisEc: RedisEc): F[A] =
-    liftJFuture[F, ConnectionFuture[A], A](fa)(redisEc)
+  )(implicit redisEc: RedisEc[F]): F[A] =
+    liftJFuture[F, ConnectionFuture[A], A](fa)
 
   def fromCompletableFuture[F[_]: Concurrent: ContextShift, A](
       fa: F[CompletableFuture[A]]
-  )(redisEc: RedisEc): F[A] =
-    liftJFuture[F, CompletableFuture[A], A](fa)(redisEc)
+  )(implicit redisEc: RedisEc[F]): F[A] =
+    liftJFuture[F, CompletableFuture[A], A](fa)
 
-  implicit class FutureLiftOps[F[_]: Concurrent: ContextShift: Log, A](fa: F[RedisFuture[A]]) {
-    def futureLift(implicit rb: RedisEc): F[A] =
-      liftJFuture[F, RedisFuture[A], A](fa)(rb).onError {
+  implicit final class FutureLiftOps[F[_]: Concurrent: ContextShift: Log, A](fa: F[RedisFuture[A]]) {
+    def futureLift(implicit rb: RedisEc[F]): F[A] =
+      liftJFuture[F, RedisFuture[A], A](fa).onError {
         case e: ExecutionException => F.error(s"${e.getMessage()} - ${Option(e.getCause())}")
       }
   }
@@ -52,7 +52,7 @@ object JRFuture {
       F[_]: Concurrent: ContextShift,
       G <: JFuture[A],
       A
-  ](fa: F[G])(redisEc: RedisEc): F[A] = {
+  ](fa: F[G])(implicit redisEc: RedisEc[F]): F[A] = {
     val lifted: F[A] = redisEc.eval {
       fa.flatMap { f =>
         redisEc.eval {

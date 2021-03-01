@@ -36,9 +36,8 @@ object RedisMasterReplica {
       client: RedisClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
-      redisEc: RedisEc,
       uris: RedisURI*
-  ): (F[RedisMasterReplica[K, V]], RedisMasterReplica[K, V] => F[Unit]) = {
+  )(implicit redisEc: RedisEc[F]): (F[RedisMasterReplica[K, V]], RedisMasterReplica[K, V] => F[Unit]) = {
 
     val acquire: F[RedisMasterReplica[K, V]] = {
 
@@ -48,7 +47,7 @@ object RedisMasterReplica {
             F.delay {
               MasterReplica.connectAsync[K, V](client.underlying, codec.underlying, uris.map(_.underlying).asJava)
             }
-          )(redisEc)
+          )
           .map(new RedisMasterReplica(_) {})
 
       readFrom.fold(connection)(rf => connection.flatMap(c => F.delay(c.underlying.setReadFrom(rf)) *> c.pure[F]))
@@ -56,7 +55,7 @@ object RedisMasterReplica {
 
     val release: RedisMasterReplica[K, V] => F[Unit] = connection =>
       F.info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>
-          JRFuture.fromCompletableFuture(F.delay(connection.underlying.closeAsync()))(redisEc).void
+          JRFuture.fromCompletableFuture(F.delay(connection.underlying.closeAsync())).void
 
     (acquire, release)
   }
@@ -109,11 +108,11 @@ object RedisMasterReplica {
         config: Redis4CatsConfig,
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
-      RedisEc[F].flatMap { redisEc =>
-        Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F](opts, config, redisEc)).flatMap {
+      RedisEc.make[F].flatMap { implicit redisEc =>
+        Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F](opts, config)).flatMap {
           case (acquireClient, releaseClient) =>
             Resource.make(acquireClient)(releaseClient).flatMap { client =>
-              val (acquire, release) = acquireAndRelease(client, codec, readFrom, redisEc, uris: _*)
+              val (acquire, release) = acquireAndRelease(client, codec, readFrom, uris: _*)
               Resource.make(acquire)(release)
             }
         }

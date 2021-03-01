@@ -39,9 +39,8 @@ object RedisClusterClient {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
       config: Redis4CatsConfig,
-      redisEc: RedisEc,
       uri: RedisURI*
-  ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
+  )(implicit redisEc: RedisEc[F]): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
 
     val acquire: F[RedisClusterClient] =
       F.info(s"Acquire Redis Cluster client") *>
@@ -60,7 +59,7 @@ object RedisClusterClient {
                   TimeUnit.NANOSECONDS
                 )
               )
-            )(redisEc)
+            )
             .void
 
     (acquire, release)
@@ -111,8 +110,8 @@ object RedisClusterClient {
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): Resource[F, RedisClusterClient] =
-    RedisEc[F].flatMap { redisEc =>
-      val (acquire, release) = acquireAndRelease(config, redisEc, uri: _*)
+    RedisEc.make[F].flatMap { implicit redisEc =>
+      val (acquire, release) = acquireAndRelease(config, uri: _*)
       Resource.make(acquire)(release)
     }
 

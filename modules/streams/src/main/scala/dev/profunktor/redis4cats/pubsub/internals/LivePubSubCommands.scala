@@ -30,13 +30,13 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 private[pubsub] class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V],
-    pubConnection: StatefulRedisPubSubConnection[K, V],
-    redisEc: RedisEc
-) extends PubSubCommands[Stream[F, *], K, V] {
+    pubConnection: StatefulRedisPubSubConnection[K, V]
+)(implicit redisEc: RedisEc[F])
+    extends PubSubCommands[Stream[F, *], K, V] {
 
   private[redis4cats] val subCommands: SubscribeCommands[Stream[F, *], K, V] =
-    new Subscriber[F, K, V](state, subConnection, redisEc)
-  private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection, redisEc)
+    new Subscriber[F, K, V](state, subConnection)
+  private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection)
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     subCommands.subscribe(channel)
@@ -48,7 +48,7 @@ private[pubsub] class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: L
     _.evalMap { message =>
       state.get.flatMap { st =>
         PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) *>
-          JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message)))(redisEc)
+          JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message)))
       }.void
     }
 

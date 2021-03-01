@@ -30,14 +30,14 @@ class JRFutureSpec extends FunSuite {
 
   test("it shifts back once the Future is converted") {
     val ioa =
-      RedisEc[IO].use { redisEc =>
+      RedisEc.make[IO].use { implicit redisEc =>
         JRFuture.fromCompletableFuture[IO, String] {
           IO {
             val jFuture = new CompletableFuture[String]()
             jFuture.complete("foo")
             jFuture
           }
-        }(redisEc)
+        }
       }
 
     (ioa *> currentThread)
@@ -47,14 +47,14 @@ class JRFutureSpec extends FunSuite {
 
   test("it shifts back even when the CompletableFuture fails") {
     val ioa =
-      RedisEc[IO].use { redisEc =>
+      RedisEc.make[IO].use { implicit redisEc =>
         JRFuture.fromCompletableFuture[IO, String] {
           IO {
             val jFuture = new CompletableFuture[String]()
             jFuture.completeExceptionally(new RuntimeException("Purposely fail"))
             jFuture
           }
-        }(redisEc)
+        }
       }
 
     (ioa.attempt *> currentThread)

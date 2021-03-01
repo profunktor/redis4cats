@@ -27,14 +27,14 @@ import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 private[pubsub] class Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](
-    pubConnection: StatefulRedisPubSubConnection[K, V],
-    redisEc: RedisEc
-) extends PublishCommands[Stream[F, *], K, V] {
+    pubConnection: StatefulRedisPubSubConnection[K, V]
+)(implicit redisEc: RedisEc[F])
+    extends PublishCommands[Stream[F, *], K, V] {
 
-  private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection, redisEc)
+  private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection)
 
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
-    _.evalMap(message => JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message)))(redisEc).void)
+    _.evalMap(message => JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message))).void)
 
   override def pubSubChannels: Stream[F, List[K]] =
     pubSubStats.pubSubChannels

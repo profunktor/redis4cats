@@ -32,16 +32,17 @@ object PubSub {
 
   private[redis4cats] def acquireAndRelease[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
       client: RedisClient,
-      codec: RedisCodec[K, V],
-      redisEc: RedisEc
+      codec: RedisCodec[K, V]
+  )(
+      implicit redisEc: RedisEc[F]
   ): (F[StatefulRedisPubSubConnection[K, V]], StatefulRedisPubSubConnection[K, V] => F[Unit]) = {
 
     val acquire: F[StatefulRedisPubSubConnection[K, V]] = JRFuture.fromConnectionFuture(
       F.delay(client.underlying.connectPubSubAsync(codec.underlying, client.uri.underlying))
-    )(redisEc)
+    )
 
     val release: StatefulRedisPubSubConnection[K, V] => F[Unit] = c =>
-      JRFuture.fromCompletableFuture(F.delay(c.closeAsync()))(redisEc) *>
+      JRFuture.fromCompletableFuture(F.delay(c.closeAsync())) *>
           F.info(s"Releasing PubSub connection: ${client.uri.underlying}")
 
     (acquire, release)
@@ -56,14 +57,14 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PubSubCommands[Stream[F, *], K, V]] =
-    RedisEc[F].flatMap { redisEc =>
-      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, redisEc)
+    RedisEc.make[F].flatMap { implicit redisEc =>
+      val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       // One exclusive connection for subscriptions and another connection for publishing / stats
       for {
         state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         sConn <- Resource.make(acquire)(release)
         pConn <- Resource.make(acquire)(release)
-      } yield new LivePubSubCommands[F, K, V](state, sConn, pConn, redisEc)
+      } yield new LivePubSubCommands[F, K, V](state, sConn, pConn)
     }
 
   /**
@@ -75,9 +76,9 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PublishCommands[Stream[F, *], K, V]] =
-    RedisEc[F].flatMap { redisEc =>
-      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, redisEc)
-      Resource.make(acquire)(release).map(new Publisher[F, K, V](_, redisEc))
+    RedisEc.make[F].flatMap { implicit redisEc =>
+      val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
+      Resource.make(acquire)(release).map(new Publisher[F, K, V](_))
     }
 
   /**
@@ -89,12 +90,12 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, SubscribeCommands[Stream[F, *], K, V]] =
-    RedisEc[F].flatMap { redisEc =>
-      val (acquire, release) = acquireAndRelease[F, K, V](client, codec, redisEc)
+    RedisEc.make[F].flatMap { implicit redisEc =>
+      val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       for {
         state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         conn <- Resource.make(acquire)(release)
-      } yield new Subscriber(state, conn, redisEc)
+      } yield new Subscriber(state, conn)
     }
 
 }

@@ -31,9 +31,8 @@ object RedisClient {
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
       uri: => RedisURI,
       opts: ClientOptions,
-      config: Redis4CatsConfig,
-      redisEc: RedisEc
-  ): (F[RedisClient], RedisClient => F[Unit]) = {
+      config: Redis4CatsConfig
+  )(implicit redisEc: RedisEc[F]): (F[RedisClient], RedisClient => F[Unit]) = {
     val acquire: F[RedisClient] = F.delay {
       val jClient: JRedisClient = JRedisClient.create(uri.underlying)
       jClient.setOptions(opts)
@@ -51,7 +50,7 @@ object RedisClient {
                   TimeUnit.NANOSECONDS
                 )
               )
-            )(redisEc)
+            )
             .void
 
     (acquire, release)
@@ -59,11 +58,10 @@ object RedisClient {
 
   private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log](
       opts: ClientOptions,
-      config: Redis4CatsConfig,
-      redisEc: RedisEc
-  ): F[(F[RedisClient], RedisClient => F[Unit])] =
+      config: Redis4CatsConfig
+  )(implicit redisEc: RedisEc[F]): F[(F[RedisClient], RedisClient => F[Unit])] =
     F.delay(RedisURI.fromUnderlying(new JRedisURI()))
-      .map(uri => acquireAndRelease(uri, opts, config, redisEc))
+      .map(uri => acquireAndRelease(uri, opts, config))
 
   class RedisClientPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
 
@@ -141,8 +139,8 @@ object RedisClient {
         opts: ClientOptions,
         config: Redis4CatsConfig = Redis4CatsConfig()
     ): Resource[F, RedisClient] =
-      RedisEc[F].flatMap { redisEc =>
-        val (acquire, release) = acquireAndRelease(uri, opts, config, redisEc)
+      RedisEc.make[F].flatMap { implicit redisEc =>
+        val (acquire, release) = acquireAndRelease(uri, opts, config)
         Resource.make(acquire)(release)
       }
   }

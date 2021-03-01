@@ -35,7 +35,7 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
     val commandsApi =
       for {
         uri <- Resource.liftF(RedisURI.make[IO](redisClusterURI))
-        redisEc <- RedisEc[IO]
+        implicit0(redisEc: RedisEc[IO]) <- RedisEc.make[IO]
         underlying <- Resource.make(IO {
                        val timeoutOptions =
                          TimeoutOptions
@@ -55,7 +55,7 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
                        val client = JRedisClusterClient.create(uri.underlying)
                        client.setOptions(clusterOptions)
                        client
-                     })(client => JRFuture.fromCompletableFuture(IO(client.shutdownAsync()))(redisEc).void)
+                     })(client => JRFuture.fromCompletableFuture(IO(client.shutdownAsync())).void)
         client = RedisClusterClient.fromUnderlying(underlying)
         redis <- Redis[IO].fromClusterClient(client, stringCodec)()
       } yield redis
