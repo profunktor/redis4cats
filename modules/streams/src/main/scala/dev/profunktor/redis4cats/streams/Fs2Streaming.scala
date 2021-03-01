@@ -42,14 +42,16 @@ object RedisStream {
   ): Resource[F, Streaming[Stream[F, *], K, V]] =
     mkBlocker[F].flatMap { blocker =>
       val acquire = JRFuture
-        .fromConnectionFuture(F.delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)))(
+        .fromConnectionFuture(
+          Sync[F].delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying))
+        )(
           blocker
         )
         .map(new RedisRawStreaming(_, blocker))
 
       val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
-        JRFuture.fromCompletableFuture(F.delay(c.client.closeAsync()))(blocker) *>
-            F.info(s"Releasing Streaming connection: ${client.uri.underlying}")
+        JRFuture.fromCompletableFuture(Sync[F].delay(c.client.closeAsync()))(blocker) *>
+            Log[F].info(s"Releasing Streaming connection: ${client.uri.underlying}")
 
       Resource.make(acquire)(release).map(rs => new RedisStream(rs))
     }

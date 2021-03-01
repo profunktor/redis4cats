@@ -45,16 +45,17 @@ object RedisClusterClient {
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
 
     val acquire: F[RedisClusterClient] =
-      F.info(s"Acquire Redis Cluster client") *>
-          F.delay(JClusterClient.create(uri.map(_.underlying).asJava))
+      Log[F].info(s"Acquire Redis Cluster client") *>
+          Sync[F]
+            .delay(JClusterClient.create(uri.map(_.underlying).asJava))
             .flatTap(initializeClusterTopology[F](_, config.topologyViewRefreshStrategy))
             .map(new RedisClusterClient(_) {})
 
     val release: RedisClusterClient => F[Unit] = client =>
-      F.info(s"Releasing Redis Cluster client: ${client.underlying}") *>
+      Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *>
           JRFuture
             .fromCompletableFuture(
-              F.delay(
+              Sync[F].delay(
                 client.underlying.shutdownAsync(
                   config.shutdown.quietPeriod.toNanos,
                   config.shutdown.timeout.toNanos,
@@ -71,7 +72,7 @@ object RedisClusterClient {
       client: JClusterClient,
       topologyViewRefreshStrategy: TopologyViewRefreshStrategy
   ): F[Unit] =
-    F.delay {
+    Sync[F].delay {
       topologyViewRefreshStrategy match {
         case NoRefresh =>
           client.getPartitions
@@ -124,11 +125,11 @@ object RedisClusterClient {
       client: RedisClusterClient,
       keyName: String
   ): F[NodeId] =
-    F.delay(SlotHash.getSlot(keyName)).flatMap { slot =>
+    Sync[F].delay(SlotHash.getSlot(keyName)).flatMap { slot =>
       partitions(client).map(_.getPartitionBySlot(slot).getNodeId).map(NodeId)
     }
 
   def partitions[F[_]: Sync](client: RedisClusterClient): F[JPartitions] =
-    F.delay(client.underlying.getPartitions())
+    Sync[F].delay(client.underlying.getPartitions())
 
 }

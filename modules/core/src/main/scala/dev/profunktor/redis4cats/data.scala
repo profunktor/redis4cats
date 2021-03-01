@@ -92,7 +92,7 @@ object data {
 
     private def cipherSupplier[F[_]: Sync](key: SecretKeySpec, mode: Int): F[CipherCodec.CipherSupplier] = {
       val mkCipher =
-        F.delay {
+        Sync[F].delay {
           val cipher: Cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
           cipher.init(mode, key)
           cipher

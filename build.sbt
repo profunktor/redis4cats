@@ -38,8 +38,6 @@ val commonSettings = Seq(
   headerLicense := Some(HeaderLicense.ALv2("2018-2020", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
-        CompilerPlugins.betterMonadicFor,
-        CompilerPlugins.contextApplied,
         CompilerPlugins.kindProjector,
         Libraries.catsEffect,
         Libraries.redisClient,

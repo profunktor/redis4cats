@@ -35,7 +35,7 @@ class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
   override def pubSubChannels: Stream[F, List[K]] =
     Stream
       .eval {
-        JRFuture(F.delay(pubConnection.async().pubsubChannels()))(blocker)
+        JRFuture(Sync[F].delay(pubConnection.async().pubsubChannels()))(blocker)
       }
       .map(_.asScala.toList)
 
@@ -44,8 +44,8 @@ class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
     Stream.eval {
-      JRFuture(F.delay(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*)))(blocker).flatMap { kv =>
-        F.delay(kv.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), n) })
+      JRFuture(Sync[F].delay(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*)))(blocker).flatMap {
+        kv => Sync[F].delay(kv.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), n) })
       }
     }
 

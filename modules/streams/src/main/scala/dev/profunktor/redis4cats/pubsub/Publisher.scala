@@ -33,7 +33,9 @@ class Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](
   private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection, blocker)
 
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
-    _.evalMap(message => JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message)))(blocker).void)
+    _.evalMap(message =>
+      JRFuture(Sync[F].delay(pubConnection.async().publish(channel.underlying, message)))(blocker).void
+    )
 
   override def pubSubChannels: Stream[F, List[K]] =
     pubSubStats.pubSubChannels

@@ -19,6 +19,7 @@ package dev.profunktor.redis4cats
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
+import cats.Applicative
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.syntax.all._
@@ -62,7 +63,7 @@ object Redis {
       .map(c => new Redis(new RedisStatefulConnection(c, blocker), blocker))
 
     val release: Redis[F, K, V] => F[Unit] = c =>
-      F.info(s"Releasing Commands connection: ${client.uri.underlying}") *> c.conn.close
+      Log[F].info(s"Releasing Commands connection: ${client.uri.underlying}") *> c.conn.close
 
     (acquire, release)
   }
@@ -77,11 +78,11 @@ object Redis {
       .fromCompletableFuture(
         blocker.delay(client.underlying.connectAsync[K, V](codec.underlying))
       )(blocker)
-      .flatTap(c => F.delay(readFrom.foreach(c.setReadFrom)))
+      .flatTap(c => Sync[F].delay(readFrom.foreach(c.setReadFrom)))
       .map(c => new RedisCluster(new RedisStatefulClusterConnection(c, blocker), blocker))
 
     val release: RedisCluster[F, K, V] => F[Unit] = c =>
-      F.info(s"Releasing cluster Commands connection: ${client.underlying}") *> c.conn.close
+      Log[F].info(s"Releasing cluster Commands connection: ${client.underlying}") *> c.conn.close
 
     (acquire, release)
   }
@@ -97,7 +98,7 @@ object Redis {
       .fromCompletableFuture(
         blocker.delay(client.underlying.connectAsync[K, V](codec.underlying))
       )(blocker)
-      .flatTap(c => F.delay(readFrom.foreach(c.setReadFrom)))
+      .flatTap(c => Sync[F].delay(readFrom.foreach(c.setReadFrom)))
       .map { c =>
         new BaseRedis[F, K, V](new RedisStatefulClusterConnection(c, blocker), cluster = true, blocker) {
           override def async: F[RedisClusterAsyncCommands[K, V]] =
@@ -107,7 +108,7 @@ object Redis {
       }
 
     val release: BaseRedis[F, K, V] => F[Unit] = c =>
-      F.info(s"Releasing single-shard cluster Commands connection: ${client.underlying}") *> c.conn.close
+      Log[F].info(s"Releasing single-shard cluster Commands connection: ${client.underlying}") *> c.conn.close
 
     (acquire, release)
   }
@@ -142,7 +143,7 @@ object Redis {
       *
       * {{{
       * for {
-      *   opts <- Resource.liftF(F.delay(ClientOptions.create())) // configure timeouts, etc
+      *   opts <- Resource.liftF(Sync[F].delay(ClientOptions.create())) // configure timeouts, etc
       *   cmds <- Redis[IO].withOptions("redis://localhost", opts, RedisCodec.Ascii)
       * } yield cmds
       * }}}
@@ -332,7 +333,8 @@ object Redis {
     ): Resource[F, RedisCommands[F, K, V]] =
       mkBlocker[F].flatMap { blocker =>
         Resource.liftF {
-          F.delay(new RedisStatefulConnection(conn.underlying, blocker))
+          Sync[F]
+            .delay(new RedisStatefulConnection(conn.underlying, blocker))
             .map(c => new Redis[F, K, V](c, blocker))
         }
       }
@@ -487,8 +489,8 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
       }
       .futureLift
       .flatMap {
-        case res if res.wasDiscarded() || res.isEmpty() => F.raiseError(TransactionDiscarded)
-        case _                                          => F.unit
+        case res if res.wasDiscarded() || res.isEmpty() => TransactionDiscarded.raiseError
+        case _                                          => Applicative[F].unit
       }
 
   def discard: F[Unit] =
@@ -1254,29 +1256,29 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
 
   /******************************* Connection API **********************************/
   override val ping: F[String] =
-    async.flatMap(c => F.delay(c.ping())).futureLift
+    async.flatMap(c => Sync[F].delay(c.ping())).futureLift
 
   override def select(index: Int): F[Unit] =
     conn.async.flatMap(c => blocker.delay(c.select(index))).void
 
   override def auth(password: CharSequence): F[Boolean] =
     async
-      .flatMap(c => F.delay(c.auth(password)))
+      .flatMap(c => Sync[F].delay(c.auth(password)))
       .futureLift
       .map(_ == "OK")
 
   override def auth(username: String, password: CharSequence): F[Boolean] =
     async
-      .flatMap(c => F.delay(c.auth(username, password)))
+      .flatMap(c => Sync[F].delay(c.auth(username, password)))
       .futureLift
       .map(_ == "OK")
 
   /******************************* Server API **********************************/
   override val flushAll: F[Unit] =
-    async.flatMap(c => F.delay(c.flushall())).futureLift.void
+    async.flatMap(c => Sync[F].delay(c.flushall())).futureLift.void
 
   override val flushAllAsync: F[Unit] =
-    async.flatMap(c => F.delay(c.flushallAsync())).futureLift.void
+    async.flatMap(c => Sync[F].delay(c.flushallAsync())).futureLift.void
 
   override def keys(key: K): F[List[K]] =
     async
@@ -1286,10 +1288,10 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
 
   override def info: F[Map[String, String]] =
     async
-      .flatMap(c => F.delay(c.info))
+      .flatMap(c => Sync[F].delay(c.info))
       .futureLift
       .flatMap(info =>
-        F.delay(
+        Sync[F].delay(
           info
             .split("\\r?\\n")
             .toList
@@ -1301,19 +1303,19 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
 
   override def dbsize: F[Long] =
     async
-      .flatMap(c => F.delay(c.dbsize))
+      .flatMap(c => Sync[F].delay(c.dbsize))
       .futureLift
       .map(Long.unbox)
 
   override def lastSave: F[Instant] =
     async
-      .flatMap(c => F.delay(c.lastsave))
+      .flatMap(c => Sync[F].delay(c.lastsave))
       .futureLift
       .map(_.toInstant)
 
   override def slowLogLen: F[Long] =
     async
-      .flatMap(c => F.delay(c.slowlogLen))
+      .flatMap(c => Sync[F].delay(c.slowlogLen))
       .futureLift
       .map(Long.unbox)
 
@@ -1407,7 +1409,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   override def scriptFlush: F[Unit] =
     async.flatMap(c => blocker.delay(c.scriptFlush())).futureLift.void
 
-  override def digest(script: String): F[String] = async.flatMap(c => F.delay(c.digest(script)))
+  override def digest(script: String): F[String] = async.flatMap(c => Sync[F].delay(c.digest(script)))
 
   /** ***************************** HyperLoglog API **********************************/
   override def pfAdd(key: K, values: V*): F[Long] =
@@ -1467,7 +1469,7 @@ private[redis4cats] trait RedisConversionOps {
         case i: Int   => i
         case l: Long  => l
         case f: Float => f
-        case _        => T.toDouble(t)
+        case _        => implicitly[Numeric[T]].toDouble(t)
       }
       val start: Number = toJavaNumber(range.start)
       val end: Number   = toJavaNumber(range.end)

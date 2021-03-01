@@ -38,7 +38,7 @@ object JRFuture {
   private[redis4cats] type JFuture[A] = CompletionStage[A] with Future[A]
 
   private[redis4cats] def mkBlocker[F[_]: Sync]: Resource[F, Blocker] =
-    Blocker.fromExecutorService(F.delay(Executors.newFixedThreadPool(1)))
+    Blocker.fromExecutorService(Sync[F].delay(Executors.newFixedThreadPool(1)))
 
   def apply[F[_]: Concurrent: ContextShift, A](
       fa: F[RedisFuture[A]]
@@ -58,7 +58,7 @@ object JRFuture {
   implicit class FutureLiftOps[F[_]: Concurrent: ContextShift: Log, A](fa: F[RedisFuture[A]]) {
     def futureLift(implicit rb: RedisBlocker): F[A] =
       liftJFuture[F, RedisFuture[A], A](fa)(rb.ec).onError {
-        case e: ExecutionException => F.error(s"${e.getMessage()} - ${Option(e.getCause())}")
+        case e: ExecutionException => Log[F].error(s"${e.getMessage()} - ${Option(e.getCause())}")
       }
   }
 
@@ -70,7 +70,7 @@ object JRFuture {
     val lifted: F[A] = blocker.blockOn {
       fa.flatMap { f =>
         blocker.blockOn {
-          F.cancelable { cb =>
+          Concurrent[F].cancelable { cb =>
             f.handle[Unit] { (res: A, err: Throwable) =>
               err match {
                 case null =>
@@ -88,7 +88,7 @@ object JRFuture {
         }
       }
     }
-    lifted.guarantee(F.shift)
+    lifted.guarantee(ContextShift[F].shift)
   }
 
 }

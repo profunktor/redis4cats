@@ -35,13 +35,13 @@ private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
     JRFuture {
       val args = approxMaxlen.map(XAddArgs.Builder.maxlen(_).approximateTrimming(true))
 
-      F.delay(client.async().xadd(key, args.orNull, body.asJava))
+      Sync[F].delay(client.async().xadd(key, args.orNull, body.asJava))
     }(blocker).map(MessageId)
 
   override def xRead(streams: Set[StreamingOffset[K]]): F[List[XReadMessage[K, V]]] = {
     val offsets = streams.map(s => StreamOffset.from(s.key, s.offset)).toSeq
     JRFuture {
-      F.delay(client.async().xread(XReadArgs.Builder.block(0), offsets: _*))
+      Sync[F].delay(client.async().xread(XReadArgs.Builder.block(0), offsets: _*))
     }(blocker).map { list =>
       list.asScala.toList.map { msg =>
         XReadMessage[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap)

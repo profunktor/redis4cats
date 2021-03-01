@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats
 
 import scala.util.control.NoStackTrace
 
-import cats.Parallel
+import cats.{ Applicative, Parallel }
 import cats.effect._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
@@ -36,7 +36,7 @@ object pipeline {
         name = "Pipeline",
         mainCmd = cmd.disableAutoFlush,
         onComplete = (_: Runner.CancelFibers[F]) => cmd.flushCommands,
-        onError = F.unit,
+        onError = Applicative[F].unit,
         afterCompletion = cmd.enableAutoFlush,
         mkError = () => PipelineError
       )

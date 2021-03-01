@@ -48,13 +48,13 @@ private[redis4cats] class RedisStatefulConnection[F[_]: Concurrent: ContextShift
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] = blocker.delay(conn.sync())
   def clusterSync: F[RedisClusterSyncCommands[K, V]] =
-    F.raiseError(OperationNotSupported("Running in a single node"))
+    OperationNotSupported("Running in a single node").raiseError
   def async: F[RedisAsyncCommands[K, V]] = blocker.delay(conn.async())
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]] =
-    F.raiseError(OperationNotSupported("Running in a single node"))
+    OperationNotSupported("Running in a single node").raiseError
   def close: F[Unit] = JRFuture.fromCompletableFuture(blocker.delay(conn.closeAsync()))(blocker).void
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
-    F.raiseError(OperationNotSupported("Running in a single node"))
+    OperationNotSupported("Running in a single node").raiseError
   def liftK[G[_]: Concurrent: ContextShift]: RedisConnection[G, K, V] =
     new RedisStatefulConnection[G, K, V](conn, blocker)
 }
@@ -64,13 +64,9 @@ private[redis4cats] class RedisStatefulClusterConnection[F[_]: Concurrent: Conte
     blocker: Blocker
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] =
-    F.raiseError(
-      OperationNotSupported("Transactions are not supported in a cluster. You must select a single node.")
-    )
+    OperationNotSupported("Transactions are not supported in a cluster. You must select a single node.").raiseError
   def async: F[RedisAsyncCommands[K, V]] =
-    F.raiseError(
-      OperationNotSupported("Transactions are not supported in a cluster. You must select a single node.")
-    )
+    OperationNotSupported("Transactions are not supported in a cluster. You must select a single node.").raiseError
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]] = blocker.delay(conn.async())
   def clusterSync: F[RedisClusterSyncCommands[K, V]]   = blocker.delay(conn.sync())
   def close: F[Unit] =
