@@ -23,6 +23,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisEc }
+import dev.profunktor.redis4cats.pubsub.internals.{ LivePubSubCommands, Publisher, Subscriber }
 import fs2.Stream
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection

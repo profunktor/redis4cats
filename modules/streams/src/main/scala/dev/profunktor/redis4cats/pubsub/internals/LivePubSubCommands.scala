@@ -16,18 +16,18 @@
 
 package dev.profunktor.redis4cats
 package pubsub
+package internals
 
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.pubsub.data.Subscription
-import dev.profunktor.redis4cats.pubsub.internals.{ PubSubInternals, PubSubState }
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisEc }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
+private[pubsub] class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V],
     pubConnection: StatefulRedisPubSubConnection[K, V],

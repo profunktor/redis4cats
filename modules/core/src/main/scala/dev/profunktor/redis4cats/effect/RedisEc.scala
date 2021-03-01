@@ -19,18 +19,12 @@ package dev.profunktor.redis4cats.effect
 import cats.effect._
 import java.util.concurrent.Executors
 
-trait RedisEc {
-  def delay[F[_]: Sync: ContextShift, A](thunk: => A): F[A]
-  def eval[F[_]: ContextShift, A](fa: F[A]): F[A]
+class RedisEc(val blocker: Blocker) {
+  def delay[F[_]: Sync: ContextShift, A](thunk: => A): F[A] = blocker.delay(thunk)
+  def eval[F[_]: ContextShift, A](fa: F[A]): F[A]           = blocker.blockOn(fa)
 }
 
 object RedisEc {
-  def apply(blocker: Blocker): RedisEc =
-    new RedisEc {
-      override def delay[F[_]: Sync: ContextShift, A](thunk: => A): F[A] = blocker.delay(thunk)
-      override def eval[F[_]: ContextShift, A](fa: F[A]): F[A]           = blocker.blockOn(fa)
-    }
-
   def apply[F[_]: Sync]: Resource[F, RedisEc] =
-    Blocker.fromExecutorService(F.delay(Executors.newFixedThreadPool(1))).map(RedisEc.apply)
+    Blocker.fromExecutorService(F.delay(Executors.newFixedThreadPool(1))).map(new RedisEc(_))
 }
