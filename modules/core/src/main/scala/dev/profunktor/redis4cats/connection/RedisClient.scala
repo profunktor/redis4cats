@@ -21,9 +21,8 @@ import java.util.concurrent.TimeUnit
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisEc }
 import io.lettuce.core.{ ClientOptions, RedisClient => JRedisClient, RedisURI => JRedisURI }
-import dev.profunktor.redis4cats.effect.RedisEc
 
 sealed abstract case class RedisClient private (underlying: JRedisClient, uri: RedisURI)
 

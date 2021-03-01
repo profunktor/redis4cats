@@ -20,13 +20,12 @@ package pubsub
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.JRFuture
+import dev.profunktor.redis4cats.effect.{ JRFuture, RedisEc }
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 import dev.profunktor.redis4cats.JavaConversions._
-import dev.profunktor.redis4cats.effect.RedisEc
 
 class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V],

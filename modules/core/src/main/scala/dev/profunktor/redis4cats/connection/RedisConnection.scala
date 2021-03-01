@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats.connection
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.NodeId
-import dev.profunktor.redis4cats.effect.JRFuture
+import dev.profunktor.redis4cats.effect.{ JRFuture, RedisEc }
 import io.lettuce.core.api.StatefulRedisConnection
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.api.sync.{ RedisCommands => RedisSyncCommands }
@@ -27,7 +27,6 @@ import io.lettuce.core.cluster.api.StatefulRedisClusterConnection
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 import scala.util.control.NoStackTrace
-import dev.profunktor.redis4cats.effect.RedisEc
 
 case class OperationNotSupported(value: String) extends NoStackTrace {
   override def toString(): String = s"OperationNotSupported($value)"

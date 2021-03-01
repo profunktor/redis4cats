@@ -23,8 +23,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import dev.profunktor.redis4cats.pubsub.internals.{ PubSubInternals, PubSubState }
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
-import dev.profunktor.redis4cats.effect.RedisEc
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisEc }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 

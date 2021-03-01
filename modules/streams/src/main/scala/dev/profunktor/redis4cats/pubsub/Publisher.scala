@@ -20,11 +20,10 @@ package pubsub
 import cats.effect._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.data.RedisChannel
-import dev.profunktor.redis4cats.effect.JRFuture
+import dev.profunktor.redis4cats.effect.{ JRFuture, RedisEc }
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
-import dev.profunktor.redis4cats.effect.RedisEc
 
 class Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V],

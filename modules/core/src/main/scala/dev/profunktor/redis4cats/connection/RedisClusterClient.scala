@@ -24,7 +24,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config._
 import dev.profunktor.redis4cats.data.NodeId
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisEc }
 import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
 import io.lettuce.core.cluster.{
   ClusterClientOptions,
@@ -32,7 +32,6 @@ import io.lettuce.core.cluster.{
   SlotHash,
   RedisClusterClient => JClusterClient
 }
-import dev.profunktor.redis4cats.effect.RedisEc
 
 sealed abstract case class RedisClusterClient private (underlying: JClusterClient)
 
