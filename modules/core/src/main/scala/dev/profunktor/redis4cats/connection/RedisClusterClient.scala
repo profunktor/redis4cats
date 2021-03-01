@@ -33,6 +33,7 @@ import io.lettuce.core.cluster.{
   SlotHash,
   RedisClusterClient => JClusterClient
 }
+import dev.profunktor.redis4cats.effect.RedisBlocker
 
 sealed abstract case class RedisClusterClient private (underlying: JClusterClient)
 
@@ -40,7 +41,7 @@ object RedisClusterClient {
 
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
       config: Redis4CatsConfig,
-      blocker: Blocker,
+      blocker: RedisBlocker,
       uri: RedisURI*
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
 

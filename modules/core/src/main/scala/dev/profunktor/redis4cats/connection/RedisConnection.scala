@@ -27,6 +27,7 @@ import io.lettuce.core.cluster.api.StatefulRedisClusterConnection
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 import scala.util.control.NoStackTrace
+import dev.profunktor.redis4cats.effect.RedisBlocker
 
 case class OperationNotSupported(value: String) extends NoStackTrace {
   override def toString(): String = s"OperationNotSupported($value)"
@@ -44,7 +45,7 @@ private[redis4cats] trait RedisConnection[F[_], K, V] {
 
 private[redis4cats] class RedisStatefulConnection[F[_]: Concurrent: ContextShift, K, V](
     conn: StatefulRedisConnection[K, V],
-    blocker: Blocker
+    blocker: RedisBlocker
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] = blocker.delay(conn.sync())
   def clusterSync: F[RedisClusterSyncCommands[K, V]] =
@@ -61,7 +62,7 @@ private[redis4cats] class RedisStatefulConnection[F[_]: Concurrent: ContextShift
 
 private[redis4cats] class RedisStatefulClusterConnection[F[_]: Concurrent: ContextShift, K, V](
     conn: StatefulRedisClusterConnection[K, V],
-    blocker: Blocker
+    blocker: RedisBlocker
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] =
     F.raiseError(

@@ -25,6 +25,7 @@ import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
 import dev.profunktor.redis4cats.effect.JRFuture._
 import io.lettuce.core.masterreplica.{ MasterReplica, StatefulRedisMasterReplicaConnection }
 import io.lettuce.core.{ ClientOptions, ReadFrom => JReadFrom }
+import dev.profunktor.redis4cats.effect.RedisBlocker
 
 /**
   * It encapsulates an underlying `MasterReplica` connection
@@ -37,7 +38,7 @@ object RedisMasterReplica {
       client: RedisClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
-      blocker: Blocker,
+      blocker: RedisBlocker,
       uris: RedisURI*
   ): (F[RedisMasterReplica[K, V]], RedisMasterReplica[K, V] => F[Unit]) = {
 

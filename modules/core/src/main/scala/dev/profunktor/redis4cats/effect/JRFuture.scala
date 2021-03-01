@@ -23,6 +23,9 @@ import io.lettuce.core.{ ConnectionFuture, RedisFuture }
 import java.util.concurrent._
 
 trait RedisBlocker {
+  def delay[F[_]: Sync: ContextShift, A](thunk: => A): F[A] = ec.delay(thunk)
+  def blockOn[F[_]: ContextShift, A](fa: F[A]): F[A]        = ec.blockOn(fa)
+
   def ec: Blocker
 }
 
@@ -37,27 +40,27 @@ object JRFuture {
 
   private[redis4cats] type JFuture[A] = CompletionStage[A] with Future[A]
 
-  private[redis4cats] def mkBlocker[F[_]: Sync]: Resource[F, Blocker] =
-    Blocker.fromExecutorService(F.delay(Executors.newFixedThreadPool(1)))
+  private[redis4cats] def mkBlocker[F[_]: Sync]: Resource[F, RedisBlocker] =
+    Blocker.fromExecutorService(F.delay(Executors.newFixedThreadPool(1))).map(RedisBlocker.apply)
 
   def apply[F[_]: Concurrent: ContextShift, A](
       fa: F[RedisFuture[A]]
-  )(blocker: Blocker): F[A] =
+  )(blocker: RedisBlocker): F[A] =
     liftJFuture[F, RedisFuture[A], A](fa)(blocker)
 
   def fromConnectionFuture[F[_]: Concurrent: ContextShift, A](
       fa: F[ConnectionFuture[A]]
-  )(blocker: Blocker): F[A] =
+  )(blocker: RedisBlocker): F[A] =
     liftJFuture[F, ConnectionFuture[A], A](fa)(blocker)
 
   def fromCompletableFuture[F[_]: Concurrent: ContextShift, A](
       fa: F[CompletableFuture[A]]
-  )(blocker: Blocker): F[A] =
+  )(blocker: RedisBlocker): F[A] =
     liftJFuture[F, CompletableFuture[A], A](fa)(blocker)
 
   implicit class FutureLiftOps[F[_]: Concurrent: ContextShift: Log, A](fa: F[RedisFuture[A]]) {
     def futureLift(implicit rb: RedisBlocker): F[A] =
-      liftJFuture[F, RedisFuture[A], A](fa)(rb.ec).onError {
+      liftJFuture[F, RedisFuture[A], A](fa)(rb).onError {
         case e: ExecutionException => F.error(s"${e.getMessage()} - ${Option(e.getCause())}")
       }
   }
@@ -66,7 +69,7 @@ object JRFuture {
       F[_]: Concurrent: ContextShift,
       G <: JFuture[A],
       A
-  ](fa: F[G])(blocker: Blocker): F[A] = {
+  ](fa: F[G])(blocker: RedisBlocker): F[A] = {
     val lifted: F[A] = blocker.blockOn {
       fa.flatMap { f =>
         blocker.blockOn {

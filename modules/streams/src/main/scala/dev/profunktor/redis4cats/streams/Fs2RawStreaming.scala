@@ -25,10 +25,11 @@ import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
 import dev.profunktor.redis4cats.JavaConversions._
 import io.lettuce.core.{ XAddArgs, XReadArgs }
+import dev.profunktor.redis4cats.effect.RedisBlocker
 
 private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
     val client: StatefulRedisConnection[K, V],
-    blocker: Blocker
+    blocker: RedisBlocker
 ) extends RawStreaming[F, K, V] {
 
   override def xAdd(key: K, body: Map[K, V], approxMaxlen: Option[Long] = None): F[MessageId] =

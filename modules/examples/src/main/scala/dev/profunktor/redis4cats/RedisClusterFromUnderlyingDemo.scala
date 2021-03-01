@@ -26,6 +26,7 @@ import io.lettuce.core.TimeoutOptions
 import io.lettuce.core.cluster.{ ClusterClientOptions, RedisClusterClient => JRedisClusterClient }
 
 import scala.concurrent.ExecutionContext
+import dev.profunktor.redis4cats.effect.RedisBlocker
 
 object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
 
@@ -37,7 +38,7 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
     val commandsApi =
       for {
         uri <- Resource.liftF(RedisURI.make[IO](redisClusterURI))
-        blocker = Blocker.liftExecutionContext(ExecutionContext.global)
+        blocker = RedisBlocker(Blocker.liftExecutionContext(ExecutionContext.global))
         underlying <- Resource.make(IO {
                        val timeoutOptions =
                          TimeoutOptions

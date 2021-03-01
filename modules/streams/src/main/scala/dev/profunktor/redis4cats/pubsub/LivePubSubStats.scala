@@ -26,10 +26,11 @@ import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 import dev.profunktor.redis4cats.JavaConversions._
+import dev.profunktor.redis4cats.effect.RedisBlocker
 
 class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V],
-    blocker: Blocker
+    blocker: RedisBlocker
 ) extends PubSubStats[Stream[F, *], K] {
 
   override def pubSubChannels: Stream[F, List[K]] =

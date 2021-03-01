@@ -53,7 +53,7 @@ object Redis {
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V],
-      blocker: Blocker
+      blocker: RedisBlocker
   ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromConnectionFuture(
@@ -71,7 +71,7 @@ object Redis {
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
-      blocker: Blocker
+      blocker: RedisBlocker
   ): (F[RedisCluster[F, K, V]], RedisCluster[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture(
@@ -91,7 +91,7 @@ object Redis {
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
       nodeId: NodeId,
-      blocker: Blocker
+      blocker: RedisBlocker
   ): (F[BaseRedis[F, K, V]], BaseRedis[F, K, V] => F[Unit]) = {
     val acquire = JRFuture
       .fromCompletableFuture(
@@ -346,7 +346,7 @@ object Redis {
 private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
     val conn: RedisConnection[F, K, V],
     val cluster: Boolean,
-    blocker: Blocker
+    blocker: RedisBlocker
 ) extends RedisCommands[F, K, V]
     with RedisConversionOps {
 
@@ -356,7 +356,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: Log, K, V](
   import dev.profunktor.redis4cats.JavaConversions._
 
   // To avoid passing it to every `futureLift`
-  implicit val redisBlocker = RedisBlocker(blocker)
+  implicit val redisBlocker = blocker
 
   def async: F[RedisClusterAsyncCommands[K, V]] =
     if (cluster) conn.clusterAsync else conn.async.widen
@@ -1490,10 +1490,10 @@ private[redis4cats] trait RedisConversionOps {
 
 private[redis4cats] class Redis[F[_]: Concurrent: ContextShift: Log, K, V](
     connection: RedisStatefulConnection[F, K, V],
-    blocker: Blocker
+    blocker: RedisBlocker
 ) extends BaseRedis[F, K, V](connection, cluster = false, blocker)
 
 private[redis4cats] class RedisCluster[F[_]: Concurrent: ContextShift: Log, K, V](
     connection: RedisStatefulClusterConnection[F, K, V],
-    blocker: Blocker
+    blocker: RedisBlocker
 ) extends BaseRedis[F, K, V](connection, cluster = true, blocker)

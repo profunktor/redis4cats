@@ -24,10 +24,11 @@ import dev.profunktor.redis4cats.effect.JRFuture
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
+import dev.profunktor.redis4cats.effect.RedisBlocker
 
 class Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V],
-    blocker: Blocker
+    blocker: RedisBlocker
 ) extends PublishCommands[Stream[F, *], K, V] {
 
   private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection, blocker)

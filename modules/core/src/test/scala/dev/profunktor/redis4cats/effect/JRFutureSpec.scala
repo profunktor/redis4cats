@@ -30,7 +30,7 @@ class JRFutureSpec extends FunSuite {
 
   test("it shifts back once the Future is converted") {
     val ioa =
-      Blocker[IO].use { blocker =>
+      Blocker[IO].map(RedisBlocker.apply).use { blocker =>
         JRFuture.fromCompletableFuture[IO, String] {
           IO {
             val jFuture = new CompletableFuture[String]()
@@ -47,7 +47,7 @@ class JRFutureSpec extends FunSuite {
 
   test("it shifts back even when the CompletableFuture fails") {
     val ioa =
-      Blocker[IO].use { blocker =>
+      Blocker[IO].map(RedisBlocker.apply).use { blocker =>
         JRFuture.fromCompletableFuture[IO, String] {
           IO {
             val jFuture = new CompletableFuture[String]()
