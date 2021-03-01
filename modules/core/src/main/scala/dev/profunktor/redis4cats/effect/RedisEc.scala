@@ -25,7 +25,7 @@ trait RedisEc {
 }
 
 object RedisEc {
-  private def apply(blocker: Blocker): RedisEc =
+  def apply(blocker: Blocker): RedisEc =
     new RedisEc {
       override def delay[F[_]: Sync: ContextShift, A](thunk: => A): F[A] = blocker.delay(thunk)
       override def eval[F[_]: ContextShift, A](fa: F[A]): F[A]           = blocker.blockOn(fa)
