@@ -27,11 +27,10 @@ import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-private[pubsub] class Subscriber[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
+private[pubsub] class Subscriber[F[_]: ConcurrentEffect: ContextShift: RedisExecutor: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V]
-)(implicit redisExecutor: RedisExecutor[F])
-    extends SubscribeCommands[Stream[F, *], K, V] {
+) extends SubscribeCommands[Stream[F, *], K, V] {
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     Stream

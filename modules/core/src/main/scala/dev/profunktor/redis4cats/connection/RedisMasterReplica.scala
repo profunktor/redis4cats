@@ -32,12 +32,12 @@ sealed abstract case class RedisMasterReplica[K, V] private (underlying: Statefu
 
 object RedisMasterReplica {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: RedisExecutor: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
       uris: RedisURI*
-  )(implicit redisExecutor: RedisExecutor[F]): (F[RedisMasterReplica[K, V]], RedisMasterReplica[K, V] => F[Unit]) = {
+  ): (F[RedisMasterReplica[K, V]], RedisMasterReplica[K, V] => F[Unit]) = {
 
     val acquire: F[RedisMasterReplica[K, V]] = {
 

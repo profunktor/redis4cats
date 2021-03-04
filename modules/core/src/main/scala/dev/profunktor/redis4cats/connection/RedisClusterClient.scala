@@ -37,10 +37,10 @@ sealed abstract case class RedisClusterClient private (underlying: JClusterClien
 
 object RedisClusterClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: RedisExecutor: Log](
       config: Redis4CatsConfig,
       uri: RedisURI*
-  )(implicit redisExecutor: RedisExecutor[F]): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
+  ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
 
     val acquire: F[RedisClusterClient] =
       F.info(s"Acquire Redis Cluster client") *>

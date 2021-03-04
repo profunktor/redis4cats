@@ -28,10 +28,9 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 import dev.profunktor.redis4cats.JavaConversions._
 
-private[pubsub] class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
+private[pubsub] class LivePubSubStats[F[_]: Concurrent: ContextShift: RedisExecutor, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
-)(implicit redisExecutor: RedisExecutor[F])
-    extends PubSubStats[Stream[F, *], K] {
+) extends PubSubStats[Stream[F, *], K] {
 
   override def pubSubChannels: Stream[F, List[K]] =
     Stream

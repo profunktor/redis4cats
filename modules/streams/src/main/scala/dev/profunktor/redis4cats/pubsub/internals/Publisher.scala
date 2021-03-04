@@ -26,10 +26,9 @@ import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-private[pubsub] class Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](
+private[pubsub] class Publisher[F[_]: ConcurrentEffect: ContextShift: RedisExecutor, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
-)(implicit redisExecutor: RedisExecutor[F])
-    extends PublishCommands[Stream[F, *], K, V] {
+) extends PublishCommands[Stream[F, *], K, V] {
 
   private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection)
 

@@ -28,11 +28,11 @@ sealed abstract case class RedisClient private (underlying: JRedisClient, uri: R
 
 object RedisClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: RedisExecutor: Log](
       uri: => RedisURI,
       opts: ClientOptions,
       config: Redis4CatsConfig
-  )(implicit redisExecutor: RedisExecutor[F]): (F[RedisClient], RedisClient => F[Unit]) = {
+  ): (F[RedisClient], RedisClient => F[Unit]) = {
     val acquire: F[RedisClient] = F.delay {
       val jClient: JRedisClient = JRedisClient.create(uri.underlying)
       jClient.setOptions(opts)
@@ -56,10 +56,10 @@ object RedisClient {
     (acquire, release)
   }
 
-  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log](
+  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: RedisExecutor: Log](
       opts: ClientOptions,
       config: Redis4CatsConfig
-  )(implicit redisExecutor: RedisExecutor[F]): F[(F[RedisClient], RedisClient => F[Unit])] =
+  ): F[(F[RedisClient], RedisClient => F[Unit])] =
     F.delay(RedisURI.fromUnderlying(new JRedisURI()))
       .map(uri => acquireAndRelease(uri, opts, config))
 
