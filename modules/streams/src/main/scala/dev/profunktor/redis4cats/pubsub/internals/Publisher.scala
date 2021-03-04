@@ -21,14 +21,14 @@ package internals
 import cats.effect._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.data.RedisChannel
-import dev.profunktor.redis4cats.effect.{ JRFuture, RedisEc }
+import dev.profunktor.redis4cats.effect.{ JRFuture, RedisExecutor }
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 private[pubsub] class Publisher[F[_]: ConcurrentEffect: ContextShift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
-)(implicit redisEc: RedisEc[F])
+)(implicit redisExecutor: RedisExecutor[F])
     extends PublishCommands[Stream[F, *], K, V] {
 
   private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection)

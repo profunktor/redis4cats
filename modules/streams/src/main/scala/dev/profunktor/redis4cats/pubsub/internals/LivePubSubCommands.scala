@@ -23,7 +23,7 @@ import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.pubsub.data.Subscription
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisEc }
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
@@ -31,7 +31,7 @@ private[pubsub] class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: L
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V],
     pubConnection: StatefulRedisPubSubConnection[K, V]
-)(implicit redisEc: RedisEc[F])
+)(implicit redisExecutor: RedisExecutor[F])
     extends PubSubCommands[Stream[F, *], K, V] {
 
   private[redis4cats] val subCommands: SubscribeCommands[Stream[F, *], K, V] =

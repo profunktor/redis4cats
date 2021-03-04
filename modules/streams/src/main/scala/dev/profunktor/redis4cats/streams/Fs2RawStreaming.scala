@@ -19,7 +19,7 @@ package streams
 
 import cats.effect._
 import cats.syntax.functor._
-import dev.profunktor.redis4cats.effect.{ JRFuture, RedisEc }
+import dev.profunktor.redis4cats.effect.{ JRFuture, RedisExecutor }
 import dev.profunktor.redis4cats.streams.data._
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
@@ -28,7 +28,7 @@ import io.lettuce.core.{ XAddArgs, XReadArgs }
 
 private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift, K, V](
     val client: StatefulRedisConnection[K, V]
-)(implicit redisEc: RedisEc[F])
+)(implicit redisExecutor: RedisExecutor[F])
     extends RawStreaming[F, K, V] {
 
   override def xAdd(key: K, body: Map[K, V], approxMaxlen: Option[Long] = None): F[MessageId] =

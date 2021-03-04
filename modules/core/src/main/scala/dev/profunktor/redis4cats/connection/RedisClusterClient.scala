@@ -24,7 +24,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config._
 import dev.profunktor.redis4cats.data.NodeId
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisEc }
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
 import io.lettuce.core.cluster.{
   ClusterClientOptions,
@@ -40,7 +40,7 @@ object RedisClusterClient {
   private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
       config: Redis4CatsConfig,
       uri: RedisURI*
-  )(implicit redisEc: RedisEc[F]): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
+  )(implicit redisExecutor: RedisExecutor[F]): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
 
     val acquire: F[RedisClusterClient] =
       F.info(s"Acquire Redis Cluster client") *>
@@ -110,7 +110,7 @@ object RedisClusterClient {
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): Resource[F, RedisClusterClient] =
-    RedisEc.make[F].flatMap { implicit redisEc =>
+    RedisExecutor.make[F].flatMap { implicit redisExecutor =>
       val (acquire, release) = acquireAndRelease(config, uri: _*)
       Resource.make(acquire)(release)
     }

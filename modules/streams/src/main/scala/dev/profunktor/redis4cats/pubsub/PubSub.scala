@@ -22,7 +22,7 @@ import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisEc }
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import dev.profunktor.redis4cats.pubsub.internals.{ LivePubSubCommands, Publisher, Subscriber }
 import fs2.Stream
 import fs2.concurrent.Topic
@@ -34,7 +34,7 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   )(
-      implicit redisEc: RedisEc[F]
+      implicit redisExecutor: RedisExecutor[F]
   ): (F[StatefulRedisPubSubConnection[K, V]], StatefulRedisPubSubConnection[K, V] => F[Unit]) = {
 
     val acquire: F[StatefulRedisPubSubConnection[K, V]] = JRFuture.fromConnectionFuture(
@@ -57,7 +57,7 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PubSubCommands[Stream[F, *], K, V]] =
-    RedisEc.make[F].flatMap { implicit redisEc =>
+    RedisExecutor.make[F].flatMap { implicit redisExecutor =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       // One exclusive connection for subscriptions and another connection for publishing / stats
       for {
@@ -76,7 +76,7 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PublishCommands[Stream[F, *], K, V]] =
-    RedisEc.make[F].flatMap { implicit redisEc =>
+    RedisExecutor.make[F].flatMap { implicit redisExecutor =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       Resource.make(acquire)(release).map(new Publisher[F, K, V](_))
     }
@@ -90,7 +90,7 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, SubscribeCommands[Stream[F, *], K, V]] =
-    RedisEc.make[F].flatMap { implicit redisEc =>
+    RedisExecutor.make[F].flatMap { implicit redisExecutor =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       for {
         state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))

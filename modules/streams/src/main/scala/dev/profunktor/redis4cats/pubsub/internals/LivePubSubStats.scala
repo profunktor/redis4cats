@@ -21,7 +21,7 @@ package internals
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ JRFuture, RedisEc }
+import dev.profunktor.redis4cats.effect.{ JRFuture, RedisExecutor }
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
@@ -30,7 +30,7 @@ import dev.profunktor.redis4cats.JavaConversions._
 
 private[pubsub] class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
-)(implicit redisEc: RedisEc[F])
+)(implicit redisExecutor: RedisExecutor[F])
     extends PubSubStats[Stream[F, *], K] {
 
   override def pubSubChannels: Stream[F, List[K]] =

@@ -28,21 +28,21 @@ private[redis4cats] object JRFuture {
 
   def apply[F[_]: Concurrent: ContextShift, A](
       fa: F[RedisFuture[A]]
-  )(implicit redisEc: RedisEc[F]): F[A] =
+  )(implicit redisExecutor: RedisExecutor[F]): F[A] =
     liftJFuture[F, RedisFuture[A], A](fa)
 
   def fromConnectionFuture[F[_]: Concurrent: ContextShift, A](
       fa: F[ConnectionFuture[A]]
-  )(implicit redisEc: RedisEc[F]): F[A] =
+  )(implicit redisExecutor: RedisExecutor[F]): F[A] =
     liftJFuture[F, ConnectionFuture[A], A](fa)
 
   def fromCompletableFuture[F[_]: Concurrent: ContextShift, A](
       fa: F[CompletableFuture[A]]
-  )(implicit redisEc: RedisEc[F]): F[A] =
+  )(implicit redisExecutor: RedisExecutor[F]): F[A] =
     liftJFuture[F, CompletableFuture[A], A](fa)
 
   implicit final class FutureLiftOps[F[_]: Concurrent: ContextShift: Log, A](fa: F[RedisFuture[A]]) {
-    def futureLift(implicit rb: RedisEc[F]): F[A] =
+    def futureLift(implicit rb: RedisExecutor[F]): F[A] =
       liftJFuture[F, RedisFuture[A], A](fa).onError {
         case e: ExecutionException => F.error(s"${e.getMessage()} - ${Option(e.getCause())}")
       }
@@ -52,10 +52,10 @@ private[redis4cats] object JRFuture {
       F[_]: Concurrent: ContextShift,
       G <: JFuture[A],
       A
-  ](fa: F[G])(implicit redisEc: RedisEc[F]): F[A] = {
-    val lifted: F[A] = redisEc.eval {
+  ](fa: F[G])(implicit redisExecutor: RedisExecutor[F]): F[A] = {
+    val lifted: F[A] = redisExecutor.eval {
       fa.flatMap { f =>
-        redisEc.eval {
+        redisExecutor.eval {
           F.cancelable { cb =>
             f.handle[Unit] { (res: A, err: Throwable) =>
               err match {
@@ -69,7 +69,7 @@ private[redis4cats] object JRFuture {
                   cb(Left(ex))
               }
             }
-            redisEc.delay(f.cancel(true)).void
+            redisExecutor.delay(f.cancel(true)).void
           }
         }
       }

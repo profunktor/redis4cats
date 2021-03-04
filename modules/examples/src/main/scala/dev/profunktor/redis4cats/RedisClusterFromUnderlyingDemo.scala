@@ -20,7 +20,7 @@ import java.time.Duration
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.connection.{ RedisClusterClient, RedisURI }
-import dev.profunktor.redis4cats.effect.{ JRFuture, RedisEc }
+import dev.profunktor.redis4cats.effect.{ JRFuture, RedisExecutor }
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import io.lettuce.core.TimeoutOptions
 import io.lettuce.core.cluster.{ ClusterClientOptions, RedisClusterClient => JRedisClusterClient }
@@ -35,7 +35,7 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
     val commandsApi =
       for {
         uri <- Resource.liftF(RedisURI.make[IO](redisClusterURI))
-        implicit0(redisEc: RedisEc[IO]) <- RedisEc.make[IO]
+        implicit0(redisExecutor: RedisExecutor[IO]) <- RedisExecutor.make[IO]
         underlying <- Resource.make(IO {
                        val timeoutOptions =
                          TimeoutOptions

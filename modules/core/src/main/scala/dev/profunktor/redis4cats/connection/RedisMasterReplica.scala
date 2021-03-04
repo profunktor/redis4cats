@@ -21,7 +21,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisEc }
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import io.lettuce.core.masterreplica.{ MasterReplica, StatefulRedisMasterReplicaConnection }
 import io.lettuce.core.{ ClientOptions, ReadFrom => JReadFrom }
 
@@ -37,7 +37,7 @@ object RedisMasterReplica {
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
       uris: RedisURI*
-  )(implicit redisEc: RedisEc[F]): (F[RedisMasterReplica[K, V]], RedisMasterReplica[K, V] => F[Unit]) = {
+  )(implicit redisExecutor: RedisExecutor[F]): (F[RedisMasterReplica[K, V]], RedisMasterReplica[K, V] => F[Unit]) = {
 
     val acquire: F[RedisMasterReplica[K, V]] = {
 
@@ -108,7 +108,7 @@ object RedisMasterReplica {
         config: Redis4CatsConfig,
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
-      RedisEc.make[F].flatMap { implicit redisEc =>
+      RedisExecutor.make[F].flatMap { implicit redisExecutor =>
         Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F](opts, config)).flatMap {
           case (acquireClient, releaseClient) =>
             Resource.make(acquireClient)(releaseClient).flatMap { client =>
