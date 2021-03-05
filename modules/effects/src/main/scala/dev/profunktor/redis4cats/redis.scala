@@ -50,7 +50,7 @@ import scala.concurrent.duration._
 
 object Redis {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: RedisExecutor: Log, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: Async: RedisExecutor: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
@@ -66,7 +66,7 @@ object Redis {
     (acquire, release)
   }
 
-  private[redis4cats] def acquireAndReleaseCluster[F[_]: Concurrent: ContextShift: RedisExecutor: Log, K, V](
+  private[redis4cats] def acquireAndReleaseCluster[F[_]: Async: RedisExecutor: Log, K, V](
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom]
@@ -84,7 +84,7 @@ object Redis {
     (acquire, release)
   }
 
-  private[redis4cats] def acquireAndReleaseClusterByNode[F[_]: Concurrent: ContextShift: RedisExecutor: Log, K, V](
+  private[redis4cats] def acquireAndReleaseClusterByNode[F[_]: Async: RedisExecutor: Log, K, V](
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
@@ -109,7 +109,7 @@ object Redis {
     (acquire, release)
   }
 
-  class RedisPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
+  class RedisPartiallyApplied[F[_]: Async: Log] {
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection.
@@ -139,7 +139,7 @@ object Redis {
       *
       * {{{
       * for {
-      *   opts <- Resource.liftF(F.delay(ClientOptions.create())) // configure timeouts, etc
+      *   opts <- Resource.eval(F.delay(ClientOptions.create())) // configure timeouts, etc
       *   cmds <- Redis[IO].withOptions("redis://localhost", opts, RedisCodec.Ascii)
       * } yield cmds
       * }}}
@@ -181,7 +181,7 @@ object Redis {
       * {{{
       * val redis: Resource[IO, RedisCommands[IO, String, String]] =
       *   for {
-      *     uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
+      *     uri <- Resource.eval(RedisURI.make[IO]("redis://localhost"))
       *     cli <- RedisClient[IO](uri)
       *     cmd <- Redis[IO].fromClient(cli, RedisCodec.Utf8)
       *   } yield cmd
@@ -223,7 +223,7 @@ object Redis {
         uris: String*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
       for {
-        redisUris <- Resource.liftF(uris.toList.traverse(RedisURI.make[F](_)))
+        redisUris <- Resource.eval(uris.toList.traverse(RedisURI.make[F](_)))
         client <- RedisClusterClient[F](redisUris: _*)
         redis <- this.fromClusterClient[K, V](client, codec)(readFrom)
       } yield redis
@@ -258,7 +258,7 @@ object Redis {
       * {{{
       * val redis: Resource[IO, RedisCommands[IO, String, String]] =
       *   for {
-      *     uris <- Resource.liftF(
+      *     uris <- Resource.eval(
       *             List("redis://localhost:30001", "redis://localhost:30002")
       *               .traverse(RedisURI.make[F](_))
       *           )
@@ -288,7 +288,7 @@ object Redis {
       * {{{
       * val redis: Resource[IO, RedisCommands[IO, String, String]] =
       *   for {
-      *     uris <- Resource.liftF(
+      *     uris <- Resource.eval(
       *             List("redis://localhost:30001", "redis://localhost:30002")
       *               .traverse(RedisURI.make[F](_))
       *           )
@@ -318,7 +318,7 @@ object Redis {
       * {{{
       * val redis: Resource[IO, RedisCommands[IO, String, String]] =
       *   for {
-      *     uri <- Resource.liftF(RedisURI.make[IO](redisURI))
+      *     uri <- Resource.eval(RedisURI.make[IO](redisURI))
       *     conn <- RedisMasterReplica[IO].make(RedisCodec.Utf8, uri)(Some(ReadFrom.MasterPreferred))
       *     cmds <- Redis[IO].masterReplica(conn)
       *   } yield cmds
@@ -328,7 +328,7 @@ object Redis {
         conn: RedisMasterReplica[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
       RedisExecutor.make[F].flatMap { implicit redisExecutor =>
-        Resource.liftF {
+        Resource.eval {
           F.delay(new RedisStatefulConnection(conn.underlying))
             .map(c => new Redis[F, K, V](c))
         }
@@ -336,17 +336,17 @@ object Redis {
 
   }
 
-  def apply[F[_]: Concurrent: ContextShift: Log]: RedisPartiallyApplied[F] = new RedisPartiallyApplied[F]
+  def apply[F[_]: Async: Log]: RedisPartiallyApplied[F] = new RedisPartiallyApplied[F]
 
 }
 
-private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecutor: Log, K, V](
+private[redis4cats] class BaseRedis[F[_]: Async: RedisExecutor: Log, K, V](
     val conn: RedisConnection[F, K, V],
     val cluster: Boolean
 ) extends RedisCommands[F, K, V]
     with RedisConversionOps {
 
-  def liftK[G[_]: Concurrent: ContextShift: Log]: RedisCommands[G, K, V] = {
+  def liftK[G[_]: Async: Log]: RedisCommands[G, K, V] = {
     implicit val redisEcG = RedisExecutor[F].liftK[G]
     new BaseRedis[G, K, V](conn.liftK[G], cluster)
   }
@@ -1504,10 +1504,10 @@ private[redis4cats] trait RedisConversionOps {
 
 }
 
-private[redis4cats] class Redis[F[_]: Concurrent: ContextShift: RedisExecutor: Log, K, V](
+private[redis4cats] class Redis[F[_]: Async: RedisExecutor: Log, K, V](
     connection: RedisStatefulConnection[F, K, V]
 ) extends BaseRedis[F, K, V](connection, cluster = false)
 
-private[redis4cats] class RedisCluster[F[_]: Concurrent: ContextShift: RedisExecutor: Log, K, V](
+private[redis4cats] class RedisCluster[F[_]: Async: RedisExecutor: Log, K, V](
     connection: RedisStatefulClusterConnection[F, K, V]
 ) extends BaseRedis[F, K, V](connection, cluster = true)

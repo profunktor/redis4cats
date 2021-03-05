@@ -41,8 +41,8 @@ import cats.implicits._
 import dev.profunktor.redis4cats._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
-import io.chrisdavenport.log4cats.Logger
-import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]

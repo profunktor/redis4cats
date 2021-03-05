@@ -34,7 +34,7 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
 
     val commandsApi: Resource[IO, (RedisClusterClient, RedisCommands[IO, String, String])] =
       for {
-        uri <- Resource.liftF(RedisURI.make[IO](redisClusterURI))
+        uri <- Resource.eval(RedisURI.make[IO](redisClusterURI))
         client <- RedisClusterClient[IO](uri)
         redis <- Redis[IO].fromClusterClient(client, stringCodec)()
       } yield client -> redis
@@ -44,8 +44,8 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
         case (client, cmd) =>
           val nodeCmdResource =
             for {
-              _ <- Resource.liftF(cmd.set(key1, "empty"))
-              nodeId <- Resource.liftF(RedisClusterClient.nodeId[IO](client, key1))
+              _ <- Resource.eval(cmd.set(key1, "empty"))
+              nodeId <- Resource.eval(RedisClusterClient.nodeId[IO](client, key1))
               nodeCmd <- Redis[IO].fromClusterClientByNode(client, stringCodec, nodeId)()
             } yield nodeCmd
 

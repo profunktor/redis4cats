@@ -18,7 +18,6 @@ package dev.profunktor.redis4cats
 
 import cats.data.EitherT
 import cats.effect._
-import cats.effect.concurrent._
 import cats.implicits._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data.RedisCodec

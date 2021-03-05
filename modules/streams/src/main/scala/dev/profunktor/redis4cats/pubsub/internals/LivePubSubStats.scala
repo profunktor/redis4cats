@@ -28,7 +28,7 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 import dev.profunktor.redis4cats.JavaConversions._
 
-private[pubsub] class LivePubSubStats[F[_]: Concurrent: ContextShift: RedisExecutor, K, V](
+private[pubsub] class LivePubSubStats[F[_]: Async: RedisExecutor, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
 ) extends PubSubStats[Stream[F, *], K] {
 

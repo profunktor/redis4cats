@@ -28,7 +28,7 @@ sealed abstract case class RedisClient private (underlying: JRedisClient, uri: R
 
 object RedisClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: RedisExecutor: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: Async: RedisExecutor: Log](
       uri: => RedisURI,
       opts: ClientOptions,
       config: Redis4CatsConfig
@@ -56,14 +56,14 @@ object RedisClient {
     (acquire, release)
   }
 
-  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: RedisExecutor: Log](
+  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Async: RedisExecutor: Log](
       opts: ClientOptions,
       config: Redis4CatsConfig
   ): F[(F[RedisClient], RedisClient => F[Unit])] =
     F.delay(RedisURI.fromUnderlying(new JRedisURI()))
       .map(uri => acquireAndRelease(uri, opts, config))
 
-  class RedisClientPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
+  class RedisClientPartiallyApplied[F[_]: Async: Log] {
 
     /**
       * Creates a [[RedisClient]] with default options.
@@ -75,7 +75,7 @@ object RedisClient {
       * }}}
       */
     def from(strUri: => String): Resource[F, RedisClient] =
-      Resource.liftF(RedisURI.make[F](strUri)).flatMap(this.fromUri(_))
+      Resource.eval(RedisURI.make[F](strUri)).flatMap(this.fromUri(_))
 
     /**
       * Creates a [[RedisClient]] with default options from a validated URI.
@@ -84,7 +84,7 @@ object RedisClient {
       *
       * {{{
       * for {
-      *   uri <- Resource.liftF(RedisURI.make[F]("redis://localhost"))
+      *   uri <- Resource.eval(RedisURI.make[F]("redis://localhost"))
       *   cli <- RedisClient[IO].fromUri(uri)
       * } yield cli
       * }}}
@@ -92,7 +92,7 @@ object RedisClient {
       * You may prefer to use [[from]] instead, which takes a raw string.
       */
     def fromUri(uri: => RedisURI): Resource[F, RedisClient] =
-      Resource.liftF(F.delay(ClientOptions.create())).flatMap(this.custom(uri, _))
+      Resource.eval(F.delay(ClientOptions.create())).flatMap(this.custom(uri, _))
 
     /**
       * Creates a [[RedisClient]] with the supplied options.
@@ -101,7 +101,7 @@ object RedisClient {
       *
       * {{{
       * for {
-      *   ops <- Resource.liftF(F.delay(ClientOptions.create())) // configure timeouts, etc
+      *   ops <- Resource.eval(F.delay(ClientOptions.create())) // configure timeouts, etc
       *   cli <- RedisClient[IO].withOptions("redis://localhost", ops)
       * } yield cli
       * }}}
@@ -110,7 +110,7 @@ object RedisClient {
         strUri: => String,
         opts: ClientOptions
     ): Resource[F, RedisClient] =
-      Resource.liftF(RedisURI.make[F](strUri)).flatMap(this.custom(_, opts))
+      Resource.eval(RedisURI.make[F](strUri)).flatMap(this.custom(_, opts))
 
     /**
       * Creates a [[RedisClient]] with the supplied options from a validated URI.
@@ -119,8 +119,8 @@ object RedisClient {
       *
       * {{{
       * for {
-      *   uri <- Resource.liftF(RedisURI.make[F]("redis://localhost"))
-      *   ops <- Resource.liftF(F.delay(ClientOptions.create())) // configure timeouts, etc
+      *   uri <- Resource.eval(RedisURI.make[F]("redis://localhost"))
+      *   ops <- Resource.eval(F.delay(ClientOptions.create())) // configure timeouts, etc
       *   cli <- RedisClient[IO].custom(uri, ops)
       * } yield cli
       * }}}
@@ -145,7 +145,7 @@ object RedisClient {
       }
   }
 
-  def apply[F[_]: Concurrent: ContextShift: Log]: RedisClientPartiallyApplied[F] = new RedisClientPartiallyApplied[F]
+  def apply[F[_]: Async: Log]: RedisClientPartiallyApplied[F] = new RedisClientPartiallyApplied[F]
 
   def fromUnderlyingWithUri(underlying: JRedisClient, uri: RedisURI): RedisClient =
     new RedisClient(underlying, uri) {}

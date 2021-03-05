@@ -30,7 +30,7 @@ object transactions {
   case object TransactionAborted extends TransactionError
   case object TransactionDiscarded extends TransactionError
 
-  case class RedisTransaction[F[_]: Concurrent: Log: Parallel: Timer, K, V](
+  case class RedisTransaction[F[_]: Async: Log: Parallel, K, V](
       cmd: RedisCommands[F, K, V]
   ) {
 

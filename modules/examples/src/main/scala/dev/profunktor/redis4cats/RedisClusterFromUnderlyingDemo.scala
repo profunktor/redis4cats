@@ -34,7 +34,7 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
 
     val commandsApi =
       for {
-        uri <- Resource.liftF(RedisURI.make[IO](redisClusterURI))
+        uri <- Resource.eval(RedisURI.make[IO](redisClusterURI))
         implicit0(redisExecutor: RedisExecutor[IO]) <- RedisExecutor.make[IO]
         underlying <- Resource.make(IO {
                        val timeoutOptions =

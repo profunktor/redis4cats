@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats
 package pubsub
 
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
@@ -30,7 +30,7 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 object PubSub {
 
-  private[redis4cats] def acquireAndRelease[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: Async: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   )(
@@ -53,7 +53,7 @@ object PubSub {
     *
     * Use this option whenever you need one or more subscribers or subscribers and publishers / stats.
     * */
-  def mkPubSubConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
+  def mkPubSubConnection[F[_]: Async: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PubSubCommands[Stream[F, *], K, V]] =
@@ -61,7 +61,7 @@ object PubSub {
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       // One exclusive connection for subscriptions and another connection for publishing / stats
       for {
-        state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
+        state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         sConn <- Resource.make(acquire)(release)
         pConn <- Resource.make(acquire)(release)
       } yield new LivePubSubCommands[F, K, V](state, sConn, pConn)
@@ -72,7 +72,7 @@ object PubSub {
     *
     * Use this option when you only need to publish and/or get stats such as number of subscriptions.
     * */
-  def mkPublisherConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
+  def mkPublisherConnection[F[_]: Async: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PublishCommands[Stream[F, *], K, V]] =
@@ -86,14 +86,14 @@ object PubSub {
     *
     * Use this option when you only need to one or more subscribers but no publishing and / or stats.
     * */
-  def mkSubscriberConnection[F[_]: ConcurrentEffect: ContextShift: Log, K, V](
+  def mkSubscriberConnection[F[_]: Async: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, SubscribeCommands[Stream[F, *], K, V]] =
     RedisExecutor.make[F].flatMap { implicit redisExecutor =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       for {
-        state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
+        state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         conn <- Resource.make(acquire)(release)
       } yield new Subscriber(state, conn)
     }

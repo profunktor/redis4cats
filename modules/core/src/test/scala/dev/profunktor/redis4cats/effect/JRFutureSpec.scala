@@ -17,14 +17,12 @@
 package dev.profunktor.redis4cats.effect
 
 import java.util.concurrent.CompletableFuture
-
-import cats.effect.{ ContextShift, IO }
-import scala.concurrent.ExecutionContext
+import cats.effect.IO
+import cats.effect.unsafe.IORuntime
 import munit.FunSuite
 
 class JRFutureSpec extends FunSuite {
-
-  implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
+  implicit val ioRuntime: IORuntime = cats.effect.unsafe.IORuntime.global
 
   val currentThread: IO[String] = IO(Thread.currentThread().getName)
 
@@ -41,7 +39,7 @@ class JRFutureSpec extends FunSuite {
       }
 
     (ioa *> currentThread)
-      .flatMap(t => IO(assert(t.contains("scala-execution-context-global"))))
+      .flatMap(t => IO(assert(t.contains("io-compute"))))
       .unsafeToFuture()
   }
 
@@ -58,7 +56,7 @@ class JRFutureSpec extends FunSuite {
       }
 
     (ioa.attempt *> currentThread)
-      .flatMap(t => IO(assert(t.contains("scala-execution-context-global"))))
+      .flatMap(t => IO(assert(t.contains("io-compute"))))
       .unsafeToFuture()
   }
 

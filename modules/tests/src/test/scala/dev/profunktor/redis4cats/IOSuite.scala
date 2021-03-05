@@ -17,17 +17,14 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
+import cats.effect.unsafe.IORuntime
 import munit._
 
-import scala.concurrent.ExecutionContext
-
 trait IOSuite extends FunSuite {
-  implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
-  implicit val timer: Timer[IO]     = IO.timer(ExecutionContext.global)
-  implicit val clock: Clock[IO]     = timer.clock
+  implicit val runtime: IORuntime = cats.effect.unsafe.IORuntime.global
 
   override def munitValueTransforms: List[ValueTransform] =
     super.munitValueTransforms :+ new ValueTransform("IO", {
-          case ioa: IO[_] => IO.suspend(ioa).unsafeToFuture
+          case ioa: IO[_] => IO.defer(ioa).unsafeToFuture
         })
 }

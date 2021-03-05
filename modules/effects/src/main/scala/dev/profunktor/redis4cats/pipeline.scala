@@ -18,7 +18,6 @@ package dev.profunktor.redis4cats
 
 import scala.util.control.NoStackTrace
 
-import cats.Parallel
 import cats.effect._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
@@ -27,7 +26,7 @@ object pipeline {
 
   case object PipelineError extends NoStackTrace
 
-  case class RedisPipeline[F[_]: Concurrent: Log: Parallel: Timer, K, V](
+  case class RedisPipeline[F[_]: Async: Log, K, V](
       cmd: RedisCommands[F, K, V]
   ) {
 

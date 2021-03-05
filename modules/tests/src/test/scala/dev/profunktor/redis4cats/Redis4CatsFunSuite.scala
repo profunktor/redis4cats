@@ -68,7 +68,7 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
   private def mkRedisCluster[K, V](codec: RedisCodec[K, V]): Resource[IO, RedisCommands[IO, K, V]] =
     for {
-      uris <- Resource.liftF(redisUri)
+      uris <- Resource.eval(redisUri)
       client <- RedisClusterClient[IO](uris: _*)
       cluster <- Redis[IO].fromClusterClient(client, codec)()
     } yield cluster
