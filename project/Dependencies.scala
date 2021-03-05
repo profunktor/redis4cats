@@ -3,11 +3,11 @@ import sbt._
 object Dependencies {
 
   object V {
-    val cats       = "2.3.1"
-    val catsEffect = "2.3.1"
+    val cats       = "2.4.2"
+    val catsEffect = "2.3.3"
     val circe      = "0.13.0"
-    val fs2        = "2.5.2"
-    val log4cats   = "1.1.1"
+    val fs2        = "2.5.3"
+    val log4cats   = "1.2.0"
 
     val lettuce = "6.0.1.RELEASE"
     val logback = "1.2.3"
@@ -20,8 +20,8 @@ object Dependencies {
   }
 
   object Libraries {
-    def cats(artifact: String): ModuleID     = "org.typelevel"     %% s"cats-$artifact"     % V.cats
-    def log4cats(artifact: String): ModuleID = "io.chrisdavenport" %% s"log4cats-$artifact" % V.log4cats
+    def cats(artifact: String): ModuleID     = "org.typelevel" %% s"cats-$artifact"     % V.cats
+    def log4cats(artifact: String): ModuleID = "org.typelevel" %% s"log4cats-$artifact" % V.log4cats
 
     val catsEffect = "org.typelevel" %% "cats-effect" % V.catsEffect
     val fs2Core    = "co.fs2"        %% "fs2-core"    % V.fs2

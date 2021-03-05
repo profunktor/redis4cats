@@ -59,8 +59,8 @@ import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.log4cats._
 import fs2.{Pipe, Stream}
-import io.chrisdavenport.log4cats.Logger
-import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import scala.concurrent.duration._
 import scala.util.Random
