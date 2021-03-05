@@ -14,8 +14,8 @@
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.connection._</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.data.RedisCodec</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.log4cats._</span>
-<span class="k">import</span> <span class="nn">io.chrisdavenport.log4cats.Logger</span>
-<span class="k">import</span> <span class="nn">io.chrisdavenport.log4cats.slf4j.Slf4jLogger</span>
+<span class="k">import</span> <span class="nn">org.typelevel.log4cats.Logger</span>
+<span class="k">import</span> <span class="nn">org.typelevel.log4cats.slf4j.Slf4jLogger</span>
 
 <span class="k">implicit</span> <span class="k">val</span> <span class="nv">cs</span> <span class="k">=</span> <span class="nv">IO</span><span class="o">.</span><span class="py">contextShift</span><span class="o">(</span><span class="nv">scala</span><span class="o">.</span><span class="py">concurrent</span><span class="o">.</span><span class="py">ExecutionContext</span><span class="o">.</span><span class="py">global</span><span class="o">)</span>
 <span class="k">implicit</span> <span class="k">val</span> <span class="nv">logger</span><span class="k">:</span> <span class="kt">Logger</span><span class="o">[</span><span class="kt">IO</span><span class="o">]</span> <span class="k">=</span> <span class="nv">Slf4jLogger</span><span class="o">.</span><span class="py">getLogger</span><span class="o">[</span><span class="kt">IO</span><span class="o">]</span>
