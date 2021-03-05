@@ -28,6 +28,6 @@ trait IOSuite extends FunSuite {
 
   override def munitValueTransforms: List[ValueTransform] =
     super.munitValueTransforms :+ new ValueTransform("IO", {
-          case ioa: IO[_] => IO.suspend(ioa).unsafeToFuture
+          case ioa: IO[_] => IO.suspend(ioa).unsafeToFuture()
         })
 }
