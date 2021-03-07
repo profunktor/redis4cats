@@ -133,9 +133,6 @@ Finally, we can put all the pieces together to acquire a `RedisCommands[IO, Stri
 ```scala mdoc:silent
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.NoOp._
-import scala.concurrent.ExecutionContext
-
-implicit val cs = IO.contextShift(ExecutionContext.global)
 
 val eventsKey = "events"
 

@@ -59,12 +59,9 @@ import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.Random
 
-implicit val timer = IO.timer(ExecutionContext.global)
-implicit val cs    = IO.contextShift(ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val stringCodec = RedisCodec.Utf8

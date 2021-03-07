@@ -19,8 +19,7 @@ import dev.profunktor.redis4cats.log4cats._
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
-implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
+implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, ScriptCommands[IO, String, String]] = {
   Redis[IO].fromClient[String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[ScriptCommands[IO, String, String]]
