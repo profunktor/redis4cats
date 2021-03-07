@@ -39,7 +39,7 @@ def putStrLn(str: String): IO[Unit] = IO(println(str))
 commandsApi.use { cmd => // ScriptCommands[IO, String, String]
   for {
     // returns a String according the value codec (the last type parameter of ScriptCommands)
-    greeting: String <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
+    greeting <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
     _ <- putStrLn(s"Greetings from Lua: $greeting")
   } yield ()
 }
