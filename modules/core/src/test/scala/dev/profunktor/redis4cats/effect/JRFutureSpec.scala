@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 ProfunKtor
+ * Copyright 2018-2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats.effect
 
 import java.util.concurrent.CompletableFuture
 
-import cats.effect.{ Blocker, ContextShift, IO }
+import cats.effect.{ ContextShift, IO }
 import scala.concurrent.ExecutionContext
 import munit.FunSuite
 
@@ -30,14 +30,14 @@ class JRFutureSpec extends FunSuite {
 
   test("it shifts back once the Future is converted") {
     val ioa =
-      Blocker[IO].use { blocker =>
+      RedisExecutor.make[IO].use { implicit redisExecutor =>
         JRFuture.fromCompletableFuture[IO, String] {
           IO {
             val jFuture = new CompletableFuture[String]()
             jFuture.complete("foo")
             jFuture
           }
-        }(blocker)
+        }
       }
 
     (ioa *> currentThread)
@@ -47,14 +47,14 @@ class JRFutureSpec extends FunSuite {
 
   test("it shifts back even when the CompletableFuture fails") {
     val ioa =
-      Blocker[IO].use { blocker =>
+      RedisExecutor.make[IO].use { implicit redisExecutor =>
         JRFuture.fromCompletableFuture[IO, String] {
           IO {
             val jFuture = new CompletableFuture[String]()
             jFuture.completeExceptionally(new RuntimeException("Purposely fail"))
             jFuture
           }
-        }(blocker)
+        }
       }
 
     (ioa.attempt *> currentThread)

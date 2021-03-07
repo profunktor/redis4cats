@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 ProfunKtor
+ * Copyright 2018-2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config._
 import dev.profunktor.redis4cats.data.NodeId
-import dev.profunktor.redis4cats.effect.JRFuture._
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
 import io.lettuce.core.cluster.{
   ClusterClientOptions,
@@ -38,9 +37,8 @@ sealed abstract case class RedisClusterClient private (underlying: JClusterClien
 
 object RedisClusterClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: RedisExecutor: Log](
       config: Redis4CatsConfig,
-      blocker: Blocker,
       uri: RedisURI*
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
 
@@ -62,7 +60,7 @@ object RedisClusterClient {
                   TimeUnit.NANOSECONDS
                 )
               )
-            )(blocker)
+            )
             .void
 
     (acquire, release)
@@ -113,8 +111,8 @@ object RedisClusterClient {
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): Resource[F, RedisClusterClient] =
-    mkBlocker[F].flatMap { blocker =>
-      val (acquire, release) = acquireAndRelease(config, blocker, uri: _*)
+    RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+      val (acquire, release) = acquireAndRelease(config, uri: _*)
       Resource.make(acquire)(release)
     }
 

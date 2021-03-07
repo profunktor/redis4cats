@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 ProfunKtor
+ * Copyright 2018-2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats
 
 import dev.profunktor.redis4cats.effect.Log
-import io.chrisdavenport.log4cats.Logger
+import org.typelevel.log4cats.Logger
 
 object log4cats {
 
