@@ -37,14 +37,14 @@ private[pubsub] class Subscriber[F[_]: ConcurrentEffect: ContextShift: RedisExec
       .eval(
         state.get.flatMap { st =>
           PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) <*
-            JRFuture(F.delay(subConnection.async().subscribe(channel.underlying)))
+            JRFuture(Sync[F].delay(subConnection.async().subscribe(channel.underlying)))
         }
       )
       .flatMap(_.subscribe(500).unNone)
 
   override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
     Stream.eval {
-      JRFuture(F.delay(subConnection.async().unsubscribe(channel.underlying))).void
+      JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying))).void
         .guarantee(state.get.flatMap { st =>
           st.get(channel.underlying).fold(().pure)(_.publish1(none[V])) *> state.update(_ - channel.underlying)
         })

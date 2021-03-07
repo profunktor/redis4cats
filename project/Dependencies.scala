@@ -12,9 +12,7 @@ object Dependencies {
     val lettuce = "6.0.2.RELEASE"
     val logback = "1.2.3"
 
-    val betterMonadicFor = "0.3.1"
-    val contextApplied   = "0.1.4"
-    val kindProjector    = "0.11.3"
+    val kindProjector = "0.11.3"
 
     val munit = "0.7.22"
   }
@@ -45,8 +43,6 @@ object Dependencies {
   }
 
   object CompilerPlugins {
-    val betterMonadicFor = compilerPlugin("com.olegpy"     %% "better-monadic-for" % V.betterMonadicFor)
-    val contextApplied   = compilerPlugin("org.augustjune" %% "context-applied"    % V.contextApplied)
     val kindProjector = compilerPlugin(
       "org.typelevel" % "kind-projector" % V.kindProjector cross CrossVersion.full
     )

@@ -43,16 +43,15 @@ object StreamingDemo extends LoggerIOApp {
   }
 
   val stream: Stream[IO, Unit] =
-    for {
+    (for {
       client <- Stream.resource(RedisClient[IO].from(redisURI))
       streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
       source   = streaming.read(Set(streamKey1, streamKey2))
       appender = streaming.append
-      rs <- Stream(
-             source.evalMap(putStrLn),
-             Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
-           ).parJoin(2).drain
-    } yield rs
+    } yield Stream(
+      source.evalMap(putStrLn),
+      Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
+    ).parJoin(2).drain).flatten
 
   val program: IO[Unit] =
     stream.compile.drain

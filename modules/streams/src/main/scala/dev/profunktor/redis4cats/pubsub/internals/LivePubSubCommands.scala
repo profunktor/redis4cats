@@ -47,7 +47,7 @@ private[pubsub] class LivePubSubCommands[F[_]: ConcurrentEffect: ContextShift: R
     _.evalMap { message =>
       state.get.flatMap { st =>
         PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) *>
-          JRFuture(F.delay(pubConnection.async().publish(channel.underlying, message)))
+          JRFuture(Sync[F].delay(pubConnection.async().publish(channel.underlying, message)))
       }.void
     }
 

@@ -44,7 +44,7 @@ private[redis4cats] object JRFuture {
   implicit final class FutureLiftOps[F[_]: Concurrent: ContextShift: RedisExecutor: Log, A](fa: F[RedisFuture[A]]) {
     def futureLift: F[A] =
       liftJFuture[F, RedisFuture[A], A](fa).onError {
-        case e: ExecutionException => F.error(s"${e.getMessage()} - ${Option(e.getCause())}")
+        case e: ExecutionException => Log[F].error(s"${e.getMessage()} - ${Option(e.getCause())}")
       }
   }
 
@@ -56,7 +56,7 @@ private[redis4cats] object JRFuture {
     val lifted: F[A] = RedisExecutor[F].eval {
       fa.flatMap { f =>
         RedisExecutor[F].eval {
-          F.cancelable { cb =>
+          Concurrent[F].cancelable { cb =>
             f.handle[Unit] { (res: A, err: Throwable) =>
               err match {
                 case null =>
@@ -74,7 +74,7 @@ private[redis4cats] object JRFuture {
         }
       }
     }
-    lifted.guarantee(F.shift)
+    lifted.guarantee(ContextShift[F].shift)
   }
 
 }

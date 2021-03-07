@@ -24,6 +24,8 @@ import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.effect.Log
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnection }
+import cats.effect.Sync
+import cats.Applicative
 
 object PubSubInternals {
 
@@ -51,11 +53,11 @@ object PubSubInternals {
       .fold {
         Topic[F, Option[V]](None).flatTap { topic =>
           val listener = defaultListener(channel, topic)
-          F.info(s"Creating listener for channel: $channel") *>
-            F.delay(subConnection.addListener(listener)) *>
+          Log[F].info(s"Creating listener for channel: $channel") *>
+            Sync[F].delay(subConnection.addListener(listener)) *>
             state.update(_.updated(channel.underlying, topic))
         }
-      }(F.pure)
+      }(Applicative[F].pure)
   }
 
 }

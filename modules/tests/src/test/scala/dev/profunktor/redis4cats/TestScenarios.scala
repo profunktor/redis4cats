@@ -261,12 +261,15 @@ trait TestScenarios { self: FunSuite =>
     val keys = (1 to 10).map("key" + _).sorted.toList
     for {
       _ <- cmd.mSet(keys.map(key => (key, key + "#value")).toMap)
-      (keys0, iterations0) <- clusterScan(cmd, args = None)
+      tp <- clusterScan(cmd, args = None)
+      (keys0, iterations0) = tp
       _ <- IO(assertEquals(keys0.sorted, keys))
-      (keys1, iterations1) <- clusterScan(cmd, args = Some(ScanArgs("key*")))
+      tp <- clusterScan(cmd, args = Some(ScanArgs("key*")))
+      (keys1, iterations1) = tp
       _ <- IO(assertEquals(keys1.sorted, keys))
       _ <- IO(assertEquals(iterations1, iterations0))
-      (keys2, iterations2) <- clusterScan(cmd, args = Some(ScanArgs(1)))
+      tp <- clusterScan(cmd, args = Some(ScanArgs(1)))
+      (keys2, iterations2) = tp
       _ <- IO(assertEquals(keys2.sorted, keys))
       _ <- IO(assert(iterations2 > iterations0, "made more iterations because of limit"))
     } yield ()
@@ -465,25 +468,25 @@ trait TestScenarios { self: FunSuite =>
         |redis.call('del',KEYS[1])
         |return redis.status_reply('OK')""".stripMargin
     for {
-      fortyTwo: Long <- cmd.eval("return 42", ScriptOutputType.Integer)
+      fortyTwo <- cmd.eval("return 42", ScriptOutputType.Integer)
       _ <- IO(assertEquals(fortyTwo, 42L))
-      value: String <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
+      value <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
       _ <- IO(assertEquals(value, "Hello World"))
-      bool: Boolean <- cmd.eval("return true", ScriptOutputType.Boolean, List("Foo"))
+      bool <- cmd.eval("return true", ScriptOutputType.Boolean, List("Foo"))
       _ <- IO(assert(bool))
-      list: List[String] <- cmd.eval(
-                             "return {'Let', 'us', ARGV[1], ARGV[2]}",
-                             ScriptOutputType.Multi,
-                             Nil,
-                             List(
-                               "have",
-                               "fun"
-                             )
-                           )
+      list <- cmd.eval(
+               "return {'Let', 'us', ARGV[1], ARGV[2]}",
+               ScriptOutputType.Multi,
+               Nil,
+               List(
+                 "have",
+                 "fun"
+               )
+             )
       _ <- IO(assertEquals(list, List("Let", "us", "have", "fun")))
       _ <- cmd.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
       sha42 <- cmd.scriptLoad("return 42")
-      fortyTwoSha: Long <- cmd.evalSha(sha42, ScriptOutputType.Integer)
+      fortyTwoSha <- cmd.evalSha(sha42, ScriptOutputType.Integer)
       _ <- IO(assertEquals(fortyTwoSha, 42L))
       shaStatusScript <- cmd.scriptLoad(statusScript)
       _ <- cmd.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
