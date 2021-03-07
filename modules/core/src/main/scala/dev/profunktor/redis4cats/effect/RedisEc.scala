@@ -14,9 +14,16 @@
  * limitations under the License.
  */
 
+/*
+ * This file contains code adapted from cats-effect, which is
+ * Copyright (c) 2017-2021 The Typelevel Cats-effect Project Developers.
+ * The license notice for cats-effect is the same as the above.
+ */
+
 package dev.profunktor.redis4cats.effect
 
 import cats.data.NonEmptyList
+import cats.syntax.all._
 import cats.effect._
 
 import java.util.concurrent.Executors
@@ -42,36 +49,35 @@ private[redis4cats] object RedisExecutor {
           while (itr.hasNext) b += itr.next
           NonEmptyList.fromList(b.result())
         }
-        F.flatMap(tasks) {
-          case Some(t) => F.raiseError(new OutstandingTasksAtShutdown(t))
-          case None    => F.unit
+        tasks.flatMap {
+          case Some(_) =>
+            F.raiseError(
+              new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread")
+            )
+          case None => F.unit
         }
       }
       .map(es => apply(exitOnFatal(ExecutionContext.fromExecutorService(es))))
 
-  def exitOnFatal(ec: ExecutionContext): ExecutionContext = new ExecutionContext {
+  private def exitOnFatal(ec: ExecutionContext): ExecutionContext = new ExecutionContext {
     def execute(r: Runnable): Unit =
-      ec.execute(new Runnable {
-        def run(): Unit =
-          try {
-            r.run()
-          } catch {
-            case NonFatal(t) =>
-              reportFailure(t)
+      ec.execute(() =>
+        try {
+          r.run()
+        } catch {
+          case NonFatal(t) =>
+            reportFailure(t)
 
-            case t: Throwable =>
-              // under most circumstances, this will work even with fatal errors
-              t.printStackTrace()
-              System.exit(1)
-          }
-      })
+          case t: Throwable =>
+            // under most circumstances, this will work even with fatal errors
+            t.printStackTrace()
+            System.exit(1)
+        }
+      )
 
     def reportFailure(t: Throwable): Unit =
       ec.reportFailure(t)
   }
-
-  final class OutstandingTasksAtShutdown(val tasks: NonEmptyList[Runnable])
-      extends IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread")
 
   private def apply[F[_]: Async](ec: ExecutionContext): RedisExecutor[F] =
     new RedisExecutor[F] {
