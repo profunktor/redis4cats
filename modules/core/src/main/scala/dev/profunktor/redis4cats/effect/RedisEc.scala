@@ -29,7 +29,7 @@ private[redis4cats] object RedisExecutor {
   def apply[F[_]](implicit redisExecutor: RedisExecutor[F]): RedisExecutor[F] = redisExecutor
 
   def make[F[_]: ContextShift: Sync]: Resource[F, RedisExecutor[F]] =
-    Blocker.fromExecutorService(F.delay(Executors.newFixedThreadPool(1))).map(apply[F])
+    Blocker.fromExecutorService(Sync[F].delay(Executors.newFixedThreadPool(1))).map(apply[F])
 
   private def apply[F[_]: ContextShift: Sync](ec: Blocker): RedisExecutor[F] =
     new RedisExecutor[F] {
