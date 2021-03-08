@@ -25,7 +25,7 @@ class RedisStreamSpec extends Redis4CatsFunSuite(false) {
   //FIXME: https://github.com/profunktor/redis4cats/issues/460
   test("append/read to/from a stream".ignore) {
     withRedisStream[Unit] { stream =>
-      val read  = stream.read(Set("test-stream"))
+      val read  = stream.read(Set("test-stream"), 1)
       val write = stream.append(fs2.Stream(XAddMessage("test-stream", Map("hello" -> "world"))))
 
       read

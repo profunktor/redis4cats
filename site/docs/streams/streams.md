@@ -83,7 +83,7 @@ def randomMessage: Stream[IO, XAddMessage[String, String]] = Stream.eval {
 for {
   client    <- Stream.resource(RedisClient[IO].from("redis://localhost"))
   streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
-  source    = streaming.read(Set(streamKey1, streamKey2))
+  source    = streaming.read(Set(streamKey1, streamKey2), chunkSize = 1)
   appender  = streaming.append
   rs <- Stream(
          source.evalMap(putStrLn(_)),

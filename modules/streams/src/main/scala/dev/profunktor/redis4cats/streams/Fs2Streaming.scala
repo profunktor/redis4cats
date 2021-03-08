@@ -82,7 +82,11 @@ class RedisStream[F[_]: Sync, K, V](rawStreaming: RedisRawStreaming[F, K, V]) ex
   override def append: Stream[F, XAddMessage[K, V]] => Stream[F, MessageId] =
     _.evalMap(msg => rawStreaming.xAdd(msg.key, msg.body, msg.approxMaxlen))
 
-  override def read(keys: Set[K], initialOffset: K => StreamingOffset[K]): Stream[F, XReadMessage[K, V]] = {
+  override def read(
+      keys: Set[K],
+      chunkSize: Int,
+      initialOffset: K => StreamingOffset[K]
+  ): Stream[F, XReadMessage[K, V]] = {
     val initial = keys.map(k => k -> initialOffset(k)).toMap
     Stream.eval(Ref.of[F, Map[K, StreamingOffset[K]]](initial)).flatMap { ref =>
       (for {
@@ -90,7 +94,7 @@ class RedisStream[F[_]: Sync, K, V](rawStreaming: RedisRawStreaming[F, K, V]) ex
         list <- Stream.eval(rawStreaming.xRead(offsets.values.toSet))
         newOffsets = offsetsByKey(list).collect { case (key, Some(value)) => key -> value }.toList
         _ <- Stream.eval(newOffsets.map { case (k, v) => ref.update(_.updated(k, v)) }.sequence)
-        result <- Stream.fromIterator[F](list.iterator, Int.MaxValue)
+        result <- Stream.fromIterator[F](list.iterator, chunkSize)
       } yield result).repeat
     }
   }
