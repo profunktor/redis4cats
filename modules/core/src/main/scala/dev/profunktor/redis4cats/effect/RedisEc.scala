@@ -22,8 +22,6 @@
 
 package dev.profunktor.redis4cats.effect
 
-import cats.data.NonEmptyList
-import cats.Applicative
 import cats.syntax.all._
 import cats.effect._
 
