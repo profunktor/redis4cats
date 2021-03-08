@@ -43,18 +43,12 @@ private[redis4cats] object RedisExecutor {
   def make[F[_]: Async]: Resource[F, RedisExecutor[F]] =
     Resource
       .make(Sync[F].delay(Executors.newFixedThreadPool(1))) { ec =>
-        val tasks = Sync[F].delay {
-          val tasks = ec.shutdownNow()
-          val b     = List.newBuilder[Runnable]
-          val itr   = tasks.iterator
-          while (itr.hasNext) b += itr.next
-          NonEmptyList.fromList(b.result())
-        }
-        tasks.flatMap {
-          case Some(_) =>
-            new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread").raiseError
-          case None => Applicative[F].unit
-        }
+        Sync[F]
+          .delay(ec.shutdownNow())
+          .ensure(new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread"))(
+            _.isEmpty
+          )
+          .void
       }
       .map(es => apply(exitOnFatal(ExecutionContext.fromExecutorService(es))))
 
