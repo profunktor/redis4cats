@@ -389,11 +389,17 @@ trait TestScenarios { self: FunSuite =>
 
     val runPipeline =
       RedisPipeline(cmd)
-        .filterExec(operations)
-        .map {
+        .filterExec[IO[Unit] :: IO[Option[String]] :: IO[Unit] :: IO[Boolean] :: HNil, Unit :: Option[String] :: Unit :: Boolean :: HNil, Option[
+          String
+        ] :: Boolean :: HNil](
+          operations
+        )
+        .flatMap {
           case res1 ~: res2 ~: HNil =>
-            assertEquals(res1, Some("3"))
-            assert(!res2)
+            IO {
+              assertEquals(res1, Some("3"))
+              assert(!res2)
+            }
         }
         .onError {
           case PipelineError       => fail("[Error] - Pipeline failed")
@@ -402,7 +408,9 @@ trait TestScenarios { self: FunSuite =>
 
     for {
       _ <- cmd.set(key3, "3")
+//      _ <- IO(println("1"))
       _ <- runPipeline
+//      _ <- IO(println("2"))
       v1 <- cmd.get(key1)
       v2 <- cmd.get(key2)
     } yield {
@@ -424,7 +432,9 @@ trait TestScenarios { self: FunSuite =>
 
     cmd.set(del1, "foo") >> cmd.set(key1, val1) >>
       RedisTransaction(cmd)
-        .filterExec(operations)
+        .filterExec[IO[Unit] :: IO[Option[String]] :: IO[Unit] :: IO[Long] :: HNil, Unit :: Option[String] :: Unit :: Long :: HNil, Option[
+          String
+        ] :: Long :: HNil](operations)
         .map {
           case res1 ~: res2 ~: HNil =>
             assertEquals(res1, Some(val1))
@@ -458,7 +468,10 @@ trait TestScenarios { self: FunSuite =>
     val commands = cmd.set(key1, "v1") :: cmd.set(key2, "v2") :: cmd.set("tx-3", "v3") :: HNil
 
     // We race it with a plain `IO.unit` so the transaction may or may not start at all but the result should be the same
-    IO.race(tx.exec(commands), IO.unit) >> cmd.get(key1).map(assertEquals(_, None)) // no keys written
+    IO.race(tx.exec[IO[Unit] :: IO[Unit] :: IO[Unit] :: HNil, Unit :: Unit :: Unit :: HNil](commands), IO.unit) >> cmd
+      .get(key1)
+      .map(assertEquals(_, None)) // no keys written
+    IO.unit
   }
 
   def scriptsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {

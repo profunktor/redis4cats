@@ -16,6 +16,8 @@
 
 package dev.profunktor.redis4cats
 
+import scala.util.NotGiven
+
 /**
   * An heterogeneous list, mainly used to operate on transactions.
   *
@@ -136,12 +138,7 @@ object hlist {
     */
   sealed class =!=[A, B]
 
-  object =!= extends NEqualLowPriority {
-    implicit def nequal[A, B]: =!=[A, B] = new =!=[A, B]
+  object =!= {
+    implicit def nequal[A, B](implicit ev: NotGiven[A =:= B]): =!=[A, B] = new =!=[A, B]
   }
-
-  trait NEqualLowPriority {
-    implicit def equal[A]: =!=[A, A] = sys.error("should not be called")
-  }
-
 }
