@@ -33,17 +33,17 @@ object RedisClient {
       opts: ClientOptions,
       config: Redis4CatsConfig
   ): (F[RedisClient], RedisClient => F[Unit]) = {
-    val acquire: F[RedisClient] = F.delay {
+    val acquire: F[RedisClient] = Sync[F].delay {
       val jClient: JRedisClient = JRedisClient.create(uri.underlying)
       jClient.setOptions(opts)
       new RedisClient(jClient, uri) {}
     }
 
     val release: RedisClient => F[Unit] = client =>
-      F.info(s"Releasing Redis connection: $uri") *>
+      Log[F].info(s"Releasing Redis connection: $uri") *>
           JRFuture
             .fromCompletableFuture(
-              F.delay(
+              Sync[F].delay(
                 client.underlying.shutdownAsync(
                   config.shutdown.quietPeriod.toNanos,
                   config.shutdown.timeout.toNanos,
@@ -60,7 +60,8 @@ object RedisClient {
       opts: ClientOptions,
       config: Redis4CatsConfig
   ): F[(F[RedisClient], RedisClient => F[Unit])] =
-    F.delay(RedisURI.fromUnderlying(new JRedisURI()))
+    Sync[F]
+      .delay(RedisURI.fromUnderlying(new JRedisURI()))
       .map(uri => acquireAndRelease(uri, opts, config))
 
   class RedisClientPartiallyApplied[F[_]: Async: Log] {
@@ -92,7 +93,7 @@ object RedisClient {
       * You may prefer to use [[from]] instead, which takes a raw string.
       */
     def fromUri(uri: => RedisURI): Resource[F, RedisClient] =
-      Resource.eval(F.delay(ClientOptions.create())).flatMap(this.custom(uri, _))
+      Resource.eval(Sync[F].delay(ClientOptions.create())).flatMap(this.custom(uri, _))
 
     /**
       * Creates a [[RedisClient]] with the supplied options.
@@ -101,7 +102,7 @@ object RedisClient {
       *
       * {{{
       * for {
-      *   ops <- Resource.eval(F.delay(ClientOptions.create())) // configure timeouts, etc
+      *   ops <- Resource.eval(Sync[F].delay(ClientOptions.create())) // configure timeouts, etc
       *   cli <- RedisClient[IO].withOptions("redis://localhost", ops)
       * } yield cli
       * }}}
@@ -120,7 +121,7 @@ object RedisClient {
       * {{{
       * for {
       *   uri <- Resource.eval(RedisURI.make[F]("redis://localhost"))
-      *   ops <- Resource.eval(F.delay(ClientOptions.create())) // configure timeouts, etc
+      *   ops <- Resource.eval(Sync[F].delay(ClientOptions.create())) // configure timeouts, etc
       *   cli <- RedisClient[IO].custom(uri, ops)
       * } yield cli
       * }}}

@@ -47,13 +47,13 @@ private[redis4cats] class RedisStatefulConnection[F[_]: Async: RedisExecutor, K,
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] = RedisExecutor[F].delay(conn.sync())
   def clusterSync: F[RedisClusterSyncCommands[K, V]] =
-    F.raiseError(OperationNotSupported("Running in a single node"))
+    OperationNotSupported("Running in a single node").raiseError
   def async: F[RedisAsyncCommands[K, V]] = RedisExecutor[F].delay(conn.async())
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]] =
-    F.raiseError(OperationNotSupported("Running in a single node"))
+    OperationNotSupported("Running in a single node").raiseError
   def close: F[Unit] = JRFuture.fromCompletableFuture(RedisExecutor[F].delay(conn.closeAsync())).void
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
-    F.raiseError(OperationNotSupported("Running in a single node"))
+    OperationNotSupported("Running in a single node").raiseError
   def liftK[G[_]: Async]: RedisConnection[G, K, V] = {
     implicit val ecG = RedisExecutor[F].liftK[G]
     new RedisStatefulConnection[G, K, V](conn)
@@ -64,13 +64,9 @@ private[redis4cats] class RedisStatefulClusterConnection[F[_]: Async: RedisExecu
     conn: StatefulRedisClusterConnection[K, V]
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] =
-    F.raiseError(
-      OperationNotSupported("Transactions are not supported in a cluster. You must select a single node.")
-    )
+    OperationNotSupported("Transactions are not supported in a cluster. You must select a single node.").raiseError
   def async: F[RedisAsyncCommands[K, V]] =
-    F.raiseError(
-      OperationNotSupported("Transactions are not supported in a cluster. You must select a single node.")
-    )
+    OperationNotSupported("Transactions are not supported in a cluster. You must select a single node.").raiseError
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]] = RedisExecutor[F].delay(conn.async())
   def clusterSync: F[RedisClusterSyncCommands[K, V]]   = RedisExecutor[F].delay(conn.sync())
   def close: F[Unit] =

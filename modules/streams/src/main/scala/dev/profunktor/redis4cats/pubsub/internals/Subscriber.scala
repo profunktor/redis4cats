@@ -18,10 +18,10 @@ package dev.profunktor.redis4cats
 package pubsub
 package internals
 
+import cats.Applicative
 import cats.effect._
 import cats.effect.Ref
 import cats.effect.implicits._
-import cats.effect.std.Dispatcher
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
@@ -37,20 +37,19 @@ private[pubsub] class Subscriber[F[_]: Async: RedisExecutor: Log, K, V](
     Stream
       .eval(
         state.get.flatMap { st =>
-          Dispatcher[F].use { implicit dispatcher =>
-            PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) <*
-              JRFuture(F.delay(subConnection.async().subscribe(channel.underlying)))
-          }
+          PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) <*
+            JRFuture(Sync[F].delay(subConnection.async().subscribe(channel.underlying)))
         }
       )
       .flatMap(_.subscribe(500).unNone)
 
   override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
     Stream.eval {
-      JRFuture(F.delay(subConnection.async().unsubscribe(channel.underlying))).void
+      JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying))).void
         .guarantee(state.get.flatMap { st =>
-          st.get(channel.underlying).fold(F.unit)(_.publish1(none[V])) *> state.update(_ - channel.underlying)
+          st.get(channel.underlying).fold(Applicative[F].unit)(_.publish1(none[V])) *> state.update(
+            _ - channel.underlying
+          )
         })
     }
-
 }

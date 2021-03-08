@@ -23,6 +23,7 @@
 package dev.profunktor.redis4cats.effect
 
 import cats.data.NonEmptyList
+import cats.Applicative
 import cats.syntax.all._
 import cats.effect._
 
@@ -41,8 +42,8 @@ private[redis4cats] object RedisExecutor {
 
   def make[F[_]: Async]: Resource[F, RedisExecutor[F]] =
     Resource
-      .make(F.delay(Executors.newFixedThreadPool(1))) { ec =>
-        val tasks = F.delay {
+      .make(Sync[F].delay(Executors.newFixedThreadPool(1))) { ec =>
+        val tasks = Sync[F].delay {
           val tasks = ec.shutdownNow()
           val b     = List.newBuilder[Runnable]
           val itr   = tasks.iterator
@@ -51,10 +52,8 @@ private[redis4cats] object RedisExecutor {
         }
         tasks.flatMap {
           case Some(_) =>
-            F.raiseError(
-              new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread")
-            )
-          case None => F.unit
+            new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread").raiseError
+          case None => Applicative[F].unit
         }
       }
       .map(es => apply(exitOnFatal(ExecutionContext.fromExecutorService(es))))
@@ -81,8 +80,8 @@ private[redis4cats] object RedisExecutor {
 
   private def apply[F[_]: Async](ec: ExecutionContext): RedisExecutor[F] =
     new RedisExecutor[F] {
-      def delay[A](thunk: => A): F[A]          = eval(F.delay(thunk))
-      def eval[A](fa: F[A]): F[A]              = F.evalOn(fa, ec)
+      def delay[A](thunk: => A): F[A]          = eval(Sync[F].delay(thunk))
+      def eval[A](fa: F[A]): F[A]              = Async[F].evalOn(fa, ec)
       def liftK[G[_]: Async]: RedisExecutor[G] = apply[G](ec)
     }
 }

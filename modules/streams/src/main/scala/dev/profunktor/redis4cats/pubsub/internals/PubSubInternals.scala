@@ -24,17 +24,20 @@ import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.effect.Log
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnection }
+import cats.effect.Sync
+import cats.Applicative
 
 object PubSubInternals {
 
-  private[redis4cats] def defaultListener[F[_]: Async: Dispatcher, K, V](
+  private[redis4cats] def defaultListener[F[_]: Async, K, V](
       channel: RedisChannel[K],
-      topic: Topic[F, Option[V]]
+      topic: Topic[F, Option[V]],
+      dispatcher: Dispatcher[F]
   ): RedisPubSubListener[K, V] =
     new RedisPubSubListener[K, V] {
       override def message(ch: K, msg: V): Unit =
         if (ch == channel.underlying) {
-          F.unsafeRunSync(topic.publish1(Option(msg)))
+          dispatcher.unsafeRunSync(topic.publish1(Option(msg)))
         }
       override def message(pattern: K, channel: K, message: V): Unit = this.message(channel, message)
       override def psubscribed(pattern: K, count: Long): Unit        = ()
@@ -43,19 +46,21 @@ object PubSubInternals {
       override def punsubscribed(pattern: K, count: Long): Unit      = ()
     }
 
-  private[redis4cats] def apply[F[_]: Async: Dispatcher: Log, K, V](
+  private[redis4cats] def apply[F[_]: Async: Log, K, V](
       state: Ref[F, PubSubState[F, K, V]],
       subConnection: StatefulRedisPubSubConnection[K, V]
   ): GetOrCreateTopicListener[F, K, V] = { channel => st =>
     st.get(channel.underlying)
       .fold {
-        Topic[F, Option[V]].flatTap { topic =>
-          val listener = defaultListener(channel, topic)
-          F.info(s"Creating listener for channel: $channel") *>
-            F.delay(subConnection.addListener(listener)) *>
-            state.update(_.updated(channel.underlying, topic))
+        Dispatcher[F].use { dispatcher =>
+          Topic[F, Option[V]].flatTap { topic =>
+            val listener = defaultListener(channel, topic, dispatcher)
+            Log[F].info(s"Creating listener for channel: $channel") *>
+              Sync[F].delay(subConnection.addListener(listener)) *>
+              state.update(_.updated(channel.underlying, topic))
+          }
         }
-      }(F.pure)
+      }(Applicative[F].pure)
   }
 
 }

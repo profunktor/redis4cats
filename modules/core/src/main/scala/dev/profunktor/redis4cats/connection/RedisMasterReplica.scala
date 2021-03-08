@@ -44,18 +44,18 @@ object RedisMasterReplica {
       val connection: F[RedisMasterReplica[K, V]] =
         JRFuture
           .fromCompletableFuture[F, StatefulRedisMasterReplicaConnection[K, V]](
-            F.delay {
+            Sync[F].delay {
               MasterReplica.connectAsync[K, V](client.underlying, codec.underlying, uris.map(_.underlying).asJava)
             }
           )
           .map(new RedisMasterReplica(_) {})
 
-      readFrom.fold(connection)(rf => connection.flatMap(c => F.delay(c.underlying.setReadFrom(rf)) *> c.pure[F]))
+      readFrom.fold(connection)(rf => connection.flatMap(c => Sync[F].delay(c.underlying.setReadFrom(rf)) *> c.pure[F]))
     }
 
     val release: RedisMasterReplica[K, V] => F[Unit] = connection =>
-      F.info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>
-          JRFuture.fromCompletableFuture(F.delay(connection.underlying.closeAsync())).void
+      Log[F].info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>
+          JRFuture.fromCompletableFuture(Sync[F].delay(connection.underlying.closeAsync())).void
 
     (acquire, release)
   }
@@ -82,7 +82,7 @@ object RedisMasterReplica {
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
       Resource
-        .eval(F.delay(ClientOptions.create()))
+        .eval(Sync[F].delay(ClientOptions.create()))
         .flatMap(withOptions(codec, _, Redis4CatsConfig(), uris: _*)(readFrom))
 
     /**
@@ -96,7 +96,7 @@ object RedisMasterReplica {
       * {{{
       * val conn: Resource[IO, RedisMasterReplica[String, String]] =
       *   for {
-      *     ops <- Resource.eval(F.delay(ClientOptions.create()))
+      *     ops <- Resource.eval(Sync[F].delay(ClientOptions.create()))
       *     uri <- Resource.eval(RedisURI.make[IO](redisURI))
       *     mrc <- RedisMasterReplica[IO].withOptions(RedisCodec.Utf8, ops, uri)(Some(ReadFrom.MasterPreferred))
       *   } yield mrc

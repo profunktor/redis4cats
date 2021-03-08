@@ -16,14 +16,14 @@
 
 package dev.profunktor.redis4cats.connection
 
-import cats.ApplicativeError
 import io.lettuce.core.{ RedisURI => JRedisURI }
+import cats.ApplicativeThrow
 
 sealed abstract case class RedisURI private (underlying: JRedisURI)
 
 object RedisURI {
-  def make[F[_]: ApplicativeError[*[_], Throwable]](uri: => String): F[RedisURI] =
-    F.catchNonFatal(new RedisURI(JRedisURI.create(uri)) {})
+  def make[F[_]: ApplicativeThrow](uri: => String): F[RedisURI] =
+    ApplicativeThrow[F].catchNonFatal(new RedisURI(JRedisURI.create(uri)) {})
 
   def fromUnderlying(j: JRedisURI): RedisURI = new RedisURI(j) {}
 }

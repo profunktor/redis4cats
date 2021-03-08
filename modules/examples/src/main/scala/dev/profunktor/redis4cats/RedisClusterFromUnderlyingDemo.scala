@@ -33,32 +33,33 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
     val usernameKey = "test"
 
     val commandsApi =
-      for {
-        uri <- Resource.eval(RedisURI.make[IO](redisClusterURI))
-        implicit0(redisExecutor: RedisExecutor[IO]) <- RedisExecutor.make[IO]
-        underlying <- Resource.make(IO {
-                       val timeoutOptions =
-                         TimeoutOptions
-                           .builder()
-                           .fixedTimeout(Duration.ofMillis(500L))
-                           .build()
-                       val clusterOptions =
-                         ClusterClientOptions
-                           .builder()
-                           .pingBeforeActivateConnection(true)
-                           .autoReconnect(true)
-                           .cancelCommandsOnReconnectFailure(true)
-                           .validateClusterNodeMembership(true)
-                           .timeoutOptions(timeoutOptions)
-                           .build()
+      RedisExecutor.make[IO].flatMap { implicit redisExecutor =>
+        for {
+          uri <- Resource.eval(RedisURI.make[IO](redisClusterURI))
+          underlying <- Resource.make(IO {
+                         val timeoutOptions =
+                           TimeoutOptions
+                             .builder()
+                             .fixedTimeout(Duration.ofMillis(500L))
+                             .build()
+                         val clusterOptions =
+                           ClusterClientOptions
+                             .builder()
+                             .pingBeforeActivateConnection(true)
+                             .autoReconnect(true)
+                             .cancelCommandsOnReconnectFailure(true)
+                             .validateClusterNodeMembership(true)
+                             .timeoutOptions(timeoutOptions)
+                             .build()
 
-                       val client = JRedisClusterClient.create(uri.underlying)
-                       client.setOptions(clusterOptions)
-                       client
-                     })(client => JRFuture.fromCompletableFuture(IO(client.shutdownAsync())).void)
-        client = RedisClusterClient.fromUnderlying(underlying)
-        redis <- Redis[IO].fromClusterClient(client, stringCodec)()
-      } yield redis
+                         val client = JRedisClusterClient.create(uri.underlying)
+                         client.setOptions(clusterOptions)
+                         client
+                       })(client => JRFuture.fromCompletableFuture(IO(client.shutdownAsync())).void)
+          client = RedisClusterClient.fromUnderlying(underlying)
+          redis <- Redis[IO].fromClusterClient(client, stringCodec)()
+        } yield redis
+      }
 
     commandsApi
       .use { cmd =>

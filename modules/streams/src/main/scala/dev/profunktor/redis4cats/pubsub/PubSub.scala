@@ -38,12 +38,12 @@ object PubSub {
   ): (F[StatefulRedisPubSubConnection[K, V]], StatefulRedisPubSubConnection[K, V] => F[Unit]) = {
 
     val acquire: F[StatefulRedisPubSubConnection[K, V]] = JRFuture.fromConnectionFuture(
-      F.delay(client.underlying.connectPubSubAsync(codec.underlying, client.uri.underlying))
+      Sync[F].delay(client.underlying.connectPubSubAsync(codec.underlying, client.uri.underlying))
     )
 
     val release: StatefulRedisPubSubConnection[K, V] => F[Unit] = c =>
-      JRFuture.fromCompletableFuture(F.delay(c.closeAsync())) *>
-          F.info(s"Releasing PubSub connection: ${client.uri.underlying}")
+      JRFuture.fromCompletableFuture(Sync[F].delay(c.closeAsync())) *>
+          Log[F].info(s"Releasing PubSub connection: ${client.uri.underlying}")
 
     (acquire, release)
   }

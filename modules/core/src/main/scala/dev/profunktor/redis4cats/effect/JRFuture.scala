@@ -16,9 +16,11 @@
 
 package dev.profunktor.redis4cats.effect
 
+import cats.Applicative
 import cats.effect._
 import cats.syntax.all._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
+
 import java.util.concurrent._
 
 private[redis4cats] object JRFuture {
@@ -43,7 +45,7 @@ private[redis4cats] object JRFuture {
   implicit final class FutureLiftOps[F[_]: Async: RedisExecutor: Log, A](fa: F[RedisFuture[A]]) {
     def futureLift: F[A] =
       liftJFuture[F, RedisFuture[A], A](fa).onError {
-        case e: ExecutionException => F.error(s"${e.getMessage()} - ${Option(e.getCause())}")
+        case e: ExecutionException => Log[F].error(s"${e.getMessage()} - ${Option(e.getCause())}")
       }
   }
 
@@ -55,7 +57,7 @@ private[redis4cats] object JRFuture {
     RedisExecutor[F].eval {
       fa.flatMap[A] { f =>
         RedisExecutor[F].eval {
-          F.async[A] { cb =>
+          Concurrent[F].async[A] { cb =>
             f.handle[Unit] { (res: A, err: Throwable) =>
               err match {
                 case null =>
@@ -68,7 +70,7 @@ private[redis4cats] object JRFuture {
                   cb(Left(ex))
               }
             }
-            F.pure(Some(RedisExecutor[F].delay(f.cancel(true)).void))
+            Applicative[F].pure(Some(RedisExecutor[F].delay(f.cancel(true)).void))
           }
         }
       }
