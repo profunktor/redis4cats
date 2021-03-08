@@ -54,7 +54,7 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Async: Log] {
     (Deferred[F, Either[Throwable, w.R]], Sync[F].delay(UUID.randomUUID)).tupled.flatMap {
       case (promise, uuid) =>
         def cancelFibers[A](fibs: HList)(err: Throwable): F[Unit] =
-          joinOrCancel(fibs, HNil)(false) >> promise.complete(err.asLeft).void
+          joinOrCancel(fibs, HNil)(false) >> promise.complete(err.asLeft).ensure(promiseAlreadyCompleted)(identity).void
 
         def onErrorOrCancelation(fibs: HList): F[Unit] =
           cancelFibers(fibs)(ops.mkError()).guarantee(ops.onError)
@@ -65,8 +65,9 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Async: Log] {
               // wait for commands to be scheduled
               val synchronizer: F[Unit] =
                 counter.modify {
-                  case n if n === (commands.size - 1) => n + 1 -> gate.complete(()).void
-                  case n                              => n + 1 -> Applicative[F].unit
+                  case n if n === (commands.size - 1) =>
+                    n + 1 -> gate.complete(()).ensure(promiseAlreadyCompleted)(identity).void
+                  case n => n + 1 -> Applicative[F].unit
                 }.flatten
 
               Log[F].debug(s"${ops.name} started - ID: $uuid") >>
@@ -78,7 +79,7 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Async: Log] {
                         _ <- ops.onComplete(cancelFibers(fibs))
                         r <- joinOrCancel(fibs, HNil)(true)
                         // Casting here is fine since we have a `Witness` that proves this true
-                        _ <- promise.complete(r.asInstanceOf[w.R].asRight)
+                        _ <- promise.complete(r.asInstanceOf[w.R].asRight).ensure(promiseAlreadyCompleted)(identity)
                       } yield ()
                     case (fibs, Outcome.Errored(e)) =>
                       Log[F].error(s"${ops.name} failed: ${e.getMessage} - ID: $uuid") >> onErrorOrCancelation(fibs)
@@ -108,4 +109,5 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Async: Log] {
         Log[F].error(s"Unexpected result: ${h.toString}") >> joinOrCancel(t, res)(isJoin)
     }
 
+  private val promiseAlreadyCompleted = new AssertionError("Promise already completed")
 }
