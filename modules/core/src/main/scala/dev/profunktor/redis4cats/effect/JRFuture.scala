@@ -16,7 +16,6 @@
 
 package dev.profunktor.redis4cats.effect
 
-import cats.Applicative
 import cats.effect._
 import cats.syntax.all._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
@@ -54,24 +53,25 @@ private[redis4cats] object JRFuture {
       G <: JFuture[A],
       A
   ](fa: F[G]): F[A] =
-    RedisExecutor[F].eval {
-      fa.flatMap[A] { f =>
-        RedisExecutor[F].eval {
-          Concurrent[F].async[A] { cb =>
-            f.handle[Unit] { (res: A, err: Throwable) =>
-              err match {
-                case null =>
-                  cb(Right(res))
-                case _: CancellationException =>
-                  ()
-                case ex: CompletionException if ex.getCause ne null =>
-                  cb(Left(ex.getCause))
-                case ex =>
-                  cb(Left(ex))
+    fa.flatMap[A] { f =>
+      RedisExecutor[F].eval {
+        Concurrent[F].async { cb =>
+          RedisExecutor[F]
+            .delay {
+              f.handle[Unit] { (res: A, err: Throwable) =>
+                err match {
+                  case null =>
+                    cb(Right(res))
+                  case _: CancellationException =>
+                    ()
+                  case ex: CompletionException if ex.getCause ne null =>
+                    cb(Left(ex.getCause))
+                  case ex =>
+                    cb(Left(ex))
+                }
               }
             }
-            Applicative[F].pure(Some(RedisExecutor[F].delay(f.cancel(true)).void))
-          }
+            .as(Some(RedisExecutor[F].delay(f.cancel(true)).void))
         }
       }
     }
