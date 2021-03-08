@@ -38,12 +38,12 @@ class HListSpec extends FunSuite {
 
     val u ~: s ~: n1 ~: b ~: c ~: n2 ~: HNil = hl
 
-    assert(u.isInstanceOf[Unit])
-    assert(s.isInstanceOf[String])
-    assert(n1.isInstanceOf[Int])
-    assert(b.isInstanceOf[Boolean])
-    assert(c.isInstanceOf[Char])
-    assert(n2.isInstanceOf[Int])
+    assert(u == ())
+    assert(s == "hi")
+    assert(n1 == 123)
+    assert(b == true)
+    assert(c == 's')
+    assert(n2 == 55)
   }
 
   test("Filter out values") {
@@ -52,10 +52,10 @@ class HListSpec extends FunSuite {
 
     val s ~: n ~: b ~: c ~: HNil = hl.filterUnit
 
-    assert(s.isInstanceOf[String])
-    assert(n.isInstanceOf[Int])
-    assert(b.isInstanceOf[Boolean])
-    assert(c.isInstanceOf[Char])
+    assert(s == "hi")
+    assert(n == 33)
+    assert(b == false)
+    assert(c == 's')
   }
 
   test("Conversion from standard list") {

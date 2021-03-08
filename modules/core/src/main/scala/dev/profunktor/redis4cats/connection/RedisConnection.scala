@@ -55,7 +55,7 @@ private[redis4cats] class RedisStatefulConnection[F[_]: Concurrent: ContextShift
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
     OperationNotSupported("Running in a single node").raiseError
   def liftK[G[_]: Concurrent: ContextShift]: RedisConnection[G, K, V] = {
-    implicit val ecG = RedisExecutor[F].liftK[G]
+    implicit val ecG: RedisExecutor[G] = RedisExecutor[F].liftK[G]
     new RedisStatefulConnection[G, K, V](conn)
   }
 }
@@ -76,7 +76,7 @@ private[redis4cats] class RedisStatefulClusterConnection[F[_]: Concurrent: Conte
       RedisExecutor[F].delay(stateful.async())
     }
   def liftK[G[_]: Concurrent: ContextShift]: RedisConnection[G, K, V] = {
-    implicit val ecG = RedisExecutor[F].liftK[G]
+    implicit val ecG: RedisExecutor[G] = RedisExecutor[F].liftK[G]
     new RedisStatefulClusterConnection[G, K, V](conn)
   }
 }
