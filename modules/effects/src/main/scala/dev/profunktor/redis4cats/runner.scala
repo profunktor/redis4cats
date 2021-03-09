@@ -47,10 +47,12 @@ object Runner {
 
 private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel: Timer] {
 
-  def filterExec[T <: HList, R <: HList, S <: HList](ops: Runner.Ops[F])(commands: T)(
-      implicit w: Witness.Aux[T, R],
-      f: Filter.Aux[R, S]
-  ): F[S] = exec[T, R](ops)(commands).map(_.filterUnit)
+  def filterExec[T <: HList](ops: Runner.Ops[F])(commands: T)(
+      implicit w: WitnessFilter[T]
+  ): F[w.S] = {
+    import w.{ filter, witness }
+    exec[T, w.R](ops)(commands)(witness).map(_.filterUnit(filter))
+  }
 
   def exec[T <: HList, R <: HList](ops: Runner.Ops[F])(commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
     (Deferred[F, Either[Throwable, w.R]], Sync[F].delay(UUID.randomUUID)).tupled.flatMap {

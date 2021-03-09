@@ -389,11 +389,7 @@ trait TestScenarios { self: FunSuite =>
 
     val runPipeline =
       RedisPipeline(cmd)
-        .filterExec[IO[Unit] :: IO[Option[String]] :: IO[Unit] :: IO[Boolean] :: HNil, Unit :: Option[String] :: Unit :: Boolean :: HNil, Option[
-          String
-        ] :: Boolean :: HNil](
-          operations
-        )
+        .filterExec(operations)
         .flatMap {
           case res1 ~: res2 ~: HNil =>
             IO {
@@ -408,9 +404,7 @@ trait TestScenarios { self: FunSuite =>
 
     for {
       _ <- cmd.set(key3, "3")
-//      _ <- IO(println("1"))
       _ <- runPipeline
-//      _ <- IO(println("2"))
       v1 <- cmd.get(key1)
       v2 <- cmd.get(key2)
     } yield {
@@ -432,9 +426,7 @@ trait TestScenarios { self: FunSuite =>
 
     cmd.set(del1, "foo") >> cmd.set(key1, val1) >>
       RedisTransaction(cmd)
-        .filterExec[IO[Unit] :: IO[Option[String]] :: IO[Unit] :: IO[Long] :: HNil, Unit :: Option[String] :: Unit :: Long :: HNil, Option[
-          String
-        ] :: Long :: HNil](operations)
+        .filterExec(operations)
         .map {
           case res1 ~: res2 ~: HNil =>
             assertEquals(res1, Some(val1))

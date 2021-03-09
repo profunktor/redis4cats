@@ -53,11 +53,8 @@ object ConcurrentTransactionsDemo extends LoggerIOApp {
 
           val prog: IO[Unit] =
             RedisTransaction(cmd)
-              .filterExec[IO[Unit] :: IO[Unit] :: IO[Option[String]] :: IO[Unit] :: IO[Unit] :: IO[Option[String]] :: HNil, Unit :: Unit :: Option[
-                String
-              ] :: Unit :: Unit :: Option[String] :: HNil, Option[String] :: Option[String] :: HNil](operations)
+              .filterExec(operations)
               .flatMap {
-//                case foo => IO(println(foo))
                 case res1 ~: res2 ~: HNil =>
                   Log[IO].info(s"res1: $res1, res2: $res2")
               }
