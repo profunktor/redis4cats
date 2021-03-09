@@ -62,7 +62,7 @@ object hlist extends TypeInequalityCompat {
     }
 
     implicit class HListOps[T <: HList](t: T) {
-      def filterUnit[R <: HList](implicit w: Filter.Aux[T, R]): R = {
+      def filterUnit(implicit w: Filter[T]): w.R = {
         def go(ys: HList, res: HList): HList =
           ys match {
             case HNil                                => res
@@ -136,9 +136,9 @@ object hlist extends TypeInequalityCompat {
    */
   sealed trait WitnessFilter[T <: HList] {
     type R <: HList
-    val witness: Witness.Aux[T, R]
+    implicit val witness: Witness.Aux[T, R]
     type S <: HList
-    val filter: Filter.Aux[R, S]
+    implicit val filter: Filter.Aux[R, S]
   }
 
   object WitnessFilter {

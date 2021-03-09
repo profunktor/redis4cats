@@ -66,7 +66,7 @@ object transactions {
       *
       * @return `F[R]` or it raises a @TransactionError in case of failure.
       */
-    def exec[T <: HList, R <: HList](commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
+    def exec[T <: HList](commands: T)(implicit w: Witness[T]): F[w.R] =
       Runner[F].exec(ops)(commands)
 
   }
