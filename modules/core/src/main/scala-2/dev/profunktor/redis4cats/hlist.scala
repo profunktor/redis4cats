@@ -108,6 +108,49 @@ object hlist {
       new Witness[HCons[F[A], T]] { type R = HCons[A, w.R] }
   }
 
+  sealed trait WitnessFilter[T <: HList] {
+    type R <: HList
+    val witness: Witness.Aux[T, R]
+    type S <: HList
+    val filter: Filter.Aux[R, S]
+  }
+
+  object WitnessFilter {
+    type Aux[T <: HList, S0 <: HList] = WitnessFilter[T] {
+      type S = S0
+    }
+
+    implicit val hnil: WitnessFilter.Aux[HNil, HNil] = new WitnessFilter[HNil] {
+      type R = HNil
+      val witness: Witness.Aux[HNil, HNil] = Witness.hnil
+      type S = HNil
+      val filter: Filter.Aux[HNil, HNil] = Filter.hnil
+    }
+
+    implicit def hconsUnit[F[_], T <: HList](
+        implicit w: WitnessFilter[T]
+    ): WitnessFilter.Aux[HCons[F[Unit], T], w.S] =
+      new WitnessFilter[HCons[F[Unit], T]] {
+        type R = HCons[Unit, w.R]
+        val witness: Witness.Aux[HCons[F[Unit], T], HCons[Unit, w.R]] = Witness.hcons[F, Unit, T](w.witness)
+        type S = w.S
+        val filter: Filter.Aux[HCons[Unit, w.R], w.S] = Filter.hconsUnit(w.filter)
+      }
+
+    implicit def hconsNotUnit[F[_], A: =!=[Unit, *], T <: HList](
+        implicit w: WitnessFilter[T]
+    ): WitnessFilter.Aux[HCons[F[A], T], HCons[A, w.S]] =
+      new WitnessFilter[HCons[F[A], T]] {
+        type R = HCons[A, w.R]
+        val witness: Witness.Aux[HCons[F[A], T], HCons[A, w.R]] = Witness.hcons[F, A, T](w.witness)
+        type S = HCons[A, w.S]
+        val filter: Filter.Aux[A :: w.R, A :: w.S] = {
+          implicit val f: Filter.Aux[w.R, w.S] = w.filter
+          Filter.hconsNotUnit[A, w.R]
+        }
+      }
+  }
+
   /*
    * It represents a relationship between a raw list and a
    * filtered one. Mainly used to filter out values of type Unit.
