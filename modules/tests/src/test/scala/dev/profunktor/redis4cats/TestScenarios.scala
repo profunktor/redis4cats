@@ -459,7 +459,6 @@ trait TestScenarios { self: FunSuite =>
 
     // We race it with a plain `IO.unit` so the transaction may or may not start at all but the result should be the same
     IO.race(tx.exec(commands), IO.unit) >> cmd.get(key1).map(assertEquals(_, None)) // no keys written
-    IO.unit
   }
 
   def scriptsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
