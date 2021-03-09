@@ -47,9 +47,7 @@ object Runner {
 
 private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel: Timer] {
 
-  def filterExec[T <: HList](ops: Runner.Ops[F])(commands: T)(
-      implicit w: WitnessFilter[T]
-  ): F[w.S] = {
+  def filterExec[T <: HList](ops: Runner.Ops[F])(commands: T)(implicit w: WitnessFilter[T]): F[w.S] = {
     import w._
     exec[T](ops)(commands).map(_.filterUnit)
   }

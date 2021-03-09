@@ -45,9 +45,8 @@ object pipeline {
       * Same as @exec, except it filters out values of type Unit
       * from its result.
       */
-    def filterExec[T <: HList](commands: T)(
-        implicit w: WitnessFilter[T]
-    ): F[w.S] = Runner[F].filterExec(ops)(commands)
+    def filterExec[T <: HList](commands: T)(implicit w: WitnessFilter[T]): F[w.S] =
+      Runner[F].filterExec(ops)(commands)
 
     /***
       * Exclusively run Redis commands as part of a pipeline (autoflush: disabled).
