@@ -1365,7 +1365,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
             script,
             output.outputType,
             // see comment in eval above
-            (keys: List[Any]).toArray.asInstanceOf[Array[K with Object]],
+            keys.toArray[Any].asInstanceOf[Array[K with Object]],
             values: _*
           )
         )

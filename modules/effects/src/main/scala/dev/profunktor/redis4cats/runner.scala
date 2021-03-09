@@ -82,7 +82,6 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel
                         _ <- ops.onComplete(cancelFibers(fibs))
                         r <- joinOrCancel(fibs, HNil)(true)
                         // Casting here is fine since we have a `Witness` that proves this true
-//                        _ = println(s"foo: $r, witness: $w")
                         _ <- promise.complete(r.asInstanceOf[w.R].asRight)
                       } yield ()
                     case (fibs, ExitCase.Error(e)) =>

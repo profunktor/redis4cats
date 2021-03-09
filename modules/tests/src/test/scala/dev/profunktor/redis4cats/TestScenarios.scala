@@ -390,12 +390,10 @@ trait TestScenarios { self: FunSuite =>
     val runPipeline =
       RedisPipeline(cmd)
         .filterExec(operations)
-        .flatMap {
+        .map {
           case res1 ~: res2 ~: HNil =>
-            IO {
-              assertEquals(res1, Some("3"))
-              assert(!res2)
-            }
+            assertEquals(res1, Some("3"))
+            assert(!res2)
         }
         .onError {
           case PipelineError       => fail("[Error] - Pipeline failed")
@@ -460,9 +458,7 @@ trait TestScenarios { self: FunSuite =>
     val commands = cmd.set(key1, "v1") :: cmd.set(key2, "v2") :: cmd.set("tx-3", "v3") :: HNil
 
     // We race it with a plain `IO.unit` so the transaction may or may not start at all but the result should be the same
-    IO.race(tx.exec(commands), IO.unit) >> cmd
-      .get(key1)
-      .map(assertEquals(_, None)) // no keys written
+    IO.race(tx.exec(commands), IO.unit) >> cmd.get(key1).map(assertEquals(_, None)) // no keys written
     IO.unit
   }
 

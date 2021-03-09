@@ -20,9 +20,6 @@ import scala.util.NotGiven
 
 trait TypeInequalityCompat {
 
-  /**
-    * Type inequality
-    */
   sealed class =!=[A, B]
 
   object =!= {

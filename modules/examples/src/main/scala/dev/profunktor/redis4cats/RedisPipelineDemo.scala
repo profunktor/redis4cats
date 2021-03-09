@@ -51,9 +51,8 @@ object RedisPipelineDemo extends LoggerIOApp {
           RedisPipeline(cmd)
             .filterExec(operations)
             .flatMap {
-              case foo => putStrLn(foo)
-              // case res1 ~: res2 ~: HNil =>
-              //   putStrLn(s"res1: $res1, res2: $res2")
+              case res1 ~: res2 ~: HNil =>
+                putStrLn(s"res1: $res1, res2: $res2")
             }
             .onError {
               case PipelineError =>

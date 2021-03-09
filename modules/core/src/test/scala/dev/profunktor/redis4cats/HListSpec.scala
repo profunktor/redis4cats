@@ -36,9 +36,8 @@ class HListSpec extends FunSuite {
   test("Unapply HLists (deconstruct)") {
     val hl = () :: "hi" :: 123 :: true :: 's' :: 55 :: HNil
 
-    val _ ~: s ~: n1 ~: b ~: c ~: n2 ~: HNil = hl
+    val () ~: s ~: n1 ~: b ~: c ~: n2 ~: HNil = hl
 
-//    assert(u.==(()))
     assert(s == "hi")
     assert(n1 == 123)
     assert(b == true)

@@ -52,7 +52,7 @@ object transactions {
     def filterExec[T <: HList](commands: T)(
         implicit w: WitnessFilter[T]
     ): F[w.S] =
-      Runner[F].filterExec[T](ops)(commands)
+      Runner[F].filterExec(ops)(commands)
 
     /***
       * Exclusively run Redis commands as part of a transaction.
