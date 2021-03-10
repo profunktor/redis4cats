@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 ProfunKtor
+ * Copyright 2018-2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,50 +21,48 @@ import java.util.concurrent.TimeUnit
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log }
-import dev.profunktor.redis4cats.effect.JRFuture._
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import io.lettuce.core.{ ClientOptions, RedisClient => JRedisClient, RedisURI => JRedisURI }
 
 sealed abstract case class RedisClient private (underlying: JRedisClient, uri: RedisURI)
 
 object RedisClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: RedisExecutor: Log](
       uri: => RedisURI,
       opts: ClientOptions,
-      config: Redis4CatsConfig,
-      blocker: Blocker
+      config: Redis4CatsConfig
   ): (F[RedisClient], RedisClient => F[Unit]) = {
-    val acquire: F[RedisClient] = F.delay {
+    val acquire: F[RedisClient] = Sync[F].delay {
       val jClient: JRedisClient = JRedisClient.create(uri.underlying)
       jClient.setOptions(opts)
       new RedisClient(jClient, uri) {}
     }
 
     val release: RedisClient => F[Unit] = client =>
-      F.info(s"Releasing Redis connection: $uri") *>
+      Log[F].info(s"Releasing Redis connection: $uri") *>
           JRFuture
             .fromCompletableFuture(
-              F.delay(
+              Sync[F].delay(
                 client.underlying.shutdownAsync(
                   config.shutdown.quietPeriod.toNanos,
                   config.shutdown.timeout.toNanos,
                   TimeUnit.NANOSECONDS
                 )
               )
-            )(blocker)
+            )
             .void
 
     (acquire, release)
   }
 
-  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: Log](
+  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Concurrent: ContextShift: RedisExecutor: Log](
       opts: ClientOptions,
-      config: Redis4CatsConfig,
-      blocker: Blocker
+      config: Redis4CatsConfig
   ): F[(F[RedisClient], RedisClient => F[Unit])] =
-    F.delay(RedisURI.fromUnderlying(new JRedisURI()))
-      .map(uri => acquireAndRelease(uri, opts, config, blocker))
+    Sync[F]
+      .delay(RedisURI.fromUnderlying(new JRedisURI()))
+      .map(uri => acquireAndRelease(uri, opts, config))
 
   class RedisClientPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
 
@@ -95,7 +93,7 @@ object RedisClient {
       * You may prefer to use [[from]] instead, which takes a raw string.
       */
     def fromUri(uri: => RedisURI): Resource[F, RedisClient] =
-      Resource.liftF(F.delay(ClientOptions.create())).flatMap(this.custom(uri, _))
+      Resource.liftF(Sync[F].delay(ClientOptions.create())).flatMap(this.custom(uri, _))
 
     /**
       * Creates a [[RedisClient]] with the supplied options.
@@ -104,7 +102,7 @@ object RedisClient {
       *
       * {{{
       * for {
-      *   ops <- Resource.liftF(F.delay(ClientOptions.create())) // configure timeouts, etc
+      *   ops <- Resource.liftF(Sync[F].delay(ClientOptions.create())) // configure timeouts, etc
       *   cli <- RedisClient[IO].withOptions("redis://localhost", ops)
       * } yield cli
       * }}}
@@ -123,7 +121,7 @@ object RedisClient {
       * {{{
       * for {
       *   uri <- Resource.liftF(RedisURI.make[F]("redis://localhost"))
-      *   ops <- Resource.liftF(F.delay(ClientOptions.create())) // configure timeouts, etc
+      *   ops <- Resource.liftF(Sync[F].delay(ClientOptions.create())) // configure timeouts, etc
       *   cli <- RedisClient[IO].custom(uri, ops)
       * } yield cli
       * }}}
@@ -142,8 +140,8 @@ object RedisClient {
         opts: ClientOptions,
         config: Redis4CatsConfig = Redis4CatsConfig()
     ): Resource[F, RedisClient] =
-      mkBlocker[F].flatMap { blocker =>
-        val (acquire, release) = acquireAndRelease(uri, opts, config, blocker)
+      RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+        val (acquire, release) = acquireAndRelease(uri, opts, config)
         Resource.make(acquire)(release)
       }
   }

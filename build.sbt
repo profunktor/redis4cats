@@ -3,7 +3,7 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / crossScalaVersions := Seq("2.12.10", "2.13.2")
+ThisBuild / crossScalaVersions := Seq("2.12.12", "2.13.4")
 Test / parallelExecution := false
 
 // publishing
@@ -15,7 +15,7 @@ ThisBuild / developers := List(
     "gvolpe",
     "Gabriel Volpe",
     "volpegabriel@gmail.com",
-    url("https://gvolpe.github.io")
+    url("https://gvolpe.com")
   )
 )
 
@@ -35,11 +35,9 @@ val commonSettings = Seq(
   organizationName := "Redis client for Cats Effect & Fs2",
   startYear := Some(2018),
   licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
-  headerLicense := Some(HeaderLicense.ALv2("2018-2020", "ProfunKtor")),
+  headerLicense := Some(HeaderLicense.ALv2("2018-2021", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
-        CompilerPlugins.betterMonadicFor,
-        CompilerPlugins.contextApplied,
         CompilerPlugins.kindProjector,
         Libraries.catsEffect,
         Libraries.redisClient,

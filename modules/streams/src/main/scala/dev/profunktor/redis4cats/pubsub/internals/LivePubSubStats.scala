@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 ProfunKtor
+ * Copyright 2018-2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,26 +16,26 @@
 
 package dev.profunktor.redis4cats
 package pubsub
+package internals
 
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.JRFuture
+import dev.profunktor.redis4cats.effect.{ JRFuture, RedisExecutor }
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 import dev.profunktor.redis4cats.JavaConversions._
 
-class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
-    pubConnection: StatefulRedisPubSubConnection[K, V],
-    blocker: Blocker
+private[pubsub] class LivePubSubStats[F[_]: Concurrent: ContextShift: RedisExecutor, K, V](
+    pubConnection: StatefulRedisPubSubConnection[K, V]
 ) extends PubSubStats[Stream[F, *], K] {
 
   override def pubSubChannels: Stream[F, List[K]] =
     Stream
       .eval {
-        JRFuture(F.delay(pubConnection.async().pubsubChannels()))(blocker)
+        JRFuture(Sync[F].delay(pubConnection.async().pubsubChannels()))
       }
       .map(_.asScala.toList)
 
@@ -44,8 +44,8 @@ class LivePubSubStats[F[_]: Concurrent: ContextShift, K, V](
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
     Stream.eval {
-      JRFuture(F.delay(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*)))(blocker).flatMap { kv =>
-        F.delay(kv.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), n) })
+      JRFuture(Sync[F].delay(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*))).flatMap { kv =>
+        Sync[F].delay(kv.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), n) })
       }
     }
 

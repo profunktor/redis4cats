@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 ProfunKtor
+ * Copyright 2018-2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,17 +32,16 @@ object PublisherDemo extends LoggerIOApp {
   private val eventsChannel = RedisChannel("events")
 
   val stream: Stream[IO, Unit] =
-    for {
+    (for {
       client <- Stream.resource(RedisClient[IO].from(redisURI))
       pubSub <- Stream.resource(PubSub.mkPublisherConnection[IO, String, String](client, stringCodec))
       pub1 = pubSub.publish(eventsChannel)
-      rs <- Stream(
-             Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
-             Stream.awakeEvery[IO](6.seconds) >> pubSub
-                   .pubSubSubscriptions(eventsChannel)
-                   .evalMap(putStrLn)
-           ).parJoin(2).drain
-    } yield rs
+    } yield Stream(
+      Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
+      Stream.awakeEvery[IO](6.seconds) >> pubSub
+            .pubSubSubscriptions(eventsChannel)
+            .evalMap(putStrLn)
+    ).parJoin(2).drain).flatten
 
   val program: IO[Unit] =
     stream.compile.drain

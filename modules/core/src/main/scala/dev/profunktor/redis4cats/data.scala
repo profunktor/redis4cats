@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 ProfunKtor
+ * Copyright 2018-2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ object data {
 
     private def cipherSupplier[F[_]: Sync](key: SecretKeySpec, mode: Int): F[CipherCodec.CipherSupplier] = {
       val mkCipher =
-        F.delay {
+        Sync[F].delay {
           val cipher: Cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
           cipher.init(mode, key)
           cipher

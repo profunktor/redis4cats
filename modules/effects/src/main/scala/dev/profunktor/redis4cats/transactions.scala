@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 ProfunKtor
+ * Copyright 2018-2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats
 
 import scala.util.control.NoStackTrace
 
-import cats.Parallel
+import cats.{ Applicative, ApplicativeThrow, Parallel }
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.effect.Log
@@ -38,9 +38,10 @@ object transactions {
       Runner.Ops(
         name = "Transaction",
         mainCmd = cmd.multi,
-        onComplete = (f: Runner.CancelFibers[F]) => cmd.exec.handleErrorWith(e => f(e) >> F.raiseError(e)),
+        onComplete =
+          (f: Runner.CancelFibers[F]) => cmd.exec.handleErrorWith(e => f(e) >> ApplicativeThrow[F].raiseError(e)),
         onError = cmd.discard,
-        afterCompletion = F.unit,
+        afterCompletion = Applicative[F].unit,
         mkError = () => TransactionAborted
       )
 

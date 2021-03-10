@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 ProfunKtor
+ * Copyright 2018-2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,24 +36,23 @@ object PubSubDemo extends LoggerIOApp {
     _.evalMap(x => putStrLn(s"Subscriber: $name >> $x"))
 
   val stream: Stream[IO, Unit] =
-    for {
+    (for {
       client <- Stream.resource(RedisClient[IO].from(redisURI))
       pubSub <- Stream.resource(PubSub.mkPubSubConnection[IO, String, String](client, stringCodec))
       sub1 = pubSub.subscribe(eventsChannel)
       sub2 = pubSub.subscribe(gamesChannel)
       pub1 = pubSub.publish(eventsChannel)
       pub2 = pubSub.publish(gamesChannel)
-      rs <- Stream(
-             sub1.through(sink("#events")),
-             sub2.through(sink("#games")),
-             Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
-             Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
-             Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
-             Stream.awakeEvery[IO](6.seconds) >> pubSub
-                   .pubSubSubscriptions(List(eventsChannel, gamesChannel))
-                   .evalMap(putStrLn)
-           ).parJoin(6).drain
-    } yield rs
+    } yield Stream(
+      sub1.through(sink("#events")),
+      sub2.through(sink("#games")),
+      Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
+      Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
+      Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
+      Stream.awakeEvery[IO](6.seconds) >> pubSub
+            .pubSubSubscriptions(List(eventsChannel, gamesChannel))
+            .evalMap(putStrLn)
+    ).parJoin(6).drain).flatten
 
   val program: IO[Unit] =
     stream.compile.drain

@@ -16,8 +16,8 @@ import dev.profunktor.redis4cats.algebra.ScriptCommands
 import dev.profunktor.redis4cats.effects.ScriptOutputType
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
-import io.chrisdavenport.log4cats.Logger
-import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.unsafeCreate[IO]
@@ -39,7 +39,7 @@ def putStrLn(str: String): IO[Unit] = IO(println(str))
 commandsApi.use { cmd => // ScriptCommands[IO, String, String]
   for {
     // returns a String according the value codec (the last type parameter of ScriptCommands)
-    greeting: String <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
+    greeting <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
     _ <- putStrLn(s"Greetings from Lua: $greeting")
   } yield ()
 }

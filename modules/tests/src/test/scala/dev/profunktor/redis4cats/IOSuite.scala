@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 ProfunKtor
+ * Copyright 2018-2021 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,6 @@ trait IOSuite extends FunSuite {
 
   override def munitValueTransforms: List[ValueTransform] =
     super.munitValueTransforms :+ new ValueTransform("IO", {
-          case ioa: IO[_] => IO.suspend(ioa).unsafeToFuture
+          case ioa: IO[_] => IO.suspend(ioa).unsafeToFuture()
         })
 }
