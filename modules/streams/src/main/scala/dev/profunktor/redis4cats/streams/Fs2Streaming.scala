@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats
 package streams
 
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
@@ -29,13 +29,13 @@ import io.lettuce.core.{ ReadFrom => JReadFrom }
 
 object RedisStream {
 
-  def mkStreamingConnection[F[_]: Concurrent: ContextShift: Log, K, V](
+  def mkStreamingConnection[F[_]: Async: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Stream[F, Streaming[Stream[F, *], K, V]] =
     Stream.resource(mkStreamingConnectionResource(client, codec))
 
-  def mkStreamingConnectionResource[F[_]: Concurrent: ContextShift: Log, K, V](
+  def mkStreamingConnectionResource[F[_]: Async: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, Streaming[Stream[F, *], K, V]] =
@@ -53,13 +53,13 @@ object RedisStream {
       Resource.make(acquire)(release).map(rs => new RedisStream(rs))
     }
 
-  def mkMasterReplicaConnection[F[_]: Concurrent: ContextShift: Log, K, V](
+  def mkMasterReplicaConnection[F[_]: Async: Log, K, V](
       codec: RedisCodec[K, V],
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Stream[F, Streaming[Stream[F, *], K, V]] =
     Stream.resource(mkMasterReplicaConnectionResource(codec, uris: _*)(readFrom))
 
-  def mkMasterReplicaConnectionResource[F[_]: Concurrent: ContextShift: Log, K, V](
+  def mkMasterReplicaConnectionResource[F[_]: Async: Log, K, V](
       codec: RedisCodec[K, V],
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Resource[F, Streaming[Stream[F, *], K, V]] =
@@ -71,8 +71,7 @@ object RedisStream {
 
 }
 
-class RedisStream[F[_]: Concurrent, K, V](rawStreaming: RedisRawStreaming[F, K, V])
-    extends Streaming[Stream[F, *], K, V] {
+class RedisStream[F[_]: Sync, K, V](rawStreaming: RedisRawStreaming[F, K, V]) extends Streaming[Stream[F, *], K, V] {
 
   private[streams] val nextOffset: K => XReadMessage[K, V] => StreamingOffset[K] =
     key => msg => StreamingOffset.Custom(key, msg.id.value)
@@ -83,7 +82,11 @@ class RedisStream[F[_]: Concurrent, K, V](rawStreaming: RedisRawStreaming[F, K, 
   override def append: Stream[F, XAddMessage[K, V]] => Stream[F, MessageId] =
     _.evalMap(msg => rawStreaming.xAdd(msg.key, msg.body, msg.approxMaxlen))
 
-  override def read(keys: Set[K], initialOffset: K => StreamingOffset[K]): Stream[F, XReadMessage[K, V]] = {
+  override def read(
+      keys: Set[K],
+      chunkSize: Int,
+      initialOffset: K => StreamingOffset[K]
+  ): Stream[F, XReadMessage[K, V]] = {
     val initial = keys.map(k => k -> initialOffset(k)).toMap
     Stream.eval(Ref.of[F, Map[K, StreamingOffset[K]]](initial)).flatMap { ref =>
       (for {
@@ -91,7 +94,7 @@ class RedisStream[F[_]: Concurrent, K, V](rawStreaming: RedisRawStreaming[F, K, 
         list <- Stream.eval(rawStreaming.xRead(offsets.values.toSet))
         newOffsets = offsetsByKey(list).collect { case (key, Some(value)) => key -> value }.toList
         _ <- Stream.eval(newOffsets.map { case (k, v) => ref.update(_.updated(k, v)) }.sequence)
-        result <- Stream.fromIterator(list.iterator)
+        result <- Stream.fromIterator[F](list.iterator, chunkSize)
       } yield result).repeat
     }
   }

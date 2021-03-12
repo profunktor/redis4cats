@@ -4,10 +4,10 @@ object Dependencies {
 
   object V {
     val cats       = "2.4.2"
-    val catsEffect = "2.3.3"
+    val catsEffect = "3.0.0-RC2"
     val circe      = "0.13.0"
-    val fs2        = "2.5.3"
-    val log4cats   = "1.2.0"
+    val fs2        = "3.0.0-M9"
+    val log4cats   = "2.0.0-RC1"
 
     val lettuce = "6.0.2.RELEASE"
     val logback = "1.2.3"

@@ -37,10 +37,7 @@ import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.log4cats._
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
-import scala.concurrent.ExecutionContext
 
-implicit val cs = IO.contextShift(ExecutionContext.global)
-implicit val timer = IO.timer(ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {

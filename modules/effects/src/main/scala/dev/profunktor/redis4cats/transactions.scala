@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats
 
 import scala.util.control.NoStackTrace
 
-import cats.{ Applicative, ApplicativeThrow, Parallel }
+import cats.{ Applicative, ApplicativeThrow }
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.effect.Log
@@ -30,7 +30,7 @@ object transactions {
   case object TransactionAborted extends TransactionError
   case object TransactionDiscarded extends TransactionError
 
-  case class RedisTransaction[F[_]: Concurrent: Log: Parallel: Timer, K, V](
+  case class RedisTransaction[F[_]: Async: Log, K, V](
       cmd: RedisCommands[F, K, V]
   ) {
 

@@ -17,31 +17,31 @@
 package dev.profunktor.redis4cats.effect
 
 import cats.effect._
-import cats.effect.implicits._
 import cats.syntax.all._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
+
 import java.util.concurrent._
 
 private[redis4cats] object JRFuture {
 
   private[redis4cats] type JFuture[A] = CompletionStage[A] with Future[A]
 
-  def apply[F[_]: Concurrent: ContextShift: RedisExecutor, A](
+  def apply[F[_]: Async: RedisExecutor, A](
       fa: F[RedisFuture[A]]
   ): F[A] =
     liftJFuture[F, RedisFuture[A], A](fa)
 
-  def fromConnectionFuture[F[_]: Concurrent: ContextShift: RedisExecutor, A](
+  def fromConnectionFuture[F[_]: Async: RedisExecutor, A](
       fa: F[ConnectionFuture[A]]
   ): F[A] =
     liftJFuture[F, ConnectionFuture[A], A](fa)
 
-  def fromCompletableFuture[F[_]: Concurrent: ContextShift: RedisExecutor, A](
+  def fromCompletableFuture[F[_]: Async: RedisExecutor, A](
       fa: F[CompletableFuture[A]]
   ): F[A] =
     liftJFuture[F, CompletableFuture[A], A](fa)
 
-  implicit final class FutureLiftOps[F[_]: Concurrent: ContextShift: RedisExecutor: Log, A](fa: F[RedisFuture[A]]) {
+  implicit final class FutureLiftOps[F[_]: Async: RedisExecutor: Log, A](fa: F[RedisFuture[A]]) {
     def futureLift: F[A] =
       liftJFuture[F, RedisFuture[A], A](fa).onError {
         case e: ExecutionException => Log[F].error(s"${e.getMessage()} - ${Option(e.getCause())}")
@@ -49,32 +49,31 @@ private[redis4cats] object JRFuture {
   }
 
   private[redis4cats] def liftJFuture[
-      F[_]: Concurrent: ContextShift: RedisExecutor,
+      F[_]: Async: RedisExecutor,
       G <: JFuture[A],
       A
-  ](fa: F[G]): F[A] = {
-    val lifted: F[A] = RedisExecutor[F].eval {
-      fa.flatMap { f =>
-        RedisExecutor[F].eval {
-          Concurrent[F].cancelable { cb =>
-            f.handle[Unit] { (res: A, err: Throwable) =>
-              err match {
-                case null =>
-                  cb(Right(res))
-                case _: CancellationException =>
-                  ()
-                case ex: CompletionException if ex.getCause ne null =>
-                  cb(Left(ex.getCause))
-                case ex =>
-                  cb(Left(ex))
+  ](fa: F[G]): F[A] =
+    fa.flatMap[A] { f =>
+      RedisExecutor[F].eval {
+        Concurrent[F].async { cb =>
+          RedisExecutor[F]
+            .delay {
+              f.handle[Unit] { (res: A, err: Throwable) =>
+                err match {
+                  case null =>
+                    cb(Right(res))
+                  case _: CancellationException =>
+                    ()
+                  case ex: CompletionException if ex.getCause ne null =>
+                    cb(Left(ex.getCause))
+                  case ex =>
+                    cb(Left(ex))
+                }
               }
             }
-            RedisExecutor[F].delay(f.cancel(true)).void
-          }
+            .as(Some(RedisExecutor[F].delay(f.cancel(true)).void))
         }
       }
     }
-    lifted.guarantee(ContextShift[F].shift)
-  }
 
 }

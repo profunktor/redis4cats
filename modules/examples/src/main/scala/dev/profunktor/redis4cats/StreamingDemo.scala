@@ -46,7 +46,7 @@ object StreamingDemo extends LoggerIOApp {
     (for {
       client <- Stream.resource(RedisClient[IO].from(redisURI))
       streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
-      source   = streaming.read(Set(streamKey1, streamKey2))
+      source   = streaming.read(Set(streamKey1, streamKey2), 1)
       appender = streaming.append
     } yield Stream(
       source.evalMap(putStrLn),
