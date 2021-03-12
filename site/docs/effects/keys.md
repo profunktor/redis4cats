@@ -19,7 +19,6 @@ import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import scala.concurrent.duration._
 
-implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, KeyCommands[IO, String]] = {

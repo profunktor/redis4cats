@@ -25,7 +25,6 @@ import dev.profunktor.redis4cats.log4cats._
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
@@ -65,7 +64,7 @@ val mkOpts: IO[ClientOptions] =
 
 val api: Resource[IO, StringCommands[IO, String, String]] =
   for {
-    opts   <- Resource.liftF(mkOpts)
+    opts   <- Resource.eval(mkOpts)
     client <- RedisClient[IO].withOptions("redis://localhost", opts)
     redis  <- Redis[IO].fromClient(client, stringCodec)
   } yield redis
@@ -80,8 +79,8 @@ val config = Redis4CatsConfig().withShutdown(ShutdownConfig(1.seconds, 5.seconds
 
 val configuredApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
-    uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
-    opts   <- Resource.liftF(mkOpts)
+    uri    <- Resource.eval(RedisURI.make[IO]("redis://localhost"))
+    opts   <- Resource.eval(mkOpts)
     client <- RedisClient[IO].custom(uri, opts, config)
     redis  <- Redis[IO].fromClient(client, stringCodec)
   } yield redis
@@ -100,7 +99,7 @@ A simple connection with custom client options:
 
 ```scala mdoc:silent
 val simpleOptsApi: Resource[IO, StringCommands[IO, String, String]] =
-  Resource.liftF(IO(ClientOptions.create())).flatMap { opts =>
+  Resource.eval(IO(ClientOptions.create())).flatMap { opts =>
     Redis[IO].withOptions("redis://localhost", opts, RedisCodec.Ascii)
   }
 ```
@@ -146,7 +145,7 @@ The process looks mostly like standalone connection but with small differences.
 ```scala mdoc:silent
 val clusterApi: Resource[IO, StringCommands[IO, String, String]] =
   for {
-    uri    <- Resource.liftF(RedisURI.make[IO]("redis://localhost:30001"))
+    uri    <- Resource.eval(RedisURI.make[IO]("redis://localhost:30001"))
     client <- RedisClusterClient[IO](uri)
     redis  <- Redis[IO].fromClusterClient(client, stringCodec)()
   } yield redis
@@ -192,7 +191,7 @@ import dev.profunktor.redis4cats.data.ReadFrom
 
 val commands: Resource[IO, StringCommands[IO, String, String]] =
   for {
-    uri <- Resource.liftF(RedisURI.make[IO]("redis://localhost"))
+    uri <- Resource.eval(RedisURI.make[IO]("redis://localhost"))
     conn <- RedisMasterReplica[IO].make(RedisCodec.Utf8, uri)(ReadFrom.UpstreamPreferred.some)
     cmds <- Redis[IO].masterReplica(conn)
   } yield cmds

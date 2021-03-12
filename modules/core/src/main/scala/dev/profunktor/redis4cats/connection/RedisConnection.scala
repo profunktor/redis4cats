@@ -39,10 +39,10 @@ private[redis4cats] trait RedisConnection[F[_], K, V] {
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]]
   def close: F[Unit]
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]]
-  def liftK[G[_]: Concurrent: ContextShift]: RedisConnection[G, K, V]
+  def liftK[G[_]: Async]: RedisConnection[G, K, V]
 }
 
-private[redis4cats] class RedisStatefulConnection[F[_]: Concurrent: ContextShift: RedisExecutor, K, V](
+private[redis4cats] class RedisStatefulConnection[F[_]: Async: RedisExecutor, K, V](
     conn: StatefulRedisConnection[K, V]
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] = RedisExecutor[F].delay(conn.sync())
@@ -54,13 +54,13 @@ private[redis4cats] class RedisStatefulConnection[F[_]: Concurrent: ContextShift
   def close: F[Unit] = JRFuture.fromCompletableFuture(RedisExecutor[F].delay(conn.closeAsync())).void
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
     OperationNotSupported("Running in a single node").raiseError
-  def liftK[G[_]: Concurrent: ContextShift]: RedisConnection[G, K, V] = {
+  def liftK[G[_]: Async]: RedisConnection[G, K, V] = {
     implicit val ecG = RedisExecutor[F].liftK[G]
     new RedisStatefulConnection[G, K, V](conn)
   }
 }
 
-private[redis4cats] class RedisStatefulClusterConnection[F[_]: Concurrent: ContextShift: RedisExecutor, K, V](
+private[redis4cats] class RedisStatefulClusterConnection[F[_]: Async: RedisExecutor, K, V](
     conn: StatefulRedisClusterConnection[K, V]
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] =
@@ -75,7 +75,7 @@ private[redis4cats] class RedisStatefulClusterConnection[F[_]: Concurrent: Conte
     JRFuture.fromCompletableFuture(RedisExecutor[F].delay(conn.getConnectionAsync(nodeId.value))).flatMap { stateful =>
       RedisExecutor[F].delay(stateful.async())
     }
-  def liftK[G[_]: Concurrent: ContextShift]: RedisConnection[G, K, V] = {
+  def liftK[G[_]: Async]: RedisConnection[G, K, V] = {
     implicit val ecG = RedisExecutor[F].liftK[G]
     new RedisStatefulClusterConnection[G, K, V](conn)
   }

@@ -18,8 +18,9 @@ package dev.profunktor.redis4cats
 package pubsub
 package internals
 
+import cats.Applicative
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.Ref
 import cats.effect.implicits._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
@@ -27,7 +28,7 @@ import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-private[pubsub] class Subscriber[F[_]: ConcurrentEffect: ContextShift: RedisExecutor: Log, K, V](
+private[pubsub] class Subscriber[F[_]: Async: RedisExecutor: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V]
 ) extends SubscribeCommands[Stream[F, *], K, V] {
@@ -46,8 +47,9 @@ private[pubsub] class Subscriber[F[_]: ConcurrentEffect: ContextShift: RedisExec
     Stream.eval {
       JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying))).void
         .guarantee(state.get.flatMap { st =>
-          st.get(channel.underlying).fold(().pure)(_.publish1(none[V])) *> state.update(_ - channel.underlying)
+          st.get(channel.underlying).fold(Applicative[F].unit)(_.publish1(none[V])) *> state.update(
+            _ - channel.underlying
+          )
         })
     }
-
 }

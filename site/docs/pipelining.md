@@ -44,7 +44,6 @@ import dev.profunktor.redis4cats.log4cats._
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.global)
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
 val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
@@ -59,9 +58,6 @@ import dev.profunktor.redis4cats._
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline._
 import java.util.concurrent.TimeoutException
-import scala.concurrent.ExecutionContext
-
-implicit val timer = IO.timer(ExecutionContext.global)
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 

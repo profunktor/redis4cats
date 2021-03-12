@@ -32,7 +32,7 @@ sealed abstract case class RedisMasterReplica[K, V] private (underlying: Statefu
 
 object RedisMasterReplica {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: RedisExecutor: Log, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: Async: RedisExecutor: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
@@ -60,7 +60,7 @@ object RedisMasterReplica {
     (acquire, release)
   }
 
-  class MasterReplicaPartiallyApplied[F[_]: Concurrent: ContextShift: Log] {
+  class MasterReplicaPartiallyApplied[F[_]: Async: Log] {
 
     /**
       * Creates a [[RedisMasterReplica]]
@@ -72,7 +72,7 @@ object RedisMasterReplica {
       *
       * {{{
       * val conn: Resource[IO, RedisMasterReplica[String, String]] =
-      *   Resource.liftF(RedisURI.make[IO](redisURI)).flatMap { uri =>
+      *   Resource.eval(RedisURI.make[IO](redisURI)).flatMap { uri =>
       *     RedisMasterReplica[IO].make(RedisCodec.Utf8, uri)(Some(ReadFrom.MasterPreferred))
       *   }
       * }}}
@@ -82,7 +82,7 @@ object RedisMasterReplica {
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
       Resource
-        .liftF(Sync[F].delay(ClientOptions.create()))
+        .eval(Sync[F].delay(ClientOptions.create()))
         .flatMap(withOptions(codec, _, Redis4CatsConfig(), uris: _*)(readFrom))
 
     /**
@@ -96,8 +96,8 @@ object RedisMasterReplica {
       * {{{
       * val conn: Resource[IO, RedisMasterReplica[String, String]] =
       *   for {
-      *     ops <- Resource.liftF(Sync[F].delay(ClientOptions.create()))
-      *     uri <- Resource.liftF(RedisURI.make[IO](redisURI))
+      *     ops <- Resource.eval(Sync[F].delay(ClientOptions.create()))
+      *     uri <- Resource.eval(RedisURI.make[IO](redisURI))
       *     mrc <- RedisMasterReplica[IO].withOptions(RedisCodec.Utf8, ops, uri)(Some(ReadFrom.MasterPreferred))
       *   } yield mrc
       * }}}
@@ -109,7 +109,7 @@ object RedisMasterReplica {
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
       RedisExecutor.make[F].flatMap { implicit redisExecutor =>
-        Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F](opts, config)).flatMap {
+        Resource.eval(RedisClient.acquireAndReleaseWithoutUri[F](opts, config)).flatMap {
           case (acquireClient, releaseClient) =>
             Resource.make(acquireClient)(releaseClient).flatMap { client =>
               val (acquire, release) = acquireAndRelease(client, codec, readFrom, uris: _*)
@@ -120,7 +120,7 @@ object RedisMasterReplica {
 
   }
 
-  def apply[F[_]: Concurrent: ContextShift: Log]: MasterReplicaPartiallyApplied[F] =
+  def apply[F[_]: Async: Log]: MasterReplicaPartiallyApplied[F] =
     new MasterReplicaPartiallyApplied[F]
 
   def fromUnderlying[K, V](underlying: StatefulRedisMasterReplicaConnection[K, V]) =

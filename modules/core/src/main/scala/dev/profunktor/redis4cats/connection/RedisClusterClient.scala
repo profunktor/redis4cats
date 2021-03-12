@@ -37,7 +37,7 @@ sealed abstract case class RedisClusterClient private (underlying: JClusterClien
 
 object RedisClusterClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Concurrent: ContextShift: RedisExecutor: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: Async: RedisExecutor: Log](
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
@@ -104,10 +104,10 @@ object RedisClusterClient {
       }
     }.void
 
-  def apply[F[_]: Concurrent: ContextShift: Log](uri: RedisURI*): Resource[F, RedisClusterClient] =
+  def apply[F[_]: Async: Log](uri: RedisURI*): Resource[F, RedisClusterClient] =
     configured[F](Redis4CatsConfig(), uri: _*)
 
-  def configured[F[_]: Concurrent: ContextShift: Log](
+  def configured[F[_]: Async: Log](
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): Resource[F, RedisClusterClient] =
