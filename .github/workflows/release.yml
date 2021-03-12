@@ -2,10 +2,9 @@ name: Release
 on:
   push:
     branches:
-      - master     # CE2
       - series/1.x # CE3
     tags:
-      - "*"
+      - "1.*"
 
 jobs:
   build:
