@@ -38,7 +38,7 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("connection api")(withRedis(connectionScenario))
 
-  test("pipelining")(withRedis(pipelineScenario))
+  test("pipelining".ignore)(withRedis(pipelineScenario))
 
   test("server")(withRedis(serverScenario))
 
