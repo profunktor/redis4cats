@@ -4,7 +4,7 @@ on:
     branches:
       - series/1.x # CE3
     tags:
-      - "1.*"
+      - "v1.*"
 
 jobs:
   build:

@@ -3,7 +3,7 @@ name: Release Drafter
 on:
   push:
     branches:
-      - master
+      - series/1.x # CE3
 
 jobs:
   update_release_draft:
