@@ -8,8 +8,11 @@ Test / parallelExecution := false
 
 // versions are generated from the latest tags by default
 val customVersion = "1.0.0"
-ThisBuild / version ~= (x => customVersion + x.drop(6))
-ThisBuild / dynver ~= (x => customVersion + x.drop(6))
+
+def fixVersion(v: String): String = if (v.contains("-RC") || v.contains("-M")) v.drop(5) else v.drop(6)
+
+ThisBuild / version ~= (v => customVersion + fixVersion(v))
+ThisBuild / dynver ~= (v => customVersion + fixVersion(v))
 
 // publishing
 ThisBuild / organization := "dev.profunktor"
