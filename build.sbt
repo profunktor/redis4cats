@@ -6,6 +6,11 @@ import microsites.ExtraMdFileConfig
 ThisBuild / crossScalaVersions := Seq("2.12.12", "2.13.4")
 Test / parallelExecution := false
 
+// versions are generated from the latest tags by default
+val customVersion = "1.0.0"
+ThisBuild / version ~= (x => customVersion + x.drop(5))
+ThisBuild / dynver ~= (x => customVersion + x.drop(5))
+
 // publishing
 ThisBuild / organization := "dev.profunktor"
 ThisBuild / homepage := Some(url("https://redis4cats.profunktor.dev/"))
@@ -29,7 +34,7 @@ promptTheme := PromptTheme(
 def pred[A](p: Boolean, t: => Seq[A], f: => Seq[A]): Seq[A] =
   if (p) t else f
 
-def version(strVersion: String): Option[(Long, Long)] = CrossVersion.partialVersion(strVersion)
+def getVersion(strVersion: String): Option[(Long, Long)] = CrossVersion.partialVersion(strVersion)
 
 val commonSettings = Seq(
   organizationName := "Redis client for Cats Effect & Fs2",
@@ -48,7 +53,7 @@ val commonSettings = Seq(
       ),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
-        version(scalaVersion.value) == Some(2, 12),
+        getVersion(scalaVersion.value) == Some(2, 12),
         t = Seq("-Xmax-classfile-name", "80"),
         f = Seq.empty
       ),
