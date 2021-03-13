@@ -7,9 +7,9 @@ ThisBuild / crossScalaVersions := Seq("2.12.12", "2.13.4")
 Test / parallelExecution := false
 
 // versions are generated from the latest tags by default
-val customVersion = "1.0.0"
-ThisBuild / version ~= (x => customVersion + x.drop(5))
-ThisBuild / dynver ~= (x => customVersion + x.drop(5))
+val customVersion = "0.12.1"
+ThisBuild / version ~= (x => customVersion + x.drop(6))
+ThisBuild / dynver ~= (x => customVersion + x.drop(6))
 
 // publishing
 ThisBuild / organization := "dev.profunktor"
