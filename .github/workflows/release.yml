@@ -4,7 +4,7 @@ on:
     branches:
       - master     # CE2
     tags:
-      - "0.*"
+      - "v0.*"
 
 jobs:
   build:
