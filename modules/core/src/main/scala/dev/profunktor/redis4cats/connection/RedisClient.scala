@@ -76,7 +76,7 @@ object RedisClient {
       * }}}
       */
     def from(strUri: => String): Resource[F, RedisClient] =
-      Resource.liftF(RedisURI.make[F](strUri)).flatMap(this.fromUri(_))
+      Resource.eval(RedisURI.make[F](strUri)).flatMap(this.fromUri(_))
 
     /**
       * Creates a [[RedisClient]] with default options from a validated URI.
@@ -93,7 +93,7 @@ object RedisClient {
       * You may prefer to use [[from]] instead, which takes a raw string.
       */
     def fromUri(uri: => RedisURI): Resource[F, RedisClient] =
-      Resource.liftF(Sync[F].delay(ClientOptions.create())).flatMap(this.custom(uri, _))
+      Resource.eval(Sync[F].delay(ClientOptions.create())).flatMap(this.custom(uri, _))
 
     /**
       * Creates a [[RedisClient]] with the supplied options.
@@ -111,7 +111,7 @@ object RedisClient {
         strUri: => String,
         opts: ClientOptions
     ): Resource[F, RedisClient] =
-      Resource.liftF(RedisURI.make[F](strUri)).flatMap(this.custom(_, opts))
+      Resource.eval(RedisURI.make[F](strUri)).flatMap(this.custom(_, opts))
 
     /**
       * Creates a [[RedisClient]] with the supplied options from a validated URI.

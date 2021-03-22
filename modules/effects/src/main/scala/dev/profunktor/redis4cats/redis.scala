@@ -224,7 +224,7 @@ object Redis {
         uris: String*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
       for {
-        redisUris <- Resource.liftF(uris.toList.traverse(RedisURI.make[F](_)))
+        redisUris <- Resource.eval(uris.toList.traverse(RedisURI.make[F](_)))
         client <- RedisClusterClient[F](redisUris: _*)
         redis <- this.fromClusterClient[K, V](client, codec)(readFrom)
       } yield redis
@@ -329,7 +329,7 @@ object Redis {
         conn: RedisMasterReplica[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
       RedisExecutor.make[F].flatMap { implicit redisExecutor =>
-        Resource.liftF {
+        Resource.eval {
           Sync[F]
             .delay(new RedisStatefulConnection(conn.underlying))
             .map(c => new Redis[F, K, V](c))
