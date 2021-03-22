@@ -82,7 +82,7 @@ object RedisMasterReplica {
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
       Resource
-        .liftF(Sync[F].delay(ClientOptions.create()))
+        .eval(Sync[F].delay(ClientOptions.create()))
         .flatMap(withOptions(codec, _, Redis4CatsConfig(), uris: _*)(readFrom))
 
     /**
@@ -109,7 +109,7 @@ object RedisMasterReplica {
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
       RedisExecutor.make[F].flatMap { implicit redisExecutor =>
-        Resource.liftF(RedisClient.acquireAndReleaseWithoutUri[F](opts, config)).flatMap {
+        Resource.eval(RedisClient.acquireAndReleaseWithoutUri[F](opts, config)).flatMap {
           case (acquireClient, releaseClient) =>
             Resource.make(acquireClient)(releaseClient).flatMap { client =>
               val (acquire, release) = acquireAndRelease(client, codec, readFrom, uris: _*)
