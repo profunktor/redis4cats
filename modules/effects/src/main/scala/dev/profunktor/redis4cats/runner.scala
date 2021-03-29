@@ -47,12 +47,12 @@ object Runner {
 
 private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel: Timer] {
 
-  def filterExec[T <: HList, R <: HList, S <: HList](ops: Runner.Ops[F])(commands: T)(
-      implicit w: Witness.Aux[T, R],
-      f: Filter.Aux[R, S]
-  ): F[S] = exec[T, R](ops)(commands).map(_.filterUnit)
+  def filterExec[T <: HList](ops: Runner.Ops[F])(commands: T)(implicit w: WitnessFilter[T]): F[w.S] = {
+    import w._
+    exec[T](ops)(commands).map(_.filterUnit)
+  }
 
-  def exec[T <: HList, R <: HList](ops: Runner.Ops[F])(commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
+  def exec[T <: HList](ops: Runner.Ops[F])(commands: T)(implicit w: Witness[T]): F[w.R] =
     (Deferred[F, Either[Throwable, w.R]], Sync[F].delay(UUID.randomUUID)).tupled.flatMap {
       case (promise, uuid) =>
         def cancelFibers[A](fibs: HList)(err: Throwable): F[Unit] =

@@ -35,7 +35,7 @@ private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift: RedisEx
       val args = approxMaxlen.map(XAddArgs.Builder.maxlen(_).approximateTrimming(true))
 
       Sync[F].delay(client.async().xadd(key, args.orNull, body.asJava))
-    }.map(MessageId)
+    }.map(MessageId.apply)
 
   override def xRead(streams: Set[StreamingOffset[K]]): F[List[XReadMessage[K, V]]] = {
     val offsets = streams.map(s => StreamOffset.from(s.key, s.offset)).toSeq

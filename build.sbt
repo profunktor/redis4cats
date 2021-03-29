@@ -3,7 +3,7 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / crossScalaVersions := Seq("2.12.12", "2.13.4")
+ThisBuild / crossScalaVersions := Seq("2.12.12", "2.13.4", "3.0.0-RC1")
 Test / parallelExecution := false
 
 // versions are generated from the latest tags by default
@@ -46,21 +46,32 @@ val commonSettings = Seq(
   headerLicense := Some(HeaderLicense.ALv2("2018-2021", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
-        CompilerPlugins.kindProjector,
         Libraries.catsEffect,
         Libraries.redisClient,
         Libraries.catsLaws        % Test,
         Libraries.catsTestKit     % Test,
         Libraries.munitCore       % Test,
         Libraries.munitScalacheck % Test
-      ),
+      ) ++ pred(isDotty.value, t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
         getVersion(scalaVersion.value) == Some(2, 12),
         t = Seq("-Xmax-classfile-name", "80"),
         f = Seq.empty
       ),
+  scalacOptions ++= pred(
+        isDotty.value,
+        t = Seq("-source:3.0-migration"),
+        f = Seq.empty
+      ),
   sources in (Compile, doc) := (sources in (Compile, doc)).value,
+  Compile / unmanagedSourceDirectories ++= {
+      getVersion(scalaVersion.value) match {
+        case Some((2, 12)) => Seq("scala-2.12", "scala-2")
+        case Some((2, 13)) => Seq("scala-2.13+", "scala-2")
+        case _             => Seq("scala-2.13+", "scala-3")
+      }
+    }.map(baseDirectory.value / "src" / "main" / _),
   scalacOptions in (Compile, doc) ++= Seq("-groups", "-implicits"),
   autoAPIMappings := true,
   scalafmtOnCompile := true,

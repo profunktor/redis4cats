@@ -349,7 +349,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
     with RedisConversionOps {
 
   def liftK[G[_]: Concurrent: ContextShift: Log]: RedisCommands[G, K, V] = {
-    implicit val redisEcG = RedisExecutor[F].liftK[G]
+    implicit val redisEcG: RedisExecutor[G] = RedisExecutor[F].liftK[G]
     new BaseRedis[G, K, V](conn.liftK[G], cluster)
   }
 
@@ -1350,7 +1350,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
             output.outputType,
             // The Object requirement comes from the limitations of Java Generics. It is safe to assume K <: Object as
             // the underlying JRedisCodec would also only support K <: Object.
-            keys.asInstanceOf[Seq[K with Object]].toArray
+            keys.toArray[Any].asInstanceOf[Array[K with Object]]
           )
         )
       )
@@ -1365,7 +1365,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
             script,
             output.outputType,
             // see comment in eval above
-            keys.asInstanceOf[Seq[K with Object]].toArray,
+            keys.toArray[Any].asInstanceOf[Array[K with Object]],
             values: _*
           )
         )
@@ -1387,7 +1387,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
             digest,
             output.outputType,
             // see comment in eval above
-            keys.asInstanceOf[Seq[K with Object]].toArray
+            keys.toArray[Any].asInstanceOf[Array[K with Object]]
           )
         )
       )
@@ -1402,7 +1402,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
             digest,
             output.outputType,
             // see comment in eval above
-            keys.asInstanceOf[Seq[K with Object]].toArray,
+            keys.toArray[Any].asInstanceOf[Array[K with Object]],
             values: _*
           )
         )
