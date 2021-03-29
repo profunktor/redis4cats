@@ -22,12 +22,12 @@ import scala.concurrent.duration._
 
 import cats.Parallel
 import cats.effect._
-import cats.effect.concurrent.{ Deferred, Ref }
 import cats.effect.implicits._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
 import cats.Applicative
+import cats.effect.{ Deferred, Ref, Temporal }
 
 object Runner {
   type CancelFibers[F[_]] = Throwable => F[Unit]
@@ -41,11 +41,11 @@ object Runner {
       mkError: () => Throwable
   )
 
-  def apply[F[_]: Concurrent: Log: Parallel: Timer]: RunnerPartiallyApplied[F] =
+  def apply[F[_]: Concurrent: Log: Parallel: Temporal]: RunnerPartiallyApplied[F] =
     new RunnerPartiallyApplied[F]
 }
 
-private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel: Timer] {
+private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel: Temporal] {
 
   def filterExec[T <: HList, R <: HList, S <: HList](ops: Runner.Ops[F])(commands: T)(
       implicit w: Witness.Aux[T, R],

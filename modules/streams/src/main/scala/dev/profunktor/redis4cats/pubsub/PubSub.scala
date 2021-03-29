@@ -18,7 +18,6 @@ package dev.profunktor.redis4cats
 package pubsub
 
 import cats.effect._
-import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
@@ -27,6 +26,7 @@ import dev.profunktor.redis4cats.pubsub.internals.{ LivePubSubCommands, Publishe
 import fs2.Stream
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
+import cats.effect.Ref
 
 object PubSub {
 

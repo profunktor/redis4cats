@@ -18,7 +18,6 @@ package dev.profunktor.redis4cats
 package streams
 
 import cats.effect._
-import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
@@ -26,6 +25,7 @@ import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
 import io.lettuce.core.{ ReadFrom => JReadFrom }
+import cats.effect.Ref
 
 object RedisStream {
 

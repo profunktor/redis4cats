@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats
 
 import algebra._
-import cats.effect.{ Concurrent, ContextShift }
+import cats.effect.Concurrent
 import dev.profunktor.redis4cats.effect.Log
 
 trait RedisCommands[F[_], K, V]
