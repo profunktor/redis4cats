@@ -61,7 +61,7 @@ object PubSub {
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       // One exclusive connection for subscriptions and another connection for publishing / stats
       for {
-        state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
+        state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         sConn <- Resource.make(acquire)(release)
         pConn <- Resource.make(acquire)(release)
       } yield new LivePubSubCommands[F, K, V](state, sConn, pConn)
@@ -93,7 +93,7 @@ object PubSub {
     RedisExecutor.make[F].flatMap { implicit redisExecutor =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       for {
-        state <- Resource.liftF(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
+        state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
         conn <- Resource.make(acquire)(release)
       } yield new Subscriber(state, conn)
     }

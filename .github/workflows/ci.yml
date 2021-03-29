@@ -3,7 +3,7 @@ on:
   pull_request: {}
   push:
     branches:
-      - master
+      - master     # CE2
     paths:
       - "modules/**"
 

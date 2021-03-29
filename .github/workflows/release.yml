@@ -2,9 +2,9 @@ name: Release
 on:
   push:
     branches:
-      - master
+      - master     # CE2
     tags:
-      - "*"
+      - "v0.*"
 
 jobs:
   build:

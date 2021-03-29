@@ -33,9 +33,13 @@ object QuickStart extends IOApp {
 }
 ```
 
-The API is quite stable and *heavily used in production*. However, binary compatibility won't be guaranteed until we reach `1.0.0`.
+The API is quite stable and *heavily used in production*. However, binary compatibility is not guaranteed across versions for now.
 
 If you like it, give it a ⭐ ! If you think we could do better, please [let us know](https://gitter.im/profunktor-dev/redis4cats)!
+
+### Versions
+
+The `1.x.x` series is built on Cats Effect 3 whereas the `0.x.x` series is built on Cats Effect 2.
 
 ### Dependencies
 
