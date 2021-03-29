@@ -14,7 +14,7 @@ object Dependencies {
 
     val kindProjector = "0.11.3"
 
-    val munit = "0.7.22"
+    val munit = "0.7.23"
   }
 
   object Libraries {
