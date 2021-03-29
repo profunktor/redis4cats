@@ -66,7 +66,7 @@ val commonSettings = Seq(
       ),
   sources in (Compile, doc) := (sources in (Compile, doc)).value,
   Compile / unmanagedSourceDirectories ++= {
-      version(scalaVersion.value) match {
+      getVersion(scalaVersion.value) match {
         case Some((2, 12)) => Seq("scala-2.12", "scala-2")
         case Some((2, 13)) => Seq("scala-2.13+", "scala-2")
         case _             => Seq("scala-2.13+", "scala-3")
