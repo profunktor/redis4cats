@@ -25,6 +25,7 @@ import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.hlist.HNil
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.transactions._
+import cats.effect.{ Deferred, Ref }
 
 class OptimisticLockSuite extends IOSuite {
 

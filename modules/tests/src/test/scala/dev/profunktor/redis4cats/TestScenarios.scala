@@ -32,11 +32,12 @@ import io.lettuce.core.GeoArgs
 import munit.FunSuite
 
 import scala.concurrent.duration._
+import cats.effect.Temporal
 
 trait TestScenarios { self: FunSuite =>
 
   implicit def cs: ContextShift[IO]
-  implicit def timer: Timer[IO]
+  implicit def timer: Temporal[IO]
 
   def locationScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val _BuenosAires  = GeoLocation(Longitude(-58.3816), Latitude(-34.6037), "Buenos Aires")

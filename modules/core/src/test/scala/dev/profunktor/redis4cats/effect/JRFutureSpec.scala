@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats.effect
 
 import java.util.concurrent.CompletableFuture
 
-import cats.effect.{ ContextShift, IO }
+import cats.effect.IO
 import scala.concurrent.ExecutionContext
 import munit.FunSuite
 

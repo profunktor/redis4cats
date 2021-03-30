@@ -22,12 +22,13 @@ import cats.{ Applicative, Parallel }
 import cats.effect._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
+import cats.effect.Temporal
 
 object pipeline {
 
   case object PipelineError extends NoStackTrace
 
-  case class RedisPipeline[F[_]: Concurrent: Log: Parallel: Timer, K, V](
+  case class RedisPipeline[F[_]: Concurrent: Log: Parallel: Temporal, K, V](
       cmd: RedisCommands[F, K, V]
   ) {
 
