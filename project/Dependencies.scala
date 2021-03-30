@@ -3,9 +3,9 @@ import sbt._
 object Dependencies {
 
   object V {
-    val cats       = "2.4.2"
+    val cats       = "2.5.0"
     val catsEffect = "3.0.0-RC2"
-    val circe      = "0.13.0"
+    val circe      = "0.14.0-M4"
     val fs2        = "3.0.0-M9"
     val log4cats   = "2.0.0-RC1"
 
@@ -14,7 +14,7 @@ object Dependencies {
 
     val kindProjector = "0.11.3"
 
-    val munit = "0.7.22"
+    val munit = "0.7.23"
   }
 
   object Libraries {
