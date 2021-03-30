@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats
 
-trait TypeInequalityCompat {
+private[redis4cats] trait TypeInequalityCompat {
 
   /**
     * Type inequality
