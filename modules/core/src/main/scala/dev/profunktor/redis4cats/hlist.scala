@@ -21,7 +21,7 @@ package dev.profunktor.redis4cats
   *
   * Highly inspired by Shapeless machinery but very much lightweight.
   */
-object hlist {
+object hlist extends TypeInequalityCompat {
 
   type ::[H, T <: HList] = HCons[H, T]
   type HNil              = HNil.type
@@ -62,7 +62,7 @@ object hlist {
     }
 
     implicit class HListOps[T <: HList](t: T) {
-      def filterUnit[R <: HList](implicit w: Filter.Aux[T, R]): R = {
+      def filterUnit(implicit w: Filter[T]): w.R = {
         def go(ys: HList, res: HList): HList =
           ys match {
             case HNil                                => res
@@ -129,19 +129,52 @@ object hlist {
       new Filter[HCons[A, T]] { type R = A :: w.R }
   }
 
-  /**
-    * Type inequality
-    *
-    * Credits: https://stackoverflow.com/a/6929051
-    */
-  sealed class =!=[A, B]
+  /*
+   * Wraps a Witness and a Filter, where the input type of the Filter
+   * is the output type of the Witness. Facilitates expressing a dependent
+   * typing relation between T and S.
+   */
+  sealed trait WitnessFilter[T <: HList] {
+    type S <: HList
 
-  object =!= extends NEqualLowPriority {
-    implicit def nequal[A, B]: =!=[A, B] = new =!=[A, B]
+    implicit val witness: Witness[T]
+    implicit val filter: Filter.Aux[witness.R, S]
   }
 
-  trait NEqualLowPriority {
-    implicit def equal[A]: =!=[A, A] = sys.error("should not be called")
-  }
+  object WitnessFilter {
+    type Aux[T <: HList, S0 <: HList] = WitnessFilter[T] {
+      type S = S0
+    }
 
+    implicit val hnil: WitnessFilter.Aux[HNil, HNil] = new WitnessFilter[HNil] {
+      type S = HNil
+
+      val witness: Witness.Aux[HNil, HNil] = implicitly
+      val filter: Filter.Aux[HNil, HNil]   = implicitly
+    }
+
+    implicit def hconsUnit[F[_], T <: HList](
+        implicit w: WitnessFilter[T]
+    ): WitnessFilter.Aux[HCons[F[Unit], T], w.S] =
+      new WitnessFilter[HCons[F[Unit], T]] {
+        type S = w.S
+
+        import w.{ witness => witnessT, filter => filterT }
+
+        val witness: Witness.Aux[HCons[F[Unit], T], HCons[Unit, w.witness.R]] = implicitly
+        val filter: Filter.Aux[HCons[Unit, w.witness.R], w.S]                 = implicitly
+      }
+
+    implicit def hconsNotUnit[F[_], A: =!=[Unit, *], T <: HList](
+        implicit w: WitnessFilter[T]
+    ): WitnessFilter.Aux[HCons[F[A], T], HCons[A, w.S]] =
+      new WitnessFilter[HCons[F[A], T]] {
+        type S = HCons[A, w.S]
+
+        import w.{ witness => witnessT, filter => filterT }
+
+        val witness: Witness.Aux[HCons[F[A], T], HCons[A, w.witness.R]] = implicitly
+        val filter: Filter.Aux[A :: w.witness.R, A :: w.S]              = implicitly
+      }
+  }
 }
