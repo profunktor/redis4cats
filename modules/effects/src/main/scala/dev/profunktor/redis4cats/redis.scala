@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import cats.Applicative
+import cats._
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.syntax.all._

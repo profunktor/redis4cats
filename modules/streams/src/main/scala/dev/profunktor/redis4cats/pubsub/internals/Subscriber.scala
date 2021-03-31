@@ -49,7 +49,7 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log: RedisExecutor, K,
         .lift(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying)))
         .void
         .guarantee(state.get.flatMap { st =>
-          st.get(channel.underlying).fold(Applicative[F].unit)(_.publish1(none[V])) *> state.update(
+          st.get(channel.underlying).fold(Applicative[F].unit)(_.publish1(none[V]).void) *> state.update(
             _ - channel.underlying
           )
         })

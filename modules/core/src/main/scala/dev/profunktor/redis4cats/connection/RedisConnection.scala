@@ -16,7 +16,8 @@
 
 package dev.profunktor.redis4cats.connection
 
-import cats.effect._
+import cats.{ ApplicativeThrow, MonadThrow }
+import cats.effect.Async
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.NodeId
 import dev.profunktor.redis4cats.effect.{ FutureLift, RedisExecutor }
