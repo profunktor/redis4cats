@@ -1274,39 +1274,39 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
 
   /******************************* Connection API **********************************/
   override val ping: F[String] =
-    async.flatMap(c => RedisExecutor[F].delay(c.ping())).futureLift
+    async.flatMap(c => RedisExecutor[F].lift(c.ping())).futureLift
 
   override def select(index: Int): F[Unit] =
-    conn.async.flatMap(c => RedisExecutor[F].delay(c.select(index))).void
+    conn.async.flatMap(c => RedisExecutor[F].lift(c.select(index))).void
 
   override def auth(password: CharSequence): F[Boolean] =
     async
-      .flatMap(c => RedisExecutor[F].delay(c.auth(password)))
+      .flatMap(c => RedisExecutor[F].lift(c.auth(password)))
       .futureLift
       .map(_ == "OK")
 
   override def auth(username: String, password: CharSequence): F[Boolean] =
     async
-      .flatMap(c => RedisExecutor[F].delay(c.auth(username, password)))
+      .flatMap(c => RedisExecutor[F].lift(c.auth(username, password)))
       .futureLift
       .map(_ == "OK")
 
   /******************************* Server API **********************************/
   override val flushAll: F[Unit] =
-    async.flatMap(c => RedisExecutor[F].delay(c.flushall())).futureLift.void
+    async.flatMap(c => RedisExecutor[F].lift(c.flushall())).futureLift.void
 
   override val flushAllAsync: F[Unit] =
-    async.flatMap(c => RedisExecutor[F].delay(c.flushallAsync())).futureLift.void
+    async.flatMap(c => RedisExecutor[F].lift(c.flushallAsync())).futureLift.void
 
   override def keys(key: K): F[List[K]] =
     async
-      .flatMap(c => RedisExecutor[F].delay(c.keys(key)))
+      .flatMap(c => RedisExecutor[F].lift(c.keys(key)))
       .futureLift
       .map(_.asScala.toList)
 
   override def info: F[Map[String, String]] =
     async
-      .flatMap(c => RedisExecutor[F].delay(c.info))
+      .flatMap(c => RedisExecutor[F].lift(c.info))
       .futureLift
       .flatMap(info =>
         RedisExecutor[F].delay(
@@ -1321,19 +1321,19 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
 
   override def dbsize: F[Long] =
     async
-      .flatMap(c => RedisExecutor[F].delay(c.dbsize))
+      .flatMap(c => RedisExecutor[F].lift(c.dbsize))
       .futureLift
       .map(Long.unbox)
 
   override def lastSave: F[Instant] =
     async
-      .flatMap(c => RedisExecutor[F].delay(c.lastsave))
+      .flatMap(c => RedisExecutor[F].lift(c.lastsave))
       .futureLift
       .map(_.toInstant)
 
   override def slowLogLen: F[Long] =
     async
-      .flatMap(c => RedisExecutor[F].delay(c.slowlogLen))
+      .flatMap(c => RedisExecutor[F].lift(c.slowlogLen))
       .futureLift
       .map(Long.unbox)
 
@@ -1427,7 +1427,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
   override def scriptFlush: F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.scriptFlush())).futureLift.void
 
-  override def digest(script: String): F[String] = async.flatMap(c => RedisExecutor[F].delay(c.digest(script)))
+  override def digest(script: String): F[String] = async.flatMap(c => RedisExecutor[F].lift(c.digest(script)))
 
   /** ***************************** HyperLoglog API **********************************/
   override def pfAdd(key: K, values: V*): F[Long] =
