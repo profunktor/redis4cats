@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2.3.2
 
-      - name: "Starting up Pulsar 🐳"
+      - name: "Starting up Redis 🐳"
         run: docker-compose up -d
 
       - name: "Cache for sbt & coursier ♨️"
@@ -37,5 +37,5 @@ jobs:
       - name: "Run with ${{ matrix.java }} 🚀"
         run: nix-shell --argstr jdk "${{ matrix.java }}" --run "sbt buildRedis4Cats"
 
-      - name: "Shutting down Pulsar 🐳"
+      - name: "Shutting down Redis 🐳"
         run: docker-compose down

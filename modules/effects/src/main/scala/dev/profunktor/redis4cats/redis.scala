@@ -1309,7 +1309,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
       .flatMap(c => RedisExecutor[F].lift(c.info))
       .futureLift
       .flatMap(info =>
-        RedisExecutor[F].delay(
+        RedisExecutor[F].lift(
           info
             .split("\\r?\\n")
             .toList
