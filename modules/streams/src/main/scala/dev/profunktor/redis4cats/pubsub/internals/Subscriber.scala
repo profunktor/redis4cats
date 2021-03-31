@@ -47,7 +47,7 @@ private[pubsub] class Subscriber[F[_]: Async: RedisExecutor: Log, K, V](
     Stream.eval {
       JRFuture(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying))).void
         .guarantee(state.get.flatMap { st =>
-          st.get(channel.underlying).fold(Applicative[F].unit)(_.publish1(none[V])) *> state.update(
+          st.get(channel.underlying).fold(Applicative[F].unit)(_.publish1(none[V]).void) *> state.update(
             _ - channel.underlying
           )
         })
