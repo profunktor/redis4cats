@@ -46,8 +46,8 @@ object FutureLift {
         liftJFuture[CompletableFuture[A], A](fa)
 
       private[redis4cats] def liftJFuture[G <: JFuture[A], A](fa: F[G])(implicit F: RedisExecutor[F]): F[A] =
-        fa.flatMap[A] { f =>
-          F.eval {
+        F.eval {
+          fa.flatMap[A] { f =>
             Async[F].async { cb =>
               F.delay {
                   f.handle[Unit] { (res: A, err: Throwable) =>
