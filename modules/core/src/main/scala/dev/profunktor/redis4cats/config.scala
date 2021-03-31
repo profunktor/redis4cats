@@ -52,6 +52,6 @@ object config {
 
   final case class Periodic(interval: FiniteDuration = 60.seconds) extends TopologyViewRefreshStrategy
   final case class Adaptive(timeout: FiniteDuration = 30.seconds) extends TopologyViewRefreshStrategy
-  final case object NoRefresh extends TopologyViewRefreshStrategy
+  case object NoRefresh extends TopologyViewRefreshStrategy
 
 }

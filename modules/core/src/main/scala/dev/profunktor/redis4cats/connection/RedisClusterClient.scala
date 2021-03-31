@@ -124,7 +124,7 @@ object RedisClusterClient {
       keyName: String
   ): F[NodeId] =
     Sync[F].delay(SlotHash.getSlot(keyName)).flatMap { slot =>
-      partitions(client).map(_.getPartitionBySlot(slot).getNodeId).map(NodeId)
+      partitions(client).map(_.getPartitionBySlot(slot).getNodeId).map(NodeId.apply)
     }
 
   def partitions[F[_]: Sync](client: RedisClusterClient): F[JPartitions] =

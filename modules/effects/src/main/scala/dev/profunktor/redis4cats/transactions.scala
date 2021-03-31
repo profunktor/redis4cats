@@ -49,10 +49,8 @@ object transactions {
       * Same as @exec, except it filters out values of type Unit
       * from its result.
       */
-    def filterExec[T <: HList, R <: HList, S <: HList](commands: T)(
-        implicit w: Witness.Aux[T, R],
-        f: Filter.Aux[R, S]
-    ): F[S] = Runner[F].filterExec(ops)(commands)
+    def filterExec[T <: HList](commands: T)(implicit w: WitnessFilter[T]): F[w.S] =
+      Runner[F].filterExec(ops)(commands)
 
     /***
       * Exclusively run Redis commands as part of a transaction.
@@ -66,7 +64,7 @@ object transactions {
       *
       * @return `F[R]` or it raises a @TransactionError in case of failure.
       */
-    def exec[T <: HList, R <: HList](commands: T)(implicit w: Witness.Aux[T, R]): F[R] =
+    def exec[T <: HList](commands: T)(implicit w: Witness[T]): F[w.R] =
       Runner[F].exec(ops)(commands)
 
   }
