@@ -110,9 +110,9 @@ object Redis {
     (acquire, release)
   }
 
-  class RedisPartiallyApplied[F[_]: MonadThrow: RedisMonad] {
-    implicit val fl: FutureLift[F] = RedisMonad[F].futureLift
-    implicit val log: Log[F]       = RedisMonad[F].log
+  class RedisPartiallyApplied[F[_]: MkRedis: MonadThrow] {
+    implicit val fl: FutureLift[F] = MkRedis[F].futureLift
+    implicit val log: Log[F]       = MkRedis[F].log
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection.
@@ -130,7 +130,7 @@ object Redis {
       * instead, which allows you to re-use the same client.
       */
     def simple[K, V](uri: String, codec: RedisCodec[K, V]): Resource[F, RedisCommands[F, K, V]] =
-      RedisMonad[F].clientFrom(uri).flatMap(this.fromClient(_, codec))
+      MkRedis[F].clientFrom(uri).flatMap(this.fromClient(_, codec))
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection.
@@ -155,7 +155,7 @@ object Redis {
         opts: ClientOptions,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      RedisMonad[F].clientWithOptions(uri, opts).flatMap(this.fromClient(_, codec))
+      MkRedis[F].clientWithOptions(uri, opts).flatMap(this.fromClient(_, codec))
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection to deal
@@ -197,7 +197,7 @@ object Redis {
         client: RedisClient,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      RedisMonad[F].newExecutor.flatMap { implicit ec =>
+      MkRedis[F].newExecutor.flatMap { implicit ec =>
         val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
         Resource.make(acquire)(release).widen
       }
@@ -227,7 +227,7 @@ object Redis {
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
       for {
         redisUris <- Resource.eval(uris.toList.traverse(RedisURI.make[F](_)))
-        client <- RedisMonad[F].clusterClient(redisUris: _*)
+        client <- MkRedis[F].clusterClient(redisUris: _*)
         redis <- this.fromClusterClient[K, V](client, codec)(readFrom)
       } yield redis
 
@@ -279,7 +279,7 @@ object Redis {
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V]
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
-      RedisMonad[F].newExecutor.flatMap { implicit redisExecutor =>
+      MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
         val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, readFrom)
         Resource.make(acquire)(release).widen
       }
@@ -310,7 +310,7 @@ object Redis {
         codec: RedisCodec[K, V],
         nodeId: NodeId
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
-      RedisMonad[F].newExecutor.flatMap { implicit redisExecutor =>
+      MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
         val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, readFrom, nodeId)
         Resource.make(acquire)(release).widen
       }
@@ -332,7 +332,7 @@ object Redis {
     def masterReplica[K, V](
         conn: RedisMasterReplica[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      RedisMonad[F].newExecutor.flatMap { implicit redisExecutor =>
+      MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
         Resource.pure {
           new Redis[F, K, V](new RedisStatefulConnection(conn.underlying))
         }
@@ -340,7 +340,7 @@ object Redis {
 
   }
 
-  def apply[F[_]: MonadThrow: RedisMonad]: RedisPartiallyApplied[F] = new RedisPartiallyApplied[F]
+  def apply[F[_]: MkRedis: MonadThrow]: RedisPartiallyApplied[F] = new RedisPartiallyApplied[F]
 
 }
 

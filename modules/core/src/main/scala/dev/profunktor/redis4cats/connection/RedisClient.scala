@@ -57,7 +57,7 @@ object RedisClient {
     (acquire, release)
   }
 
-  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: FutureLift: Log: MonadThrow: RedisExecutor: RedisMonad](
+  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: FutureLift: Log: MkRedis: MonadThrow: RedisExecutor](
       opts: ClientOptions,
       config: Redis4CatsConfig
   ): F[(F[RedisClient], RedisClient => F[Unit])] =
@@ -65,7 +65,7 @@ object RedisClient {
       .lift(RedisURI.fromUnderlying(new JRedisURI()))
       .map(uri => acquireAndRelease(uri, opts, config))
 
-  class RedisClientPartiallyApplied[F[_]: FutureLift: Log: MonadThrow: RedisMonad] {
+  class RedisClientPartiallyApplied[F[_]: FutureLift: Log: MkRedis: MonadThrow] {
 
     /**
       * Creates a [[RedisClient]] with default options.
@@ -141,13 +141,13 @@ object RedisClient {
         opts: ClientOptions,
         config: Redis4CatsConfig = Redis4CatsConfig()
     ): Resource[F, RedisClient] =
-      RedisMonad[F].newExecutor.flatMap { implicit ec =>
+      MkRedis[F].newExecutor.flatMap { implicit ec =>
         val (acquire, release) = acquireAndRelease(uri, opts, config)
         Resource.make(acquire)(release)
       }
   }
 
-  def apply[F[_]: FutureLift: Log: MonadThrow: RedisMonad]: RedisClientPartiallyApplied[F] =
+  def apply[F[_]: FutureLift: Log: MkRedis: MonadThrow]: RedisClientPartiallyApplied[F] =
     new RedisClientPartiallyApplied[F]
 
   def fromUnderlyingWithUri(underlying: JRedisClient, uri: RedisURI): RedisClient =

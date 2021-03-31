@@ -33,7 +33,7 @@ object RedisStringsDemo extends LoggerIOApp {
       _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
     // can also be created abstracting over F[_]
-    def commandsApi[F[_]: MonadThrow: RedisMonad]: Resource[F, StringCommands[F, String, String]] =
+    def commandsApi[F[_]: MkRedis: MonadThrow]: Resource[F, StringCommands[F, String, String]] =
       Redis[F].utf8(redisURI)
 
     commandsApi[IO]

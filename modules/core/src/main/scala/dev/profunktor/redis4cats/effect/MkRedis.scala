@@ -23,9 +23,9 @@ import io.lettuce.core.ClientOptions
 import scala.annotation.implicitNotFound
 
 @implicitNotFound(
-  "RedisMonad instance not found. You can summon one by having instances for cats.effect.Async and dev.profunktor.redis4cats.effects.Log in scope"
+  "MkRedis instance not found. You can summon one by having instances for cats.effect.Async and dev.profunktor.redis4cats.effects.Log in scope"
 )
-trait RedisMonad[F[_]] {
+trait MkRedis[F[_]] {
   def clientFrom(strUri: => String): Resource[F, RedisClient]
   def clientFromUri(uri: => RedisURI): Resource[F, RedisClient]
   def clientWithOptions(strUri: => String, opts: ClientOptions): Resource[F, RedisClient]
@@ -42,11 +42,11 @@ trait RedisMonad[F[_]] {
   def log: Log[F]
 }
 
-object RedisMonad {
-  def apply[F[_]: RedisMonad]: RedisMonad[F] = implicitly
+object MkRedis {
+  def apply[F[_]: MkRedis]: MkRedis[F] = implicitly
 
-  implicit def forAsync[F[_]: Async: Log]: RedisMonad[F] =
-    new RedisMonad[F] {
+  implicit def forAsync[F[_]: Async: Log]: MkRedis[F] =
+    new MkRedis[F] {
       def clientFrom(strUri: => String): Resource[F, RedisClient] =
         RedisClient[F].from(strUri)
 
