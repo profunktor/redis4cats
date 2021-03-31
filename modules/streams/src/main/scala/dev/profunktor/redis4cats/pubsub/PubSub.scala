@@ -17,12 +17,13 @@
 package dev.profunktor.redis4cats
 package pubsub
 
+import cats.{ Apply, FlatMap }
 import cats.effect._
 import cats.effect.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
+import dev.profunktor.redis4cats.effect._
 import dev.profunktor.redis4cats.pubsub.internals.{ LivePubSubCommands, Publisher, Subscriber }
 import fs2.Stream
 import fs2.concurrent.Topic
@@ -30,19 +31,17 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 object PubSub {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Async: Log, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: Apply: FutureLift: Log: RedisExecutor, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  )(
-      implicit redisExecutor: RedisExecutor[F]
   ): (F[StatefulRedisPubSubConnection[K, V]], StatefulRedisPubSubConnection[K, V] => F[Unit]) = {
 
-    val acquire: F[StatefulRedisPubSubConnection[K, V]] = JRFuture.fromConnectionFuture(
-      Sync[F].delay(client.underlying.connectPubSubAsync(codec.underlying, client.uri.underlying))
+    val acquire: F[StatefulRedisPubSubConnection[K, V]] = FutureLift[F].liftConnectionFuture(
+      RedisExecutor[F].lift(client.underlying.connectPubSubAsync(codec.underlying, client.uri.underlying))
     )
 
     val release: StatefulRedisPubSubConnection[K, V] => F[Unit] = c =>
-      JRFuture.fromCompletableFuture(Sync[F].delay(c.closeAsync())) *>
+      FutureLift[F].liftCompletableFuture(RedisExecutor[F].lift(c.closeAsync())) *>
           Log[F].info(s"Releasing PubSub connection: ${client.uri.underlying}")
 
     (acquire, release)
@@ -53,11 +52,11 @@ object PubSub {
     *
     * Use this option whenever you need one or more subscribers or subscribers and publishers / stats.
     * */
-  def mkPubSubConnection[F[_]: Async: Log, K, V](
+  def mkPubSubConnection[F[_]: Async: FutureLift: Log: RedisMonad, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PubSubCommands[Stream[F, *], K, V]] =
-    RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+    RedisMonad[F].newExecutor.flatMap { implicit ec =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       // One exclusive connection for subscriptions and another connection for publishing / stats
       for {
@@ -72,11 +71,11 @@ object PubSub {
     *
     * Use this option when you only need to publish and/or get stats such as number of subscriptions.
     * */
-  def mkPublisherConnection[F[_]: Async: Log, K, V](
+  def mkPublisherConnection[F[_]: FlatMap: FutureLift: Log: RedisMonad, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PublishCommands[Stream[F, *], K, V]] =
-    RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+    RedisMonad[F].newExecutor.flatMap { implicit redisExecutor =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       Resource.make(acquire)(release).map(new Publisher[F, K, V](_))
     }
@@ -86,11 +85,11 @@ object PubSub {
     *
     * Use this option when you only need to one or more subscribers but no publishing and / or stats.
     * */
-  def mkSubscriberConnection[F[_]: Async: Log, K, V](
+  def mkSubscriberConnection[F[_]: Async: FutureLift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, SubscribeCommands[Stream[F, *], K, V]] =
-    RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+    RedisMonad[F].newExecutor.flatMap { implicit ec =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       for {
         state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))

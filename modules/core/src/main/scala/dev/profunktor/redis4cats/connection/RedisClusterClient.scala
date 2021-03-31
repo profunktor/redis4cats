@@ -24,7 +24,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config._
 import dev.profunktor.redis4cats.data.NodeId
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
+import dev.profunktor.redis4cats.effect.{ FutureLift, Log, RedisExecutor }
 import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
 import io.lettuce.core.cluster.{
   ClusterClientOptions,
@@ -37,7 +37,7 @@ sealed abstract case class RedisClusterClient private (underlying: JClusterClien
 
 object RedisClusterClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Async: RedisExecutor: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: FutureLift: Log: RedisExecutor: Sync](
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
@@ -51,8 +51,8 @@ object RedisClusterClient {
 
     val release: RedisClusterClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *>
-          JRFuture
-            .fromCompletableFuture(
+          FutureLift[F]
+            .liftCompletableFuture(
               Sync[F].delay(
                 client.underlying.shutdownAsync(
                   config.shutdown.quietPeriod.toNanos,

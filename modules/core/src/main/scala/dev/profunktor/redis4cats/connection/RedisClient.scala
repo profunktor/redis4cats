@@ -18,22 +18,23 @@ package dev.profunktor.redis4cats.connection
 
 import java.util.concurrent.TimeUnit
 
-import cats.effect._
+import cats.{ Apply, MonadThrow }
+import cats.effect.{ Resource, Sync }
 import cats.syntax.all._
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
+import dev.profunktor.redis4cats.effect._
 import io.lettuce.core.{ ClientOptions, RedisClient => JRedisClient, RedisURI => JRedisURI }
 
 sealed abstract case class RedisClient private (underlying: JRedisClient, uri: RedisURI)
 
 object RedisClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Async: RedisExecutor: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: Apply: FutureLift: Log: RedisExecutor](
       uri: => RedisURI,
       opts: ClientOptions,
       config: Redis4CatsConfig
   ): (F[RedisClient], RedisClient => F[Unit]) = {
-    val acquire: F[RedisClient] = Sync[F].delay {
+    val acquire: F[RedisClient] = RedisExecutor[F].lift {
       val jClient: JRedisClient = JRedisClient.create(uri.underlying)
       jClient.setOptions(opts)
       new RedisClient(jClient, uri) {}
@@ -41,9 +42,9 @@ object RedisClient {
 
     val release: RedisClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis connection: $uri") *>
-          JRFuture
-            .fromCompletableFuture(
-              Sync[F].delay(
+          FutureLift[F]
+            .liftCompletableFuture(
+              RedisExecutor[F].lift(
                 client.underlying.shutdownAsync(
                   config.shutdown.quietPeriod.toNanos,
                   config.shutdown.timeout.toNanos,
@@ -56,15 +57,15 @@ object RedisClient {
     (acquire, release)
   }
 
-  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: Async: RedisExecutor: Log](
+  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: FutureLift: Log: MonadThrow: RedisExecutor: RedisMonad](
       opts: ClientOptions,
       config: Redis4CatsConfig
   ): F[(F[RedisClient], RedisClient => F[Unit])] =
-    Sync[F]
-      .delay(RedisURI.fromUnderlying(new JRedisURI()))
+    RedisExecutor[F]
+      .lift(RedisURI.fromUnderlying(new JRedisURI()))
       .map(uri => acquireAndRelease(uri, opts, config))
 
-  class RedisClientPartiallyApplied[F[_]: Async: Log] {
+  class RedisClientPartiallyApplied[F[_]: FutureLift: Log: MonadThrow: RedisMonad] {
 
     /**
       * Creates a [[RedisClient]] with default options.
@@ -75,7 +76,7 @@ object RedisClient {
       * RedisClient[IO].from("redis://localhost")
       * }}}
       */
-    def from(strUri: => String): Resource[F, RedisClient] =
+    def from(strUri: => String)(implicit F: Sync[F]): Resource[F, RedisClient] =
       Resource.eval(RedisURI.make[F](strUri)).flatMap(this.fromUri(_))
 
     /**
@@ -92,7 +93,7 @@ object RedisClient {
       *
       * You may prefer to use [[from]] instead, which takes a raw string.
       */
-    def fromUri(uri: => RedisURI): Resource[F, RedisClient] =
+    def fromUri(uri: => RedisURI)(implicit F: Sync[F]): Resource[F, RedisClient] =
       Resource.eval(Sync[F].delay(ClientOptions.create())).flatMap(this.custom(uri, _))
 
     /**
@@ -140,13 +141,14 @@ object RedisClient {
         opts: ClientOptions,
         config: Redis4CatsConfig = Redis4CatsConfig()
     ): Resource[F, RedisClient] =
-      RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+      RedisMonad[F].newExecutor.flatMap { implicit ec =>
         val (acquire, release) = acquireAndRelease(uri, opts, config)
         Resource.make(acquire)(release)
       }
   }
 
-  def apply[F[_]: Async: Log]: RedisClientPartiallyApplied[F] = new RedisClientPartiallyApplied[F]
+  def apply[F[_]: FutureLift: Log: MonadThrow: RedisMonad]: RedisClientPartiallyApplied[F] =
+    new RedisClientPartiallyApplied[F]
 
   def fromUnderlyingWithUri(underlying: JRedisClient, uri: RedisURI): RedisClient =
     new RedisClient(underlying, uri) {}

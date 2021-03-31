@@ -18,24 +18,24 @@ package dev.profunktor.redis4cats
 package pubsub
 package internals
 
-import cats.effect._
+import cats.FlatMap
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ JRFuture, RedisExecutor }
+import dev.profunktor.redis4cats.effect.{ FutureLift, RedisExecutor }
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 import dev.profunktor.redis4cats.JavaConversions._
 
-private[pubsub] class LivePubSubStats[F[_]: Async: RedisExecutor, K, V](
+private[pubsub] class LivePubSubStats[F[_]: FlatMap: FutureLift: RedisExecutor, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
 ) extends PubSubStats[Stream[F, *], K] {
 
   override def pubSubChannels: Stream[F, List[K]] =
     Stream
       .eval {
-        JRFuture(Sync[F].delay(pubConnection.async().pubsubChannels()))
+        FutureLift[F].lift(RedisExecutor[F].lift(pubConnection.async().pubsubChannels()))
       }
       .map(_.asScala.toList)
 
@@ -44,9 +44,11 @@ private[pubsub] class LivePubSubStats[F[_]: Async: RedisExecutor, K, V](
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
     Stream.eval {
-      JRFuture(Sync[F].delay(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*))).flatMap { kv =>
-        Sync[F].delay(kv.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), n) })
-      }
+      FutureLift[F]
+        .lift(RedisExecutor[F].lift(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*)))
+        .flatMap { kv =>
+          RedisExecutor[F].lift(kv.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), n) })
+        }
     }
 
 }

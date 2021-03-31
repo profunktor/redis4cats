@@ -16,8 +16,8 @@
 
 package dev.profunktor.redis4cats.connection
 
-import io.lettuce.core.{ RedisURI => JRedisURI }
 import cats.ApplicativeThrow
+import io.lettuce.core.{ RedisURI => JRedisURI }
 
 sealed abstract case class RedisURI private (underlying: JRedisURI)
 

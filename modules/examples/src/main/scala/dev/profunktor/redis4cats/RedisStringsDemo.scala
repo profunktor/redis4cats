@@ -19,6 +19,8 @@ package dev.profunktor.redis4cats
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.StringCommands
 import dev.profunktor.redis4cats.effect.Log.NoOp._
+import dev.profunktor.redis4cats.effect._
+import cats.effect.MonadThrow
 
 object RedisStringsDemo extends LoggerIOApp {
 
@@ -30,10 +32,11 @@ object RedisStringsDemo extends LoggerIOApp {
     val showResult: Option[String] => IO[Unit] =
       _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
-    val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
-      Redis[IO].utf8(redisURI)
+    // can also be created abstracting over F[_]
+    def commandsApi[F[_]: MonadThrow: RedisMonad]: Resource[F, StringCommands[F, String, String]] =
+      Redis[F].utf8(redisURI)
 
-    commandsApi
+    commandsApi[IO]
       .use { cmd =>
         for {
           x <- cmd.get(usernameKey)
