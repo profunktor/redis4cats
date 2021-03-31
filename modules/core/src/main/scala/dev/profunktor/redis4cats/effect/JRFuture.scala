@@ -53,8 +53,8 @@ private[redis4cats] object JRFuture {
       G <: JFuture[A],
       A
   ](fa: F[G]): F[A] =
-    fa.flatMap[A] { f =>
-      RedisExecutor[F].eval {
+    RedisExecutor[F].eval {
+      fa.flatMap[A] { f =>
         Concurrent[F].async { cb =>
           RedisExecutor[F]
             .delay {
