@@ -113,8 +113,8 @@ object RedisClusterClient {
       uri: RedisURI*
   ): Resource[F, RedisClusterClient] =
     MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
-      implicit val fl  = MkRedis[F].futureLift
-      implicit val log = MkRedis[F].log
+      implicit val fl: FutureLift[F] = MkRedis[F].futureLift
+      implicit val log: Log[F]       = MkRedis[F].log
 
       val (acquire, release) = acquireAndRelease(config, uri: _*)
       Resource.make(acquire)(release)

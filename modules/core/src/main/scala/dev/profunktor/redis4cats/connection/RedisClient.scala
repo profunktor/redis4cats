@@ -66,8 +66,8 @@ object RedisClient {
       .map(uri => acquireAndRelease(uri, opts, config))
 
   class RedisClientPartiallyApplied[F[_]: MkRedis: MonadThrow] {
-    implicit val fl  = MkRedis[F].futureLift
-    implicit val log = MkRedis[F].log
+    implicit val fl: FutureLift[F] = MkRedis[F].futureLift
+    implicit val log: Log[F]       = MkRedis[F].log
 
     /**
       * Creates a [[RedisClient]] with default options.
