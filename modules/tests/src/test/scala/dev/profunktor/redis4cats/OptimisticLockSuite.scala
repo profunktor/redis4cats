@@ -35,7 +35,7 @@ class OptimisticLockSuite extends IOSuite {
   private val InitialValue = "a"
   private val UpdatedValue = "b"
 
-  test("Optimistic lock allows single update") {
+  test("Optimistic lock allows single update".ignore) {
     mkRedis
       .use(client => setupTestData(client) >> concurrentUpdates(client))
       .map { results =>
