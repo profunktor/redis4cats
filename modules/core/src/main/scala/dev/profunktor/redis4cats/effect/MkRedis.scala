@@ -34,7 +34,7 @@ import scala.annotation.implicitNotFound
 @implicitNotFound(
   "MkRedis instance not found. You can summon one by having instances for cats.effect.Async and dev.profunktor.redis4cats.effects.Log in scope"
 )
-trait MkRedis[F[_]] {
+sealed trait MkRedis[F[_]] {
   def clientFrom(strUri: => String): Resource[F, RedisClient]
   def clientFromUri(uri: => RedisURI): Resource[F, RedisClient]
   def clientWithOptions(strUri: => String, opts: ClientOptions): Resource[F, RedisClient]
