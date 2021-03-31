@@ -65,7 +65,9 @@ object RedisClient {
       .lift(RedisURI.fromUnderlying(new JRedisURI()))
       .map(uri => acquireAndRelease(uri, opts, config))
 
-  class RedisClientPartiallyApplied[F[_]: FutureLift: Log: MkRedis: MonadThrow] {
+  class RedisClientPartiallyApplied[F[_]: MkRedis: MonadThrow] {
+    implicit val fl  = MkRedis[F].futureLift
+    implicit val log = MkRedis[F].log
 
     /**
       * Creates a [[RedisClient]] with default options.
@@ -147,8 +149,7 @@ object RedisClient {
       }
   }
 
-  def apply[F[_]: FutureLift: Log: MkRedis: MonadThrow]: RedisClientPartiallyApplied[F] =
-    new RedisClientPartiallyApplied[F]
+  def apply[F[_]: MkRedis: MonadThrow]: RedisClientPartiallyApplied[F] = new RedisClientPartiallyApplied[F]
 
   def fromUnderlyingWithUri(underlying: JRedisClient, uri: RedisURI): RedisClient =
     new RedisClient(underlying, uri) {}
