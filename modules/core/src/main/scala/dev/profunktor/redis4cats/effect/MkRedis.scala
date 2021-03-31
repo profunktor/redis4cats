@@ -22,6 +22,15 @@ import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import io.lettuce.core.ClientOptions
 import scala.annotation.implicitNotFound
 
+/**
+  * MkRedis is a capability trait that abstracts over the creation of RedisClient,
+  * RedisClusterClient, RedisExecutor, among other things.
+  *
+  * It serves the internal purpose to orchastrate creation of such instances while
+  * avoiding impure constraints such as `Async` or `Sync`.
+  *
+  * Users only need a `MkRedis` constraint and `MonadThrow` to create a `Redis` instance.
+  */
 @implicitNotFound(
   "MkRedis instance not found. You can summon one by having instances for cats.effect.Async and dev.profunktor.redis4cats.effects.Log in scope"
 )
@@ -37,9 +46,9 @@ trait MkRedis[F[_]] {
 
   def clusterClient(uri: RedisURI*): Resource[F, RedisClusterClient]
 
-  def newExecutor: Resource[F, RedisExecutor[F]]
-  def futureLift: FutureLift[F]
-  def log: Log[F]
+  private[redis4cats] def newExecutor: Resource[F, RedisExecutor[F]]
+  private[redis4cats] def futureLift: FutureLift[F]
+  private[redis4cats] def log: Log[F]
 }
 
 object MkRedis {
@@ -66,12 +75,12 @@ object MkRedis {
       def clusterClient(uri: RedisURI*): Resource[F, RedisClusterClient] =
         RedisClusterClient[F](uri: _*)
 
-      def newExecutor: Resource[F, RedisExecutor[F]] =
+      private[redis4cats] def newExecutor: Resource[F, RedisExecutor[F]] =
         RedisExecutor.make[F]
 
-      def futureLift: FutureLift[F] = implicitly
+      private[redis4cats] def futureLift: FutureLift[F] = implicitly
 
-      def log: Log[F] = implicitly
+      private[redis4cats] def log: Log[F] = implicitly
     }
 
 }
