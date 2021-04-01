@@ -52,14 +52,9 @@ val commonSettings = Seq(
         f = Seq.empty
       ),
   scalacOptions ++= pred(
-        getVersion(scalaVersion.value) == Some(2, 13),
-        t = Seq("-Wconf:any:wv"),
-        f = Seq.empty
-      ),
-  scalacOptions ++= pred(
         isDotty.value,
         t = Seq("-source:3.0-migration"),
-        f = Seq.empty
+        f = Seq("-Wconf:any:wv")
       ),
   sources in (Compile, doc) := (sources in (Compile, doc)).value,
   Compile / unmanagedSourceDirectories ++= {
