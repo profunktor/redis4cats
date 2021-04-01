@@ -3,6 +3,7 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
+ThisBuild / scalaVersion := "2.13.5"
 ThisBuild / crossScalaVersions := Seq("2.12.13", "2.13.5", "3.0.0-RC1")
 Test / parallelExecution := false
 
@@ -191,7 +192,8 @@ lazy val microsite = project
           "-Ywarn-numeric-widen",
           "-Ywarn-dead-code",
           "-deprecation",
-          "-Xlint:-missing-interpolator,_"
+          "-Xlint:-missing-interpolator,_",
+          "-Wconf:any:wv"
         ),
     addMappingsToSiteDir(mappings in (ScalaUnidoc, packageDoc), micrositeDocumentationUrl),
     scalacOptions in (ScalaUnidoc, unidoc) ++= Seq(
