@@ -1,4 +1,4 @@
-{ jdk ? "jdk11" }:
+{ jdk ? "jdk15" }:
 
 let
   java = pkgs.${jdk};
@@ -16,18 +16,20 @@ let
   };
 
   nixpkgs = fetchTarball {
-    name   = "NixOS-unstable-08-06-2020";
-    url    = "https://github.com/NixOS/nixpkgs-channels/archive/dcb64ea42e6.tar.gz";
-    sha256 = "0i77sgs0gic6pwbkvk9lbpfshgizdrqyh18law2ji1409azc09w0";
+    name   = "nixos-unstable-2021-02-21";
+    url    = "https://github.com/NixOS/nixpkgs/archive/9816b99e71c.tar.gz";
+    sha256 = "1dpz36i3vx0c1wmacrki0wsf30if8xq3bnj71g89rsbxyi87lhcm";
   };
 
   pkgs = import nixpkgs { inherit config; };
 in
-  pkgs.mkShell {
-    buildInputs = with pkgs; [
-      gnupg
-      jekyll
-      java
-      sbt
-    ];
-  }
+pkgs.mkShell {
+  name = "scala-shell";
+
+  buildInputs = with pkgs; [
+    gnupg
+    jekyll
+    java
+    sbt
+  ];
+}

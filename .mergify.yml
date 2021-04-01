@@ -8,8 +8,8 @@ pull_request_rules:
   - name: automatically merge Scala Steward PRs on CI success
     conditions:
       - author=scala-steward
-      - "status-success=Build (jdk8)"
       - "status-success=Build (jdk11)"
+      - "status-success=Build (jdk15)"
     actions:
       merge:
         method: merge
