@@ -53,7 +53,7 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
           val notAllowed: IO[Unit] =
             cmd.multi
               .bracket(_ => cmd.set(key1, "nope") >> cmd.exec.void)(_ => cmd.discard)
-              .handleErrorWith {
+              .recoverWith {
                 case e: OperationNotSupported => putStrLn(e)
               }
               .void

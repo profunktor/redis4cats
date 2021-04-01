@@ -65,6 +65,8 @@ object ConcurrentTransactionsDemo extends LoggerIOApp {
                   Log[IO].error("[Error] - Transaction Discarded")
                 case _: TimeoutException =>
                   Log[IO].error("[Error] - Timeout")
+                case e =>
+                  Log[IO].error(s"[Error] - ${e.getMessage}")
               }
 
           val watching =
@@ -77,7 +79,7 @@ object ConcurrentTransactionsDemo extends LoggerIOApp {
     //IO.race(txProgram("nix", "linux"), txProgram("foo", "bar")).void
 
     def retriableTx: IO[Unit] =
-      txProgram("foo", "bar").handleErrorWith {
+      txProgram("foo", "bar").recoverWith {
         case TransactionDiscarded => retriableTx
       }.uncancelable
 

@@ -92,7 +92,7 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Async: Log] {
     }
 
   // Forks every command in order
-  @nowarn
+  @nowarn("cat=other-match-analysis")
   private def runner[H <: HList, G <: HList](f: F[Unit], ys: H, res: G): F[HList] =
     ys match {
       case HNil                           => res.pure[F].widen
