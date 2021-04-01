@@ -57,7 +57,7 @@ object RedisClient {
     (acquire, release)
   }
 
-  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: FutureLift: Log: MkRedis: MonadThrow: RedisExecutor](
+  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: FutureLift: Log: MonadThrow: RedisExecutor](
       opts: ClientOptions,
       config: Redis4CatsConfig
   ): F[(F[RedisClient], RedisClient => F[Unit])] =

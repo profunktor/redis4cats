@@ -16,6 +16,8 @@
 
 package dev.profunktor.redis4cats
 
+import scala.annotation.nowarn
+
 /**
   * An heterogeneous list, mainly used to operate on transactions.
   *
@@ -125,6 +127,7 @@ object hlist extends TypeInequalityCompat {
     implicit def hconsUnit[T <: HList](implicit w: Filter[T]): Filter.Aux[HCons[Unit, T], w.R] =
       new Filter[HCons[Unit, T]] { type R = w.R }
 
+    @nowarn
     implicit def hconsNotUnit[A: =!=[Unit, *], T <: HList](implicit w: Filter[T]): Filter.Aux[HCons[A, T], A :: w.R] =
       new Filter[HCons[A, T]] { type R = A :: w.R }
   }
