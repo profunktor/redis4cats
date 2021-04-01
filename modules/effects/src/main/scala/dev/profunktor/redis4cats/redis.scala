@@ -1295,6 +1295,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
   override val flushAll: F[Unit] =
     async.flatMap(c => RedisExecutor[F].lift(c.flushall())).futureLift.void
 
+  @deprecated(message = "use `flushAll` instead", since = "1.0.0")
   override val flushAllAsync: F[Unit] =
     async.flatMap(c => RedisExecutor[F].lift(c.flushallAsync())).futureLift.void
 

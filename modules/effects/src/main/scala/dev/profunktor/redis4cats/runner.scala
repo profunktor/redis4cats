@@ -18,6 +18,7 @@ package dev.profunktor.redis4cats
 
 import java.util.UUID
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 
 import cats.effect._
@@ -91,6 +92,7 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Async: Log] {
     }
 
   // Forks every command in order
+  @nowarn
   private def runner[H <: HList, G <: HList](f: F[Unit], ys: H, res: G): F[HList] =
     ys match {
       case HNil                           => res.pure[F].widen
