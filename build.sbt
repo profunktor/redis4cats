@@ -6,14 +6,6 @@ import microsites.ExtraMdFileConfig
 ThisBuild / crossScalaVersions := Seq("2.12.12", "2.13.4", "3.0.0-RC1")
 Test / parallelExecution := false
 
-// versions are generated from the latest tags by default
-val customVersion = "0.12.1"
-
-def fixVersion(v: String): String = if (v.contains("-RC") || v.contains("-M")) v.drop(5) else v.drop(6)
-
-ThisBuild / version ~= (v => customVersion + fixVersion(v))
-ThisBuild / dynver ~= (v => customVersion + fixVersion(v))
-
 // publishing
 ThisBuild / organization := "dev.profunktor"
 ThisBuild / homepage := Some(url("https://redis4cats.profunktor.dev/"))
