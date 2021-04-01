@@ -16,8 +16,7 @@
 
 package dev.profunktor.redis4cats.pubsub.internals
 
-import cats.Applicative
-import cats.effect.kernel.{ Async, Ref, Sync }
+import cats.effect.kernel.{ Async, Ref, Resource, Sync }
 import cats.effect.std.Dispatcher
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
@@ -50,7 +49,7 @@ object PubSubInternals {
   ): GetOrCreateTopicListener[F, K, V] = { channel => st =>
     st.get(channel.underlying)
       .fold {
-        Dispatcher[F].use { dispatcher =>
+        Dispatcher[F].evalMap { dispatcher =>
           Topic[F, Option[V]].flatTap { topic =>
             val listener = defaultListener(channel, topic, dispatcher)
             Log[F].info(s"Creating listener for channel: $channel") *>
@@ -58,7 +57,7 @@ object PubSubInternals {
               state.update(_.updated(channel.underlying, topic))
           }
         }
-      }(Applicative[F].pure)
+      }(Resource.pure)
   }
 
 }
