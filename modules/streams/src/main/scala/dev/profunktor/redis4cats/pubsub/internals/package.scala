@@ -16,11 +16,12 @@
 
 package dev.profunktor.redis4cats.pubsub
 
+import cats.effect.kernel.Resource
 import dev.profunktor.redis4cats.data.RedisChannel
 import fs2.concurrent.Topic
 
 package object internals {
   private[pubsub] type PubSubState[F[_], K, V] = Map[K, Topic[F, Option[V]]]
   private[pubsub] type GetOrCreateTopicListener[F[_], K, V] =
-    RedisChannel[K] => PubSubState[F, K, V] => F[Topic[F, Option[V]]]
+    RedisChannel[K] => PubSubState[F, K, V] => Resource[F, Topic[F, Option[V]]]
 }
