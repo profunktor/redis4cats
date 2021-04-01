@@ -46,8 +46,9 @@ val commonSettings = Seq(
   headerLicense := Some(HeaderLicense.ALv2("2018-2021", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
-        Libraries.catsEffect,
+        Libraries.catsEffectKernel,
         Libraries.redisClient,
+        Libraries.catsEffect      % Test,
         Libraries.catsLaws        % Test,
         Libraries.catsTestKit     % Test,
         Libraries.munitCore       % Test,
@@ -140,6 +141,7 @@ lazy val examples = project
   .settings(noPublish)
   .settings(
     libraryDependencies ++= Seq(
+          Libraries.catsEffect,
           Libraries.circeCore,
           Libraries.circeGeneric,
           Libraries.circeParser,

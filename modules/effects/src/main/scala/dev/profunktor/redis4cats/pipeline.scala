@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats
 import scala.util.control.NoStackTrace
 
 import cats.Applicative
-import cats.effect._
+import cats.effect.kernel._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._
 

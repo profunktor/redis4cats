@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats.effect
 
 import cats.Applicative
-import cats.effect.Sync
+import cats.effect.kernel.Sync
 
 /**
   * Typeclass used for internal logging such as acquiring and releasing connections.

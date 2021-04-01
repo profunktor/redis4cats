@@ -16,16 +16,14 @@
 
 package dev.profunktor.redis4cats.pubsub.internals
 
-import cats.effect.Async
-import cats.effect.Ref
+import cats.Applicative
+import cats.effect.kernel.{ Async, Ref, Sync }
 import cats.effect.std.Dispatcher
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.effect.Log
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnection }
-import cats.effect.Sync
-import cats.Applicative
 
 object PubSubInternals {
 

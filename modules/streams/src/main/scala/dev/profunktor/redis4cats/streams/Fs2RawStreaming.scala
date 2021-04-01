@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats
 package streams
 
-import cats.effect._
+import cats.effect.kernel._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.effect.{ FutureLift, RedisExecutor }
 import dev.profunktor.redis4cats.streams.data._

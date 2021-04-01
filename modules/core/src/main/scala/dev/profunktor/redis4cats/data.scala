@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats
 
-import cats.effect.Sync
+import cats.effect.kernel.Sync
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.JavaConversions._
 import io.lettuce.core.{ ReadFrom => JReadFrom }
