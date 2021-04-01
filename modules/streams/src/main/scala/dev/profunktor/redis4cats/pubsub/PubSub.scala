@@ -18,8 +18,7 @@ package dev.profunktor.redis4cats
 package pubsub
 
 import cats.{ Apply, FlatMap }
-import cats.effect._
-import cats.effect.Ref
+import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._

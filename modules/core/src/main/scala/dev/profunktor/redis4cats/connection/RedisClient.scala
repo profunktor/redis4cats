@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats.connection
 import java.util.concurrent.TimeUnit
 
 import cats.{ Apply, MonadThrow }
-import cats.effect.{ Resource, Sync }
+import cats.effect.kernel.{ Resource, Sync }
 import cats.syntax.all._
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.effect._

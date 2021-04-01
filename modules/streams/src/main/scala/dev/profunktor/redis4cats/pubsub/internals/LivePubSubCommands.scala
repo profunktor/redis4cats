@@ -18,8 +18,7 @@ package dev.profunktor.redis4cats
 package pubsub
 package internals
 
-import cats.effect._
-import cats.effect.Ref
+import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.pubsub.data.Subscription

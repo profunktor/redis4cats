@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 
 import cats._
 import cats.data.NonEmptyList
-import cats.effect._
+import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._

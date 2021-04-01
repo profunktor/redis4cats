@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats.effect
 
 import cats.ApplicativeThrow
-import cats.effect.Async
+import cats.effect.kernel.Async
 import cats.syntax.all._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
 

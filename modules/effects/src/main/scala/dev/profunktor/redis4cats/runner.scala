@@ -20,8 +20,8 @@ import java.util.UUID
 
 import scala.concurrent.duration._
 
-import cats.effect._
-import cats.effect.implicits._
+import cats.effect.kernel._
+import cats.effect.kernel.implicits._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.hlist._

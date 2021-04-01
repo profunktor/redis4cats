@@ -17,8 +17,7 @@
 package dev.profunktor.redis4cats
 package streams
 
-import cats.effect._
-import cats.effect.Ref
+import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
