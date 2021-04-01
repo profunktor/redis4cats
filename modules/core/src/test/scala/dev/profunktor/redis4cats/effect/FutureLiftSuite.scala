@@ -21,15 +21,17 @@ import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import munit.FunSuite
 
-class JRFutureSpec extends FunSuite {
+class FutureLiftSuite extends FunSuite {
   implicit val ioRuntime: IORuntime = cats.effect.unsafe.IORuntime.global
 
   val currentThread: IO[String] = IO(Thread.currentThread().getName)
 
+  val instance = FutureLift[IO]
+
   test("it shifts back once the Future is converted") {
     val ioa =
-      RedisExecutor.make[IO].use { implicit redisExecutor =>
-        JRFuture.fromCompletableFuture[IO, String] {
+      RedisExecutor.make[IO].use { implicit ec =>
+        instance.liftCompletableFuture[String] {
           IO {
             val jFuture = new CompletableFuture[String]()
             jFuture.complete("foo")
@@ -45,8 +47,8 @@ class JRFutureSpec extends FunSuite {
 
   test("it shifts back even when the CompletableFuture fails") {
     val ioa =
-      RedisExecutor.make[IO].use { implicit redisExecutor =>
-        JRFuture.fromCompletableFuture[IO, String] {
+      RedisExecutor.make[IO].use { implicit ec =>
+        instance.liftCompletableFuture[String] {
           IO {
             val jFuture = new CompletableFuture[String]()
             jFuture.completeExceptionally(new RuntimeException("Purposely fail"))

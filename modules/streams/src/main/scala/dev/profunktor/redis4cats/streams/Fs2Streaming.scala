@@ -22,7 +22,7 @@ import cats.effect.Ref
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
+import dev.profunktor.redis4cats.effect.{ FutureLift, Log, RedisExecutor }
 import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
 import io.lettuce.core.{ ReadFrom => JReadFrom }
@@ -40,14 +40,14 @@ object RedisStream {
       codec: RedisCodec[K, V]
   ): Resource[F, Streaming[Stream[F, *], K, V]] =
     RedisExecutor.make[F].flatMap { implicit redisExecutor =>
-      val acquire = JRFuture
-        .fromConnectionFuture(
+      val acquire = FutureLift[F]
+        .liftConnectionFuture(
           Sync[F].delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying))
         )
         .map(new RedisRawStreaming(_))
 
       val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
-        JRFuture.fromCompletableFuture(Sync[F].delay(c.client.closeAsync())) *>
+        FutureLift[F].liftCompletableFuture(Sync[F].delay(c.client.closeAsync())) *>
             Log[F].info(s"Releasing Streaming connection: ${client.uri.underlying}")
 
       Resource.make(acquire)(release).map(rs => new RedisStream(rs))

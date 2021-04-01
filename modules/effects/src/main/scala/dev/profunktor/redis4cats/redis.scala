@@ -19,14 +19,14 @@ package dev.profunktor.redis4cats
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import cats.Applicative
+import cats._
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
-import dev.profunktor.redis4cats.effect.JRFuture._
+import dev.profunktor.redis4cats.effect._
+import dev.profunktor.redis4cats.effect.FutureLift._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.transactions.TransactionDiscarded
 import io.lettuce.core.{
@@ -51,15 +51,15 @@ import scala.concurrent.duration._
 
 object Redis {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Async: RedisExecutor: Log, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: FutureLift: Log: MonadThrow: RedisExecutor, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
-    val acquire = JRFuture
-      .fromConnectionFuture(
+    val acquire: F[Redis[F, K, V]] = FutureLift[F]
+      .liftConnectionFuture(
         RedisExecutor[F].delay(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
       )
-      .map(c => new Redis(new RedisStatefulConnection(c)))
+      .map(c => new Redis[F, K, V](new RedisStatefulConnection[F, K, V](c)))
 
     val release: Redis[F, K, V] => F[Unit] = c =>
       Log[F].info(s"Releasing Commands connection: ${client.uri.underlying}") *> c.conn.close
@@ -67,17 +67,17 @@ object Redis {
     (acquire, release)
   }
 
-  private[redis4cats] def acquireAndReleaseCluster[F[_]: Async: RedisExecutor: Log, K, V](
+  private[redis4cats] def acquireAndReleaseCluster[F[_]: FutureLift: Log: MonadThrow: RedisExecutor, K, V](
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom]
   ): (F[RedisCluster[F, K, V]], RedisCluster[F, K, V] => F[Unit]) = {
-    val acquire = JRFuture
-      .fromCompletableFuture(
+    val acquire: F[RedisCluster[F, K, V]] = FutureLift[F]
+      .liftCompletableFuture(
         RedisExecutor[F].delay(client.underlying.connectAsync[K, V](codec.underlying))
       )
-      .flatTap(c => Sync[F].delay(readFrom.foreach(c.setReadFrom)))
-      .map(c => new RedisCluster(new RedisStatefulClusterConnection(c)))
+      .flatTap(c => RedisExecutor[F].lift(readFrom.foreach(c.setReadFrom)))
+      .map(c => new RedisCluster[F, K, V](new RedisStatefulClusterConnection[F, K, V](c)))
 
     val release: RedisCluster[F, K, V] => F[Unit] = c =>
       Log[F].info(s"Releasing cluster Commands connection: ${client.underlying}") *> c.conn.close
@@ -85,19 +85,19 @@ object Redis {
     (acquire, release)
   }
 
-  private[redis4cats] def acquireAndReleaseClusterByNode[F[_]: Async: RedisExecutor: Log, K, V](
+  private[redis4cats] def acquireAndReleaseClusterByNode[F[_]: FutureLift: Log: MonadThrow: RedisExecutor, K, V](
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
       nodeId: NodeId
   ): (F[BaseRedis[F, K, V]], BaseRedis[F, K, V] => F[Unit]) = {
-    val acquire = JRFuture
-      .fromCompletableFuture(
+    val acquire = FutureLift[F]
+      .liftCompletableFuture(
         RedisExecutor[F].delay(client.underlying.connectAsync[K, V](codec.underlying))
       )
-      .flatTap(c => Sync[F].delay(readFrom.foreach(c.setReadFrom)))
+      .flatTap(c => RedisExecutor[F].lift(readFrom.foreach(c.setReadFrom)))
       .map { c =>
-        new BaseRedis[F, K, V](new RedisStatefulClusterConnection(c), cluster = true) {
+        new BaseRedis[F, K, V](new RedisStatefulClusterConnection[F, K, V](c), cluster = true) {
           override def async: F[RedisClusterAsyncCommands[K, V]] =
             if (cluster) conn.byNode(nodeId).widen[RedisClusterAsyncCommands[K, V]]
             else conn.async.widen[RedisClusterAsyncCommands[K, V]]
@@ -110,7 +110,9 @@ object Redis {
     (acquire, release)
   }
 
-  class RedisPartiallyApplied[F[_]: Async: Log] {
+  class RedisPartiallyApplied[F[_]: MkRedis: MonadThrow] {
+    implicit val fl: FutureLift[F] = MkRedis[F].futureLift
+    implicit val log: Log[F]       = MkRedis[F].log
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection.
@@ -128,7 +130,7 @@ object Redis {
       * instead, which allows you to re-use the same client.
       */
     def simple[K, V](uri: String, codec: RedisCodec[K, V]): Resource[F, RedisCommands[F, K, V]] =
-      RedisClient[F].from(uri).flatMap(this.fromClient(_, codec))
+      MkRedis[F].clientFrom(uri).flatMap(this.fromClient(_, codec))
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection.
@@ -153,7 +155,7 @@ object Redis {
         opts: ClientOptions,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      RedisClient[F].withOptions(uri, opts).flatMap(this.fromClient(_, codec))
+      MkRedis[F].clientWithOptions(uri, opts).flatMap(this.fromClient(_, codec))
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection to deal
@@ -195,8 +197,8 @@ object Redis {
         client: RedisClient,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      RedisExecutor.make[F].flatMap { implicit redisExecutor =>
-        val (acquire, release) = acquireAndRelease(client, codec)
+      MkRedis[F].newExecutor.flatMap { implicit ec =>
+        val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
         Resource.make(acquire)(release).widen
       }
 
@@ -225,7 +227,7 @@ object Redis {
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
       for {
         redisUris <- Resource.eval(uris.toList.traverse(RedisURI.make[F](_)))
-        client <- RedisClusterClient[F](redisUris: _*)
+        client <- MkRedis[F].clusterClient(redisUris: _*)
         redis <- this.fromClusterClient[K, V](client, codec)(readFrom)
       } yield redis
 
@@ -248,7 +250,9 @@ object Redis {
       * Note: if you need to create multiple connections, use either [[fromClusterClient]]
       * or [[fromClusterClientByNode]] instead, which allows you to re-use the same client.
       */
-    def clusterUtf8(uris: String*)(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, String, String]] =
+    def clusterUtf8(
+        uris: String*
+    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, String, String]] =
       cluster(RedisCodec.Utf8, uris: _*)(readFrom)
 
     /**
@@ -275,7 +279,7 @@ object Redis {
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V]
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
-      RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+      MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
         val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, readFrom)
         Resource.make(acquire)(release).widen
       }
@@ -306,7 +310,7 @@ object Redis {
         codec: RedisCodec[K, V],
         nodeId: NodeId
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
-      RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+      MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
         val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, readFrom, nodeId)
         Resource.make(acquire)(release).widen
       }
@@ -328,21 +332,19 @@ object Redis {
     def masterReplica[K, V](
         conn: RedisMasterReplica[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      RedisExecutor.make[F].flatMap { implicit redisExecutor =>
-        Resource.eval {
-          Sync[F]
-            .delay(new RedisStatefulConnection(conn.underlying))
-            .map(c => new Redis[F, K, V](c))
+      MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
+        Resource.pure {
+          new Redis[F, K, V](new RedisStatefulConnection(conn.underlying))
         }
       }
 
   }
 
-  def apply[F[_]: Async: Log]: RedisPartiallyApplied[F] = new RedisPartiallyApplied[F]
+  def apply[F[_]: MkRedis: MonadThrow]: RedisPartiallyApplied[F] = new RedisPartiallyApplied[F]
 
 }
 
-private[redis4cats] class BaseRedis[F[_]: Async: RedisExecutor: Log, K, V](
+private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor: Log, K, V](
     val conn: RedisConnection[F, K, V],
     val cluster: Boolean
 ) extends RedisCommands[F, K, V]
@@ -1272,42 +1274,42 @@ private[redis4cats] class BaseRedis[F[_]: Async: RedisExecutor: Log, K, V](
 
   /******************************* Connection API **********************************/
   override val ping: F[String] =
-    async.flatMap(c => Sync[F].delay(c.ping())).futureLift
+    async.flatMap(c => RedisExecutor[F].lift(c.ping())).futureLift
 
   override def select(index: Int): F[Unit] =
-    conn.async.flatMap(c => RedisExecutor[F].delay(c.select(index))).void
+    conn.async.flatMap(c => RedisExecutor[F].lift(c.select(index))).void
 
   override def auth(password: CharSequence): F[Boolean] =
     async
-      .flatMap(c => Sync[F].delay(c.auth(password)))
+      .flatMap(c => RedisExecutor[F].lift(c.auth(password)))
       .futureLift
       .map(_ == "OK")
 
   override def auth(username: String, password: CharSequence): F[Boolean] =
     async
-      .flatMap(c => Sync[F].delay(c.auth(username, password)))
+      .flatMap(c => RedisExecutor[F].lift(c.auth(username, password)))
       .futureLift
       .map(_ == "OK")
 
   /******************************* Server API **********************************/
   override val flushAll: F[Unit] =
-    async.flatMap(c => Sync[F].delay(c.flushall())).futureLift.void
+    async.flatMap(c => RedisExecutor[F].lift(c.flushall())).futureLift.void
 
   override val flushAllAsync: F[Unit] =
-    async.flatMap(c => Sync[F].delay(c.flushallAsync())).futureLift.void
+    async.flatMap(c => RedisExecutor[F].lift(c.flushallAsync())).futureLift.void
 
   override def keys(key: K): F[List[K]] =
     async
-      .flatMap(c => RedisExecutor[F].delay(c.keys(key)))
+      .flatMap(c => RedisExecutor[F].lift(c.keys(key)))
       .futureLift
       .map(_.asScala.toList)
 
   override def info: F[Map[String, String]] =
     async
-      .flatMap(c => Sync[F].delay(c.info))
+      .flatMap(c => RedisExecutor[F].lift(c.info))
       .futureLift
       .flatMap(info =>
-        Sync[F].delay(
+        RedisExecutor[F].lift(
           info
             .split("\\r?\\n")
             .toList
@@ -1319,19 +1321,19 @@ private[redis4cats] class BaseRedis[F[_]: Async: RedisExecutor: Log, K, V](
 
   override def dbsize: F[Long] =
     async
-      .flatMap(c => Sync[F].delay(c.dbsize))
+      .flatMap(c => RedisExecutor[F].lift(c.dbsize))
       .futureLift
       .map(Long.unbox)
 
   override def lastSave: F[Instant] =
     async
-      .flatMap(c => Sync[F].delay(c.lastsave))
+      .flatMap(c => RedisExecutor[F].lift(c.lastsave))
       .futureLift
       .map(_.toInstant)
 
   override def slowLogLen: F[Long] =
     async
-      .flatMap(c => Sync[F].delay(c.slowlogLen))
+      .flatMap(c => RedisExecutor[F].lift(c.slowlogLen))
       .futureLift
       .map(Long.unbox)
 
@@ -1425,7 +1427,7 @@ private[redis4cats] class BaseRedis[F[_]: Async: RedisExecutor: Log, K, V](
   override def scriptFlush: F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.scriptFlush())).futureLift.void
 
-  override def digest(script: String): F[String] = async.flatMap(c => Sync[F].delay(c.digest(script)))
+  override def digest(script: String): F[String] = async.flatMap(c => RedisExecutor[F].lift(c.digest(script)))
 
   /** ***************************** HyperLoglog API **********************************/
   override def pfAdd(key: K, values: V*): F[Long] =
@@ -1506,10 +1508,10 @@ private[redis4cats] trait RedisConversionOps {
 
 }
 
-private[redis4cats] class Redis[F[_]: Async: RedisExecutor: Log, K, V](
+private[redis4cats] class Redis[F[_]: FutureLift: MonadThrow: RedisExecutor: Log, K, V](
     connection: RedisStatefulConnection[F, K, V]
 ) extends BaseRedis[F, K, V](connection, cluster = false)
 
-private[redis4cats] class RedisCluster[F[_]: Async: RedisExecutor: Log, K, V](
+private[redis4cats] class RedisCluster[F[_]: FutureLift: MonadThrow: RedisExecutor: Log, K, V](
     connection: RedisStatefulClusterConnection[F, K, V]
 ) extends BaseRedis[F, K, V](connection, cluster = true)

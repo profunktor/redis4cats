@@ -19,12 +19,13 @@ package dev.profunktor.redis4cats.connection
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
+import cats.{ FlatMap, Functor }
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config._
 import dev.profunktor.redis4cats.data.NodeId
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
+import dev.profunktor.redis4cats.effect._
 import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
 import io.lettuce.core.cluster.{
   ClusterClientOptions,
@@ -37,23 +38,23 @@ sealed abstract case class RedisClusterClient private (underlying: JClusterClien
 
 object RedisClusterClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Async: RedisExecutor: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: FlatMap: FutureLift: Log: RedisExecutor](
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
 
     val acquire: F[RedisClusterClient] =
       Log[F].info(s"Acquire Redis Cluster client") *>
-          Sync[F]
-            .delay(JClusterClient.create(uri.map(_.underlying).asJava))
+          RedisExecutor[F]
+            .lift(JClusterClient.create(uri.map(_.underlying).asJava))
             .flatTap(initializeClusterTopology[F](_, config.topologyViewRefreshStrategy))
             .map(new RedisClusterClient(_) {})
 
     val release: RedisClusterClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *>
-          JRFuture
-            .fromCompletableFuture(
-              Sync[F].delay(
+          FutureLift[F]
+            .liftCompletableFuture(
+              RedisExecutor[F].lift(
                 client.underlying.shutdownAsync(
                   config.shutdown.quietPeriod.toNanos,
                   config.shutdown.timeout.toNanos,
@@ -66,11 +67,11 @@ object RedisClusterClient {
     (acquire, release)
   }
 
-  private[redis4cats] def initializeClusterTopology[F[_]: Sync](
+  private[redis4cats] def initializeClusterTopology[F[_]: Functor: RedisExecutor](
       client: JClusterClient,
       topologyViewRefreshStrategy: TopologyViewRefreshStrategy
   ): F[Unit] =
-    Sync[F].delay {
+    RedisExecutor[F].lift {
       topologyViewRefreshStrategy match {
         case NoRefresh =>
           client.getPartitions
@@ -104,14 +105,17 @@ object RedisClusterClient {
       }
     }.void
 
-  def apply[F[_]: Async: Log](uri: RedisURI*): Resource[F, RedisClusterClient] =
+  def apply[F[_]: FlatMap: MkRedis](uri: RedisURI*): Resource[F, RedisClusterClient] =
     configured[F](Redis4CatsConfig(), uri: _*)
 
-  def configured[F[_]: Async: Log](
+  def configured[F[_]: FlatMap: MkRedis](
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): Resource[F, RedisClusterClient] =
-    RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+    MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
+      implicit val fl: FutureLift[F] = MkRedis[F].futureLift
+      implicit val log: Log[F]       = MkRedis[F].log
+
       val (acquire, release) = acquireAndRelease(config, uri: _*)
       Resource.make(acquire)(release)
     }

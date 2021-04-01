@@ -37,7 +37,7 @@ object PubSubInternals {
     new RedisPubSubListener[K, V] {
       override def message(ch: K, msg: V): Unit =
         if (ch == channel.underlying) {
-          dispatcher.unsafeRunSync(topic.publish1(Option(msg)))
+          dispatcher.unsafeRunSync(topic.publish1(Option(msg)).void)
         }
       override def message(pattern: K, channel: K, message: V): Unit = this.message(channel, message)
       override def psubscribed(pattern: K, count: Long): Unit        = ()

@@ -16,10 +16,11 @@
 
 package dev.profunktor.redis4cats.connection
 
-import cats.effect._
+import cats.{ ApplicativeThrow, MonadThrow }
+import cats.effect.Async
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.NodeId
-import dev.profunktor.redis4cats.effect.{ JRFuture, RedisExecutor }
+import dev.profunktor.redis4cats.effect.{ FutureLift, RedisExecutor }
 import io.lettuce.core.api.StatefulRedisConnection
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.api.sync.{ RedisCommands => RedisSyncCommands }
@@ -42,7 +43,7 @@ private[redis4cats] trait RedisConnection[F[_], K, V] {
   def liftK[G[_]: Async]: RedisConnection[G, K, V]
 }
 
-private[redis4cats] class RedisStatefulConnection[F[_]: Async: RedisExecutor, K, V](
+private[redis4cats] class RedisStatefulConnection[F[_]: ApplicativeThrow: FutureLift: RedisExecutor, K, V](
     conn: StatefulRedisConnection[K, V]
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] = RedisExecutor[F].delay(conn.sync())
@@ -51,7 +52,7 @@ private[redis4cats] class RedisStatefulConnection[F[_]: Async: RedisExecutor, K,
   def async: F[RedisAsyncCommands[K, V]] = RedisExecutor[F].delay(conn.async())
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]] =
     OperationNotSupported("Running in a single node").raiseError
-  def close: F[Unit] = JRFuture.fromCompletableFuture(RedisExecutor[F].delay(conn.closeAsync())).void
+  def close: F[Unit] = FutureLift[F].liftCompletableFuture(RedisExecutor[F].delay(conn.closeAsync())).void
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
     OperationNotSupported("Running in a single node").raiseError
   def liftK[G[_]: Async]: RedisConnection[G, K, V] = {
@@ -60,7 +61,7 @@ private[redis4cats] class RedisStatefulConnection[F[_]: Async: RedisExecutor, K,
   }
 }
 
-private[redis4cats] class RedisStatefulClusterConnection[F[_]: Async: RedisExecutor, K, V](
+private[redis4cats] class RedisStatefulClusterConnection[F[_]: FutureLift: MonadThrow: RedisExecutor, K, V](
     conn: StatefulRedisClusterConnection[K, V]
 ) extends RedisConnection[F, K, V] {
   def sync: F[RedisSyncCommands[K, V]] =
@@ -70,10 +71,10 @@ private[redis4cats] class RedisStatefulClusterConnection[F[_]: Async: RedisExecu
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]] = RedisExecutor[F].delay(conn.async())
   def clusterSync: F[RedisClusterSyncCommands[K, V]]   = RedisExecutor[F].delay(conn.sync())
   def close: F[Unit] =
-    JRFuture.fromCompletableFuture(RedisExecutor[F].delay(conn.closeAsync())).void
+    FutureLift[F].liftCompletableFuture(RedisExecutor[F].delay(conn.closeAsync())).void
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
-    JRFuture.fromCompletableFuture(RedisExecutor[F].delay(conn.getConnectionAsync(nodeId.value))).flatMap { stateful =>
-      RedisExecutor[F].delay(stateful.async())
+    FutureLift[F].liftCompletableFuture(RedisExecutor[F].delay(conn.getConnectionAsync(nodeId.value))).flatMap {
+      stateful => RedisExecutor[F].delay(stateful.async())
     }
   def liftK[G[_]: Async]: RedisConnection[G, K, V] = {
     implicit val ecG: RedisExecutor[G] = RedisExecutor[F].liftK[G]

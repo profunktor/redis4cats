@@ -20,7 +20,7 @@ import cats.effect.IO
 import hlist._
 import munit.FunSuite
 
-class HListSpec extends FunSuite {
+class HListSuite extends FunSuite {
 
   test("HList and Witness") {
     def proof[T <: HList, R <: HList](xs: T)(implicit w: Witness.Aux[T, R]): R =

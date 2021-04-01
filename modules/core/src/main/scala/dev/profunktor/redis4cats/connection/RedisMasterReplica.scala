@@ -21,7 +21,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
+import dev.profunktor.redis4cats.effect.{ FutureLift, Log, RedisExecutor }
 import io.lettuce.core.masterreplica.{ MasterReplica, StatefulRedisMasterReplicaConnection }
 import io.lettuce.core.{ ClientOptions, ReadFrom => JReadFrom }
 
@@ -32,7 +32,7 @@ sealed abstract case class RedisMasterReplica[K, V] private (underlying: Statefu
 
 object RedisMasterReplica {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Async: RedisExecutor: Log, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: FutureLift: Log: RedisExecutor: Sync, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
@@ -42,8 +42,8 @@ object RedisMasterReplica {
     val acquire: F[RedisMasterReplica[K, V]] = {
 
       val connection: F[RedisMasterReplica[K, V]] =
-        JRFuture
-          .fromCompletableFuture[F, StatefulRedisMasterReplicaConnection[K, V]](
+        FutureLift[F]
+          .liftCompletableFuture[StatefulRedisMasterReplicaConnection[K, V]](
             Sync[F].delay {
               MasterReplica.connectAsync[K, V](client.underlying, codec.underlying, uris.map(_.underlying).asJava)
             }
@@ -55,7 +55,7 @@ object RedisMasterReplica {
 
     val release: RedisMasterReplica[K, V] => F[Unit] = connection =>
       Log[F].info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>
-          JRFuture.fromCompletableFuture(Sync[F].delay(connection.underlying.closeAsync())).void
+          FutureLift[F].liftCompletableFuture(Sync[F].delay(connection.underlying.closeAsync())).void
 
     (acquire, release)
   }

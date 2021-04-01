@@ -30,13 +30,14 @@ import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
 
 private[redis4cats] trait RedisExecutor[F[_]] {
+  def lift[A](thunk: => A): F[A]
   def delay[A](thunk: => A): F[A]
   def eval[A](fa: F[A]): F[A]
   def liftK[G[_]: Async]: RedisExecutor[G]
 }
 
 private[redis4cats] object RedisExecutor {
-  def apply[F[_]](implicit redisExecutor: RedisExecutor[F]): RedisExecutor[F] = redisExecutor
+  def apply[F[_]: RedisExecutor]: RedisExecutor[F] = implicitly
 
   def make[F[_]: Async]: Resource[F, RedisExecutor[F]] =
     Resource
@@ -48,7 +49,7 @@ private[redis4cats] object RedisExecutor {
           )
           .void
       }
-      .map(es => apply(exitOnFatal(ExecutionContext.fromExecutorService(es))))
+      .map(es => fromEC(exitOnFatal(ExecutionContext.fromExecutorService(es))))
 
   private def exitOnFatal(ec: ExecutionContext): ExecutionContext = new ExecutionContext {
     def execute(r: Runnable): Unit =
@@ -70,10 +71,11 @@ private[redis4cats] object RedisExecutor {
       ec.reportFailure(t)
   }
 
-  private def apply[F[_]: Async](ec: ExecutionContext): RedisExecutor[F] =
+  private def fromEC[F[_]: Async](ec: ExecutionContext): RedisExecutor[F] =
     new RedisExecutor[F] {
+      def lift[A](thunk: => A): F[A]           = Sync[F].delay(thunk)
       def delay[A](thunk: => A): F[A]          = eval(Sync[F].delay(thunk))
       def eval[A](fa: F[A]): F[A]              = Async[F].evalOn(fa, ec)
-      def liftK[G[_]: Async]: RedisExecutor[G] = apply[G](ec)
+      def liftK[G[_]: Async]: RedisExecutor[G] = fromEC[G](ec)
     }
 }
