@@ -23,7 +23,7 @@
 package dev.profunktor.redis4cats.effect
 
 import cats.syntax.all._
-import cats.effect._
+import cats.effect.kernel._
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext

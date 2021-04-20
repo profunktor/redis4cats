@@ -20,7 +20,7 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import cats.{ FlatMap, Functor }
-import cats.effect._
+import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config._

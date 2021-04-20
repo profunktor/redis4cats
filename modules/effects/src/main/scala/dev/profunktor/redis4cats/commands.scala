@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats
 
 import algebra._
-import cats.effect.Async
+import cats.effect.kernel.Async
 import dev.profunktor.redis4cats.effect.Log
 
 trait RedisCommands[F[_], K, V]

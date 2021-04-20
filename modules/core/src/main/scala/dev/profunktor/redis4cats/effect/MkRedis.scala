@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.effect
 
-import cats.effect._
+import cats.effect.kernel._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisClusterClient, RedisURI }
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import io.lettuce.core.ClientOptions

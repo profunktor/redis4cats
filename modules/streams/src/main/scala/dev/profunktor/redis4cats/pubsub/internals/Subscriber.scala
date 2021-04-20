@@ -19,9 +19,8 @@ package pubsub
 package internals
 
 import cats.Applicative
-import cats.effect._
-import cats.effect.Ref
-import cats.effect.implicits._
+import cats.effect.kernel._
+import cats.effect.kernel.implicits._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.effect.{ FutureLift, Log, RedisExecutor }
@@ -35,12 +34,8 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log: RedisExecutor, K,
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     Stream
-      .eval(
-        state.get.flatMap { st =>
-          PubSubInternals[F, K, V](state, subConnection).apply(channel)(st) <*
-            FutureLift[F].lift(Sync[F].delay(subConnection.async().subscribe(channel.underlying)))
-        }
-      )
+      .resource(Resource.eval(state.get) >>= PubSubInternals[F, K, V](state, subConnection).apply(channel))
+      .evalTap(_ => FutureLift[F].lift(Sync[F].delay(subConnection.async().subscribe(channel.underlying))))
       .flatMap(_.subscribe(500).unNone)
 
   override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =

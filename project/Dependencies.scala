@@ -4,12 +4,12 @@ object Dependencies {
 
   object V {
     val cats       = "2.5.0"
-    val catsEffect = "3.0.1"
+    val catsEffect = "3.0.2"
     val circe      = "0.14.0-M4"
     val fs2        = "3.0.1"
-    val log4cats   = "2.0.0"
+    val log4cats   = "2.0.1"
 
-    val lettuce = "6.0.3.RELEASE"
+    val lettuce = "6.1.1.RELEASE"
     val logback = "1.2.3"
 
     val kindProjector = "0.11.3"
@@ -21,14 +21,15 @@ object Dependencies {
     def cats(artifact: String): ModuleID     = "org.typelevel" %% s"cats-$artifact"     % V.cats
     def log4cats(artifact: String): ModuleID = "org.typelevel" %% s"log4cats-$artifact" % V.log4cats
 
-    val catsEffect = "org.typelevel" %% "cats-effect" % V.catsEffect
-    val fs2Core    = "co.fs2"        %% "fs2-core"    % V.fs2
+    val catsEffectKernel = "org.typelevel" %% "cats-effect-kernel" % V.catsEffect
+    val fs2Core          = "co.fs2"        %% "fs2-core"           % V.fs2
 
     val log4CatsCore = log4cats("core")
 
     val redisClient = "io.lettuce" % "lettuce-core" % V.lettuce
 
     // Examples libraries
+    val catsEffect    = "org.typelevel" %% "cats-effect" % V.catsEffect
     val circeCore     = "io.circe" %% "circe-core" % V.circe
     val circeGeneric  = "io.circe" %% "circe-generic" % V.circe
     val circeParser   = "io.circe" %% "circe-parser" % V.circe

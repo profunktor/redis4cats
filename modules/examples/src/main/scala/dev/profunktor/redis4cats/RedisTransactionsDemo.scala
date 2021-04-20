@@ -65,6 +65,8 @@ object RedisTransactionsDemo extends LoggerIOApp {
                 putStrLn("[Error] - Transaction Discarded")
               case _: TimeoutException =>
                 putStrLn("[Error] - Timeout")
+              case e =>
+                putStrLn(s"[Error] - ${e.getMessage}")
             }
 
         getters >> prog >> getters >> putStrLn("keep doing stuff...")

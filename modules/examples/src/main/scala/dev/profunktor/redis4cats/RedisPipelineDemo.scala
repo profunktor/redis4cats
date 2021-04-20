@@ -59,6 +59,8 @@ object RedisPipelineDemo extends LoggerIOApp {
                 putStrLn("[Error] - Pipeline failed")
               case _: TimeoutException =>
                 putStrLn("[Error] - Timeout")
+              case e =>
+                putStrLn(s"[Error] - ${e.getMessage}")
             }
 
         getters >> prog >> getters >> putStrLn("keep doing stuff...")

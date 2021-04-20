@@ -3,16 +3,9 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / crossScalaVersions := Seq("2.12.12", "2.13.4", "3.0.0-RC1")
+ThisBuild / scalaVersion := "2.13.5"
+ThisBuild / crossScalaVersions := Seq("2.12.13", "2.13.5", "3.0.0-RC1")
 Test / parallelExecution := false
-
-// versions are generated from the latest tags by default
-val customVersion = "1.0.0"
-
-def fixVersion(v: String): String = if (v.contains("-RC") || v.contains("-M")) v.drop(5) else v.drop(6)
-
-ThisBuild / version ~= (v => customVersion + fixVersion(v))
-ThisBuild / dynver ~= (v => customVersion + fixVersion(v))
 
 // publishing
 ThisBuild / organization := "dev.profunktor"
@@ -46,8 +39,9 @@ val commonSettings = Seq(
   headerLicense := Some(HeaderLicense.ALv2("2018-2021", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
-        Libraries.catsEffect,
+        Libraries.catsEffectKernel,
         Libraries.redisClient,
+        Libraries.catsEffect      % Test,
         Libraries.catsLaws        % Test,
         Libraries.catsTestKit     % Test,
         Libraries.munitCore       % Test,
@@ -62,7 +56,7 @@ val commonSettings = Seq(
   scalacOptions ++= pred(
         isDotty.value,
         t = Seq("-source:3.0-migration"),
-        f = Seq.empty
+        f = Seq("-Wconf:any:wv")
       ),
   sources in (Compile, doc) := (sources in (Compile, doc)).value,
   Compile / unmanagedSourceDirectories ++= {
@@ -140,6 +134,7 @@ lazy val examples = project
   .settings(noPublish)
   .settings(
     libraryDependencies ++= Seq(
+          Libraries.catsEffect,
           Libraries.circeCore,
           Libraries.circeGeneric,
           Libraries.circeParser,
@@ -199,7 +194,8 @@ lazy val microsite = project
           "-Ywarn-numeric-widen",
           "-Ywarn-dead-code",
           "-deprecation",
-          "-Xlint:-missing-interpolator,_"
+          "-Xlint:-missing-interpolator,_",
+          "-Wconf:any:wv"
         ),
     addMappingsToSiteDir(mappings in (ScalaUnidoc, packageDoc), micrositeDocumentationUrl),
     scalacOptions in (ScalaUnidoc, unidoc) ++= Seq(

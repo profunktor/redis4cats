@@ -395,6 +395,7 @@ trait TestScenarios { self: FunSuite =>
         .onError {
           case PipelineError       => fail("[Error] - Pipeline failed")
           case _: TimeoutException => fail("[Error] - Timeout")
+          case e                   => fail(s"[Error] - ${e.getMessage}")
         }
 
     for {
