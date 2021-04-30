@@ -88,8 +88,8 @@ class RedisStream[F[_]: Concurrent, K, V](rawStreaming: RedisRawStreaming[F, K, 
   override def read(
       keys: Set[K],
       initialOffset: K => StreamingOffset[K],
-      block: Duration = Duration.Zero,
-      count: Option[Int] = None
+      block: Option[Duration] = Some(Duration.Zero),
+      count: Option[Long] = None
   ): Stream[F, XReadMessage[K, V]] = {
     val initial = keys.map(k => k -> initialOffset(k)).toMap
     Stream.eval(Ref.of[F, Map[K, StreamingOffset[K]]](initial)).flatMap { ref =>

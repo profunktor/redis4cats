@@ -42,8 +42,8 @@ private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift: RedisEx
 
   override def xRead(
       streams: Set[StreamingOffset[K]],
-      block: Duration = Duration.Zero,
-      count: Option[Int] = None
+      block: Option[Duration] = Some(Duration.Zero),
+      count: Option[Long] = None
   ): F[List[XReadMessage[K, V]]] = {
 
     val offsets = streams.map {
@@ -52,9 +52,17 @@ private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift: RedisEx
       case Custom(key, offset) => StreamOffset.from(key, offset)
     }.toSeq
 
-    JRFuture {
-      Sync[F].delay(client.async().xread(XReadArgs.Builder.block(0), offsets: _*))
-    }.map { list =>
+    JRFuture(
+      Sync[F].delay(
+        (block, count) match {
+          case (None, None)        => client.async().xread(offsets: _*)
+          case (None, Some(count)) => client.async().xread(XReadArgs.Builder.count(count), offsets: _*)
+          case (Some(block), None) => client.async().xread(XReadArgs.Builder.block(block.toMillis), offsets: _*)
+          case (Some(block), Some(count)) =>
+            client.async().xread(XReadArgs.Builder.block(block.toMillis).count(count), offsets: _*)
+        }
+      )
+    ).map { list =>
       list.asScala.toList.map { msg =>
         XReadMessage[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap)
       }

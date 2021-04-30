@@ -29,8 +29,8 @@ trait RawStreaming[F[_], K, V] {
   def xAdd(key: K, body: Map[K, V], approxMaxlen: Option[Long] = None): F[MessageId]
   def xRead(
     streams: Set[StreamingOffset[K]],
-    block: Duration = Duration.Zero,
-    count: Option[Int] = None,
+    block: Option[Duration] = Some(Duration.Zero),
+    count: Option[Long] = None
   ): F[List[XReadMessage[K, V]]]
 }
 
@@ -39,7 +39,7 @@ trait Streaming[F[_], K, V] {
   def read(
     keys: Set[K],
     initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K],
-    block: Duration = Duration.Zero,
-    count: Option[Int] = None,
+    block: Option[Duration] = Some(Duration.Zero),
+    count: Option[Long] = None
   ): F[XReadMessage[K, V]]
 }
