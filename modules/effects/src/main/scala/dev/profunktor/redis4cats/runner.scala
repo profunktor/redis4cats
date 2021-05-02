@@ -94,8 +94,9 @@ private[redis4cats] class RunnerPartiallyApplied[F[_]: Concurrent: Log: Parallel
   // Forks every command in order
   private def runner[H <: HList, G <: HList](f: F[Unit], ys: H, res: G): F[HList] =
     ys match {
-      case HNil                           => res.pure[F].widen
-      case HCons((h: F[_] @unchecked), t) => (h, f).parTupled.map(_._1).start.flatMap(fb => runner(f, t, fb :: res))
+      case HNil                         => res.pure[F].widen
+      case HCons(h: F[_] @unchecked, t) => (h, f).parTupled.map(_._1).start.flatMap(fb => runner(f, t, fb :: res))
+      case HCons(_, _)                  => Async[F].raiseError(new AssertionError("Unreachable"))
     }
 
   // Joins or cancel fibers correspondent to previous executed commands
