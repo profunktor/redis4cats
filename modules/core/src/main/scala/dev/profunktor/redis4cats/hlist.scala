@@ -54,14 +54,11 @@ object hlist extends TypeInequalityCompat {
   case object HNil extends HList
 
   object HList {
-    def fromList[A](list: List[A]): HList = {
-      def go(ys: List[A], res: HList): HList =
-        ys match {
-          case Nil      => res
-          case (h :: t) => go(t, h :: res)
-        }
-      go(list, HNil).reverse
-    }
+    def fromList[A](list: List[A]): HList =
+      list match {
+        case Nil      => HNil
+        case (h :: t) => HCons(h, fromList(t))
+      }
 
     implicit class HListOps[T <: HList](t: T) {
       def filterUnit(implicit w: Filter[T]): w.R = {

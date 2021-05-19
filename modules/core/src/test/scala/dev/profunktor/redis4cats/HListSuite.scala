@@ -22,10 +22,10 @@ import munit.FunSuite
 
 class HListSuite extends FunSuite {
 
-  test("HList and Witness") {
-    def proof[T <: HList, R <: HList](xs: T)(implicit w: Witness.Aux[T, R]): R =
-      xs.asInstanceOf[w.R] // can return anything, we only care about the types here
+  def proof[T <: HList, R <: HList](xs: T)(implicit w: Witness.Aux[T, R]): R =
+    xs.asInstanceOf[w.R] // can return anything, we only care about the types here
 
+  test("HList and Witness") {
     val actions = IO.unit :: IO.pure("hi") :: HNil
 
     proof(actions): Unit :: String :: HNil
@@ -60,12 +60,16 @@ class HListSuite extends FunSuite {
   test("Conversion from standard list") {
     val lt = List("a", "b", "c")
     val hl = "a" :: "b" :: "c" :: HNil
-    assertEquals[HList, HList](hl, HList.fromList(lt))
+    assert(hl == HList.fromList(lt))
     assertEquals(hl.size, lt.size)
 
     val el = List.empty[Int]
-    assertEquals[HList, HList](HNil, HList.fromList(el))
+    assert(HNil == HList.fromList(el))
     assertEquals(HNil.size, el.size)
+
+    // Temporary hack to convert from dynamic list until we properly fix it
+    val cmd = HList.fromList(List(IO.unit, IO.pure("hi"))).asInstanceOf[IO[Unit] :: IO[String] :: HNil]
+    proof(cmd)
   }
 
 }
