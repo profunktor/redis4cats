@@ -4,7 +4,7 @@ import Dependencies._
 import microsites.ExtraMdFileConfig
 
 ThisBuild / scalaVersion := "2.13.5"
-ThisBuild / crossScalaVersions := Seq("2.12.13", "2.13.5", "3.0.0-RC1")
+ThisBuild / crossScalaVersions := Seq("2.12.14", "2.13.5", "3.0.0-RC1")
 Test / parallelExecution := false
 
 // publishing
