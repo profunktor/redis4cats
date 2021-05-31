@@ -77,7 +77,7 @@ object ConcurrentTransactionsDemo extends LoggerIOApp {
     //IO.race(txProgram("nix", "linux"), txProgram("foo", "bar")).void
 
     def retriableTx: IO[Unit] =
-      txProgram("foo", "bar").handleErrorWith {
+      txProgram("foo", "bar").recoverWith {
         case TransactionDiscarded => retriableTx
       }.uncancelable
 

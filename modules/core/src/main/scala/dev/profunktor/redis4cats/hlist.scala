@@ -125,8 +125,10 @@ object hlist extends TypeInequalityCompat {
     implicit def hconsUnit[T <: HList](implicit w: Filter[T]): Filter.Aux[HCons[Unit, T], w.R] =
       new Filter[HCons[Unit, T]] { type R = w.R }
 
-    implicit def hconsNotUnit[A: =!=[Unit, *], T <: HList](implicit w: Filter[T]): Filter.Aux[HCons[A, T], A :: w.R] =
+    implicit def hconsNotUnit[A: =!=[Unit, *], T <: HList](implicit w: Filter[T]): Filter.Aux[HCons[A, T], A :: w.R] = {
+      val _ = implicitly[Unit =!= A]
       new Filter[HCons[A, T]] { type R = A :: w.R }
+    }
   }
 
   /*
