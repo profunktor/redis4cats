@@ -3,18 +3,18 @@ import sbt._
 object Dependencies {
 
   object V {
-    val cats       = "2.5.0"
-    val catsEffect = "3.0.2"
-    val circe      = "0.14.0-M4"
-    val fs2        = "3.0.1"
-    val log4cats   = "2.0.1"
+    val cats       = "2.6.1"
+    val catsEffect = "3.1.1"
+    val circe      = "0.14.1"
+    val fs2        = "3.0.4"
+    val log4cats   = "2.1.1"
 
     val lettuce = "6.1.2.RELEASE"
     val logback = "1.2.3"
 
     val kindProjector = "0.13.0"
 
-    val munit = "0.7.23"
+    val munit = "0.7.26"
   }
 
   object Libraries {

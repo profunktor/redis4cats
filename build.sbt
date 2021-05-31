@@ -3,8 +3,8 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / scalaVersion := "2.13.5"
-ThisBuild / crossScalaVersions := Seq("2.12.13", "2.13.5", "3.0.0-RC1")
+ThisBuild / scalaVersion := "2.13.6"
+ThisBuild / crossScalaVersions := Seq("2.12.14", "2.13.6", "3.0.0")
 Test / parallelExecution := false
 
 // publishing
@@ -46,7 +46,7 @@ val commonSettings = Seq(
         Libraries.catsTestKit     % Test,
         Libraries.munitCore       % Test,
         Libraries.munitScalacheck % Test
-      ) ++ pred(isDotty.value, t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
+      ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
         getVersion(scalaVersion.value) == Some(2, 12),
@@ -54,7 +54,7 @@ val commonSettings = Seq(
         f = Seq.empty
       ),
   scalacOptions ++= pred(
-        isDotty.value,
+        scalaVersion.value.startsWith("3"),
         t = Seq("-source:3.0-migration"),
         f = Seq("-Wconf:any:wv")
       ),
