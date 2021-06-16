@@ -626,6 +626,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
       .futureLift
       .map(Option.apply)
 
+  override def getDel(key: K): F[Option[V]] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.getdel(key)))
+      .futureLift
+      .map(Option.apply)
+
   override def strLen(key: K): F[Option[Long]] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.strlen(key)))
