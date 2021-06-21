@@ -88,6 +88,7 @@ object RedisClusterClient {
               )
               .build()
           )
+          client.getPartitions
         case Adaptive(timeout) =>
           client.setOptions(
             ClusterClientOptions
@@ -102,6 +103,7 @@ object RedisClusterClient {
               )
               .build()
           )
+          client.getPartitions
       }
     }.void
 

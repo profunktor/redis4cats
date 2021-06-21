@@ -25,6 +25,7 @@ object config {
     val shutdown: ShutdownConfig
     val topologyViewRefreshStrategy: TopologyViewRefreshStrategy
     def withShutdown(shutdown: ShutdownConfig): Redis4CatsConfig
+    def withTopologyViewRefreshStrategy(strategy: TopologyViewRefreshStrategy): Redis4CatsConfig
   }
 
   object Redis4CatsConfig {
@@ -33,6 +34,8 @@ object config {
         topologyViewRefreshStrategy: TopologyViewRefreshStrategy = NoRefresh
     ) extends Redis4CatsConfig {
       override def withShutdown(_shutdown: ShutdownConfig): Redis4CatsConfig = copy(shutdown = _shutdown)
+      override def withTopologyViewRefreshStrategy(strategy: TopologyViewRefreshStrategy): Redis4CatsConfig =
+        copy(topologyViewRefreshStrategy = strategy)
     }
     def apply(): Redis4CatsConfig = Redis4CatsConfigImpl(ShutdownConfig())
   }
