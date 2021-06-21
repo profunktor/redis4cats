@@ -235,6 +235,11 @@ trait TestScenarios { self: FunSuite =>
       j <- cmd.expire("_not_existing_key_", 50.millis)
       _ <- IO(assertEquals(j, false))
       _ <- cmd.del("f1")
+      _ <- cmd.set("foo", "bar")
+      k <- cmd.getDel("foo")
+      _ <- IO(assertEquals(k, Some("bar")))
+      exists6 <- cmd.exists("key")
+      _ <- IO(assert(!exists6))
     } yield ()
   }
 
