@@ -24,7 +24,10 @@ import dev.profunktor.redis4cats.streams.data._
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
 import dev.profunktor.redis4cats.JavaConversions._
+import dev.profunktor.redis4cats.streams.data.StreamingOffset.{ All, Custom, Latest }
 import io.lettuce.core.{ XAddArgs, XReadArgs }
+
+import scala.concurrent.duration.Duration
 
 private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift: RedisExecutor, K, V](
     val client: StatefulRedisConnection[K, V]
@@ -37,11 +40,29 @@ private[streams] class RedisRawStreaming[F[_]: Concurrent: ContextShift: RedisEx
       Sync[F].delay(client.async().xadd(key, args.orNull, body.asJava))
     }.map(MessageId.apply)
 
-  override def xRead(streams: Set[StreamingOffset[K]]): F[List[XReadMessage[K, V]]] = {
-    val offsets = streams.map(s => StreamOffset.from(s.key, s.offset)).toSeq
-    JRFuture {
-      Sync[F].delay(client.async().xread(XReadArgs.Builder.block(0), offsets: _*))
-    }.map { list =>
+  override def xRead(
+      streams: Set[StreamingOffset[K]],
+      block: Option[Duration] = Some(Duration.Zero),
+      count: Option[Long] = None
+  ): F[List[XReadMessage[K, V]]] = {
+
+    val offsets = streams.map {
+      case All(key)            => StreamOffset.from(key, "0")
+      case Latest(key)         => StreamOffset.latest(key)
+      case Custom(key, offset) => StreamOffset.from(key, offset)
+    }.toSeq
+
+    JRFuture(
+      Sync[F].delay(
+        (block, count) match {
+          case (None, None)        => client.async().xread(offsets: _*)
+          case (None, Some(count)) => client.async().xread(XReadArgs.Builder.count(count), offsets: _*)
+          case (Some(block), None) => client.async().xread(XReadArgs.Builder.block(block.toMillis), offsets: _*)
+          case (Some(block), Some(count)) =>
+            client.async().xread(XReadArgs.Builder.block(block.toMillis).count(count), offsets: _*)
+        }
+      )
+    ).map { list =>
       list.asScala.toList.map { msg =>
         XReadMessage[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap)
       }
