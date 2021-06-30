@@ -39,15 +39,15 @@ def putStrLn(str: String): IO[Unit] = IO(println(str))
 val showResult: Option[String] => IO[Unit] =
   _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
-commandsApi.use { cmd => // StringCommands[IO, String, String]
+commandsApi.use { redis => // StringCommands[IO, String, String]
   for {
-    x <- cmd.get(usernameKey)
+    x <- redis.get(usernameKey)
     _ <- showResult(x)
-    _ <- cmd.set(usernameKey, "gvolpe")
-    y <- cmd.get(usernameKey)
+    _ <- redis.set(usernameKey, "gvolpe")
+    y <- redis.get(usernameKey)
     _ <- showResult(y)
-    _ <- cmd.setNx(usernameKey, "should not happen")
-    w <- cmd.get(usernameKey)
+    _ <- redis.setNx(usernameKey, "should not happen")
+    w <- redis.get(usernameKey)
     _ <- showResult(w)
   } yield ()
 }

@@ -35,10 +35,10 @@ import cats.effect.IO
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 
-commandsApi.use { cmd => // ScriptCommands[IO, String, String]
+commandsApi.use { redis => // ScriptCommands[IO, String, String]
   for {
     // returns a String according the value codec (the last type parameter of ScriptCommands)
-    greeting <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
+    greeting <- redis.eval("return 'Hello World'", ScriptOutputType.Value)
     _ <- putStrLn(s"Greetings from Lua: $greeting")
   } yield ()
 }

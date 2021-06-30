@@ -35,11 +35,11 @@ import cats.effect.IO
 
 val key = "users"
 
-commandsApi.use { cmd => // KeyCommands[IO, String]
+commandsApi.use { redis => // KeyCommands[IO, String]
   for {
-    _ <- cmd.del(key)
-    _ <- cmd.exists(key)
-    _ <- cmd.expire(key, Duration(5, SECONDS))
+    _ <- redis.del(key)
+    _ <- redis.exists(key)
+    _ <- redis.expire(key, Duration(5, SECONDS))
   } yield ()
 }
 ```

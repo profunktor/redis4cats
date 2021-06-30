@@ -34,8 +34,8 @@ import cats.effect.IO
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 
-commandsApi.use { cmd => // ConnectionCommands[IO]
-  cmd.ping.flatMap(putStrLn) // "pong"
+commandsApi.use { redis => // ConnectionCommands[IO]
+  redis.ping.flatMap(putStrLn) // "pong"
 }
 ```
 

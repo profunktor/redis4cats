@@ -50,7 +50,7 @@ trait Streaming[F[_], K, V] {
 
 ```scala mdoc:silent
 import cats.effect.IO
-import cats.syntax.parallel._
+import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
@@ -85,10 +85,10 @@ for {
   streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
   source    = streaming.read(Set(streamKey1, streamKey2), chunkSize = 1)
   appender  = streaming.append
-  rs <- Stream(
+  _ <- Stream(
          source.evalMap(putStrLn(_)),
          Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
-       ).parJoin(2).drain
-} yield rs
+       ).parJoin(2).void
+} yield ()
 ```
 

@@ -23,8 +23,8 @@ This statement means that given the following set of operations.
 
 ```scala
 val operations =
-  cmd.set(key1, "osx") :: cmd.set(key2, "linux") :: cmd.get(key1) ::
-    cmd.set(key1, "bar") :: cmd.set(key2, "foo") :: cmd.get(key1) :: HNil
+  redis.set(key1, "osx") :: redis.set(key2, "linux") :: redis.get(key1) ::
+    redis.set(key1, "bar") :: redis.set(key2, "foo") :: redis.get(key1) :: HNil
 ```
 
 The result of those two `get` operations will not be deterministic.
@@ -37,7 +37,6 @@ Note that every command has to be forked (`.start`) because the commands need to
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
-import cats.implicits._
 import dev.profunktor.redis4cats._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
@@ -68,17 +67,17 @@ val key3 = "testp3"
 val showResult: String => Option[String] => IO[Unit] = key =>
 _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s"$key: $s"))
 
-commandsApi.use { cmd => // RedisCommands[IO, String, String]
+commandsApi.use { redis => // RedisCommands[IO, String, String]
   val getters =
-    cmd.get(key1).flatTap(showResult(key1)) >>
-        cmd.get(key2).flatTap(showResult(key2)) >>
-        cmd.get(key3).flatTap(showResult(key3))
+    redis.get(key1).flatTap(showResult(key1)) >>
+        redis.get(key2).flatTap(showResult(key2)) >>
+        redis.get(key3).flatTap(showResult(key3))
 
    val operations =
-      cmd.set(key1, "osx") :: cmd.get(key3) :: cmd.set(key2, "linux") :: cmd.sIsMember("foo", "bar") :: HNil
+      redis.set(key1, "osx") :: redis.get(key3) :: redis.set(key2, "linux") :: redis.sIsMember("foo", "bar") :: HNil
 
     val runPipeline =
-      RedisPipeline(cmd)
+      RedisPipeline(redis)
         .filterExec(operations)
         .map {
           case res1 ~: res2 ~: HNil =>
@@ -90,14 +89,16 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
             putStrLn("[Error] - Pipeline failed")
           case _: TimeoutException =>
             putStrLn("[Error] - Timeout")
+          case e =>
+            putStrLn(s"[Error] - $e")
         }
 
   val prog =
     for {
-      _  <- cmd.set(key3, "3")
+      _  <- redis.set(key3, "3")
       _  <- runPipeline
-      v1 <- cmd.get(key1)
-      v2 <- cmd.get(key2)
+      v1 <- redis.get(key1)
+      v2 <- redis.get(key2)
     } yield {
       assert(v1.contains("osx"))
       assert(v2.contains("linux"))

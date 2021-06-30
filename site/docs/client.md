@@ -30,10 +30,9 @@ implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
 
 val commandsApi: Resource[IO, StringCommands[IO, String, String]] =
-  for {
-    client <- RedisClient[IO].from("redis://localhost")
-    redis  <- Redis[IO].fromClient(client, stringCodec)
-  } yield redis
+  RedisClient[IO]
+   .from("redis://localhost")
+   .flatMap(Redis[IO].fromClient(_, stringCodec))
 ```
 
 `Redis[IO].fromClient` returns a `Resource[IO, RedisCommands[IO, K, V]]`, but here we're downcasting to a more specific API. This is not necessary but it shows how you can have more control over what commands you want a specific function to have access to. For the `Strings API` is `StringCommands`, for `Sorted Sets API` is `SortedSetCommands`, and so on. For a complete list please take a look at the [algebras](https://github.com/profunktor/redis4cats/tree/master/modules/effects/src/main/scala/dev/profunktor/redis4cats/algebra).
@@ -193,11 +192,11 @@ val commands: Resource[IO, StringCommands[IO, String, String]] =
   for {
     uri <- Resource.eval(RedisURI.make[IO]("redis://localhost"))
     conn <- RedisMasterReplica[IO].make(RedisCodec.Utf8, uri)(ReadFrom.UpstreamPreferred.some)
-    cmds <- Redis[IO].masterReplica(conn)
-  } yield cmds
+    redis <- Redis[IO].masterReplica(conn)
+  } yield redis
 
-commands.use { cmd =>
-  cmd.set("foo", "123") >> IO.unit  // do something
+commands.use { redis =>
+  redis.set("foo", "123") >> IO.unit  // do something
 }
 ```
 

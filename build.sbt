@@ -58,7 +58,7 @@ val commonSettings = Seq(
         t = Seq("-source:3.0-migration"),
         f = Seq("-Wconf:any:wv")
       ),
-  sources in (Compile, doc) := (sources in (Compile, doc)).value,
+  Compile / doc / sources := (Compile / doc / sources).value,
   Compile / unmanagedSourceDirectories ++= {
       getVersion(scalaVersion.value) match {
         case Some((2, 12)) => Seq("scala-2.12", "scala-2")
@@ -66,7 +66,7 @@ val commonSettings = Seq(
         case _             => Seq("scala-2.13+", "scala-3")
       }
     }.map(baseDirectory.value / "src" / "main" / _),
-  scalacOptions in (Compile, doc) ++= Seq("-groups", "-implicits"),
+  Compile / doc / scalacOptions ++= Seq("-groups", "-implicits"),
   autoAPIMappings := true,
   scalafmtOnCompile := true,
   scmInfo := Some(
@@ -78,7 +78,7 @@ lazy val noPublish = Seq(
   publish := {},
   publishLocal := {},
   publishArtifact := false,
-  skip in publish := true
+  publish / skip := true
 )
 
 lazy val `redis4cats-root` = project
@@ -94,29 +94,29 @@ lazy val `redis4cats-root` = project
   )
   .settings(noPublish)
   .settings(
-    siteSubdirName in ScalaUnidoc := "api",
-    addMappingsToSiteDir(mappings in (ScalaUnidoc, packageDoc), siteSubdirName in ScalaUnidoc)
+    ScalaUnidoc / siteSubdirName := "api",
+    addMappingsToSiteDir(ScalaUnidoc / packageDoc / mappings, ScalaUnidoc / siteSubdirName)
   )
   .enablePlugins(ScalaUnidocPlugin)
 
 lazy val `redis4cats-core` = project
   .in(file("modules/core"))
   .settings(commonSettings: _*)
-  .settings(parallelExecution in Test := false)
+  .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `redis4cats-log4cats` = project
   .in(file("modules/log4cats"))
   .settings(commonSettings: _*)
   .settings(libraryDependencies += Libraries.log4CatsCore)
-  .settings(parallelExecution in Test := false)
+  .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
 
 lazy val `redis4cats-effects` = project
   .in(file("modules/effects"))
   .settings(commonSettings: _*)
-  .settings(parallelExecution in Test := false)
+  .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
 
@@ -124,7 +124,7 @@ lazy val `redis4cats-streams` = project
   .in(file("modules/streams"))
   .settings(commonSettings: _*)
   .settings(libraryDependencies += Libraries.fs2Core)
-  .settings(parallelExecution in Test := false)
+  .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
 
@@ -182,7 +182,7 @@ lazy val microsite = project
                 Map("title" -> "Code of Conduct")
               )
         ),
-    micrositeExtraMdFilesOutput := (resourceManaged in Compile).value / "jekyll",
+    micrositeExtraMdFilesOutput := (Compile / resourceManaged).value / "jekyll",
     micrositeGitterChannel := true,
     micrositeGitterChannelUrl := "profunktor-dev/redis4cats",
     micrositePushSiteWith := GitHub4s,
@@ -197,17 +197,16 @@ lazy val microsite = project
           "-Xlint:-missing-interpolator,_",
           "-Wconf:any:wv"
         ),
-    addMappingsToSiteDir(mappings in (ScalaUnidoc, packageDoc), micrositeDocumentationUrl),
-    scalacOptions in (ScalaUnidoc, unidoc) ++= Seq(
+    addMappingsToSiteDir(ScalaUnidoc / packageDoc / mappings, micrositeDocumentationUrl),
+    ScalaUnidoc / unidoc / scalacOptions ++= Seq(
           "-doc-source-url",
           scmInfo.value.get.browseUrl + "/tree/master€{FILE_PATH}.scala",
           "-sourcepath",
-          baseDirectory.in(LocalRootProject).value.getAbsolutePath,
+          (LocalRootProject / baseDirectory).value.getAbsolutePath,
           "-doc-root-content",
-          (resourceDirectory.in(Compile).value / "rootdoc.txt").getAbsolutePath
+          ((Compile / resourceDirectory).value / "rootdoc.txt").getAbsolutePath
         ),
-    unidocProjectFilter in (ScalaUnidoc, unidoc) :=
-        inAnyProject -- inProjects(examples)
+    ScalaUnidoc / unidoc / unidocProjectFilter := inAnyProject -- inProjects(examples)
   )
   .dependsOn(`redis4cats-effects`, `redis4cats-streams`, examples)
 

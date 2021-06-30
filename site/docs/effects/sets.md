@@ -38,21 +38,21 @@ def putStrLn(str: String): IO[Unit] = IO(println(str))
 
 val showResult: Set[String] => IO[Unit] = x => putStrLn(s"$testKey members: $x")
 
-commandsApi.use { cmd => // SetCommands[IO, String, String]
+commandsApi.use { redis => // SetCommands[IO, String, String]
   for {
-    x <- cmd.sMembers(testKey)
+    x <- redis.sMembers(testKey)
     _ <- showResult(x)
-    _ <- cmd.sAdd(testKey, "set value")
-    y <- cmd.sMembers(testKey)
+    _ <- redis.sAdd(testKey, "set value")
+    y <- redis.sMembers(testKey)
     _ <- showResult(y)
-    _ <- cmd.sCard(testKey).flatMap(s => putStrLn(s"size: ${s.toString}"))
-    _ <- cmd.sRem("non-existing", "random")
-    w <- cmd.sMembers(testKey)
+    _ <- redis.sCard(testKey).flatMap(s => putStrLn(s"size: ${s.toString}"))
+    _ <- redis.sRem("non-existing", "random")
+    w <- redis.sMembers(testKey)
     _ <- showResult(w)
-    _ <- cmd.sRem(testKey, "set value")
-    z <- cmd.sMembers(testKey)
+    _ <- redis.sRem(testKey, "set value")
+    z <- redis.sMembers(testKey)
     _ <- showResult(z)
-    _ <- cmd.sCard(testKey).flatMap(s => putStrLn(s"size: ${s.toString}"))
+    _ <- redis.sCard(testKey).flatMap(s => putStrLn(s"size: ${s.toString}"))
   } yield ()
 }
 ```

@@ -29,7 +29,6 @@ Below you can find a first example of transactional commands.
 
 ```scala mdoc:invisible
 import cats.effect.{IO, Resource}
-import cats.implicits._
 import dev.profunktor.redis4cats._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
@@ -62,18 +61,18 @@ val key3 = "test3"
 val showResult: String => Option[String] => IO[Unit] = key =>
   _.fold(Log[IO].info(s"Key not found: $key"))(s => Log[IO].info(s"$key: $s"))
 
-commandsApi.use { cmd => // RedisCommands[IO, String, String]
-  val tx = RedisTransaction(cmd)
+commandsApi.use { redis => // RedisCommands[IO, String, String]
+  val tx = RedisTransaction(redis)
 
-  val setters = cmd.set(key2, "delete_me") >> cmd.set(key3, "foo")
+  val setters = redis.set(key2, "delete_me") >> redis.set(key3, "foo")
 
   val getters =
-    cmd.get(key1).flatTap(showResult(key1)) >>
-      cmd.get(key2).flatTap(showResult(key2))
+    redis.get(key1).flatTap(showResult(key1)) >>
+      redis.get(key2).flatTap(showResult(key2))
 
   // the commands type is fully inferred
   // IO[Unit] :: IO[Option[String]] :: IO[Unit] :: HNil
-  val commands = cmd.set(key1, "foo") :: cmd.del(key2) :: cmd.get(key3) :: HNil
+  val commands = redis.set(key1, "foo") :: redis.del(key2) :: redis.get(key3) :: HNil
 
   // the result type is inferred as well
   // Option[String] :: HNil
@@ -91,6 +90,8 @@ commandsApi.use { cmd => // RedisCommands[IO, String, String]
           Log[IO].error("[Error] - Transaction Discarded")
         case _: TimeoutException =>
           Log[IO].error("[Error] - Timeout")
+        case e =>
+          Log[IO].error(s"[Error] - $e")
       }
 
   setters >> getters >> prog >> getters.void
@@ -112,15 +113,15 @@ The `filterExec` function filters out values of type `Unit`, which are normally 
 For example, the following transaction will result in a dead-lock:
 
 ```scala mdoc:silent
-commandsApi.use { cmd =>
-  val tx = RedisTransaction(cmd)
+commandsApi.use { redis =>
+  val tx = RedisTransaction(redis)
 
   val getters =
-    cmd.get(key1).flatTap(showResult(key1)) *>
-      cmd.get(key2).flatTap(showResult(key2))
+    redis.get(key1).flatTap(showResult(key1)) *>
+      redis.get(key2).flatTap(showResult(key2))
 
   val setters = tx.exec(
-    cmd.set(key1, "foo") :: cmd.set(key2, "bar") :: cmd.discard :: HNil
+    redis.set(key1, "foo") :: redis.set(key2, "bar") :: redis.discard :: HNil
   )
 
   getters *> setters.void *> getters.void
@@ -132,15 +133,15 @@ You should never pass a transactional command: `MULTI`, `EXEC` or `DISCARD`. The
 The following example will result in a successful transaction on Redis. Yet, the operation will end up raising the error passed as a command.
 
 ```scala mdoc:silent
-commandsApi.use { cmd =>
-  val tx = RedisTransaction(cmd)
+commandsApi.use { redis =>
+  val tx = RedisTransaction(redis)
 
   val getters =
-    cmd.get(key1).flatTap(showResult(key1)) *>
-      cmd.get(key2).flatTap(showResult(key2))
+    redis.get(key1).flatTap(showResult(key1)) *>
+      redis.get(key2).flatTap(showResult(key2))
 
   val failedTx = tx.exec(
-    cmd.set(key1, "foo") :: cmd.set(key2, "bar") :: IO.raiseError(new Exception("boom")) :: HNil
+    redis.set(key1, "foo") :: redis.set(key2, "bar") :: IO.raiseError(new Exception("boom")) :: HNil
   )
 
   getters *> failedTx.void *> getters.void
@@ -163,16 +164,16 @@ val mkRedis: Resource[IO, RedisCommands[IO, String, String]] =
 
 def txProgram(v1: String, v2: String) =
   mkRedis
-    .use { cmd =>
+    .use { redis =>
       val getters =
-        cmd.get(key1).flatTap(showResult(key1)) >>
-          cmd.get(key2).flatTap(showResult(key2)) >>
-          cmd.get(key2).flatTap(showResult(key3))
+        redis.get(key1).flatTap(showResult(key1)) >>
+          redis.get(key2).flatTap(showResult(key2)) >>
+          redis.get(key2).flatTap(showResult(key3))
 
-      val operations = cmd.set(key1, v1) :: cmd.set(key2, v2) :: HNil
+      val operations = redis.set(key1, v1) :: redis.set(key2, v2) :: HNil
 
       val prog: IO[Unit] =
-        RedisTransaction(cmd)
+        RedisTransaction(redis)
           .exec(operations)
           .void
           .onError {
@@ -182,15 +183,17 @@ def txProgram(v1: String, v2: String) =
               Log[IO].error("[Error] - Transaction Discarded")
             case _: TimeoutException =>
               Log[IO].error("[Error] - Timeout")
+            case e =>
+              Log[IO].error(s"[Error] - $e")
           }
 
-      val watching = cmd.watch(key1, key2)
+      val watching = redis.watch(key1, key2)
 
       getters >> watching >> prog >> getters >> Log[IO].info("keep doing stuff...")
     }
 ```
 
-Before executing the transaction, we invoke `cmd.watch(key1, key2)`. Next, let's run two concurrent transactions:
+Before executing the transaction, we invoke `redis.watch(key1, key2)`. Next, let's run two concurrent transactions:
 
 ```scala mdoc:silent
 IO.race(txProgram("osx", "linux"), txProgram("foo", "bar")).void
@@ -200,7 +203,7 @@ In this case, only the first transaction will be successful. The second one will
 
 ```scala mdoc:silent
 def retriableTx: IO[Unit] =
-  txProgram("foo", "bar").handleErrorWith {
+  txProgram("foo", "bar").recoverWith {
     case TransactionDiscarded => retriableTx
   }.uncancelable
 
