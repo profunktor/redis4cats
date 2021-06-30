@@ -17,6 +17,8 @@
 package dev.profunktor.redis4cats
 package streams
 
+import scala.concurrent.duration.Duration
+
 import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
@@ -84,13 +86,15 @@ class RedisStream[F[_]: Sync, K, V](rawStreaming: RedisRawStreaming[F, K, V]) ex
   override def read(
       keys: Set[K],
       chunkSize: Int,
-      initialOffset: K => StreamingOffset[K]
+      initialOffset: K => StreamingOffset[K],
+      block: Option[Duration] = Some(Duration.Zero),
+      count: Option[Long] = None
   ): Stream[F, XReadMessage[K, V]] = {
     val initial = keys.map(k => k -> initialOffset(k)).toMap
     Stream.eval(Ref.of[F, Map[K, StreamingOffset[K]]](initial)).flatMap { ref =>
       (for {
         offsets <- Stream.eval(ref.get)
-        list <- Stream.eval(rawStreaming.xRead(offsets.values.toSet))
+        list <- Stream.eval(rawStreaming.xRead(offsets.values.toSet, block, count))
         newOffsets = offsetsByKey(list).collect { case (key, Some(value)) => key -> value }.toList
         _ <- Stream.eval(newOffsets.map { case (k, v) => ref.update(_.updated(k, v)) }.sequence)
         result <- Stream.fromIterator[F](list.iterator, chunkSize)
