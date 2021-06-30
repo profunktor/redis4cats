@@ -16,7 +16,9 @@
 
 package dev.profunktor.redis4cats
 
-import io.lettuce.core.{ GeoArgs, ScriptOutputType => JScriptOutputType, ScanArgs => JScanArgs }
+import java.time.Instant
+
+import io.lettuce.core.{ GeoArgs, ScanArgs => JScanArgs, ScriptOutputType => JScriptOutputType }
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -122,6 +124,12 @@ object effects {
 
       /** Set Expiration in Seconds */
       case class Ex(duration: FiniteDuration) extends Ttl
+
+      /** Set the specified Unix time at which the key will expire, in milliseconds. */
+      case class Pxat(timestamp: Instant) extends Ttl
+
+      /** Set the specified Unix time at which the key will expire, in seconds. */
+      case class Exat(timestamp: Instant) extends Ttl
     }
   }
   case class SetArgs(existence: Option[SetArg.Existence], ttl: Option[SetArg.Ttl])
