@@ -116,19 +116,16 @@
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.Redis</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.effect.Log.NoOp._</span>
-<span class="k">import</span> <span class="nn">scala.concurrent.ExecutionContext</span>
-
-<span class="k">implicit</span> <span class="k">val</span> <span class="nv">cs</span> <span class="k">=</span> <span class="nv">IO</span><span class="o">.</span><span class="py">contextShift</span><span class="o">(</span><span class="nv">ExecutionContext</span><span class="o">.</span><span class="py">global</span><span class="o">)</span>
 
 <span class="k">val</span> <span class="nv">eventsKey</span> <span class="k">=</span> <span class="s">"events"</span>
 
 <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">simple</span><span class="o">(</span><span class="s">"redis://localhost"</span><span class="o">,</span> <span class="n">eventsCodec</span><span class="o">)</span>
-  <span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">cmd</span> <span class="k">=&gt;</span>
+  <span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span>
     <span class="k">for</span> <span class="o">{</span>
-      <span class="n">x</span> <span class="k">&lt;-</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">sCard</span><span class="o">(</span><span class="n">eventsKey</span><span class="o">)</span>
+      <span class="n">x</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">sCard</span><span class="o">(</span><span class="n">eventsKey</span><span class="o">)</span>
       <span class="k">_</span> <span class="k">&lt;-</span> <span class="nc">IO</span><span class="o">(</span><span class="nf">println</span><span class="o">(</span><span class="n">s</span><span class="s">"Number of events: $x"</span><span class="o">))</span>
-      <span class="k">_</span> <span class="k">&lt;-</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">sAdd</span><span class="o">(</span><span class="n">eventsKey</span><span class="o">,</span> <span class="nv">Event</span><span class="o">.</span><span class="py">Ack</span><span class="o">(</span><span class="mi">1</span><span class="o">),</span> <span class="nv">Event</span><span class="o">.</span><span class="py">Message</span><span class="o">(</span><span class="mi">23</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">))</span>
-      <span class="n">y</span> <span class="k">&lt;-</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">sMembers</span><span class="o">(</span><span class="n">eventsKey</span><span class="o">)</span>
+      <span class="k">_</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">sAdd</span><span class="o">(</span><span class="n">eventsKey</span><span class="o">,</span> <span class="nv">Event</span><span class="o">.</span><span class="py">Ack</span><span class="o">(</span><span class="mi">1</span><span class="o">),</span> <span class="nv">Event</span><span class="o">.</span><span class="py">Message</span><span class="o">(</span><span class="mi">23</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">))</span>
+      <span class="n">y</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">sMembers</span><span class="o">(</span><span class="n">eventsKey</span><span class="o">)</span>
       <span class="k">_</span> <span class="k">&lt;-</span> <span class="nc">IO</span><span class="o">(</span><span class="nf">println</span><span class="o">(</span><span class="n">s</span><span class="s">"Events: $y"</span><span class="o">))</span>
     <span class="o">}</span> <span class="nf">yield</span> <span class="o">()</span>
   <span class="o">}</span>

@@ -2,7 +2,7 @@
 
 <p><a href="https://github.com/profunktor/redis4cats/actions"><img src="https://github.com/profunktor/redis4cats/workflows/Build/badge.svg" alt="CI Status" /></a>
 <a href="https://gitter.im/profunktor-dev/redis4cats"><img src="https://badges.gitter.im/profunktor-dev/redis4cats.svg" alt="Gitter Chat" /></a>
-<a href="http://search.maven.org/#search%7Cga%7C1%7Credis4cats-effects"><img src="https://img.shields.io/maven-central/v/dev.profunktor/redis4cats-effects_2.12.svg" alt="Maven Central" /></a> <a href="https://typelevel.org/cats/"><img src="https://typelevel.org/cats/img/cats-badge.svg" height="40px" align="right" alt="Cats friendly" /></a>
+<a href="http://search.maven.org/#search%7Cga%7C1%7Credis4cats-effects"><img src="https://img.shields.io/maven-central/v/dev.profunktor/redis4cats-effects_2.12.svg" alt="Maven Central" /></a> <a href="https://typelevel.org/cats/"><img src="https://raw.githubusercontent.com/typelevel/cats/c23130d2c2e4a320ba4cde9a7c7895c6f217d305/docs/src/main/resources/microsite/img/cats-badge.svg" height="40px" align="right" alt="Cats friendly" /></a>
 <a href="https://mergify.io"><img src="https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/profunktor/redis4cats&amp;style=flat" alt="MergifyStatus" /></a>
 <a href="https://scala-steward.org"><img src="https://img.shields.io/badge/Scala_Steward-helping-brightgreen.svg?style=flat&amp;logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAQCAMAAAARSr4IAAAAVFBMVEUAAACHjojlOy5NWlrKzcYRKjGFjIbp293YycuLa3pYY2LSqql4f3pCUFTgSjNodYRmcXUsPD/NTTbjRS+2jomhgnzNc223cGvZS0HaSD0XLjbaSjElhIr+AAAAAXRSTlMAQObYZgAAAHlJREFUCNdNyosOwyAIhWHAQS1Vt7a77/3fcxxdmv0xwmckutAR1nkm4ggbyEcg/wWmlGLDAA3oL50xi6fk5ffZ3E2E3QfZDCcCN2YtbEWZt+Drc6u6rlqv7Uk0LdKqqr5rk2UCRXOk0vmQKGfc94nOJyQjouF9H/wCc9gECEYfONoAAAAASUVORK5CYII=" alt="Scala Steward badge" /></a></p>
 
@@ -15,17 +15,17 @@
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.Redis</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.effect.Log.Stdout._</span>
 
-<span class="k">object</span> <span class="nc">QuickStart</span> <span class="k">extends</span> <span class="nc">IOApp</span> <span class="o">{</span>
+<span class="k">object</span> <span class="nc">QuickStart</span> <span class="k">extends</span> <span class="nv">IOApp</span><span class="o">.</span><span class="py">Simple</span> <span class="o">{</span>
 
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">run</span><span class="o">(</span><span class="n">args</span><span class="k">:</span> <span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">])</span><span class="k">:</span> <span class="kt">IO</span><span class="o">[</span><span class="kt">ExitCode</span><span class="o">]</span> <span class="k">=</span>
-    <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">utf8</span><span class="o">(</span><span class="s">"redis://localhost"</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">cmd</span> <span class="k">=&gt;</span>
+  <span class="k">def</span> <span class="nf">run</span><span class="k">:</span> <span class="kt">IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
+    <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">utf8</span><span class="o">(</span><span class="s">"redis://localhost"</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span>
       <span class="k">for</span> <span class="o">{</span>
-        <span class="k">_</span> <span class="k">&lt;-</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="s">"foo"</span><span class="o">,</span> <span class="s">"123"</span><span class="o">)</span>
-        <span class="n">x</span> <span class="k">&lt;-</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="s">"foo"</span><span class="o">)</span>
-        <span class="k">_</span> <span class="k">&lt;-</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">setNx</span><span class="o">(</span><span class="s">"foo"</span><span class="o">,</span> <span class="s">"should not happen"</span><span class="o">)</span>
-        <span class="n">y</span> <span class="k">&lt;-</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="s">"foo"</span><span class="o">)</span>
+        <span class="k">_</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="s">"foo"</span><span class="o">,</span> <span class="s">"123"</span><span class="o">)</span>
+        <span class="n">x</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="s">"foo"</span><span class="o">)</span>
+        <span class="k">_</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">setNx</span><span class="o">(</span><span class="s">"foo"</span><span class="o">,</span> <span class="s">"should not happen"</span><span class="o">)</span>
+        <span class="n">y</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="s">"foo"</span><span class="o">)</span>
         <span class="k">_</span> <span class="k">&lt;-</span> <span class="nc">IO</span><span class="o">(</span><span class="nf">println</span><span class="o">(</span><span class="n">x</span> <span class="o">===</span> <span class="n">y</span><span class="o">))</span> <span class="c1">// true</span>
-      <span class="o">}</span> <span class="k">yield</span> <span class="nv">ExitCode</span><span class="o">.</span><span class="py">Success</span>
+      <span class="o">}</span> <span class="nf">yield</span> <span class="o">()</span>
     <span class="o">}</span>
 
 <span class="o">}</span>

@@ -5,17 +5,17 @@
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.Redis</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.effect.Log.Stdout._</span>
 
-<span class="k">object</span> <span class="nc">QuickStart</span> <span class="k">extends</span> <span class="nc">IOApp</span> <span class="o">{</span>
+<span class="k">object</span> <span class="nc">QuickStart</span> <span class="k">extends</span> <span class="nv">IOApp</span><span class="o">.</span><span class="py">Simple</span> <span class="o">{</span>
 
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">run</span><span class="o">(</span><span class="n">args</span><span class="k">:</span> <span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">])</span><span class="k">:</span> <span class="kt">IO</span><span class="o">[</span><span class="kt">ExitCode</span><span class="o">]</span> <span class="k">=</span>
-    <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">utf8</span><span class="o">(</span><span class="s">"redis://localhost"</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">cmd</span> <span class="k">=&gt;</span>
+  <span class="k">def</span> <span class="nf">run</span><span class="k">:</span> <span class="kt">IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
+    <span class="nc">Redis</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">utf8</span><span class="o">(</span><span class="s">"redis://localhost"</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span>
       <span class="k">for</span> <span class="o">{</span>
-        <span class="k">_</span> <span class="k">&lt;-</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="s">"foo"</span><span class="o">,</span> <span class="s">"123"</span><span class="o">)</span>
-        <span class="n">x</span> <span class="k">&lt;-</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="s">"foo"</span><span class="o">)</span>
-        <span class="k">_</span> <span class="k">&lt;-</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">setNx</span><span class="o">(</span><span class="s">"foo"</span><span class="o">,</span> <span class="s">"should not happen"</span><span class="o">)</span>
-        <span class="n">y</span> <span class="k">&lt;-</span> <span class="nv">cmd</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="s">"foo"</span><span class="o">)</span>
+        <span class="k">_</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="s">"foo"</span><span class="o">,</span> <span class="s">"123"</span><span class="o">)</span>
+        <span class="n">x</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="s">"foo"</span><span class="o">)</span>
+        <span class="k">_</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">setNx</span><span class="o">(</span><span class="s">"foo"</span><span class="o">,</span> <span class="s">"should not happen"</span><span class="o">)</span>
+        <span class="n">y</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="s">"foo"</span><span class="o">)</span>
         <span class="k">_</span> <span class="k">&lt;-</span> <span class="nc">IO</span><span class="o">(</span><span class="nf">println</span><span class="o">(</span><span class="n">x</span> <span class="o">===</span> <span class="n">y</span><span class="o">))</span> <span class="c1">// true</span>
-      <span class="o">}</span> <span class="k">yield</span> <span class="nv">ExitCode</span><span class="o">.</span><span class="py">Success</span>
+      <span class="o">}</span> <span class="nf">yield</span> <span class="o">()</span>
     <span class="o">}</span>
 
 <span class="o">}</span>
