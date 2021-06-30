@@ -18,17 +18,34 @@ package dev.profunktor.redis4cats.streams
 
 import data._
 
-// format: off
+import scala.concurrent.duration.Duration
+
 trait RawStreaming[F[_], K, V] {
 
   /**
     * @param approxMaxlen does XTRIM ~ maxlen if defined
     */
-  def xAdd(key: K, body: Map[K, V], approxMaxlen: Option[Long] = None): F[MessageId]
-  def xRead(streams: Set[StreamingOffset[K]]): F[List[XReadMessage[K, V]]]
+  def xAdd(
+      key: K,
+      body: Map[K, V],
+      approxMaxlen: Option[Long] = None
+  ): F[MessageId]
+
+  def xRead(
+      streams: Set[StreamingOffset[K]],
+      block: Option[Duration] = Some(Duration.Zero),
+      count: Option[Long] = None
+  ): F[List[XReadMessage[K, V]]]
 }
 
 trait Streaming[F[_], K, V] {
   def append: F[XAddMessage[K, V]] => F[MessageId]
-  def read(keys: Set[K], chunkSize: Int, initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K]): F[XReadMessage[K, V]]
+
+  def read(
+      keys: Set[K],
+      chunkSize: Int,
+      initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K],
+      block: Option[Duration] = Some(Duration.Zero),
+      count: Option[Long] = None
+  ): F[XReadMessage[K, V]]
 }
