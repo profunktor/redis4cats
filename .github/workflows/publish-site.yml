@@ -2,7 +2,7 @@ name: Microsite
 on:
   push:
     branches:
-      - master
+      - series/1.x # CE3
     paths:
       - "site/**"
       - "**/README.md"
