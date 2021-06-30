@@ -34,10 +34,10 @@ import cats.effect.IO
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 
-commandsApi.use { cmd => // ServerCommands[IO]
+commandsApi.use { redis => // ServerCommands[IO]
   for {
-    _ <- cmd.flushAll
-    _ <- cmd.flushAllAsync
+    _ <- redis.flushAll
+    _ <- redis.flushAllAsync
   } yield ()
 }
 ```

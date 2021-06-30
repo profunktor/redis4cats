@@ -40,18 +40,18 @@ def putStrLn(str: String): IO[Unit] = IO(println(str))
 val showResult: Option[String] => IO[Unit] =
   _.fold(putStrLn(s"Not found key: $testKey | field: $testField"))(s => putStrLn(s))
 
-commandsApi.use { cmd => // HashCommands[IO, String, String]
+commandsApi.use { redis => // HashCommands[IO, String, String]
   for {
-    x <- cmd.hGet(testKey, testField)
+    x <- redis.hGet(testKey, testField)
     _ <- showResult(x)
-    _ <- cmd.hSet(testKey, testField, "some value")
-    y <- cmd.hGet(testKey, testField)
+    _ <- redis.hSet(testKey, testField, "some value")
+    y <- redis.hGet(testKey, testField)
     _ <- showResult(y)
-    _ <- cmd.hSetNx(testKey, testField, "should not happen")
-    w <- cmd.hGet(testKey, testField)
+    _ <- redis.hSetNx(testKey, testField, "should not happen")
+    w <- redis.hGet(testKey, testField)
     _ <- showResult(w)
-    _ <- cmd.hDel(testKey, testField)
-    z <- cmd.hGet(testKey, testField)
+    _ <- redis.hDel(testKey, testField)
+    z <- redis.hGet(testKey, testField)
     _ <- showResult(z)
   } yield ()
 }

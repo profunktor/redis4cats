@@ -137,12 +137,12 @@ import dev.profunktor.redis4cats.effect.Log.NoOp._
 val eventsKey = "events"
 
 Redis[IO].simple("redis://localhost", eventsCodec)
-  .use { cmd =>
+  .use { redis =>
     for {
-      x <- cmd.sCard(eventsKey)
+      x <- redis.sCard(eventsKey)
       _ <- IO(println(s"Number of events: $x"))
-      _ <- cmd.sAdd(eventsKey, Event.Ack(1), Event.Message(23, "foo"))
-      y <- cmd.sMembers(eventsKey)
+      _ <- redis.sAdd(eventsKey, Event.Ack(1), Event.Message(23, "foo"))
+      y <- redis.sMembers(eventsKey)
       _ <- IO(println(s"Events: $y"))
     } yield ()
   }

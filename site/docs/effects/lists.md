@@ -36,18 +36,18 @@ val testKey = "listos"
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 
-commandsApi.use { cmd => // ListCommands[IO, String, String]
+commandsApi.use { redis => // ListCommands[IO, String, String]
   for {
-    _ <- cmd.rPush(testKey, "one", "two", "three")
-    x <- cmd.lRange(testKey, 0, 10)
+    _ <- redis.rPush(testKey, "one", "two", "three")
+    x <- redis.lRange(testKey, 0, 10)
     _ <- putStrLn(s"Range: $x")
-    y <- cmd.lLen(testKey)
+    y <- redis.lLen(testKey)
     _ <- putStrLn(s"Length: $y")
-    a <- cmd.lPop(testKey)
+    a <- redis.lPop(testKey)
     _ <- putStrLn(s"Left Pop: $a")
-    b <- cmd.rPop(testKey)
+    b <- redis.rPop(testKey)
     _ <- putStrLn(s"Right Pop: $b")
-    z <- cmd.lRange(testKey, 0, 10)
+    z <- redis.lRange(testKey, 0, 10)
     _ <- putStrLn(s"Range: $z")
   } yield ()
 }

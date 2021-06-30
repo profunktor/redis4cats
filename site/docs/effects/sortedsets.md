@@ -37,14 +37,14 @@ val testKey = "zztop"
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 
-commandsApi.use { cmd => // SortedSetCommands[IO, String, Long]
+commandsApi.use { redis => // SortedSetCommands[IO, String, Long]
   for {
-    _ <- cmd.zAdd(testKey, args = None, ScoreWithValue(Score(1), 1), ScoreWithValue(Score(3), 2))
-    x <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
+    _ <- redis.zAdd(testKey, args = None, ScoreWithValue(Score(1), 1), ScoreWithValue(Score(3), 2))
+    x <- redis.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
     _ <- putStrLn(s"Score: $x")
-    y <- cmd.zCard(testKey)
+    y <- redis.zCard(testKey)
     _ <- putStrLn(s"Size: $y")
-    z <- cmd.zCount(testKey, ZRange(0, 1))
+    z <- redis.zCount(testKey, ZRange(0, 1))
     _ <- putStrLn(s"Count: $z")
   } yield ()
 }

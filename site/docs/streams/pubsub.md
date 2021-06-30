@@ -53,7 +53,8 @@ When using the `PubSub` interpreter the `publish` function will be defined as a 
 ### PubSub example
 
 ```scala mdoc:silent
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect._
+import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.pubsub.PubSub
@@ -65,7 +66,7 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import scala.concurrent.duration._
 import scala.util.Random
 
-object PubSubDemo extends IOApp {
+object PubSubDemo extends IOApp.Simple {
 
   implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
@@ -84,7 +85,7 @@ object PubSubDemo extends IOApp {
       sub2   = pubSub.subscribe(gamesChannel)
       pub1   = pubSub.publish(eventsChannel)
       pub2   = pubSub.publish(gamesChannel)
-      rs  <- Stream(
+      _  <- Stream(
              sub1.through(sink("#events")),
              sub2.through(sink("#games")),
              Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
@@ -93,11 +94,10 @@ object PubSubDemo extends IOApp {
              Stream.awakeEvery[IO](6.seconds) >> pubSub
                .pubSubSubscriptions(List(eventsChannel, gamesChannel))
                .evalMap(x => IO(println(x)))
-           ).parJoin(6).drain
-    } yield rs
+           ).parJoin(6).void
+    } yield ()
 
-  override def run(args: List[String]): IO[ExitCode] =
-    program.compile.drain.as(ExitCode.Success)
+  def run: IO[Unit] = program.compile.drain
 
 }
 ```
