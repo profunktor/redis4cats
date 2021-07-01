@@ -32,7 +32,7 @@ import scala.annotation.implicitNotFound
   * Users only need a `MkRedis` constraint and `MonadThrow` to create a `Redis` instance.
   */
 @implicitNotFound(
-  "MkRedis instance not found. You can summon one by having instances for cats.effect.Async and dev.profunktor.redis4cats.effects.Log in scope"
+  "MkRedis instance not found. You can summon one by having instances for cats.effect.Async and dev.profunktor.redis4cats.effect.Log in scope"
 )
 sealed trait MkRedis[F[_]] {
   def clientFrom(strUri: => String): Resource[F, RedisClient]
