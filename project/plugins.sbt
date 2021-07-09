@@ -4,7 +4,7 @@ resolvers += "Typesafe Repository" at "https://repo.typesafe.com/typesafe/releas
 addSbtPlugin("com.geirsson"              % "sbt-ci-release" % "1.5.7")
 addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat"   % "0.1.20")
 addSbtPlugin("de.heikoseeberger"         % "sbt-header"     % "5.6.0")
-addSbtPlugin("org.scalameta"             % "sbt-scalafmt"   % "2.4.2")
+addSbtPlugin("org.scalameta"             % "sbt-scalafmt"   % "2.4.3")
 addSbtPlugin("com.47deg"                 % "sbt-microsites" % "1.3.4")
 addSbtPlugin("org.scalameta"             % "sbt-mdoc"       % "2.2.21")
 addSbtPlugin("com.scalapenos"            % "sbt-prompt"     % "1.0.2")
