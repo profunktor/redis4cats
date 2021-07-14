@@ -32,6 +32,7 @@ trait Getter[F[_], K, V] {
   def get(key: K): F[Option[V]]
   def getBit(key: K, offset: Long): F[Option[Long]]
   def getRange(key: K, start: Long, end: Long): F[Option[V]]
+  def getDel(key: K): F[Option[V]]
   def strLen(key: K): F[Option[Long]]
 }
 
