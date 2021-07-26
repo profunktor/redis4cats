@@ -567,7 +567,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
 
   override def setEx(key: K, value: V, expiresIn: FiniteDuration): F[Unit] = {
     val command = expiresIn.unit match {
-      case TimeUnit.MILLISECONDS =>
+      case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS =>
         async.flatMap(c => RedisExecutor[F].delay(c.psetex(key, expiresIn.toMillis, value)))
       case _ =>
         async.flatMap(c => RedisExecutor[F].delay(c.setex(key, expiresIn.toSeconds, value)))
