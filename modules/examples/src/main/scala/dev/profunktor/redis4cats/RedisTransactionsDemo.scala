@@ -17,7 +17,6 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
-import cats.syntax.all._
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.log4cats._
 import dev.profunktor.redis4cats.transactions._
