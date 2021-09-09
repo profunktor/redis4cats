@@ -44,7 +44,7 @@ object PubSubDemo extends LoggerIOApp {
       pub1 = pubSub.publish(eventsChannel)
       pub2 = pubSub.publish(gamesChannel)
     } yield Stream(
-      sub1.take(1).through(sink("#events")),
+      sub1.through(sink("#events")),
       sub2.through(sink("#games")),
       Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
       Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
