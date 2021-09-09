@@ -49,14 +49,19 @@ object PubSubInternals {
   ): GetOrCreateTopicListener[F, K, V] = { channel => st =>
     st.get(channel.underlying)
       .fold {
-        Dispatcher[F].evalMap { dispatcher =>
-          Topic[F, Option[V]].flatTap { topic =>
-            val listener = defaultListener(channel, topic, dispatcher)
-            Log[F].info(s"Creating listener for channel: $channel") *>
-              Sync[F].delay(subConnection.addListener(listener)) *>
-              state.update(_.updated(channel.underlying, topic))
-          }
-        }
+        for {
+          dispatcher <- Dispatcher[F]
+          topic <- Resource.eval(Topic[F, Option[V]])
+          _ <- Resource.eval(Log[F].info(s"Creating listener for channel: $channel"))
+          listener = defaultListener(channel, topic, dispatcher)
+          _ <- Resource.make {
+                Sync[F].delay(subConnection.addListener(listener)) *>
+                  state.update(_.updated(channel.underlying, topic))
+              } { _ =>
+                Sync[F].delay(subConnection.removeListener(listener)) *>
+                  state.update(_ - channel.underlying)
+              }
+        } yield topic
       }(Resource.pure)
   }
 
