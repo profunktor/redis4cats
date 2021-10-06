@@ -18,29 +18,32 @@ package dev.profunktor.redis4cats
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-
 import cats.Applicative
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.syntax.all._
+import dev.profunktor.redis4cats.algebra.BitFieldOperation
+import dev.profunktor.redis4cats.algebra.BitFieldOperation.BitFieldOp
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import dev.profunktor.redis4cats.effect.JRFuture._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.transactions.TransactionDiscarded
+import io.lettuce.core.BitFieldArgs.BitFieldType
 import io.lettuce.core.{
+  BitFieldArgs,
   ClientOptions,
   GeoArgs,
   GeoRadiusStoreArgs,
   GeoWithin,
-  ScanCursor => JScanCursor,
   ScoredValue,
   ZAddArgs,
   ZStoreArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
+  ScanCursor => JScanCursor,
   SetArgs => JSetArgs
 }
 import io.lettuce.core.api.async.RedisAsyncCommands
@@ -573,6 +576,12 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
     command.futureLift.void
   }
 
+  override def setBit(key: K, offset: Long, value: Int): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.setbit(key, offset, value)))
+      .futureLift
+      .map(x => Long.box(x))
+
   override def setRange(key: K, value: V, offset: Long): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.setrange(key, offset, value))).futureLift.void
 
@@ -686,6 +695,26 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
 
   override def bitOpXor(destination: K, sources: K*): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.bitopXor(destination, sources: _*))).futureLift.void
+
+  /*
+  TODO: This is in development as I'm studiying the usage of "BitFieldArgs" from Lettuce
+  Refs
+  - https://lettuce.io/core/5.0.0.M2/api/io/lettuce/core/api/sync/RedisStringCommands.html
+  - https://lettuce.io/core/5.0.0.M2/api/io/lettuce/core/api/sync/RedisStringCommands.html#bitfield-K-io.lettuce.core.BitFieldArgs-
+  - https://lettuce.io/core/5.0.0.M2/api/io/lettuce/core/BitFieldArgs.html
+
+  override def bitField(key: K, operations: (BitFieldOp, String, Long, Int)*): F[List[Long]] =
+    async.flatMap(c => RedisExecutor[F].delay(c.bitfield(key, {
+      operations.map { case (operation, fieldType, offset, value) =>
+        operation match {
+          case BitFieldOperation.SET =>
+            val args = new BitFieldArgs()
+            // args.set(fieldType, offset, value)
+            // new BitFieldArgs().set(offset, value)
+        }
+      }: _*
+    }))).futureLift
+   */
 
   /******************************* Hashes API **********************************/
   override def hDel(key: K, fields: K*): F[Long] =
@@ -1503,7 +1532,6 @@ private[redis4cats] trait RedisConversionOps {
       case duration: FiniteDuration => duration.toSeconds
     }
   }
-
 }
 
 private[redis4cats] class Redis[F[_]: Concurrent: ContextShift: RedisExecutor: Log, K, V](

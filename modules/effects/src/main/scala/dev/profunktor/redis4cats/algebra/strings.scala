@@ -43,6 +43,7 @@ trait Setter[F[_], K, V] {
   def setNx(key: K, value: V): F[Boolean]
   def setEx(key: K, value: V, expiresIn: FiniteDuration): F[Unit]
   def setRange(key: K, value: V, offset: Long): F[Unit]
+  def setBit(key: K, offset: Long, value: Int): F[Long]
 }
 
 trait MultiKey[F[_], K, V] {
