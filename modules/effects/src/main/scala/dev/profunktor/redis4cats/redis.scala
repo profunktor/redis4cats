@@ -16,21 +16,21 @@
 
 package dev.profunktor.redis4cats
 
-import java.time.Instant
-import java.util.concurrent.TimeUnit
 import cats.Applicative
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.syntax.all._
-import dev.profunktor.redis4cats.algebra.BitFieldOperation
-import dev.profunktor.redis4cats.algebra.BitFieldOperation.BitFieldOp
+import dev.profunktor.redis4cats.algebra.BitCommandOperation
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.Overflows
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import dev.profunktor.redis4cats.effect.JRFuture._
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.transactions.TransactionDiscarded
-import io.lettuce.core.BitFieldArgs.BitFieldType
+import io.lettuce.core.api.async.RedisAsyncCommands
+import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
+import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 import io.lettuce.core.{
   BitFieldArgs,
   ClientOptions,
@@ -46,10 +46,9 @@ import io.lettuce.core.{
   ScanCursor => JScanCursor,
   SetArgs => JSetArgs
 }
-import io.lettuce.core.api.async.RedisAsyncCommands
-import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
-import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 
+import java.time.Instant
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 
 object Redis {
@@ -364,7 +363,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
   def sync: F[RedisClusterSyncCommands[K, V]] =
     if (cluster) conn.clusterSync else conn.sync.widen
 
-  /******************************* Keys API *************************************/
+  /** ***************************** Keys API ************************************ */
   def del(key: K*): F[Long] =
     async.flatMap(c => RedisExecutor[F].delay(c.del(key: _*))).futureLift.map(x => Long.box(x))
 
@@ -467,7 +466,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
       .futureLift
       .map(KeyScanCursor[K])
 
-  /******************************* Transactions API **********************************/
+  /** ***************************** Transactions API ********************************* */
   // When in a cluster, transactions should run against a single node.
 
   def multi: F[Unit] =
@@ -518,7 +517,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
       .futureLift
       .void
 
-  /******************************* AutoFlush API **********************************/
+  /** ***************************** AutoFlush API ********************************* */
   override def enableAutoFlush: F[Unit] =
     RedisExecutor[F].eval(async.flatMap(c => RedisExecutor[F].delay(c.setAutoFlushCommands(true))))
 
@@ -528,7 +527,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
   override def flushCommands: F[Unit] =
     RedisExecutor[F].eval(async.flatMap(c => RedisExecutor[F].delay(c.flushCommands())))
 
-  /******************************* Strings API **********************************/
+  /** ***************************** Strings API ********************************* */
   override def append(key: K, value: V): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.append(key, value))).futureLift.void
 
@@ -696,27 +695,37 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
   override def bitOpXor(destination: K, sources: K*): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.bitopXor(destination, sources: _*))).futureLift.void
 
-  /*
-  TODO: This is in development as I'm studiying the usage of "BitFieldArgs" from Lettuce
-  Refs
-  - https://lettuce.io/core/5.0.0.M2/api/io/lettuce/core/api/sync/RedisStringCommands.html
-  - https://lettuce.io/core/5.0.0.M2/api/io/lettuce/core/api/sync/RedisStringCommands.html#bitfield-K-io.lettuce.core.BitFieldArgs-
-  - https://lettuce.io/core/5.0.0.M2/api/io/lettuce/core/BitFieldArgs.html
+  override def bitField(key: K, operations: BitCommandOperation*): F[List[Long]] =
+    async
+      .flatMap(c =>
+        RedisExecutor[F].delay(
+          c.bitfield(
+            key,
+            operations.foldLeft(new BitFieldArgs()) {
+              case (b, BitCommandOperation.Get(fieldType, offset)) =>
+                b.get(fieldType, offset)
+              case (b, BitCommandOperation.SetSigned(offset, value, bits)) =>
+                b.set(BitFieldArgs.signed(bits), offset, value)
+              case (b, BitCommandOperation.SetUnsigned(offset, value, bits)) =>
+                b.set(BitFieldArgs.unsigned(bits), offset, value)
+              case (b, BitCommandOperation.IncrSignedBy(offset, value, bits)) =>
+                b.incrBy(BitFieldArgs.signed(bits), offset, value)
+              case (b, BitCommandOperation.IncrUnsignedBy(offset, value, bits)) =>
+                b.incrBy(BitFieldArgs.unsigned(bits), offset, value)
+              case (b, BitCommandOperation.Overflow(Overflows.SAT)) =>
+                b.overflow(BitFieldArgs.OverflowType.SAT)
+              case (b, BitCommandOperation.Overflow(Overflows.WRAP)) =>
+                b.overflow(BitFieldArgs.OverflowType.WRAP)
+              case (b, BitCommandOperation.Overflow(_)) =>
+                b.overflow(BitFieldArgs.OverflowType.FAIL)
+            }
+          )
+        )
+      )
+      .futureLift
+      .map(_.asScala.toList.map(_.toLong))
 
-  override def bitField(key: K, operations: (BitFieldOp, String, Long, Int)*): F[List[Long]] =
-    async.flatMap(c => RedisExecutor[F].delay(c.bitfield(key, {
-      operations.map { case (operation, fieldType, offset, value) =>
-        operation match {
-          case BitFieldOperation.SET =>
-            val args = new BitFieldArgs()
-            // args.set(fieldType, offset, value)
-            // new BitFieldArgs().set(offset, value)
-        }
-      }: _*
-    }))).futureLift
-   */
-
-  /******************************* Hashes API **********************************/
+  /** ***************************** Hashes API ********************************* */
   override def hDel(key: K, fields: K*): F[Long] =
     async.flatMap(c => RedisExecutor[F].delay(c.hdel(key, fields: _*))).futureLift.map(x => Long.box(x))
 
@@ -792,7 +801,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
       .futureLift
       .map(x => Double.box(x))
 
-  /******************************* Sets API **********************************/
+  /** ***************************** Sets API ********************************* */
   override def sIsMember(key: K, value: V): F[Boolean] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.sismember(key, value)))
@@ -871,7 +880,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
   override def sUnionStore(destination: K, keys: K*): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.sunionstore(destination, keys: _*))).futureLift.void
 
-  /******************************* Lists API **********************************/
+  /** ***************************** Lists API ********************************* */
   override def lIndex(key: K, index: Long): F[Option[V]] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.lindex(key, index)))
@@ -953,7 +962,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
   override def lTrim(key: K, start: Long, stop: Long): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.ltrim(key, start, stop))).futureLift.void
 
-  /******************************* Geo API **********************************/
+  /** ***************************** Geo API ********************************* */
   override def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.geodist(key, from, to, unit)))
@@ -1075,7 +1084,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
       .futureLift
       .void
 
-  /******************************* Sorted Sets API **********************************/
+  /** ***************************** Sorted Sets API ********************************* */
   override def zAdd(key: K, args: Option[ZAddArgs], values: ScoreWithValue[V]*): F[Long] = {
     val res = args match {
       case Some(x) =>
@@ -1299,7 +1308,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
       .futureLift
       .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
-  /******************************* Connection API **********************************/
+  /** ***************************** Connection API ********************************* */
   override val ping: F[String] =
     async.flatMap(c => Sync[F].delay(c.ping())).futureLift
 
@@ -1318,7 +1327,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
       .futureLift
       .map(_ == "OK")
 
-  /******************************* Server API **********************************/
+  /** ***************************** Server API ********************************* */
   override val flushAll: F[Unit] =
     async.flatMap(c => Sync[F].delay(c.flushall())).futureLift.void
 
@@ -1456,7 +1465,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
 
   override def digest(script: String): F[String] = async.flatMap(c => Sync[F].delay(c.digest(script)))
 
-  /** ***************************** HyperLoglog API **********************************/
+  /** ***************************** HyperLoglog API ********************************* */
   override def pfAdd(key: K, values: V*): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.pfadd(key, values: _*)))
@@ -1516,6 +1525,7 @@ private[redis4cats] trait RedisConversionOps {
         case f: Float => f
         case _        => implicitly[Numeric[T]].toDouble(t)
       }
+
       val start: Number = toJavaNumber(range.start)
       val end: Number   = toJavaNumber(range.end)
       JRange.create(start, end)

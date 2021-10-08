@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
-import dev.profunktor.redis4cats.algebra.{ BitFieldOperation, BitFieldOperation }
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrUnsignedBy, SetUnsigned }
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 
 object RedisBitSetsDemo extends LoggerIOApp {
@@ -52,14 +52,15 @@ object RedisBitSetsDemo extends LoggerIOApp {
         _ <- putStrLn(s"The answer to everything is $truth")
         bf <- cmd.bitField(
                "inmap",
-               (BitFieldOperation.SET, "u1", 2, 1),
-               (BitFieldOperation.SET, "u1", 3, 1),
-               (BitFieldOperation.SET, "u1", 5, 1),
-               (BitFieldOperation.SET, "u1", 10, 1),
-               (BitFieldOperation.SET, "u1", 11, 1),
-               (BitFieldOperation.SET, "u1", 14, 1)
+               SetUnsigned(2, 1),
+               SetUnsigned(3, 1),
+               SetUnsigned(5, 1),
+               SetUnsigned(10, 1),
+               SetUnsigned(11, 1),
+               SetUnsigned(14, 1),
+               IncrUnsignedBy(14, 1)
              )
-        _ <- putStrLn("Via bitfield $bf")
+        _ <- putStrLn(s"Via bitfield $bf")
       } yield ()
     }
   }

@@ -16,13 +16,30 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.redis4cats.algebra.BitFieldOperation.BitFieldOp
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.Overflows.Overflows
+import io.lettuce.core.BitFieldArgs.BitFieldType
 
-object BitFieldOperation extends Enumeration {
-  type BitFieldOp = Value
-  val SET, GET = Value
+sealed trait BitCommandOperation
+
+object BitCommandOperation {
+  final case class Get(bitFieldType: BitFieldType, offset: Int) extends BitCommandOperation
+
+  final case class SetSigned(offset: Int, value: Long, bits: Int = 1) extends BitCommandOperation
+
+  final case class SetUnsigned(offset: Int, value: Long, bits: Int = 1) extends BitCommandOperation
+
+  final case class IncrSignedBy(offset: Int, increment: Long, bits: Int = 1) extends BitCommandOperation
+  final case class IncrUnsignedBy(offset: Int, increment: Long, bits: Int = 1) extends BitCommandOperation
+
+  final case class Overflow(overflow: Overflows) extends BitCommandOperation
+
+  object Overflows extends Enumeration {
+    type Overflows = Value
+    val WRAP, SAT, FAIL = Value
+  }
 }
 
 trait BitCommands[F[_], K, V] {
-  def bitField(key: K, operations: (BitFieldOp, String, Long, Int)*): F[Unit]
+
+  def bitField(key: K, operations: BitCommandOperation*): F[List[Long]]
 }
