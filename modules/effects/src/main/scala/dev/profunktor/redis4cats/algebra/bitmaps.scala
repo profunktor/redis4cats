@@ -29,6 +29,7 @@ object BitCommandOperation {
   final case class SetUnsigned(offset: Int, value: Long, bits: Int = 1) extends BitCommandOperation
 
   final case class IncrSignedBy(offset: Int, increment: Long, bits: Int = 1) extends BitCommandOperation
+
   final case class IncrUnsignedBy(offset: Int, increment: Long, bits: Int = 1) extends BitCommandOperation
 
   final case class Overflow(overflow: Overflows) extends BitCommandOperation
@@ -40,6 +41,27 @@ object BitCommandOperation {
 }
 
 trait BitCommands[F[_], K, V] {
+  def bitCount(key: K): F[Long]
+
+  def bitCount(key: K, start: Long, end: Long): F[Long]
 
   def bitField(key: K, operations: BitCommandOperation*): F[List[Long]]
+
+  def bitOpAnd(destination: K, sources: K*): F[Unit]
+
+  def bitOpNot(destination: K, source: K): F[Unit]
+
+  def bitOpOr(destination: K, sources: K*): F[Unit]
+
+  def bitOpXor(destination: K, sources: K*): F[Unit]
+
+  def bitPos(key: K, state: Boolean): F[Long]
+
+  def bitPos(key: K, state: Boolean, start: Long): F[Long]
+
+  def bitPos(key: K, state: Boolean, start: Long, end: Long): F[Long]
+
+  def getBit(key: K, offset: Long): F[Option[Long]]
+
+  def setBit(key: K, offset: Long, value: Int): F[Long]
 }

@@ -26,11 +26,9 @@ trait StringCommands[F[_], K, V]
     with MultiKey[F, K, V]
     with Decrement[F, K, V]
     with Increment[F, K, V]
-    with Bits[F, K, V]
 
 trait Getter[F[_], K, V] {
   def get(key: K): F[Option[V]]
-  def getBit(key: K, offset: Long): F[Option[Long]]
   def getRange(key: K, start: Long, end: Long): F[Option[V]]
   def strLen(key: K): F[Option[Long]]
 }
@@ -43,7 +41,6 @@ trait Setter[F[_], K, V] {
   def setNx(key: K, value: V): F[Boolean]
   def setEx(key: K, value: V, expiresIn: FiniteDuration): F[Unit]
   def setRange(key: K, value: V, offset: Long): F[Unit]
-  def setBit(key: K, offset: Long, value: Int): F[Long]
 }
 
 trait MultiKey[F[_], K, V] {
@@ -61,16 +58,4 @@ trait Increment[F[_], K, V] {
   def incr(key: K)(implicit N: Numeric[V]): F[Long]
   def incrBy(key: K, amount: Long)(implicit N: Numeric[V]): F[Long]
   def incrByFloat(key: K, amount: Double)(implicit N: Numeric[V]): F[Double]
-}
-
-trait Bits[F[_], K, V] {
-  def bitCount(key: K): F[Long]
-  def bitCount(key: K, start: Long, end: Long): F[Long]
-  def bitPos(key: K, state: Boolean): F[Long]
-  def bitPos(key: K, state: Boolean, start: Long): F[Long]
-  def bitPos(key: K, state: Boolean, start: Long, end: Long): F[Long]
-  def bitOpAnd(destination: K, sources: K*): F[Unit]
-  def bitOpNot(destination: K, source: K): F[Unit]
-  def bitOpOr(destination: K, sources: K*): F[Unit]
-  def bitOpXor(destination: K, sources: K*): F[Unit]
 }
