@@ -35,6 +35,8 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("sorted sets api")(withAbstractRedis(sortedSetsScenario)(RedisCodec(LongCodec)))
 
+  test("bitmaps api")(withRedis(bitmapsScenario))
+
   test("strings api")(withRedis(stringsScenario))
 
   test("connection api")(withRedis(connectionScenario))

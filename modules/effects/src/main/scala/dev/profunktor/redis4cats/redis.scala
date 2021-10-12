@@ -16,37 +16,39 @@
 
 package dev.profunktor.redis4cats
 
-import java.time.Instant
-import java.util.concurrent.TimeUnit
-
 import cats.Applicative
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.syntax.all._
+import dev.profunktor.redis4cats.algebra.BitCommandOperation
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.Overflows
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import dev.profunktor.redis4cats.effect.JRFuture._
+import dev.profunktor.redis4cats.effect.{ JRFuture, Log, RedisExecutor }
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.transactions.TransactionDiscarded
+import io.lettuce.core.api.async.RedisAsyncCommands
+import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
+import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 import io.lettuce.core.{
+  BitFieldArgs,
   ClientOptions,
   GeoArgs,
   GeoRadiusStoreArgs,
   GeoWithin,
-  ScanCursor => JScanCursor,
   ScoredValue,
   ZAddArgs,
   ZStoreArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
+  ScanCursor => JScanCursor,
   SetArgs => JSetArgs
 }
-import io.lettuce.core.api.async.RedisAsyncCommands
-import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
-import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 
+import java.time.Instant
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 
 object Redis {
@@ -612,12 +614,6 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
       .futureLift
       .map(Option.apply)
 
-  override def getBit(key: K, offset: Long): F[Option[Long]] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.getbit(key, offset)))
-      .futureLift
-      .map(x => Option(Long.unbox(x)))
-
   override def getRange(key: K, start: Long, end: Long): F[Option[V]] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.getrange(key, start, end)))
@@ -644,48 +640,6 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
       .flatMap(c => RedisExecutor[F].delay(c.msetnx(keyValues.asJava)))
       .futureLift
       .map(x => Boolean.box(x))
-
-  override def bitCount(key: K): F[Long] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.bitcount(key)))
-      .futureLift
-      .map(x => Long.box(x))
-
-  override def bitCount(key: K, start: Long, end: Long): F[Long] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.bitcount(key, start, end)))
-      .futureLift
-      .map(x => Long.box(x))
-
-  override def bitPos(key: K, state: Boolean): F[Long] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state)))
-      .futureLift
-      .map(x => Long.box(x))
-
-  override def bitPos(key: K, state: Boolean, start: Long): F[Long] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state, start)))
-      .futureLift
-      .map(x => Long.box(x))
-
-  override def bitPos(key: K, state: Boolean, start: Long, end: Long): F[Long] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state, start, end)))
-      .futureLift
-      .map(x => Long.box(x))
-
-  override def bitOpAnd(destination: K, sources: K*): F[Unit] =
-    async.flatMap(c => RedisExecutor[F].delay(c.bitopAnd(destination, sources: _*))).futureLift.void
-
-  override def bitOpNot(destination: K, source: K): F[Unit] =
-    async.flatMap(c => RedisExecutor[F].delay(c.bitopNot(destination, source))).futureLift.void
-
-  override def bitOpOr(destination: K, sources: K*): F[Unit] =
-    async.flatMap(c => RedisExecutor[F].delay(c.bitopOr(destination, sources: _*))).futureLift.void
-
-  override def bitOpXor(destination: K, sources: K*): F[Unit] =
-    async.flatMap(c => RedisExecutor[F].delay(c.bitopXor(destination, sources: _*))).futureLift.void
 
   /******************************* Hashes API **********************************/
   override def hDel(key: K, fields: K*): F[Long] =
@@ -923,6 +877,91 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
 
   override def lTrim(key: K, start: Long, stop: Long): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.ltrim(key, start, stop))).futureLift.void
+
+  /******************************* Bitmaps API **********************************/
+  override def bitCount(key: K): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.bitcount(key)))
+      .futureLift
+      .map(x => Long.box(x))
+
+  override def bitCount(key: K, start: Long, end: Long): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.bitcount(key, start, end)))
+      .futureLift
+      .map(x => Long.box(x))
+
+  override def bitField(key: K, operations: BitCommandOperation*): F[List[Long]] =
+    async
+      .flatMap(c =>
+        RedisExecutor[F].delay(
+          c.bitfield(
+            key,
+            operations.foldLeft(new BitFieldArgs()) {
+              case (b, BitCommandOperation.Get(fieldType, offset)) =>
+                b.get(fieldType, offset)
+              case (b, BitCommandOperation.SetSigned(offset, value, bits)) =>
+                b.set(BitFieldArgs.signed(bits), offset, value)
+              case (b, BitCommandOperation.SetUnsigned(offset, value, bits)) =>
+                b.set(BitFieldArgs.unsigned(bits), offset, value)
+              case (b, BitCommandOperation.IncrSignedBy(offset, value, bits)) =>
+                b.incrBy(BitFieldArgs.signed(bits), offset, value)
+              case (b, BitCommandOperation.IncrUnsignedBy(offset, value, bits)) =>
+                b.incrBy(BitFieldArgs.unsigned(bits), offset, value)
+              case (b, BitCommandOperation.Overflow(Overflows.SAT)) =>
+                b.overflow(BitFieldArgs.OverflowType.SAT)
+              case (b, BitCommandOperation.Overflow(Overflows.WRAP)) =>
+                b.overflow(BitFieldArgs.OverflowType.WRAP)
+              case (b, BitCommandOperation.Overflow(_)) =>
+                b.overflow(BitFieldArgs.OverflowType.FAIL)
+            }
+          )
+        )
+      )
+      .futureLift
+      .map(_.asScala.toList.map(_.toLong))
+
+  override def bitPos(key: K, state: Boolean): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state)))
+      .futureLift
+      .map(x => Long.box(x))
+
+  override def bitPos(key: K, state: Boolean, start: Long): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state, start)))
+      .futureLift
+      .map(x => Long.box(x))
+
+  override def bitPos(key: K, state: Boolean, start: Long, end: Long): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state, start, end)))
+      .futureLift
+      .map(x => Long.box(x))
+
+  override def bitOpAnd(destination: K, sources: K*): F[Unit] =
+    async.flatMap(c => RedisExecutor[F].delay(c.bitopAnd(destination, sources: _*))).futureLift.void
+
+  override def bitOpNot(destination: K, source: K): F[Unit] =
+    async.flatMap(c => RedisExecutor[F].delay(c.bitopNot(destination, source))).futureLift.void
+
+  override def bitOpOr(destination: K, sources: K*): F[Unit] =
+    async.flatMap(c => RedisExecutor[F].delay(c.bitopOr(destination, sources: _*))).futureLift.void
+
+  override def bitOpXor(destination: K, sources: K*): F[Unit] =
+    async.flatMap(c => RedisExecutor[F].delay(c.bitopXor(destination, sources: _*))).futureLift.void
+
+  override def getBit(key: K, offset: Long): F[Option[Long]] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.getbit(key, offset)))
+      .futureLift
+      .map(x => Option(Long.unbox(x)))
+
+  override def setBit(key: K, offset: Long, value: Int): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.setbit(key, offset, value)))
+      .futureLift
+      .map(x => Long.box(x))
 
   /******************************* Geo API **********************************/
   override def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double] =
@@ -1427,7 +1466,7 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
 
   override def digest(script: String): F[String] = async.flatMap(c => Sync[F].delay(c.digest(script)))
 
-  /** ***************************** HyperLoglog API **********************************/
+  /******************************* HyperLoglog API **********************************/
   override def pfAdd(key: K, values: V*): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.pfadd(key, values: _*)))
@@ -1487,6 +1526,7 @@ private[redis4cats] trait RedisConversionOps {
         case f: Float => f
         case _        => implicitly[Numeric[T]].toDouble(t)
       }
+
       val start: Number = toJavaNumber(range.start)
       val end: Number   = toJavaNumber(range.end)
       JRange.create(start, end)
@@ -1503,7 +1543,6 @@ private[redis4cats] trait RedisConversionOps {
       case duration: FiniteDuration => duration.toSeconds
     }
   }
-
 }
 
 private[redis4cats] class Redis[F[_]: Concurrent: ContextShift: RedisExecutor: Log, K, V](
