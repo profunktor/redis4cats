@@ -18,10 +18,11 @@ package dev.profunktor.redis4cats
 
 import java.time.Instant
 import java.util.concurrent.TimeoutException
-
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrUnsignedBy, SetUnsigned }
+import dev.profunktor.redis4cats.algebra.BitCommands
 import dev.profunktor.redis4cats.data.KeyScanCursor
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects._
@@ -289,6 +290,57 @@ trait TestScenarios { self: FunSuite =>
         }
 
     args.fold(cmd.scan)(cmd.scan).flatMap(scanRec(_, List.empty, 0))
+  }
+
+  def bitmapsScenario(cmd: BitCommands[IO, String, String]): IO[Unit] = {
+    val key       = "foo"
+    val secondKey = "bar"
+    val thirdKey  = "baz"
+    for {
+      _ <- cmd.setBit(key, 0, 1)
+      oneBit <- cmd.getBit(key, 0)
+      _ <- IO(assertEquals(oneBit, Some(1.toLong)))
+      _ <- cmd.setBit(key, 1, 1)
+      bitLen <- cmd.bitCount(key)
+      _ <- IO(assertEquals(bitLen, 2.toLong))
+      bitLen2 <- cmd.bitCount(key, 0, 2)
+      _ <- IO(assertEquals(bitLen2, 2.toLong))
+      _ <- cmd.setBit(key, 0, 1)
+      _ <- cmd.setBit(secondKey, 0, 1)
+      _ <- cmd.bitOpAnd(thirdKey, key, secondKey)
+      r <- cmd.getBit(thirdKey, 0)
+      _ <- IO(assertEquals(r, Some(1.toLong)))
+      _ <- cmd.bitOpNot(thirdKey, key)
+      r2 <- cmd.getBit(thirdKey, 0)
+      _ <- IO(assertEquals(r2, Some(0.toLong)))
+      _ <- cmd.bitOpOr(thirdKey, key, secondKey)
+      r3 <- cmd.getBit(thirdKey, 0)
+      _ <- IO(assertEquals(r3, Some(1.toLong)))
+      _ <- for {
+            s1 <- cmd.setBit(key, 2, 1)
+            s2 <- cmd.setBit(key, 3, 1)
+            s3 <- cmd.setBit(key, 5, 1)
+            s4 <- cmd.setBit(key, 10, 1)
+            s5 <- cmd.setBit(key, 11, 1)
+            s6 <- cmd.setBit(key, 14, 1)
+          } yield s1 + s2 + s3 + s4 + s5 + s6
+      k <- cmd.getBit(key, 2)
+      _ <- IO(assertEquals(k, Some(1.toLong)))
+      _ <- cmd.bitField(
+            secondKey,
+            SetUnsigned(2, 1),
+            SetUnsigned(3, 1),
+            SetUnsigned(5, 1),
+            SetUnsigned(10, 1),
+            SetUnsigned(11, 1),
+            IncrUnsignedBy(14, 1)
+          )
+      bits <- 0.to(14).toList.traverse(offset => cmd.getBit(secondKey, offset.toLong))
+      number <- IO.pure(Integer.parseInt(bits.map(_.getOrElse(0).toString).foldLeft("")(_ + _), 2))
+      _ <- IO(assertEquals(number, 23065))
+      pos <- cmd.bitPos(key, state = false)
+      _ <- IO(assertEquals(pos, 4.toLong))
+    } yield ()
   }
 
   def stringsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
