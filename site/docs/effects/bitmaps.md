@@ -40,24 +40,21 @@ def putStrLn(str: String): IO[Unit] = IO(println(str))
 
 commandsApi.use { cmd => // BitCommands[IO, String, String]
   for {
-    a <- bits.setBit(testKey, 7, 1)
-    b <- bits.setBit(testKey2, 7, 0)
+    a <- cmd.setBit(testKey, 7, 1)
+    _ <- cmd.setBit(testKey2, 7, 0)
     _ <- putStrLn(s"Set as $a")
-    c <- bits.getBit(testKey, 6)
-    _ <- putStrLn(s"Bit at offset 6 is $c")
-    _ <- bits.bitOpOr(testKey3, testKey, testKey2)
-    batchSet <- for {
-      s1 <- bits.setBit("bitmapsarestrings", 2, 1)
-      s2 <- bits.setBit("bitmapsarestrings", 3, 1)
-      s3 <- bits.setBit("bitmapsarestrings", 5, 1)
-      s4 <- bits.setBit("bitmapsarestrings", 10, 1)
-      s5 <- bits.setBit("bitmapsarestrings", 11, 1)
-      s6 <- bits.setBit("bitmapsarestrings", 14, 1)
+    b <- cmd.getBit(testKey, 6)
+    _ <- putStrLn(s"Bit at offset 6 is $b")
+    _ <- cmd.bitOpOr(testKey3, testKey, testKey2)
+    _ <- for {
+      s1 <- cmd.setBit("bitmapsarestrings", 2, 1)
+      s2 <- cmd.setBit("bitmapsarestrings", 3, 1)
+      s3 <- cmd.setBit("bitmapsarestrings", 5, 1)
+      s4 <- cmd.setBit("bitmapsarestrings", 10, 1)
+      s5 <- cmd.setBit("bitmapsarestrings", 11, 1)
+      s6 <- cmd.setBit("bitmapsarestrings", 14, 1)
     } yield s1 + s2 + s3 + s4 + s5 + s6
-    _ <- putStrLn(s"Set multiple $batchSet")
-    what <- strings.get("bitmapsarestrings")
-    _ <- putStrLn(s"The answer to everything is $what")
-    bf <- bits.bitField(
+    bf <- cmd.bitField(
       "inmap",
       SetUnsigned(2, 1),
       SetUnsigned(3, 1),
