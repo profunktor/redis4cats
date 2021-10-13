@@ -52,6 +52,10 @@ options:
         url: effects/sortedsets.html
         menu_section: effectapi
 
+      - title: Bitmaps
+        url: effects/bitmaps.html
+        menu_section: effectapi
+
       - title: Strings
         url: effects/strings.html
         menu_section: effectapi
