@@ -16,6 +16,10 @@ options:
     menu_section: effectapi
 
     nested_options:
+      - title: Bitmaps
+        url: effects/bitmaps.html
+        menu_section: effectapi
+
       - title: Connection
         url: effects/connection.html
         menu_section: effectapi
@@ -50,10 +54,6 @@ options:
 
       - title: Sorted Sets
         url: effects/sortedsets.html
-        menu_section: effectapi
-
-      - title: Bitmaps
-        url: effects/bitmaps.html
         menu_section: effectapi
 
       - title: Strings

@@ -1,6 +1,7 @@
 ---
-layout: docs title:  "Bitmaps"
-number: 7
+layout: docs
+title:  "Bitmaps"
+number: 14
 ---
 
 # Bitmaps API
