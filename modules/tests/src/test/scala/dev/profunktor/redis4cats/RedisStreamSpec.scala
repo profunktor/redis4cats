@@ -22,7 +22,8 @@ import scala.concurrent.duration.DurationInt
 
 class RedisStreamSpec extends Redis4CatsFunSuite(false) {
 
-  test("append/read to/from a stream") {
+  // FIXME: Flaky test -> https://github.com/profunktor/redis4cats/issues/460
+  test("append/read to/from a stream".ignore) {
     withRedisStream[Unit] { stream =>
       val read  = stream.read(Set("test-stream"), 1)
       val write = stream.append(fs2.Stream(XAddMessage("test-stream", Map("hello" -> "world"))))
