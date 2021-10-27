@@ -50,12 +50,12 @@ trait MultiKey[F[_], K, V] {
 }
 
 trait Decrement[F[_], K, V] {
-  def decr(key: K)(implicit N: Numeric[V]): F[Long]
-  def decrBy(key: K, amount: Long)(implicit N: Numeric[V]): F[Long]
+  def decr(key: K): F[Long]
+  def decrBy(key: K, amount: Long): F[Long]
 }
 
 trait Increment[F[_], K, V] {
-  def incr(key: K)(implicit N: Numeric[V]): F[Long]
-  def incrBy(key: K, amount: Long)(implicit N: Numeric[V]): F[Long]
-  def incrByFloat(key: K, amount: Double)(implicit N: Numeric[V]): F[Double]
+  def incr(key: K): F[Long]
+  def incrBy(key: K, amount: Long): F[Long]
+  def incrByFloat(key: K, amount: Double): F[Double]
 }

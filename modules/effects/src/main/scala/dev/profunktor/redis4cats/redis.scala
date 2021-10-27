@@ -580,31 +580,31 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
   override def setRange(key: K, value: V, offset: Long): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.setrange(key, offset, value))).futureLift.void
 
-  override def decr(key: K)(implicit N: Numeric[V]): F[Long] =
+  override def decr(key: K): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.decr(key)))
       .futureLift
       .map(x => Long.box(x))
 
-  override def decrBy(key: K, amount: Long)(implicit N: Numeric[V]): F[Long] =
+  override def decrBy(key: K, amount: Long): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.incrby(key, amount)))
       .futureLift
       .map(x => Long.box(x))
 
-  override def incr(key: K)(implicit N: Numeric[V]): F[Long] =
+  override def incr(key: K): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.incr(key)))
       .futureLift
       .map(x => Long.box(x))
 
-  override def incrBy(key: K, amount: Long)(implicit N: Numeric[V]): F[Long] =
+  override def incrBy(key: K, amount: Long): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.incrby(key, amount)))
       .futureLift
       .map(x => Long.box(x))
 
-  override def incrByFloat(key: K, amount: Double)(implicit N: Numeric[V]): F[Double] =
+  override def incrByFloat(key: K, amount: Double): F[Double] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.incrbyfloat(key, amount)))
       .futureLift
@@ -707,13 +707,13 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
   override def hmSet(key: K, fieldValues: Map[K, V]): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.hmset(key, fieldValues.asJava))).futureLift.void
 
-  override def hIncrBy(key: K, field: K, amount: Long)(implicit N: Numeric[V]): F[Long] =
+  override def hIncrBy(key: K, field: K, amount: Long): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.hincrby(key, field, amount)))
       .futureLift
       .map(x => Long.box(x))
 
-  override def hIncrByFloat(key: K, field: K, amount: Double)(implicit N: Numeric[V]): F[Double] =
+  override def hIncrByFloat(key: K, field: K, amount: Double): F[Double] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.hincrbyfloat(key, field, amount)))
       .futureLift
