@@ -38,6 +38,6 @@ trait HashSetter[F[_], K, V] {
 }
 
 trait HashIncrement[F[_], K, V] {
-  def hIncrBy(key: K, field: K, amount: Long)(implicit N: Numeric[V]): F[Long]
-  def hIncrByFloat(key: K, field: K, amount: Double)(implicit N: Numeric[V]): F[Double]
+  def hIncrBy(key: K, field: K, amount: Long): F[Long]
+  def hIncrByFloat(key: K, field: K, amount: Double): F[Double]
 }
