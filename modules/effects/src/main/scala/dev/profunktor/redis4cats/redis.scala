@@ -132,7 +132,7 @@ object Redis {
       * instead, which allows you to re-use the same client.
       */
     def simple[K, V](uri: String, codec: RedisCodec[K, V]): Resource[F, RedisCommands[F, K, V]] =
-      MkRedis[F].clientFrom(uri).flatMap(this.fromClient(_, codec))
+      MkRedis[F].clientFrom(uri).flatMap(this.fromClient(_, codec, 1))
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection.
@@ -157,7 +157,7 @@ object Redis {
         opts: ClientOptions,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      MkRedis[F].clientWithOptions(uri, opts).flatMap(this.fromClient(_, codec))
+      MkRedis[F].clientWithOptions(uri, opts).flatMap(this.fromClient(_, codec, 1))
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection to deal
@@ -197,9 +197,10 @@ object Redis {
       */
     def fromClient[K, V](
         client: RedisClient,
-        codec: RedisCodec[K, V]
+        codec: RedisCodec[K, V],
+        threadPoolSize: Int
     ): Resource[F, RedisCommands[F, K, V]] =
-      MkRedis[F].newExecutor.flatMap { implicit ec =>
+      MkRedis[F].newExecutor(threadPoolSize).flatMap { implicit ec =>
         val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
         Resource.make(acquire)(release).widen
       }
