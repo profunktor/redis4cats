@@ -82,6 +82,6 @@ class OptimisticLockSuite extends IOSuite {
     }
 
   private def commands(client: RedisClient): Resource[IO, RedisCommands[IO, String, String]] =
-    Redis[IO].fromClient(client, RedisCodec.Ascii, 1)
+    Redis[IO].fromClient(client, RedisCodec.Ascii)
 
 }

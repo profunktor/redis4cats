@@ -68,8 +68,8 @@ object RedisStringsDemo extends LoggerIOApp {
   val program: IO[Unit] = {
     val res = for {
       cli <- RedisClient[IO].from(redisURI)
-      rd1 <- Redis[IO].fromClient(cli, stringCodec, 1)
-      rd2 <- Redis[IO].fromClient(cli, longCodec, 1)
+      rd1 <- Redis[IO].fromClient(cli, stringCodec)
+      rd2 <- Redis[IO].fromClient(cli, longCodec)
     } yield rd1 -> rd2
 
     res.use {
