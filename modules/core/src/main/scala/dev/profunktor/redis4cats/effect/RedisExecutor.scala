@@ -39,9 +39,11 @@ private[redis4cats] trait RedisExecutor[F[_]] {
 private[redis4cats] object RedisExecutor {
   def apply[F[_]: RedisExecutor]: RedisExecutor[F] = implicitly
 
-  def make[F[_]: Async]: Resource[F, RedisExecutor[F]] =
+  def make[F[_]: Async]: Resource[F, RedisExecutor[F]] = make(1)
+
+  def make[F[_]: Async](threadPoolSize: Int): Resource[F, RedisExecutor[F]] =
     Resource
-      .make(Sync[F].delay(Executors.newFixedThreadPool(1))) { ec =>
+      .make(Sync[F].delay(Executors.newFixedThreadPool(threadPoolSize))) { ec =>
         Sync[F]
           .delay(ec.shutdownNow())
           .ensure(new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread"))(

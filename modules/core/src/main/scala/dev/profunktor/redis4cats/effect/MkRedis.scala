@@ -47,6 +47,7 @@ sealed trait MkRedis[F[_]] {
   def clusterClient(uri: RedisURI*): Resource[F, RedisClusterClient]
 
   private[redis4cats] def newExecutor: Resource[F, RedisExecutor[F]]
+  private[redis4cats] def newExecutor(threadPoolSize: Int): Resource[F, RedisExecutor[F]]
   private[redis4cats] def futureLift: FutureLift[F]
   private[redis4cats] def log: Log[F]
 }
@@ -76,7 +77,10 @@ object MkRedis {
         RedisClusterClient[F](uri: _*)
 
       private[redis4cats] def newExecutor: Resource[F, RedisExecutor[F]] =
-        RedisExecutor.make[F]
+        newExecutor(1)
+
+      private[redis4cats] def newExecutor(threadPoolSize: Int): Resource[F, RedisExecutor[F]] =
+        RedisExecutor.make[F](threadPoolSize)
 
       private[redis4cats] def futureLift: FutureLift[F] = implicitly
 
