@@ -134,6 +134,24 @@ object Redis {
     def simple[K, V](uri: String, codec: RedisCodec[K, V]): Resource[F, RedisCommands[F, K, V]] =
       simple(uri, codec, 1)
 
+    /**
+      * Creates a [[RedisCommands]] for a single-node connection.
+      *
+      * It will create an underlying RedisClient with default options to establish
+      * connection with Redis.
+      *
+      * If you use transactions, you should set `threadPoolSize` to 1.
+      * If you do not use transactions, you can set `threadPoolSize` to a higher value such as 20.
+      *
+      * Example:
+      *
+      * {{{
+      * Redis[IO].simple("redis://localhost", RedisCodec.Ascii, 20)
+      * }}}
+      *
+      * Note: if you need to create multiple connections, use [[fromClient]]
+      * instead, which allows you to re-use the same client.
+      */
     def simple[K, V](uri: String, codec: RedisCodec[K, V], threadPoolSize: Int): Resource[F, RedisCommands[F, K, V]] =
       MkRedis[F].clientFrom(uri).flatMap(this.fromClient(_, codec, threadPoolSize))
 
@@ -162,6 +180,27 @@ object Redis {
     ): Resource[F, RedisCommands[F, K, V]] =
       withOptions(uri, opts, codec, 1)
 
+    /**
+      * Creates a [[RedisCommands]] for a single-node connection.
+      *
+      * It will create an underlying RedisClient using the supplied client options
+      * to establish connection with Redis.
+      *
+      * If you use transactions, you should set `threadPoolSize` to 1.
+      * If you do not use transactions, you can set `threadPoolSize` to a higher value such as 20.
+      *
+      * Example:
+      *
+      * {{{
+      * for {
+      *   opts <- Resource.eval(Sync[F].delay(ClientOptions.create())) // configure timeouts, etc
+      *   cmds <- Redis[IO].withOptions("redis://localhost", opts, RedisCodec.Ascii, 20)
+      * } yield cmds
+      * }}}
+      *
+      * Note: if you need to create multiple connections, use [[fromClient]]
+      * instead, which allows you to re-use the same client.
+      */
     def withOptions[K, V](
         uri: String,
         opts: ClientOptions,
@@ -212,6 +251,26 @@ object Redis {
     ): Resource[F, RedisCommands[F, K, V]] =
       fromClient(client, codec, 1)
 
+    /**
+      * Creates a [[RedisCommands]] for a single-node connection.
+      *
+      * If you use transactions, you should set `threadPoolSize` to 1.
+      * If you do not use transactions, you can set `threadPoolSize` to a higher value such as 20.
+      *
+      * Example:
+      *
+      * {{{
+      * val redis: Resource[IO, RedisCommands[IO, String, String]] =
+      *   for {
+      *     uri <- Resource.eval(RedisURI.make[IO]("redis://localhost"))
+      *     cli <- RedisClient[IO](uri)
+      *     cmd <- Redis[IO].fromClient(cli, RedisCodec.Utf8, 20)
+      *   } yield cmd
+      * }}}
+      *
+      * Note: if you don't need to create multiple connections, you might
+      * prefer to use either [[utf8]] or [[simple]] instead.
+      */
     def fromClient[K, V](
         client: RedisClient,
         codec: RedisCodec[K, V],
