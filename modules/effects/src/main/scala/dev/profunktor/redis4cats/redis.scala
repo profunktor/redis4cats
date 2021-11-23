@@ -128,7 +128,7 @@ object Redis {
       * Redis[IO].simple("redis://localhost", RedisCodec.Ascii)
       * }}}
       *
-      * Note: if you need to create multiple connections, use [[fromClient]]
+      * Note: if you need to create multiple connections, use `fromClient`
       * instead, which allows you to re-use the same client.
       */
     def simple[K, V](uri: String, codec: RedisCodec[K, V]): Resource[F, RedisCommands[F, K, V]] =
@@ -149,7 +149,7 @@ object Redis {
       * Redis[IO].simple("redis://localhost", RedisCodec.Ascii, 20)
       * }}}
       *
-      * Note: if you need to create multiple connections, use [[fromClient]]
+      * Note: if you need to create multiple connections, use `fromClient`
       * instead, which allows you to re-use the same client.
       */
     def simple[K, V](uri: String, codec: RedisCodec[K, V], threadPoolSize: Int): Resource[F, RedisCommands[F, K, V]] =
@@ -170,7 +170,7 @@ object Redis {
       * } yield cmds
       * }}}
       *
-      * Note: if you need to create multiple connections, use [[fromClient]]
+      * Note: if you need to create multiple connections, use `fromClient`
       * instead, which allows you to re-use the same client.
       */
     def withOptions[K, V](
@@ -198,7 +198,7 @@ object Redis {
       * } yield cmds
       * }}}
       *
-      * Note: if you need to create multiple connections, use [[fromClient]]
+      * Note: if you need to create multiple connections, use `fromClient`
       * instead, which allows you to re-use the same client.
       */
     def withOptions[K, V](
@@ -222,7 +222,7 @@ object Redis {
       * Redis[IO].utf8("redis://localhost")
       * }}}
       *
-      * Note: if you need to create multiple connections, use [[fromClient]]
+      * Note: if you need to create multiple connections, use `fromClient`
       * instead, which allows you to re-use the same client.
       */
     def utf8(uri: String): Resource[F, RedisCommands[F, String, String]] =
@@ -243,7 +243,7 @@ object Redis {
       * }}}
       *
       * Note: if you don't need to create multiple connections, you might
-      * prefer to use either [[utf8]] or [[simple]] instead.
+      * prefer to use either [[utf8]] or `simple` instead.
       */
     def fromClient[K, V](
         client: RedisClient,
@@ -269,7 +269,7 @@ object Redis {
       * }}}
       *
       * Note: if you don't need to create multiple connections, you might
-      * prefer to use either [[utf8]] or [[simple]] instead.
+      * prefer to use either [[utf8]] or `simple` instead.
       */
     def fromClient[K, V](
         client: RedisClient,
