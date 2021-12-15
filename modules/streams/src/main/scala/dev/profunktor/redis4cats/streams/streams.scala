@@ -17,10 +17,11 @@
 package dev.profunktor.redis4cats.streams
 
 import data._
+import dev.profunktor.redis4cats.algebra._
 
 import scala.concurrent.duration.Duration
 
-trait RawStreaming[F[_], K, V] {
+trait RawStreaming[F[_], K, V] extends AutoFlush[F] {
 
   /**
     * @param approxMaxlen does XTRIM ~ maxlen if defined

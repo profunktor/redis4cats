@@ -127,6 +127,7 @@ lazy val `redis4cats-streams` = project
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
+  .dependsOn(`redis4cats-effects`)
 
 lazy val examples = project
   .in(file("modules/examples"))

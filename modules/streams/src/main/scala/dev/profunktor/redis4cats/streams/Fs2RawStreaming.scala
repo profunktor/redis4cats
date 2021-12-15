@@ -19,10 +19,11 @@ package streams
 
 import scala.concurrent.duration.Duration
 
-import cats.effect.kernel._
-import cats.syntax.functor._
+import cats._
+import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
-import dev.profunktor.redis4cats.effect.{ FutureLift, RedisExecutor }
+import dev.profunktor.redis4cats.effect._
+import dev.profunktor.redis4cats.effect.FutureLift._
 import dev.profunktor.redis4cats.streams.data._
 import dev.profunktor.redis4cats.streams.data.StreamingOffset.{ All, Custom, Latest }
 
@@ -30,18 +31,28 @@ import io.lettuce.core.{ XAddArgs, XReadArgs }
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
 
-private[streams] class RedisRawStreaming[F[_]: FutureLift: RedisExecutor: Sync, K, V](
+private[streams] class RedisRawStreaming[F[_]: FutureLift: RedisExecutor: MonadThrow: Log, K, V](
     val client: StatefulRedisConnection[K, V]
 ) extends RawStreaming[F, K, V] {
 
-  override def xAdd(key: K, body: Map[K, V], approxMaxlen: Option[Long] = None): F[MessageId] =
-    FutureLift[F]
-      .lift {
-        val args = approxMaxlen.map(XAddArgs.Builder.maxlen(_).approximateTrimming(true))
+  /******************************* AutoFlush API **********************************/
+  private val async = RedisExecutor[F].delay(client.async())
+  override def enableAutoFlush: F[Unit] =
+    RedisExecutor[F].eval(async.flatMap(c => RedisExecutor[F].delay(c.setAutoFlushCommands(true))))
 
-        Sync[F].delay(client.async().xadd(key, args.orNull, body.asJava))
-      }
-      .map(MessageId.apply)
+  override def disableAutoFlush: F[Unit] =
+    RedisExecutor[F].eval(async.flatMap(c => RedisExecutor[F].delay(c.setAutoFlushCommands(false))))
+
+  override def flushCommands: F[Unit] =
+    RedisExecutor[F].eval(async.flatMap(c => RedisExecutor[F].delay(c.flushCommands())))
+
+  override def xAdd(key: K, body: Map[K, V], approxMaxlen: Option[Long] = None): F[MessageId] = {
+    val args = approxMaxlen.map(XAddArgs.Builder.maxlen(_).approximateTrimming(true))
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.xadd(key, args.orNull, body.asJava)))
+      .futureLift
+      .map(MessageId.apply(_))
+  }
 
   override def xRead(
       streams: Set[StreamingOffset[K]],
@@ -50,7 +61,7 @@ private[streams] class RedisRawStreaming[F[_]: FutureLift: RedisExecutor: Sync, 
   ): F[List[XReadMessage[K, V]]] =
     FutureLift[F]
       .lift {
-        Sync[F].delay {
+        RedisExecutor[F].delay {
           val offsets = streams.map {
             case All(key)            => StreamOffset.from(key, "0")
             case Latest(key)         => StreamOffset.latest(key)
