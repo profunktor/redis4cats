@@ -78,6 +78,11 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(d, 1L))
       z <- cmd.hGet(testKey, testField)
       _ <- IO(assert(z.isEmpty))
+      _ <- cmd.hSet(testKey, Map(testField -> "some value", testField2 -> "another value"))
+      v <- cmd.hGet(testKey, testField)
+      _ <- IO(assert(v.contains("some value")))
+      v <- cmd.hGet(testKey, testField2)
+      _ <- IO(assert(v.contains("another value")))
     } yield ()
   }
 
