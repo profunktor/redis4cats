@@ -696,6 +696,12 @@ private[redis4cats] class BaseRedis[F[_]: Concurrent: ContextShift: RedisExecuto
   override def hSet(key: K, field: K, value: V): F[Boolean] =
     async.flatMap(c => RedisExecutor[F].delay(c.hset(key, field, value))).futureLift.map(x => Boolean.box(x))
 
+  override def hSet(key: K, fieldValues: Map[K, V]): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.hset(key, fieldValues.asJava)))
+      .futureLift
+      .map(x => Long.box(x))
+
   override def hSetNx(key: K, field: K, value: V): F[Boolean] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.hsetnx(key, field, value)))
