@@ -66,6 +66,16 @@
 <span class="o">&gt;</span> sbt +test
 </code></pre></div></div>
 
+<p>If you are trying to run cluster mode tests on macOS you might receive host not found errors. As a workaround add
+new environment variable in <code class="language-plaintext highlighter-rouge">docker-compose.yml</code> for <code class="language-plaintext highlighter-rouge">RedisCluster</code>: <code class="language-plaintext highlighter-rouge">IP=0.0.0.0</code></p>
+
+<p>The environment section should look like this:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    environment:
+      - INITIAL_PORT=30001
+      - DEBUG=false
+      - IP=0.0.0.0
+</code></pre></div></div>
+
 <h2 id="code-of-conduct">Code of Conduct</h2>
 
 <p>See the <a href="https://redis4cats.profunktor.dev/CODE_OF_CONDUCT">Code of Conduct</a></p>
