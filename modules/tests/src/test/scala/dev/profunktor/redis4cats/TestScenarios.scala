@@ -29,7 +29,7 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline.{ PipelineError, RedisPipeline }
 import dev.profunktor.redis4cats.transactions.RedisTransaction
-import io.lettuce.core.GeoArgs
+import io.lettuce.core.{ GeoArgs, ZAggregateArgs }
 import munit.FunSuite
 
 import scala.concurrent.duration._
@@ -198,6 +198,15 @@ trait TestScenarios { self: FunSuite =>
       _ <- cmd.zAdd(otherTestKey, args = None, scoreWithValue1, scoreWithValue3)
       zUnion <- cmd.zUnion(args = None, testKey, otherTestKey)
       _ <- IO(assertEquals(zUnion, List(1L, 2L, 3L)))
+      aggregateArgs = ZAggregateArgs.Builder.sum().weights(10L, 20L)
+      zUnionWithScoreAndArgs <- cmd.zUnionWithScores(Some(aggregateArgs), testKey, otherTestKey)
+      _ <- IO(
+            assertEquals(
+              zUnionWithScoreAndArgs,
+              // scores for each element: 1 -> 10*1 + 20*1; 2 -> 10*3; 3 -> 20*5
+              List(ScoreWithValue(Score(30), 1L), ScoreWithValue(Score(30), 2L), ScoreWithValue(Score(100), 3L))
+            )
+          )
       zInter <- cmd.zInter(args = None, testKey, otherTestKey)
       _ <- IO(assertEquals(zInter, List(1L)))
       zDiff <- cmd.zDiff(testKey, otherTestKey)
