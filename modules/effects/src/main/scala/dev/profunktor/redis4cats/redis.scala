@@ -38,6 +38,7 @@ import io.lettuce.core.{
   GeoWithin,
   ScoredValue,
   ZAddArgs,
+  ZAggregateArgs,
   ZStoreArgs,
   Limit => JLimit,
   Range => JRange,
@@ -809,6 +810,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
       .futureLift
       .map(x => Boolean.box(x))
 
+  override def sMisMember(key: K, values: V*): F[List[Boolean]] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.smismember(key, values: _*)))
+      .futureLift
+      .map(_.asScala.map(Boolean.unbox(_)).toList)
+
   override def sAdd(key: K, values: V*): F[Long] =
     async.flatMap(c => RedisExecutor[F].delay(c.sadd(key, values: _*))).futureLift.map(x => Long.box(x))
 
@@ -1393,6 +1400,54 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
       .flatMap(c => RedisExecutor[F].delay(c.bzpopmax(timeout.toSecondsOrZero, keys.toList: _*)))
       .futureLift
       .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
+
+  override def zUnion(args: Option[ZAggregateArgs], keys: K*): F[List[V]] = {
+    val res = args match {
+      case Some(aggArgs) => async.flatMap(c => RedisExecutor[F].delay(c.zunion(aggArgs, keys: _*)))
+      case None          => async.flatMap(c => RedisExecutor[F].delay(c.zunion(keys: _*)))
+    }
+    res.futureLift
+      .map(_.asScala.toList)
+  }
+
+  override def zUnionWithScores(args: Option[ZAggregateArgs], keys: K*): F[List[ScoreWithValue[V]]] = {
+    val res = args match {
+      case Some(aggArgs) => async.flatMap(c => RedisExecutor[F].delay(c.zunionWithScores(aggArgs, keys: _*)))
+      case None          => async.flatMap(c => RedisExecutor[F].delay(c.zunionWithScores(keys: _*)))
+    }
+    res.futureLift
+      .map(_.asScala.toList.map(_.asScoreWithValues))
+  }
+
+  override def zInter(args: Option[ZAggregateArgs], keys: K*): F[List[V]] = {
+    val res = args match {
+      case Some(aggArgs) => async.flatMap(c => RedisExecutor[F].delay(c.zinter(aggArgs, keys: _*)))
+      case None          => async.flatMap(c => RedisExecutor[F].delay(c.zinter(keys: _*)))
+    }
+    res.futureLift
+      .map(_.asScala.toList)
+  }
+
+  override def zInterWithScores(args: Option[ZAggregateArgs], keys: K*): F[List[ScoreWithValue[V]]] = {
+    val res = args match {
+      case Some(aggArgs) => async.flatMap(c => RedisExecutor[F].delay(c.zinterWithScores(aggArgs, keys: _*)))
+      case None          => async.flatMap(c => RedisExecutor[F].delay(c.zinterWithScores(keys: _*)))
+    }
+    res.futureLift
+      .map(_.asScala.toList.map(_.asScoreWithValues))
+  }
+
+  override def zDiff(keys: K*): F[List[V]] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.zdiff(keys: _*)))
+      .futureLift
+      .map(_.asScala.toList)
+
+  override def zDiffWithScores(keys: K*): F[List[ScoreWithValue[V]]] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.zdiffWithScores(keys: _*)))
+      .futureLift
+      .map(_.asScala.toList.map(_.asScoreWithValues))
 
   /******************************* Connection API **********************************/
   override val ping: F[String] =

@@ -29,7 +29,7 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline.{ PipelineError, RedisPipeline }
 import dev.profunktor.redis4cats.transactions.RedisTransaction
-import io.lettuce.core.GeoArgs
+import io.lettuce.core.{ GeoArgs, ZAggregateArgs }
 import munit.FunSuite
 
 import scala.concurrent.duration._
@@ -151,13 +151,18 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(z.isEmpty))
       t <- cmd.sCard(testKey)
       _ <- IO(assertEquals(t, 0L))
+      _ <- cmd.sAdd(testKey, "value 1", "value 2")
+      r <- cmd.sMisMember(testKey, "value 1", "random", "value 2")
+      _ <- IO(assertEquals(r, List(true, false, true)))
     } yield ()
   }
 
   def sortedSetsScenario(cmd: RedisCommands[IO, String, Long]): IO[Unit] = {
-    val testKey         = "zztop"
+    val testKey         = "{same_hash_slot}:zztop"
+    val otherTestKey    = "{same_hash_slot}:sharp:dressed:man"
     val scoreWithValue1 = ScoreWithValue(Score(1), 1L)
     val scoreWithValue2 = ScoreWithValue(Score(3), 2L)
+    val scoreWithValue3 = ScoreWithValue(Score(5), 3L)
     val timeout         = 1.second
     for {
       minPop1 <- cmd.zPopMin(testKey, 1)
@@ -190,6 +195,22 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(y.contains(2)))
       z <- cmd.zCount(testKey, ZRange(0, 1))
       _ <- IO(assert(z.contains(1)))
+      _ <- cmd.zAdd(otherTestKey, args = None, scoreWithValue1, scoreWithValue3)
+      zUnion <- cmd.zUnion(args = None, testKey, otherTestKey)
+      _ <- IO(assertEquals(zUnion, List(1L, 2L, 3L)))
+      aggregateArgs = ZAggregateArgs.Builder.sum().weights(10L, 20L)
+      zUnionWithScoreAndArgs <- cmd.zUnionWithScores(Some(aggregateArgs), testKey, otherTestKey)
+      _ <- IO(
+            assertEquals(
+              zUnionWithScoreAndArgs,
+              // scores for each element: 1 -> 10*1 + 20*1; 2 -> 10*3; 3 -> 20*5
+              List(ScoreWithValue(Score(30), 1L), ScoreWithValue(Score(30), 2L), ScoreWithValue(Score(100), 3L))
+            )
+          )
+      zInter <- cmd.zInter(args = None, testKey, otherTestKey)
+      _ <- IO(assertEquals(zInter, List(1L)))
+      zDiff <- cmd.zDiff(testKey, otherTestKey)
+      _ <- IO(assertEquals(zDiff, List(2L)))
       r <- cmd.zRemRangeByScore(testKey, ZRange(1, 3))
       _ <- IO(assertEquals(r, 2L))
     } yield ()
