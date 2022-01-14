@@ -18,6 +18,7 @@ package dev.profunktor.redis4cats.algebra
 
 trait SetCommands[F[_], K, V] extends SetGetter[F, K, V] with SetSetter[F, K, V] with SetDeletion[F, K, V] {
   def sIsMember(key: K, value: V): F[Boolean]
+  def sMisMember(key: K, values: V*): F[List[Boolean]]
 }
 
 trait SetGetter[F[_], K, V] {

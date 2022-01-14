@@ -9,6 +9,7 @@ position: 4
 
 The API that operates at the effect level `F[_]` on top of `cats-effect`.
 
+- **[Bitmaps API](./bitmaps.html)**
 - **[Connection API](./connection.html)**
 - **[Geo API](./geo.html)**
 - **[Hashes API](./hashes.html)**

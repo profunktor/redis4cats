@@ -18,11 +18,12 @@ package dev.profunktor.redis4cats
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-
 import cats._
 import cats.data.NonEmptyList
 import cats.effect.kernel._
 import cats.syntax.all._
+import dev.profunktor.redis4cats.algebra.BitCommandOperation
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.Overflows
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect._
@@ -30,17 +31,19 @@ import dev.profunktor.redis4cats.effect.FutureLift._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.transactions.TransactionDiscarded
 import io.lettuce.core.{
+  BitFieldArgs,
   ClientOptions,
   GeoArgs,
   GeoRadiusStoreArgs,
   GeoWithin,
-  ScanCursor => JScanCursor,
   ScoredValue,
   ZAddArgs,
+  ZAggregateArgs,
   ZStoreArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
+  ScanCursor => JScanCursor,
   SetArgs => JSetArgs
 }
 import io.lettuce.core.api.async.RedisAsyncCommands
@@ -126,11 +129,32 @@ object Redis {
       * Redis[IO].simple("redis://localhost", RedisCodec.Ascii)
       * }}}
       *
-      * Note: if you need to create multiple connections, use [[fromClient]]
+      * Note: if you need to create multiple connections, use `fromClient`
       * instead, which allows you to re-use the same client.
       */
     def simple[K, V](uri: String, codec: RedisCodec[K, V]): Resource[F, RedisCommands[F, K, V]] =
-      MkRedis[F].clientFrom(uri).flatMap(this.fromClient(_, codec))
+      simple(uri, codec, 1)
+
+    /**
+      * Creates a [[RedisCommands]] for a single-node connection.
+      *
+      * It will create an underlying RedisClient with default options to establish
+      * connection with Redis.
+      *
+      * If you use transactions, you should set `threadPoolSize` to 1.
+      * If you do not use transactions, you can set `threadPoolSize` to a higher value such as 20.
+      *
+      * Example:
+      *
+      * {{{
+      * Redis[IO].simple("redis://localhost", RedisCodec.Ascii, 20)
+      * }}}
+      *
+      * Note: if you need to create multiple connections, use `fromClient`
+      * instead, which allows you to re-use the same client.
+      */
+    def simple[K, V](uri: String, codec: RedisCodec[K, V], threadPoolSize: Int): Resource[F, RedisCommands[F, K, V]] =
+      MkRedis[F].clientFrom(uri).flatMap(this.fromClient(_, codec, threadPoolSize))
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection.
@@ -147,7 +171,7 @@ object Redis {
       * } yield cmds
       * }}}
       *
-      * Note: if you need to create multiple connections, use [[fromClient]]
+      * Note: if you need to create multiple connections, use `fromClient`
       * instead, which allows you to re-use the same client.
       */
     def withOptions[K, V](
@@ -155,7 +179,36 @@ object Redis {
         opts: ClientOptions,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      MkRedis[F].clientWithOptions(uri, opts).flatMap(this.fromClient(_, codec))
+      withOptions(uri, opts, codec, 1)
+
+    /**
+      * Creates a [[RedisCommands]] for a single-node connection.
+      *
+      * It will create an underlying RedisClient using the supplied client options
+      * to establish connection with Redis.
+      *
+      * If you use transactions, you should set `threadPoolSize` to 1.
+      * If you do not use transactions, you can set `threadPoolSize` to a higher value such as 20.
+      *
+      * Example:
+      *
+      * {{{
+      * for {
+      *   opts <- Resource.eval(Sync[F].delay(ClientOptions.create())) // configure timeouts, etc
+      *   cmds <- Redis[IO].withOptions("redis://localhost", opts, RedisCodec.Ascii, 20)
+      * } yield cmds
+      * }}}
+      *
+      * Note: if you need to create multiple connections, use `fromClient`
+      * instead, which allows you to re-use the same client.
+      */
+    def withOptions[K, V](
+        uri: String,
+        opts: ClientOptions,
+        codec: RedisCodec[K, V],
+        threadPoolSize: Int
+    ): Resource[F, RedisCommands[F, K, V]] =
+      MkRedis[F].clientWithOptions(uri, opts).flatMap(this.fromClient(_, codec, threadPoolSize))
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection to deal
@@ -170,7 +223,7 @@ object Redis {
       * Redis[IO].utf8("redis://localhost")
       * }}}
       *
-      * Note: if you need to create multiple connections, use [[fromClient]]
+      * Note: if you need to create multiple connections, use `fromClient`
       * instead, which allows you to re-use the same client.
       */
     def utf8(uri: String): Resource[F, RedisCommands[F, String, String]] =
@@ -191,13 +244,40 @@ object Redis {
       * }}}
       *
       * Note: if you don't need to create multiple connections, you might
-      * prefer to use either [[utf8]] or [[simple]] instead.
+      * prefer to use either [[utf8]] or `simple` instead.
       */
     def fromClient[K, V](
         client: RedisClient,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      MkRedis[F].newExecutor.flatMap { implicit ec =>
+      fromClient(client, codec, 1)
+
+    /**
+      * Creates a [[RedisCommands]] for a single-node connection.
+      *
+      * If you use transactions, you should set `threadPoolSize` to 1.
+      * If you do not use transactions, you can set `threadPoolSize` to a higher value such as 20.
+      *
+      * Example:
+      *
+      * {{{
+      * val redis: Resource[IO, RedisCommands[IO, String, String]] =
+      *   for {
+      *     uri <- Resource.eval(RedisURI.make[IO]("redis://localhost"))
+      *     cli <- RedisClient[IO](uri)
+      *     cmd <- Redis[IO].fromClient(cli, RedisCodec.Utf8, 20)
+      *   } yield cmd
+      * }}}
+      *
+      * Note: if you don't need to create multiple connections, you might
+      * prefer to use either [[utf8]] or `simple` instead.
+      */
+    def fromClient[K, V](
+        client: RedisClient,
+        codec: RedisCodec[K, V],
+        threadPoolSize: Int
+    ): Resource[F, RedisCommands[F, K, V]] =
+      MkRedis[F].newExecutor(threadPoolSize).flatMap { implicit ec =>
         val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
         Resource.make(acquire)(release).widen
       }
@@ -578,31 +658,31 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
   override def setRange(key: K, value: V, offset: Long): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.setrange(key, offset, value))).futureLift.void
 
-  override def decr(key: K)(implicit N: Numeric[V]): F[Long] =
+  override def decr(key: K): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.decr(key)))
       .futureLift
       .map(x => Long.box(x))
 
-  override def decrBy(key: K, amount: Long)(implicit N: Numeric[V]): F[Long] =
+  override def decrBy(key: K, amount: Long): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.incrby(key, amount)))
       .futureLift
       .map(x => Long.box(x))
 
-  override def incr(key: K)(implicit N: Numeric[V]): F[Long] =
+  override def incr(key: K): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.incr(key)))
       .futureLift
       .map(x => Long.box(x))
 
-  override def incrBy(key: K, amount: Long)(implicit N: Numeric[V]): F[Long] =
+  override def incrBy(key: K, amount: Long): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.incrby(key, amount)))
       .futureLift
       .map(x => Long.box(x))
 
-  override def incrByFloat(key: K, amount: Double)(implicit N: Numeric[V]): F[Double] =
+  override def incrByFloat(key: K, amount: Double): F[Double] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.incrbyfloat(key, amount)))
       .futureLift
@@ -613,12 +693,6 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
       .flatMap(c => RedisExecutor[F].delay(c.get(key)))
       .futureLift
       .map(Option.apply)
-
-  override def getBit(key: K, offset: Long): F[Option[Long]] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.getbit(key, offset)))
-      .futureLift
-      .map(x => Option(Long.unbox(x)))
 
   override def getRange(key: K, start: Long, end: Long): F[Option[V]] =
     async
@@ -646,48 +720,6 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
       .flatMap(c => RedisExecutor[F].delay(c.msetnx(keyValues.asJava)))
       .futureLift
       .map(x => Boolean.box(x))
-
-  override def bitCount(key: K): F[Long] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.bitcount(key)))
-      .futureLift
-      .map(x => Long.box(x))
-
-  override def bitCount(key: K, start: Long, end: Long): F[Long] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.bitcount(key, start, end)))
-      .futureLift
-      .map(x => Long.box(x))
-
-  override def bitPos(key: K, state: Boolean): F[Long] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state)))
-      .futureLift
-      .map(x => Long.box(x))
-
-  override def bitPos(key: K, state: Boolean, start: Long): F[Long] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state, start)))
-      .futureLift
-      .map(x => Long.box(x))
-
-  override def bitPos(key: K, state: Boolean, start: Long, end: Long): F[Long] =
-    async
-      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state, start, end)))
-      .futureLift
-      .map(x => Long.box(x))
-
-  override def bitOpAnd(destination: K, sources: K*): F[Unit] =
-    async.flatMap(c => RedisExecutor[F].delay(c.bitopAnd(destination, sources: _*))).futureLift.void
-
-  override def bitOpNot(destination: K, source: K): F[Unit] =
-    async.flatMap(c => RedisExecutor[F].delay(c.bitopNot(destination, source))).futureLift.void
-
-  override def bitOpOr(destination: K, sources: K*): F[Unit] =
-    async.flatMap(c => RedisExecutor[F].delay(c.bitopOr(destination, sources: _*))).futureLift.void
-
-  override def bitOpXor(destination: K, sources: K*): F[Unit] =
-    async.flatMap(c => RedisExecutor[F].delay(c.bitopXor(destination, sources: _*))).futureLift.void
 
   /******************************* Hashes API **********************************/
   override def hDel(key: K, fields: K*): F[Long] =
@@ -744,6 +776,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
   override def hSet(key: K, field: K, value: V): F[Boolean] =
     async.flatMap(c => RedisExecutor[F].delay(c.hset(key, field, value))).futureLift.map(x => Boolean.box(x))
 
+  override def hSet(key: K, fieldValues: Map[K, V]): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.hset(key, fieldValues.asJava)))
+      .futureLift
+      .map(x => Long.box(x))
+
   override def hSetNx(key: K, field: K, value: V): F[Boolean] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.hsetnx(key, field, value)))
@@ -753,13 +791,13 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
   override def hmSet(key: K, fieldValues: Map[K, V]): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.hmset(key, fieldValues.asJava))).futureLift.void
 
-  override def hIncrBy(key: K, field: K, amount: Long)(implicit N: Numeric[V]): F[Long] =
+  override def hIncrBy(key: K, field: K, amount: Long): F[Long] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.hincrby(key, field, amount)))
       .futureLift
       .map(x => Long.box(x))
 
-  override def hIncrByFloat(key: K, field: K, amount: Double)(implicit N: Numeric[V]): F[Double] =
+  override def hIncrByFloat(key: K, field: K, amount: Double): F[Double] =
     async
       .flatMap(c => RedisExecutor[F].delay(c.hincrbyfloat(key, field, amount)))
       .futureLift
@@ -771,6 +809,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
       .flatMap(c => RedisExecutor[F].delay(c.sismember(key, value)))
       .futureLift
       .map(x => Boolean.box(x))
+
+  override def sMisMember(key: K, values: V*): F[List[Boolean]] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.smismember(key, values: _*)))
+      .futureLift
+      .map(_.asScala.map(Boolean.unbox(_)).toList)
 
   override def sAdd(key: K, values: V*): F[Long] =
     async.flatMap(c => RedisExecutor[F].delay(c.sadd(key, values: _*))).futureLift.map(x => Long.box(x))
@@ -925,6 +969,91 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
 
   override def lTrim(key: K, start: Long, stop: Long): F[Unit] =
     async.flatMap(c => RedisExecutor[F].delay(c.ltrim(key, start, stop))).futureLift.void
+
+  /******************************* Bitmaps API **********************************/
+  override def bitCount(key: K): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.bitcount(key)))
+      .futureLift
+      .map(x => Long.box(x))
+
+  override def bitCount(key: K, start: Long, end: Long): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.bitcount(key, start, end)))
+      .futureLift
+      .map(x => Long.box(x))
+
+  override def bitField(key: K, operations: BitCommandOperation*): F[List[Long]] =
+    async
+      .flatMap(c =>
+        RedisExecutor[F].delay(
+          c.bitfield(
+            key,
+            operations.foldLeft(new BitFieldArgs()) {
+              case (b, BitCommandOperation.Get(fieldType, offset)) =>
+                b.get(fieldType, offset)
+              case (b, BitCommandOperation.SetSigned(offset, value, bits)) =>
+                b.set(BitFieldArgs.signed(bits), offset, value)
+              case (b, BitCommandOperation.SetUnsigned(offset, value, bits)) =>
+                b.set(BitFieldArgs.unsigned(bits), offset, value)
+              case (b, BitCommandOperation.IncrSignedBy(offset, value, bits)) =>
+                b.incrBy(BitFieldArgs.signed(bits), offset, value)
+              case (b, BitCommandOperation.IncrUnsignedBy(offset, value, bits)) =>
+                b.incrBy(BitFieldArgs.unsigned(bits), offset, value)
+              case (b, BitCommandOperation.Overflow(Overflows.SAT)) =>
+                b.overflow(BitFieldArgs.OverflowType.SAT)
+              case (b, BitCommandOperation.Overflow(Overflows.WRAP)) =>
+                b.overflow(BitFieldArgs.OverflowType.WRAP)
+              case (b, BitCommandOperation.Overflow(_)) =>
+                b.overflow(BitFieldArgs.OverflowType.FAIL)
+            }
+          )
+        )
+      )
+      .futureLift
+      .map(_.asScala.toList.map(_.toLong))
+
+  override def bitPos(key: K, state: Boolean): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state)))
+      .futureLift
+      .map(x => Long.box(x))
+
+  override def bitPos(key: K, state: Boolean, start: Long): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state, start)))
+      .futureLift
+      .map(x => Long.box(x))
+
+  override def bitPos(key: K, state: Boolean, start: Long, end: Long): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.bitpos(key, state, start, end)))
+      .futureLift
+      .map(x => Long.box(x))
+
+  override def bitOpAnd(destination: K, sources: K*): F[Unit] =
+    async.flatMap(c => RedisExecutor[F].delay(c.bitopAnd(destination, sources: _*))).futureLift.void
+
+  override def bitOpNot(destination: K, source: K): F[Unit] =
+    async.flatMap(c => RedisExecutor[F].delay(c.bitopNot(destination, source))).futureLift.void
+
+  override def bitOpOr(destination: K, sources: K*): F[Unit] =
+    async.flatMap(c => RedisExecutor[F].delay(c.bitopOr(destination, sources: _*))).futureLift.void
+
+  override def bitOpXor(destination: K, sources: K*): F[Unit] =
+    async.flatMap(c => RedisExecutor[F].delay(c.bitopXor(destination, sources: _*))).futureLift.void
+
+  override def getBit(key: K, offset: Long): F[Option[Long]] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.getbit(key, offset)))
+      .futureLift
+      .map(x => Option(Long.unbox(x)))
+
+  override def setBit(key: K, offset: Long, value: Int): F[Long] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.setbit(key, offset, value)))
+      .futureLift
+      .map(x => Long.box(x))
 
   /******************************* Geo API **********************************/
   override def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double] =
@@ -1271,6 +1400,54 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
       .flatMap(c => RedisExecutor[F].delay(c.bzpopmax(timeout.toSecondsOrZero, keys.toList: _*)))
       .futureLift
       .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
+
+  override def zUnion(args: Option[ZAggregateArgs], keys: K*): F[List[V]] = {
+    val res = args match {
+      case Some(aggArgs) => async.flatMap(c => RedisExecutor[F].delay(c.zunion(aggArgs, keys: _*)))
+      case None          => async.flatMap(c => RedisExecutor[F].delay(c.zunion(keys: _*)))
+    }
+    res.futureLift
+      .map(_.asScala.toList)
+  }
+
+  override def zUnionWithScores(args: Option[ZAggregateArgs], keys: K*): F[List[ScoreWithValue[V]]] = {
+    val res = args match {
+      case Some(aggArgs) => async.flatMap(c => RedisExecutor[F].delay(c.zunionWithScores(aggArgs, keys: _*)))
+      case None          => async.flatMap(c => RedisExecutor[F].delay(c.zunionWithScores(keys: _*)))
+    }
+    res.futureLift
+      .map(_.asScala.toList.map(_.asScoreWithValues))
+  }
+
+  override def zInter(args: Option[ZAggregateArgs], keys: K*): F[List[V]] = {
+    val res = args match {
+      case Some(aggArgs) => async.flatMap(c => RedisExecutor[F].delay(c.zinter(aggArgs, keys: _*)))
+      case None          => async.flatMap(c => RedisExecutor[F].delay(c.zinter(keys: _*)))
+    }
+    res.futureLift
+      .map(_.asScala.toList)
+  }
+
+  override def zInterWithScores(args: Option[ZAggregateArgs], keys: K*): F[List[ScoreWithValue[V]]] = {
+    val res = args match {
+      case Some(aggArgs) => async.flatMap(c => RedisExecutor[F].delay(c.zinterWithScores(aggArgs, keys: _*)))
+      case None          => async.flatMap(c => RedisExecutor[F].delay(c.zinterWithScores(keys: _*)))
+    }
+    res.futureLift
+      .map(_.asScala.toList.map(_.asScoreWithValues))
+  }
+
+  override def zDiff(keys: K*): F[List[V]] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.zdiff(keys: _*)))
+      .futureLift
+      .map(_.asScala.toList)
+
+  override def zDiffWithScores(keys: K*): F[List[ScoreWithValue[V]]] =
+    async
+      .flatMap(c => RedisExecutor[F].delay(c.zdiffWithScores(keys: _*)))
+      .futureLift
+      .map(_.asScala.toList.map(_.asScoreWithValues))
 
   /******************************* Connection API **********************************/
   override val ping: F[String] =

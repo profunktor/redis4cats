@@ -18,17 +18,18 @@ package dev.profunktor.redis4cats
 
 import java.time.Instant
 import java.util.concurrent.TimeoutException
-
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrUnsignedBy, SetUnsigned }
+import dev.profunktor.redis4cats.algebra.BitCommands
 import dev.profunktor.redis4cats.data.KeyScanCursor
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline.{ PipelineError, RedisPipeline }
 import dev.profunktor.redis4cats.transactions.RedisTransaction
-import io.lettuce.core.GeoArgs
+import io.lettuce.core.{ GeoArgs, ZAggregateArgs }
 import munit.FunSuite
 
 import scala.concurrent.duration._
@@ -77,6 +78,11 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(d, 1L))
       z <- cmd.hGet(testKey, testField)
       _ <- IO(assert(z.isEmpty))
+      _ <- cmd.hSet(testKey, Map(testField -> "some value", testField2 -> "another value"))
+      v <- cmd.hGet(testKey, testField)
+      _ <- IO(assert(v.contains("some value")))
+      v <- cmd.hGet(testKey, testField2)
+      _ <- IO(assert(v.contains("another value")))
     } yield ()
   }
 
@@ -145,13 +151,18 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(z.isEmpty))
       t <- cmd.sCard(testKey)
       _ <- IO(assertEquals(t, 0L))
+      _ <- cmd.sAdd(testKey, "value 1", "value 2")
+      r <- cmd.sMisMember(testKey, "value 1", "random", "value 2")
+      _ <- IO(assertEquals(r, List(true, false, true)))
     } yield ()
   }
 
   def sortedSetsScenario(cmd: RedisCommands[IO, String, Long]): IO[Unit] = {
-    val testKey         = "zztop"
+    val testKey         = "{same_hash_slot}:zztop"
+    val otherTestKey    = "{same_hash_slot}:sharp:dressed:man"
     val scoreWithValue1 = ScoreWithValue(Score(1), 1L)
     val scoreWithValue2 = ScoreWithValue(Score(3), 2L)
+    val scoreWithValue3 = ScoreWithValue(Score(5), 3L)
     val timeout         = 1.second
     for {
       minPop1 <- cmd.zPopMin(testKey, 1)
@@ -184,6 +195,22 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(y.contains(2)))
       z <- cmd.zCount(testKey, ZRange(0, 1))
       _ <- IO(assert(z.contains(1)))
+      _ <- cmd.zAdd(otherTestKey, args = None, scoreWithValue1, scoreWithValue3)
+      zUnion <- cmd.zUnion(args = None, testKey, otherTestKey)
+      _ <- IO(assertEquals(zUnion, List(1L, 2L, 3L)))
+      aggregateArgs = ZAggregateArgs.Builder.sum().weights(10L, 20L)
+      zUnionWithScoreAndArgs <- cmd.zUnionWithScores(Some(aggregateArgs), testKey, otherTestKey)
+      _ <- IO(
+            assertEquals(
+              zUnionWithScoreAndArgs,
+              // scores for each element: 1 -> 10*1 + 20*1; 2 -> 10*3; 3 -> 20*5
+              List(ScoreWithValue(Score(30), 1L), ScoreWithValue(Score(30), 2L), ScoreWithValue(Score(100), 3L))
+            )
+          )
+      zInter <- cmd.zInter(args = None, testKey, otherTestKey)
+      _ <- IO(assertEquals(zInter, List(1L)))
+      zDiff <- cmd.zDiff(testKey, otherTestKey)
+      _ <- IO(assertEquals(zDiff, List(2L)))
       r <- cmd.zRemRangeByScore(testKey, ZRange(1, 3))
       _ <- IO(assertEquals(r, 2L))
     } yield ()
@@ -289,6 +316,57 @@ trait TestScenarios { self: FunSuite =>
         }
 
     args.fold(cmd.scan)(cmd.scan).flatMap(scanRec(_, List.empty, 0))
+  }
+
+  def bitmapsScenario(cmd: BitCommands[IO, String, String]): IO[Unit] = {
+    val key       = "foo"
+    val secondKey = "bar"
+    val thirdKey  = "baz"
+    for {
+      _ <- cmd.setBit(key, 0, 1)
+      oneBit <- cmd.getBit(key, 0)
+      _ <- IO(assertEquals(oneBit, Some(1.toLong)))
+      _ <- cmd.setBit(key, 1, 1)
+      bitLen <- cmd.bitCount(key)
+      _ <- IO(assertEquals(bitLen, 2.toLong))
+      bitLen2 <- cmd.bitCount(key, 0, 2)
+      _ <- IO(assertEquals(bitLen2, 2.toLong))
+      _ <- cmd.setBit(key, 0, 1)
+      _ <- cmd.setBit(secondKey, 0, 1)
+      _ <- cmd.bitOpAnd(thirdKey, key, secondKey)
+      r <- cmd.getBit(thirdKey, 0)
+      _ <- IO(assertEquals(r, Some(1.toLong)))
+      _ <- cmd.bitOpNot(thirdKey, key)
+      r2 <- cmd.getBit(thirdKey, 0)
+      _ <- IO(assertEquals(r2, Some(0.toLong)))
+      _ <- cmd.bitOpOr(thirdKey, key, secondKey)
+      r3 <- cmd.getBit(thirdKey, 0)
+      _ <- IO(assertEquals(r3, Some(1.toLong)))
+      _ <- for {
+            s1 <- cmd.setBit(key, 2, 1)
+            s2 <- cmd.setBit(key, 3, 1)
+            s3 <- cmd.setBit(key, 5, 1)
+            s4 <- cmd.setBit(key, 10, 1)
+            s5 <- cmd.setBit(key, 11, 1)
+            s6 <- cmd.setBit(key, 14, 1)
+          } yield s1 + s2 + s3 + s4 + s5 + s6
+      k <- cmd.getBit(key, 2)
+      _ <- IO(assertEquals(k, Some(1.toLong)))
+      _ <- cmd.bitField(
+            secondKey,
+            SetUnsigned(2, 1),
+            SetUnsigned(3, 1),
+            SetUnsigned(5, 1),
+            SetUnsigned(10, 1),
+            SetUnsigned(11, 1),
+            IncrUnsignedBy(14, 1)
+          )
+      bits <- 0.to(14).toList.traverse(offset => cmd.getBit(secondKey, offset.toLong))
+      number <- IO.pure(Integer.parseInt(bits.map(_.getOrElse(0).toString).foldLeft("")(_ + _), 2))
+      _ <- IO(assertEquals(number, 23065))
+      pos <- cmd.bitPos(key, state = false)
+      _ <- IO(assertEquals(pos, 4.toLong))
+    } yield ()
   }
 
   def stringsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {

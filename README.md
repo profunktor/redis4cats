@@ -72,6 +72,17 @@ Start both a single Redis node and a cluster using `docker-compose`:
 > sbt +test
 ```
 
+If you are trying to run cluster mode tests on macOS you might receive host not found errors. As a workaround add
+new environment variable in `docker-compose.yml` for `RedisCluster`: `IP=0.0.0.0`
+
+The environment section should look like this:
+```
+    environment:
+      - INITIAL_PORT=30001
+      - DEBUG=false
+      - IP=0.0.0.0
+```
+
 ## Code of Conduct
 
 See the [Code of Conduct](https://redis4cats.profunktor.dev/CODE_OF_CONDUCT)
