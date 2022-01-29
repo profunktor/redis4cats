@@ -18,24 +18,32 @@ package dev.profunktor.redis4cats
 
 import scala.concurrent.duration._
 
+import io.lettuce.core.cluster.models.partitions.RedisClusterNode
+import io.lettuce.core.cluster.ClusterClientOptions
+
 object config {
 
   // Builder-style abstract class instead of case class to allow for bincompat-friendly extension in future versions.
   sealed abstract class Redis4CatsConfig {
     val shutdown: ShutdownConfig
     val topologyViewRefreshStrategy: TopologyViewRefreshStrategy
+    val nodeFilter: RedisClusterNode => Boolean
     def withShutdown(shutdown: ShutdownConfig): Redis4CatsConfig
     def withTopologyViewRefreshStrategy(strategy: TopologyViewRefreshStrategy): Redis4CatsConfig
+    def withNodeFilter(nodeFilter: RedisClusterNode => Boolean): Redis4CatsConfig
   }
 
   object Redis4CatsConfig {
     private case class Redis4CatsConfigImpl(
         shutdown: ShutdownConfig,
-        topologyViewRefreshStrategy: TopologyViewRefreshStrategy = NoRefresh
+        topologyViewRefreshStrategy: TopologyViewRefreshStrategy = NoRefresh,
+        nodeFilter: RedisClusterNode => Boolean = ClusterClientOptions.DEFAULT_NODE_FILTER.test
     ) extends Redis4CatsConfig {
       override def withShutdown(_shutdown: ShutdownConfig): Redis4CatsConfig = copy(shutdown = _shutdown)
       override def withTopologyViewRefreshStrategy(strategy: TopologyViewRefreshStrategy): Redis4CatsConfig =
         copy(topologyViewRefreshStrategy = strategy)
+      override def withNodeFilter(_nodeFilter: RedisClusterNode => Boolean): Redis4CatsConfig =
+        copy(nodeFilter = _nodeFilter)
     }
     def apply(): Redis4CatsConfig = Redis4CatsConfigImpl(ShutdownConfig())
   }
