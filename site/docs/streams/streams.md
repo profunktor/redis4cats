@@ -80,15 +80,19 @@ def randomMessage: Stream[IO, XAddMessage[String, String]] = Stream.eval {
   }
 }
 
-for {
-  client    <- Stream.resource(RedisClient[IO].from("redis://localhost"))
-  streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
-  source    = streaming.read(Set(streamKey1, streamKey2), chunkSize = 1)
-  appender  = streaming.append
-  _ <- Stream(
-         source.evalMap(putStrLn(_)),
-         Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
-       ).parJoin(2).void
-} yield ()
+def runStream(): Stream[IO, Unit] = {
+  for {
+    client    <- Stream.resource(RedisClient[IO].from("redis://localhost"))
+    streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
+    source    = streaming.read(Set(streamKey1, streamKey2), chunkSize = 1)
+    appender  = streaming.append
+    _ <- Stream(
+      source.evalMap(putStrLn(_)),
+      Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
+    ).parJoin(2).void
+  } yield ()
+}
+
+runStream()
 ```
 
