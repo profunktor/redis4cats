@@ -1,5 +1,7 @@
 name: Release
 on:
+  # to allow the manual trigger workflows
+  workflow_dispatch: {}
   push:
     branches:
       - series/1.x # CE3
