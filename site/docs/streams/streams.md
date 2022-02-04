@@ -49,7 +49,7 @@ trait Streaming[F[_], K, V] {
 ### Streaming Example
 
 ```scala mdoc:silent
-import cats.effect.IO
+import cats.effect.{IO, IOApp}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
@@ -62,37 +62,38 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import scala.concurrent.duration._
 import scala.util.Random
 
-implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
+object StreamingExample extends IOApp.Simple {
 
-val stringCodec = RedisCodec.Utf8
+  implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-def putStrLn[A](a: A): IO[Unit] = IO(println(a))
+  val stringCodec = RedisCodec.Utf8
 
-val streamKey1 = "demo"
-val streamKey2 = "users"
+  def putStrLn[A](a: A): IO[Unit] = IO(println(a))
 
-def randomMessage: Stream[IO, XAddMessage[String, String]] = Stream.eval {
-  val rndKey   = IO(Random.nextInt(1000).toString)
-  val rndValue = IO(Random.nextString(10))
-  (rndKey, rndValue).parMapN {
-    case (k, v) =>
-      XAddMessage(streamKey1, Map(k -> v))
+  val streamKey1 = "demo"
+  val streamKey2 = "users"
+
+  def randomMessage: Stream[IO, XAddMessage[String, String]] = Stream.eval {
+    val rndKey   = IO(Random.nextInt(1000).toString)
+    val rndValue = IO(Random.nextString(10))
+    (rndKey, rndValue).parMapN {
+      case (k, v) =>
+        XAddMessage(streamKey1, Map(k -> v))
+    }
   }
-}
 
-def runStream(): Stream[IO, Unit] = {
-  for {
-    client    <- Stream.resource(RedisClient[IO].from("redis://localhost"))
-    streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
-    source    = streaming.read(Set(streamKey1, streamKey2), chunkSize = 1)
-    appender  = streaming.append
-    _ <- Stream(
-      source.evalMap(putStrLn(_)),
-      Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
-    ).parJoin(2).void
-  } yield ()
+  def run: IO[Unit] = {
+    for {
+      client    <- Stream.resource(RedisClient[IO].from("redis://localhost"))
+      streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
+      source    = streaming.read(Set(streamKey1, streamKey2), chunkSize = 1)
+      appender  = streaming.append
+      _ <- Stream(
+        source.evalMap(putStrLn(_)),
+        Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
+      ).parJoin(2).void
+    } yield ()
+  }.compile.drain
 }
-
-runStream()
 ```
 
