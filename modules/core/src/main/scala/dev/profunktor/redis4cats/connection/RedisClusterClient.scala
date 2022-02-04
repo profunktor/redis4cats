@@ -26,7 +26,7 @@ import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config._
 import dev.profunktor.redis4cats.data.NodeId
 import dev.profunktor.redis4cats.effect._
-import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions }
+import io.lettuce.core.cluster.models.partitions.{ RedisClusterNode, Partitions => JPartitions }
 import io.lettuce.core.cluster.{
   ClusterClientOptions,
   ClusterTopologyRefreshOptions,
@@ -47,7 +47,7 @@ object RedisClusterClient {
       Log[F].info(s"Acquire Redis Cluster client") *>
           RedisExecutor[F]
             .lift(JClusterClient.create(uri.map(_.underlying).asJava))
-            .flatTap(initializeClusterTopology[F](_, config.topologyViewRefreshStrategy))
+            .flatTap(initializeClusterTopology[F](_, config.topologyViewRefreshStrategy, config.nodeFilter))
             .map(new RedisClusterClient(_) {})
 
     val release: RedisClusterClient => F[Unit] = client =>
@@ -69,11 +69,18 @@ object RedisClusterClient {
 
   private[redis4cats] def initializeClusterTopology[F[_]: Functor: RedisExecutor](
       client: JClusterClient,
-      topologyViewRefreshStrategy: TopologyViewRefreshStrategy
+      topologyViewRefreshStrategy: TopologyViewRefreshStrategy,
+      nodeFilter: RedisClusterNode => Boolean
   ): F[Unit] =
     RedisExecutor[F].lift {
       topologyViewRefreshStrategy match {
         case NoRefresh =>
+          client.setOptions(
+            ClusterClientOptions
+              .builder()
+              .nodeFilter(nodeFilter(_))
+              .build()
+          )
           client.getPartitions
         case Periodic(interval) =>
           client.setOptions(
@@ -86,6 +93,7 @@ object RedisClusterClient {
                   .enablePeriodicRefresh(Duration.ofMillis(interval.toMillis))
                   .build()
               )
+              .nodeFilter(nodeFilter(_))
               .build()
           )
           client.getPartitions
@@ -101,6 +109,7 @@ object RedisClusterClient {
                   .adaptiveRefreshTriggersTimeout(Duration.ofMillis(timeout.toMillis))
                   .build()
               )
+              .nodeFilter(nodeFilter(_))
               .build()
           )
           client.getPartitions

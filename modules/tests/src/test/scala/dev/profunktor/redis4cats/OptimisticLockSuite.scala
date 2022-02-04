@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats
 
 import cats.data.EitherT
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.hlist.HNil
