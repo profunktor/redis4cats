@@ -10,7 +10,7 @@ object Dependencies {
     val log4cats   = "2.2.0"
 
     val lettuce = "6.1.6.RELEASE"
-    val logback = "1.2.10"
+    val logback = "1.2.11"
 
     val kindProjector = "0.13.2"
 
