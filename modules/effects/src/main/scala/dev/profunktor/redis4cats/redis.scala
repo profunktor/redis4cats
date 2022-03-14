@@ -1354,7 +1354,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: RedisExecutor:
         async.flatMap(c =>
           RedisExecutor[F].delay(c.zrevrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)))
         )
-      case None => async.flatMap(c => RedisExecutor[F].delay(c.zrangebyscoreWithScores(key, range.asJavaRange)))
+      case None => async.flatMap(c => RedisExecutor[F].delay(c.zrevrangebyscoreWithScores(key, range.asJavaRange)))
     }
     res.futureLift.map(_.asScala.toList.map(_.asScoreWithValues))
   }
