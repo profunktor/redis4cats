@@ -23,7 +23,6 @@ trait ServerCommands[F[_], K] extends Flush[F, K] with Diagnostic[F]
 trait Flush[F[_], K] {
   def keys(key: K): F[List[K]]
   def flushAll: F[Unit]
-  def flushAllAsync: F[Unit]
 }
 
 trait Diagnostic[F[_]] {

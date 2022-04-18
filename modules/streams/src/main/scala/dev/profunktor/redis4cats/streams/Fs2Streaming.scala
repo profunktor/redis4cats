@@ -23,7 +23,7 @@ import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ FutureLift, Log, RedisExecutor }
+import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
 import io.lettuce.core.{ ReadFrom => JReadFrom }
@@ -39,20 +39,20 @@ object RedisStream {
   def mkStreamingConnectionResource[F[_]: Async: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, Streaming[Stream[F, *], K, V]] =
-    RedisExecutor.make[F].flatMap { implicit redisExecutor =>
-      val acquire = FutureLift[F]
-        .liftConnectionFuture(
-          Sync[F].delay(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying))
-        )
-        .map(new RedisRawStreaming(_))
+  ): Resource[F, Streaming[Stream[F, *], K, V]] = {
+    //RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+    val acquire = FutureLift[F]
+      .liftConnectionFuture(
+        client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)
+      )
+      .map(new RedisRawStreaming(_))
 
-      val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
-        FutureLift[F].liftCompletableFuture(Sync[F].delay(c.client.closeAsync())) *>
-            Log[F].info(s"Releasing Streaming connection: ${client.uri.underlying}")
+    val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
+      FutureLift[F].liftCompletableFuture(c.client.closeAsync()) *>
+          Log[F].info(s"Releasing Streaming connection: ${client.uri.underlying}")
 
-      Resource.make(acquire)(release).map(rs => new RedisStream(rs))
-    }
+    Resource.make(acquire)(release).map(rs => new RedisStream(rs))
+  }
 
   def mkMasterReplicaConnection[F[_]: Async: Log, K, V](
       codec: RedisCodec[K, V],
@@ -64,10 +64,9 @@ object RedisStream {
       codec: RedisCodec[K, V],
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Resource[F, Streaming[Stream[F, *], K, V]] =
-    RedisExecutor.make[F].flatMap { implicit redisExecutor =>
-      RedisMasterReplica[F].make(codec, uris: _*)(readFrom).map { conn =>
-        new RedisStream(new RedisRawStreaming(conn.underlying))
-      }
+    //RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+    RedisMasterReplica[F].make(codec, uris: _*)(readFrom).map { conn =>
+      new RedisStream(new RedisRawStreaming(conn.underlying))
     }
 
 }

@@ -20,7 +20,7 @@ import java.time.Duration
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.connection.{ RedisClusterClient, RedisURI }
-import dev.profunktor.redis4cats.effect.{ FutureLift, RedisExecutor }
+import dev.profunktor.redis4cats.effect.{ FutureLift }
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import io.lettuce.core.TimeoutOptions
 import io.lettuce.core.cluster.{ ClusterClientOptions, RedisClusterClient => JRedisClusterClient }
@@ -33,33 +33,32 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
     val usernameKey = "test"
 
     val commandsApi =
-      RedisExecutor.make[IO].flatMap { implicit redisExecutor =>
-        for {
-          uri <- Resource.eval(RedisURI.make[IO](redisClusterURI))
-          underlying <- Resource.make(IO {
-                         val timeoutOptions =
-                           TimeoutOptions
-                             .builder()
-                             .fixedTimeout(Duration.ofMillis(500L))
-                             .build()
-                         val clusterOptions =
-                           ClusterClientOptions
-                             .builder()
-                             .pingBeforeActivateConnection(true)
-                             .autoReconnect(true)
-                             .cancelCommandsOnReconnectFailure(true)
-                             .validateClusterNodeMembership(true)
-                             .timeoutOptions(timeoutOptions)
-                             .build()
+      //RedisExecutor.make[IO].flatMap { implicit redisExecutor =>
+      for {
+        uri <- Resource.eval(RedisURI.make[IO](redisClusterURI))
+        underlying <- Resource.make(IO {
+                       val timeoutOptions =
+                         TimeoutOptions
+                           .builder()
+                           .fixedTimeout(Duration.ofMillis(500L))
+                           .build()
+                       val clusterOptions =
+                         ClusterClientOptions
+                           .builder()
+                           .pingBeforeActivateConnection(true)
+                           .autoReconnect(true)
+                           .cancelCommandsOnReconnectFailure(true)
+                           .validateClusterNodeMembership(true)
+                           .timeoutOptions(timeoutOptions)
+                           .build()
 
-                         val client = JRedisClusterClient.create(uri.underlying)
-                         client.setOptions(clusterOptions)
-                         client
-                       })(client => FutureLift[IO].liftCompletableFuture(IO(client.shutdownAsync())).void)
-          client = RedisClusterClient.fromUnderlying(underlying)
-          redis <- Redis[IO].fromClusterClient(client, stringCodec)()
-        } yield redis
-      }
+                       val client = JRedisClusterClient.create(uri.underlying)
+                       client.setOptions(clusterOptions)
+                       client
+                     })(client => FutureLift[IO].liftCompletableFuture(client.shutdownAsync()).void)
+        client = RedisClusterClient.fromUnderlying(underlying)
+        redis <- Redis[IO].fromClusterClient(client, stringCodec)()
+      } yield redis
 
     commandsApi
       .use { cmd =>

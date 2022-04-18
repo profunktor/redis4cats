@@ -30,17 +30,17 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 object PubSub {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Apply: FutureLift: Log: RedisExecutor, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: Apply: FutureLift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): (F[StatefulRedisPubSubConnection[K, V]], StatefulRedisPubSubConnection[K, V] => F[Unit]) = {
 
     val acquire: F[StatefulRedisPubSubConnection[K, V]] = FutureLift[F].liftConnectionFuture(
-      RedisExecutor[F].lift(client.underlying.connectPubSubAsync(codec.underlying, client.uri.underlying))
+      client.underlying.connectPubSubAsync(codec.underlying, client.uri.underlying)
     )
 
     val release: StatefulRedisPubSubConnection[K, V] => F[Unit] = c =>
-      FutureLift[F].liftCompletableFuture(RedisExecutor[F].lift(c.closeAsync())) *>
+      FutureLift[F].liftCompletableFuture(c.closeAsync()) *>
           Log[F].info(s"Releasing PubSub connection: ${client.uri.underlying}")
 
     (acquire, release)
@@ -51,33 +51,33 @@ object PubSub {
     *
     * Use this option whenever you need one or more subscribers or subscribers and publishers / stats.
     * */
-  def mkPubSubConnection[F[_]: Async: FutureLift: Log: MkRedis, K, V](
+  def mkPubSubConnection[F[_]: Async: FutureLift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, PubSubCommands[Stream[F, *], K, V]] =
-    MkRedis[F].newExecutor.flatMap { implicit ec =>
-      val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
-      // One exclusive connection for subscriptions and another connection for publishing / stats
-      for {
-        state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
-        sConn <- Resource.make(acquire)(release)
-        pConn <- Resource.make(acquire)(release)
-      } yield new LivePubSubCommands[F, K, V](state, sConn, pConn)
-    }
+  ): Resource[F, PubSubCommands[Stream[F, *], K, V]] = {
+    //MkRedis[F].newExecutor.flatMap { implicit ec =>
+    val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
+    // One exclusive connection for subscriptions and another connection for publishing / stats
+    for {
+      state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
+      sConn <- Resource.make(acquire)(release)
+      pConn <- Resource.make(acquire)(release)
+    } yield new LivePubSubCommands[F, K, V](state, sConn, pConn)
+  }
 
   /**
     * Creates a PubSub connection.
     *
     * Use this option when you only need to publish and/or get stats such as number of subscriptions.
     * */
-  def mkPublisherConnection[F[_]: FlatMap: FutureLift: Log: MkRedis, K, V](
+  def mkPublisherConnection[F[_]: FlatMap: FutureLift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, PublishCommands[Stream[F, *], K, V]] =
-    MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
-      val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
-      Resource.make(acquire)(release).map(new Publisher[F, K, V](_))
-    }
+  ): Resource[F, PublishCommands[Stream[F, *], K, V]] = {
+    //MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
+    val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
+    Resource.make(acquire)(release).map(new Publisher[F, K, V](_))
+  }
 
   /**
     * Creates a PubSub connection.
@@ -87,13 +87,13 @@ object PubSub {
   def mkSubscriberConnection[F[_]: Async: FutureLift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, SubscribeCommands[Stream[F, *], K, V]] =
-    MkRedis[F].newExecutor.flatMap { implicit ec =>
-      val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
-      for {
-        state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
-        conn <- Resource.make(acquire)(release)
-      } yield new Subscriber(state, conn)
-    }
+  ): Resource[F, SubscribeCommands[Stream[F, *], K, V]] = {
+    //MkRedis[F].newExecutor.flatMap { implicit ec =>
+    val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
+    for {
+      state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
+      conn <- Resource.make(acquire)(release)
+    } yield new Subscriber(state, conn)
+  }
 
 }

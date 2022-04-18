@@ -29,12 +29,12 @@ sealed abstract case class RedisClient private (underlying: JRedisClient, uri: R
 
 object RedisClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: Apply: FutureLift: Log: RedisExecutor](
+  private[redis4cats] def acquireAndRelease[F[_]: Apply: FutureLift: Log](
       uri: => RedisURI,
       opts: ClientOptions,
       config: Redis4CatsConfig
   ): (F[RedisClient], RedisClient => F[Unit]) = {
-    val acquire: F[RedisClient] = RedisExecutor[F].lift {
+    val acquire: F[RedisClient] = FutureLift[F].delay {
       val jClient: JRedisClient = JRedisClient.create(uri.underlying)
       jClient.setOptions(opts)
       new RedisClient(jClient, uri) {}
@@ -44,12 +44,10 @@ object RedisClient {
       Log[F].info(s"Releasing Redis connection: $uri") *>
           FutureLift[F]
             .liftCompletableFuture(
-              RedisExecutor[F].lift(
-                client.underlying.shutdownAsync(
-                  config.shutdown.quietPeriod.toNanos,
-                  config.shutdown.timeout.toNanos,
-                  TimeUnit.NANOSECONDS
-                )
+              client.underlying.shutdownAsync(
+                config.shutdown.quietPeriod.toNanos,
+                config.shutdown.timeout.toNanos,
+                TimeUnit.NANOSECONDS
               )
             )
             .void
@@ -57,12 +55,12 @@ object RedisClient {
     (acquire, release)
   }
 
-  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: FutureLift: Log: MonadThrow: RedisExecutor](
+  private[redis4cats] def acquireAndReleaseWithoutUri[F[_]: FutureLift: Log: MonadThrow](
       opts: ClientOptions,
       config: Redis4CatsConfig
   ): F[(F[RedisClient], RedisClient => F[Unit])] =
-    RedisExecutor[F]
-      .lift(RedisURI.fromUnderlying(new JRedisURI()))
+    FutureLift[F]
+      .delay(RedisURI.fromUnderlying(new JRedisURI()))
       .map(uri => acquireAndRelease(uri, opts, config))
 
   class RedisClientPartiallyApplied[F[_]: MkRedis: MonadThrow] {
@@ -142,11 +140,11 @@ object RedisClient {
         uri: => RedisURI,
         opts: ClientOptions,
         config: Redis4CatsConfig = Redis4CatsConfig()
-    ): Resource[F, RedisClient] =
-      MkRedis[F].newExecutor.flatMap { implicit ec =>
-        val (acquire, release) = acquireAndRelease(uri, opts, config)
-        Resource.make(acquire)(release)
-      }
+    ): Resource[F, RedisClient] = {
+      //MkRedis[F].newExecutor.flatMap { implicit ec =>
+      val (acquire, release) = acquireAndRelease(uri, opts, config)
+      Resource.make(acquire)(release)
+    }
   }
 
   def apply[F[_]: MkRedis: MonadThrow]: RedisClientPartiallyApplied[F] = new RedisClientPartiallyApplied[F]

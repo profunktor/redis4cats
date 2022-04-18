@@ -29,21 +29,18 @@ import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
 
-private[redis4cats] trait RedisExecutor[F[_]] {
-  def lift[A](thunk: => A): F[A]
+private[redis4cats] trait TxExecutor[F[_]] {
   def delay[A](thunk: => A): F[A]
   def eval[A](fa: F[A]): F[A]
-  def liftK[G[_]: Async]: RedisExecutor[G]
+  def liftK[G[_]: Async]: TxExecutor[G]
 }
 
-private[redis4cats] object RedisExecutor {
-  def apply[F[_]: RedisExecutor]: RedisExecutor[F] = implicitly
+private[redis4cats] object TxExecutor {
+  def apply[F[_]: TxExecutor]: TxExecutor[F] = implicitly
 
-  def make[F[_]: Async]: Resource[F, RedisExecutor[F]] = make(1)
-
-  def make[F[_]: Async](threadPoolSize: Int): Resource[F, RedisExecutor[F]] =
+  def make[F[_]: Async]: Resource[F, TxExecutor[F]] =
     Resource
-      .make(Sync[F].delay(Executors.newFixedThreadPool(threadPoolSize))) { ec =>
+      .make(Sync[F].delay(Executors.newFixedThreadPool(1))) { ec =>
         Sync[F]
           .delay(ec.shutdownNow())
           .ensure(new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread"))(
@@ -73,11 +70,10 @@ private[redis4cats] object RedisExecutor {
       ec.reportFailure(t)
   }
 
-  private def fromEC[F[_]: Async](ec: ExecutionContext): RedisExecutor[F] =
-    new RedisExecutor[F] {
-      def lift[A](thunk: => A): F[A]           = Sync[F].delay(thunk)
-      def delay[A](thunk: => A): F[A]          = eval(Sync[F].delay(thunk))
-      def eval[A](fa: F[A]): F[A]              = Async[F].evalOn(fa, ec)
-      def liftK[G[_]: Async]: RedisExecutor[G] = fromEC[G](ec)
+  private def fromEC[F[_]: Async](ec: ExecutionContext): TxExecutor[F] =
+    new TxExecutor[F] {
+      def delay[A](thunk: => A): F[A]       = eval(Sync[F].delay(thunk))
+      def eval[A](fa: F[A]): F[A]           = Async[F].evalOn(fa, ec)
+      def liftK[G[_]: Async]: TxExecutor[G] = fromEC[G](ec)
     }
 }

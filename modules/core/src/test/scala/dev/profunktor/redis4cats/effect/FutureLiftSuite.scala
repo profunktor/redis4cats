@@ -30,14 +30,10 @@ class FutureLiftSuite extends FunSuite {
 
   test("it shifts back once the Future is converted") {
     val ioa =
-      RedisExecutor.make[IO].use { implicit ec =>
-        instance.liftCompletableFuture[String] {
-          IO {
-            val jFuture = new CompletableFuture[String]()
-            jFuture.complete("foo")
-            jFuture
-          }
-        }
+      instance.liftCompletableFuture[String] {
+        val jFuture = new CompletableFuture[String]()
+        jFuture.complete("foo")
+        jFuture
       }
 
     (ioa *> currentThread)
@@ -47,14 +43,10 @@ class FutureLiftSuite extends FunSuite {
 
   test("it shifts back even when the CompletableFuture fails") {
     val ioa =
-      RedisExecutor.make[IO].use { implicit ec =>
-        instance.liftCompletableFuture[String] {
-          IO {
-            val jFuture = new CompletableFuture[String]()
-            jFuture.completeExceptionally(new RuntimeException("Purposely fail"))
-            jFuture
-          }
-        }
+      instance.liftCompletableFuture[String] {
+        val jFuture = new CompletableFuture[String]()
+        jFuture.completeExceptionally(new RuntimeException("Purposely fail"))
+        jFuture
       }
 
     (ioa.attempt *> currentThread)

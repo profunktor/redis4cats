@@ -21,7 +21,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ FutureLift, Log, RedisExecutor }
+import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import io.lettuce.core.masterreplica.{ MasterReplica, StatefulRedisMasterReplicaConnection }
 import io.lettuce.core.{ ClientOptions, ReadFrom => JReadFrom }
 
@@ -32,7 +32,7 @@ sealed abstract case class RedisMasterReplica[K, V] private (underlying: Statefu
 
 object RedisMasterReplica {
 
-  private[redis4cats] def acquireAndRelease[F[_]: FutureLift: Log: RedisExecutor: Sync, K, V](
+  private[redis4cats] def acquireAndRelease[F[_]: FutureLift: Log: Sync, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
@@ -44,9 +44,7 @@ object RedisMasterReplica {
       val connection: F[RedisMasterReplica[K, V]] =
         FutureLift[F]
           .liftCompletableFuture[StatefulRedisMasterReplicaConnection[K, V]](
-            Sync[F].delay {
-              MasterReplica.connectAsync[K, V](client.underlying, codec.underlying, uris.map(_.underlying).asJava)
-            }
+            MasterReplica.connectAsync[K, V](client.underlying, codec.underlying, uris.map(_.underlying).asJava)
           )
           .map(new RedisMasterReplica(_) {})
 
@@ -55,7 +53,7 @@ object RedisMasterReplica {
 
     val release: RedisMasterReplica[K, V] => F[Unit] = connection =>
       Log[F].info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>
-          FutureLift[F].liftCompletableFuture(Sync[F].delay(connection.underlying.closeAsync())).void
+          FutureLift[F].liftCompletableFuture(connection.underlying.closeAsync()).void
 
     (acquire, release)
   }
@@ -108,14 +106,13 @@ object RedisMasterReplica {
         config: Redis4CatsConfig,
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
-      RedisExecutor.make[F].flatMap { implicit redisExecutor =>
-        Resource.eval(RedisClient.acquireAndReleaseWithoutUri[F](opts, config)).flatMap {
-          case (acquireClient, releaseClient) =>
-            Resource.make(acquireClient)(releaseClient).flatMap { client =>
-              val (acquire, release) = acquireAndRelease(client, codec, readFrom, uris: _*)
-              Resource.make(acquire)(release)
-            }
-        }
+      //RedisExecutor.make[F].flatMap { implicit redisExecutor =>
+      Resource.eval(RedisClient.acquireAndReleaseWithoutUri[F](opts, config)).flatMap {
+        case (acquireClient, releaseClient) =>
+          Resource.make(acquireClient)(releaseClient).flatMap { client =>
+            val (acquire, release) = acquireAndRelease(client, codec, readFrom, uris: _*)
+            Resource.make(acquire)(release)
+          }
       }
 
   }

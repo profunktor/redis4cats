@@ -23,11 +23,11 @@ import cats.effect.kernel._
 import cats.effect.kernel.implicits._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
-import dev.profunktor.redis4cats.effect.{ FutureLift, Log, RedisExecutor }
+import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log: RedisExecutor, K, V](
+private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V]
 ) extends SubscribeCommands[Stream[F, *], K, V] {
@@ -35,13 +35,13 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log: RedisExecutor, K,
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     Stream
       .resource(Resource.eval(state.get) >>= PubSubInternals[F, K, V](state, subConnection).apply(channel))
-      .evalTap(_ => FutureLift[F].lift(Sync[F].delay(subConnection.async().subscribe(channel.underlying))))
+      .evalTap(_ => FutureLift[F].lift(subConnection.async().subscribe(channel.underlying)))
       .flatMap(_.subscribe(500).unNone)
 
   override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
     Stream.eval {
       FutureLift[F]
-        .lift(Sync[F].delay(subConnection.async().unsubscribe(channel.underlying)))
+        .lift(subConnection.async().unsubscribe(channel.underlying))
         .void
         .guarantee(state.get.flatMap { st =>
           st.get(channel.underlying).fold(Applicative[F].unit)(_.publish1(none[V]).void) *> state.update(
