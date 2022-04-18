@@ -44,13 +44,13 @@ object RedisTx {
             case (gate, fbs) =>
               t.eval(redis.multi)
                 .bracketCase { _ =>
-                  fs.traverse_(f => t.eval(f).start.flatMap(fb => fbs.update(_ :+ fb)))
+                  fs.traverse_(f => t.start(f).flatMap(fb => fbs.update(_ :+ fb)))
                     .guarantee(gate.complete(()).void)
                 } {
                   case (_, Outcome.Succeeded(_)) =>
-                    gate.get *> t.eval(redis.exec) *> fbs.get.flatMap(_.traverse_(_.join))
+                    gate.get *> t.eval(redis.exec).guarantee(fbs.get.flatMap(_.traverse_(_.join)))
                   case (_, _) =>
-                    t.eval(redis.discard) *> fbs.get.flatMap(_.traverse_(_.cancel))
+                    t.eval(redis.discard).guarantee(fbs.get.flatMap(_.traverse_(_.cancel)))
                 }
           }
       }

@@ -32,6 +32,7 @@ import scala.util.control.NonFatal
 private[redis4cats] trait TxExecutor[F[_]] {
   def delay[A](thunk: => A): F[A]
   def eval[A](fa: F[A]): F[A]
+  def start[A](fa: F[A]): F[Fiber[F, Throwable, A]]
   def liftK[G[_]: Async]: TxExecutor[G]
 }
 
@@ -72,8 +73,9 @@ private[redis4cats] object TxExecutor {
 
   private def fromEC[F[_]: Async](ec: ExecutionContext): TxExecutor[F] =
     new TxExecutor[F] {
-      def delay[A](thunk: => A): F[A]       = eval(Sync[F].delay(thunk))
-      def eval[A](fa: F[A]): F[A]           = Async[F].evalOn(fa, ec)
-      def liftK[G[_]: Async]: TxExecutor[G] = fromEC[G](ec)
+      def delay[A](thunk: => A): F[A]                   = eval(Sync[F].delay(thunk))
+      def eval[A](fa: F[A]): F[A]                       = Async[F].evalOn(fa, ec)
+      def start[A](fa: F[A]): F[Fiber[F, Throwable, A]] = Async[F].startOn(fa, ec)
+      def liftK[G[_]: Async]: TxExecutor[G]             = fromEC[G](ec)
     }
 }
