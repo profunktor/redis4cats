@@ -33,7 +33,6 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
     val usernameKey = "test"
 
     val commandsApi =
-      //RedisExecutor.make[IO].flatMap { implicit redisExecutor =>
       for {
         uri <- Resource.eval(RedisURI.make[IO](redisClusterURI))
         underlying <- Resource.make(IO {

@@ -106,7 +106,6 @@ object RedisMasterReplica {
         config: Redis4CatsConfig,
         uris: RedisURI*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]] =
-      //RedisExecutor.make[F].flatMap { implicit redisExecutor =>
       Resource.eval(RedisClient.acquireAndReleaseWithoutUri[F](opts, config)).flatMap {
         case (acquireClient, releaseClient) =>
           Resource.make(acquireClient)(releaseClient).flatMap { client =>

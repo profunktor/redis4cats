@@ -37,8 +37,6 @@ private[redis4cats] trait TxExecutor[F[_]] {
 }
 
 private[redis4cats] object TxExecutor {
-  def apply[F[_]: TxExecutor]: TxExecutor[F] = implicitly
-
   def make[F[_]: Async]: Resource[F, TxExecutor[F]] =
     Resource
       .make(Sync[F].delay(Executors.newFixedThreadPool(1))) { ec =>

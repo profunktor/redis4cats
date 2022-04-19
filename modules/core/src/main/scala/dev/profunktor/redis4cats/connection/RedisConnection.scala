@@ -56,7 +56,6 @@ private[redis4cats] class RedisStatefulConnection[F[_]: ApplicativeThrow: Future
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
     OperationNotSupported("Running in a single node").raiseError
   def liftK[G[_]: Async]: RedisConnection[G, K, V] =
-    //implicit val ecG: RedisExecutor[G] = RedisExecutor[F].liftK[G]
     new RedisStatefulConnection[G, K, V](conn)
 }
 
@@ -75,6 +74,5 @@ private[redis4cats] class RedisStatefulClusterConnection[F[_]: FutureLift: Monad
       FutureLift[F].delay(stateful.async())
     }
   def liftK[G[_]: Async]: RedisConnection[G, K, V] =
-    //implicit val ecG: RedisExecutor[G] = RedisExecutor[F].liftK[G]
     new RedisStatefulClusterConnection[G, K, V](conn)
 }

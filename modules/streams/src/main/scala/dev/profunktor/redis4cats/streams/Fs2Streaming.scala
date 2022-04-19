@@ -40,7 +40,6 @@ object RedisStream {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, Streaming[Stream[F, *], K, V]] = {
-    //RedisExecutor.make[F].flatMap { implicit redisExecutor =>
     val acquire = FutureLift[F]
       .liftConnectionFuture(
         client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)
@@ -64,7 +63,6 @@ object RedisStream {
       codec: RedisCodec[K, V],
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Resource[F, Streaming[Stream[F, *], K, V]] =
-    //RedisExecutor.make[F].flatMap { implicit redisExecutor =>
     RedisMasterReplica[F].make(codec, uris: _*)(readFrom).map { conn =>
       new RedisStream(new RedisRawStreaming(conn.underlying))
     }

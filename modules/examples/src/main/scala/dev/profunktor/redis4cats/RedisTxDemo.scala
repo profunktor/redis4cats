@@ -16,10 +16,9 @@
 
 package dev.profunktor.redis4cats
 
-import java.util.concurrent.TimeoutException
-
 import cats.effect._
-import cats.syntax.all._
+import dev.profunktor.redis4cats.connection.RedisClient
+import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.log4cats._
 import dev.profunktor.redis4cats.tx.RedisTx
 import dev.profunktor.redis4cats.transactions.TransactionDiscarded
@@ -31,50 +30,69 @@ object RedisTxDemo extends LoggerIOApp {
   val program: IO[Unit] = {
     val key1 = "test1"
     val key2 = "test2"
+    val key3 = "test3"
 
     val showResult: String => Option[String] => IO[Unit] = key =>
       _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s"$key: $s"))
 
-    val commandsApi: Resource[IO, RedisCommands[IO, String, String]] =
-      Redis[IO].utf8(redisURI)
+    val mkClient: Resource[IO, RedisClient] =
+      RedisClient[IO].from(redisURI)
 
-    IO.ref(Map.empty[String, String]).flatMap { ref =>
-      commandsApi.use { redis =>
-        val getters =
-          redis.get(key1).flatTap(showResult(key1)) *>
-              redis.get(key2).flatTap(showResult(key2))
+    def mkRedis(cli: RedisClient): Resource[IO, RedisCommands[IO, String, String]] =
+      Redis[IO].fromClient(cli, RedisCodec.Utf8)
 
-        def store(opt: Option[String], k: String): IO[Unit] =
-          opt.traverse_(v => ref.update(_.updated(k, v)))
+    def prog[A](
+        tx: RedisTx[IO],
+        ops: RedisTx.Store[IO, String, A] => List[IO[Unit]]
+    ): IO[Unit] =
+      tx.run(ops) // or tx.run_(ops) to discard the result
+        .flatMap(kv => IO.println(s"KV: $kv"))
+        .handleErrorWith {
+          case TransactionDiscarded =>
+            putStrLn("[Error] - Transaction Discarded")
+          case e =>
+            putStrLn(s"[Error] - ${e.getMessage}")
+        }
 
-        val operations =
-          List(
-            redis.set(key1, "sad"),
-            redis.set(key2, "windows"),
-            redis.get(key1).flatMap(store(_, s"$key1-v1")),
-            redis.set(key1, "nix"),
-            redis.set(key2, "linux"),
-            redis.get(key1).flatMap(store(_, s"$key1-v2"))
-          )
+    // Running two concurrent transactions (needs two different RedisCommands)
+    mkClient.use { cli =>
+      val p1 = mkRedis(cli).use { redis =>
+        RedisTx.make(redis).use { tx =>
+          val getters =
+            redis.get(key1).flatTap(showResult(key1)) *>
+                redis.get(key2).flatTap(showResult(key2))
 
-        def displayGetResults: IO[Unit] =
-          ref.get.flatMap(kv => IO.println(s"KV: $kv"))
+          // it is not possible to mix different stores. In case of needing to preserve values
+          // of other types, you'd need to use a local Ref or so.
+          val ops = (store: RedisTx.Store[IO, String, Option[String]]) =>
+            List(
+              redis.set(key1, "sad"),
+              redis.set(key2, "windows"),
+              redis.get(key1).flatMap(store.set(s"$key1-v1")),
+              redis.set(key1, "nix"),
+              redis.set(key2, "linux"),
+              redis.get(key1).flatMap(store.set(s"$key1-v2"))
+            )
 
-        val prog =
-          RedisTx.make(redis).use {
-            _.run(operations)
-              .handleErrorWith {
-                case TransactionDiscarded =>
-                  putStrLn("[Error] - Transaction Discarded")
-                case _: TimeoutException =>
-                  putStrLn("[Error] - Timeout")
-                case e =>
-                  putStrLn(s"[Error] - ${e.getMessage}")
-              }
-          }
-
-        getters >> prog >> getters >> putStrLn("keep doing stuff...") >> displayGetResults
+          getters >> prog(tx, ops) >> getters >> putStrLn("keep doing stuff...")
+        }
       }
+
+      val p2 = mkRedis(cli).use { redis =>
+        RedisTx.make(redis).use { tx =>
+          val ops = (store: RedisTx.Store[IO, String, Long]) =>
+            List(
+              redis.set("yo", "wat"),
+              redis.incr(key3).flatMap(store.set(s"$key3-v1")),
+              redis.incr(key3).flatMap(store.set(s"$key3-v2")),
+              redis.set("wat", "yo")
+            )
+
+          prog(tx, ops)
+        }
+      }
+
+      p1 &> p2
     }
   }
 

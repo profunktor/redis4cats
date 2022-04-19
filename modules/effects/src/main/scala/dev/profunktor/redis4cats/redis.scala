@@ -429,20 +429,17 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   /******************************* Transactions API **********************************/
   // When in a cluster, transactions should run against a single node.
 
-  def showThread(op: String): F[Unit] =
-    FutureLift[F].delay(println(s"$op: ${Thread.currentThread().getName()}"))
-
   def multi: F[Unit] =
     async.flatMap {
-      case c: RedisAsyncCommands[K, V] => showThread("multi") *> c.multi().futureLift.void
-      case _                           => showThread("multi") *> conn.async.flatMap(_.multi().futureLift).void
+      case c: RedisAsyncCommands[K, V] => c.multi().futureLift.void
+      case _                           => conn.async.flatMap(_.multi().futureLift).void
     }
 
   def exec: F[Unit] =
     async
       .flatMap {
-        case c: RedisAsyncCommands[K, V] => showThread("exec") *> c.exec().futureLift
-        case _                           => showThread("exec") *> conn.async.flatMap(_.exec().futureLift)
+        case c: RedisAsyncCommands[K, V] => c.exec().futureLift
+        case _                           => conn.async.flatMap(_.exec().futureLift)
       }
       .flatMap {
         case res if res.wasDiscarded() || res.isEmpty() => TransactionDiscarded.raiseError
@@ -451,8 +448,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   def discard: F[Unit] =
     async.flatMap {
-      case c: RedisAsyncCommands[K, V] => showThread("discard") *> c.discard().futureLift.void
-      case _                           => showThread("discard") *> conn.async.flatMap(_.discard().futureLift).void
+      case c: RedisAsyncCommands[K, V] => c.discard().futureLift.void
+      case _                           => conn.async.flatMap(_.discard().futureLift).void
     }
 
   def watch(keys: K*): F[Unit] =
@@ -485,7 +482,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.getset(key, value).futureLift.map(Option.apply))
 
   override def set(key: K, value: V): F[Unit] =
-    async.flatMap(c => showThread("set") *> c.set(key, value).futureLift.void)
+    async.flatMap(_.set(key, value).futureLift.void)
 
   override def set(key: K, value: V, setArgs: SetArgs): F[Boolean] = {
     val jSetArgs = new JSetArgs()
