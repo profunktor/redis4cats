@@ -55,7 +55,6 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PubSubCommands[Stream[F, *], K, V]] = {
-    //MkRedis[F].newExecutor.flatMap { implicit ec =>
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
     // One exclusive connection for subscriptions and another connection for publishing / stats
     for {
@@ -74,7 +73,6 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, PublishCommands[Stream[F, *], K, V]] = {
-    //MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
     Resource.make(acquire)(release).map(new Publisher[F, K, V](_))
   }
@@ -88,7 +86,6 @@ object PubSub {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, SubscribeCommands[Stream[F, *], K, V]] = {
-    //MkRedis[F].newExecutor.flatMap { implicit ec =>
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
     for {
       state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))

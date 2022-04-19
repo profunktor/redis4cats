@@ -194,7 +194,6 @@ object Redis {
         client: RedisClient,
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] = {
-      //MkRedis[F].newExecutor(threadPoolSize).flatMap { implicit ec =>
       val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
       Resource.make(acquire)(release).widen
     }
@@ -276,7 +275,6 @@ object Redis {
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V]
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] = {
-      //MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
       val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, readFrom)
       Resource.make(acquire)(release).widen
     }
@@ -307,7 +305,6 @@ object Redis {
         codec: RedisCodec[K, V],
         nodeId: NodeId
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] = {
-      //MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
       val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, readFrom, nodeId)
       Resource.make(acquire)(release).widen
     }
@@ -329,7 +326,6 @@ object Redis {
     def masterReplica[K, V](
         conn: RedisMasterReplica[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      //MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
       Resource.pure {
         new Redis[F, K, V](new RedisStatefulConnection(conn.underlying))
       }
