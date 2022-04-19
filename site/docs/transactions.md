@@ -7,11 +7,11 @@ position: 6
 
 # Transactions
 
-Redis supports [transactions](https://redis.io/topics/transactions) via the `MULTI`, `EXEC` and `DISCARD` commands. `redis4cats` provides a `RedisTransaction` utility that models a transaction as a `Resource`.
+Redis supports [transactions](https://redis.io/topics/transactions) via the `MULTI`, `EXEC` and `DISCARD` commands. `redis4cats` provides a `RedisTx` utility that models a transaction as a `Resource`.
 
 ## Caveats
 
-Note that every command has to be forked (`.start`) because the commands need to be sent to the server asynchronously and no response will be received until either an `EXEC` or a `DISCARD` command is sent. Both forking and sending the final command is handled by `RedisTransaction`.
+Note that every command has to be forked (`.start`) because the commands need to be sent to the server asynchronously and no response will be received until either an `EXEC` or a `DISCARD` command is sent. Both forking and sending the final command is handled by `RedisTx`.
 
 These are internals, though. All you need to care about is what commands you want to run as part of a transaction and handle the possible errors and retry logic.
 
@@ -21,7 +21,7 @@ These are internals, though. All you need to care about is what commands you wan
 
 ### Working with transactions
 
-The most common way is to create a `RedisTransaction` once by passing the commands API as a parameter and invoke the `exec` function (or `filterExec`) every time you want to run the given commands as part of a new transaction.
+The most common way is to create a `RedisTx` once by passing the commands API as a parameter and invoke the `run` function (or `run_` to discard the result) every time you want to run the given commands as part of a new transaction.
 
 Every command has to be atomic and independent of previous Redis results, so it is not recommended to chain commands using `flatMap`.
 
@@ -48,11 +48,7 @@ val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
 import cats.effect.IO
 import cats.implicits._
 import dev.profunktor.redis4cats._
-import dev.profunktor.redis4cats.hlist._
-import dev.profunktor.redis4cats.transactions._
-import java.util.concurrent.TimeoutException
-
-def putStrLn(str: String): IO[Unit] = IO(println(str))
+import dev.profunktor.redis4cats.tx._
 
 val key1 = "test1"
 val key2 = "test2"
@@ -62,51 +58,44 @@ val showResult: String => Option[String] => IO[Unit] = key =>
   _.fold(Log[IO].info(s"Key not found: $key"))(s => Log[IO].info(s"$key: $s"))
 
 commandsApi.use { redis => // RedisCommands[IO, String, String]
-  val tx = RedisTransaction(redis)
+  RedisTx.make(redis).use { tx =>
+    val setters = redis.set(key2, "delete_me") >> redis.set(key3, "foo")
 
-  val setters = redis.set(key2, "delete_me") >> redis.set(key3, "foo")
+    val getters =
+      redis.get(key1).flatTap(showResult(key1)) >>
+        redis.get(key2).flatTap(showResult(key2))
 
-  val getters =
-    redis.get(key1).flatTap(showResult(key1)) >>
-      redis.get(key2).flatTap(showResult(key2))
+    val ops = (store: RedisTx.Store[IO, String, Option[String]]) =>
+      List(
+        redis.set(key1, "foo"),
+        redis.del(key2).void,
+        redis.get(key3).flatMap(store.set(key3))
+      )
 
-  // the commands type is fully inferred
-  // IO[Unit] :: IO[Option[String]] :: IO[Unit] :: HNil
-  val commands = redis.set(key1, "foo") :: redis.del(key2) :: redis.get(key3) :: HNil
+    val prog =
+      tx.run(ops)
+        .flatMap { kv =>
+          IO.println(s"KV: ${kv}")
+        }
+        .recoverWith {
+          case TransactionDiscarded =>
+            Log[IO].error("[Error] - Transaction Discarded")
+          case e =>
+            Log[IO].error(s"[Error] - $e")
+        }
 
-  // the result type is inferred as well
-  // Option[String] :: HNil
-  val prog =
-    tx.filterExec(commands)
-      .flatMap {
-        case res1 ~: res2 ~: HNil =>
-          putStrLn(s"Key2 result: $res1") >>
-            putStrLn(s"Key3 result: $res2")
-      }
-      .onError {
-        case TransactionAborted =>
-          Log[IO].error("[Error] - Transaction Aborted")
-        case TransactionDiscarded =>
-          Log[IO].error("[Error] - Transaction Discarded")
-        case _: TimeoutException =>
-          Log[IO].error("[Error] - Timeout")
-        case e =>
-          Log[IO].error(s"[Error] - $e")
-      }
-
-  setters >> getters >> prog >> getters.void
+    setters >> getters >> prog >> getters.void
+  }
 }
 ```
 
 It should be exclusively used to run Redis commands as part of a transaction, not any other computations. Fail to do so, may result in unexpected behavior.
 
-Transactional commands may be discarded if something went wrong in between. The possible errors you may get are:
+Transactional commands may be discarded if something went wrong in between.
 
-- `TransactionDiscarded`: The `EXEC` command failed and the transactional commands were discarded.
-- `TransactionAborted`: The `DISCARD` command was triggered due to cancellation or other failure within the transaction.
-- `TimeoutException`: The transaction timed out due to some unknown error.
+The `run` function returns the values stored in the given `RedisTx.Store`, which is used to save results of commands that run as part of the transaction for later retrieval.
 
-The `filterExec` function filters out values of type `Unit`, which are normally irrelevant. If you find yourself needing the `Unit` types to verify some behavior, use `exec` instead.
+If you are only writing values (e.g. only using `set`), you may prefer to use `run_` instead.
 
 ### How NOT to use transactions
 
@@ -114,17 +103,17 @@ For example, the following transaction will result in a dead-lock:
 
 ```scala mdoc:silent
 commandsApi.use { redis =>
-  val tx = RedisTransaction(redis)
+  RedisTx.make(redis).use { tx =>
+    val getters =
+      redis.get(key1).flatTap(showResult(key1)) *>
+        redis.get(key2).flatTap(showResult(key2))
 
-  val getters =
-    redis.get(key1).flatTap(showResult(key1)) *>
-      redis.get(key2).flatTap(showResult(key2))
+    val setters = tx.run_(
+      List(redis.set(key1, "foo"), redis.set(key2, "bar"), redis.discard)
+    )
 
-  val setters = tx.exec(
-    redis.set(key1, "foo") :: redis.set(key2, "bar") :: redis.discard :: HNil
-  )
-
-  getters *> setters.void *> getters.void
+    getters *> setters.void *> getters.void
+  }
 }
 ```
 
@@ -134,17 +123,17 @@ The following example will result in a successful transaction on Redis. Yet, the
 
 ```scala mdoc:silent
 commandsApi.use { redis =>
-  val tx = RedisTransaction(redis)
+  RedisTx.make(redis).use { tx =>
+    val getters =
+      redis.get(key1).flatTap(showResult(key1)) *>
+        redis.get(key2).flatTap(showResult(key2))
 
-  val getters =
-    redis.get(key1).flatTap(showResult(key1)) *>
-      redis.get(key2).flatTap(showResult(key2))
+    val failedTx = tx.run_(
+      List(redis.set(key1, "foo"), redis.set(key2, "bar"), IO.raiseError(new Exception("boom")))
+    )
 
-  val failedTx = tx.exec(
-    redis.set(key1, "foo") :: redis.set(key2, "bar") :: IO.raiseError(new Exception("boom")) :: HNil
-  )
-
-  getters *> failedTx.void *> getters.void
+    getters *> failedTx.void *> getters.void
+  }
 }
 ```
 
@@ -170,21 +159,17 @@ def txProgram(v1: String, v2: String) =
           redis.get(key2).flatTap(showResult(key2)) >>
           redis.get(key2).flatTap(showResult(key3))
 
-      val operations = redis.set(key1, v1) :: redis.set(key2, v2) :: HNil
+      val ops = List(redis.set(key1, v1), redis.set(key2, v2))
 
       val prog: IO[Unit] =
-        RedisTransaction(redis)
-          .exec(operations)
-          .void
-          .onError {
-            case TransactionAborted =>
-              Log[IO].error("[Error] - Transaction Aborted")
-            case TransactionDiscarded =>
-              Log[IO].error("[Error] - Transaction Discarded")
-            case _: TimeoutException =>
-              Log[IO].error("[Error] - Timeout")
-            case e =>
-              Log[IO].error(s"[Error] - $e")
+        RedisTx.make(redis).use { tx =>
+          tx.run_(ops)
+            .onError {
+              case TransactionDiscarded =>
+                Log[IO].error("[Error] - Transaction Discarded")
+              case e =>
+                Log[IO].error(s"[Error] - $e")
+            }
           }
 
       val watching = redis.watch(key1, key2)
@@ -212,4 +197,4 @@ IO.race(txProgram("nix", "guix"), retriableTx).void
 
 The first transaction will be successful, but ultimately, the second transaction will retry and set the values "foo" and "bar".
 
-All these examples can be found under [RedisTransactionsDemo](https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/RedisTransactionsDemo.scala) and [ConcurrentTransactionsDemo](https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/ConcurrentTransactionsDemo.scala), respectively.
+All these examples can be found under [RedisTxDemo](https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/RedisTxDemo.scala).
