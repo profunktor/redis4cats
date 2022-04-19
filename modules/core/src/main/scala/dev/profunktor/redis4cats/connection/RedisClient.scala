@@ -141,7 +141,6 @@ object RedisClient {
         opts: ClientOptions,
         config: Redis4CatsConfig = Redis4CatsConfig()
     ): Resource[F, RedisClient] = {
-      //MkRedis[F].newExecutor.flatMap { implicit ec =>
       val (acquire, release) = acquireAndRelease(uri, opts, config)
       Resource.make(acquire)(release)
     }

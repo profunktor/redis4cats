@@ -121,7 +121,6 @@ object RedisClusterClient {
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): Resource[F, RedisClusterClient] = {
-    //MkRedis[F].newExecutor.flatMap { implicit redisExecutor =>
     implicit val fl: FutureLift[F] = MkRedis[F].futureLift
     implicit val log: Log[F]       = MkRedis[F].log
 
