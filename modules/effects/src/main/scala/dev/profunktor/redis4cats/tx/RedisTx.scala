@@ -24,8 +24,8 @@ import dev.profunktor.redis4cats.RedisCommands
 import dev.profunktor.redis4cats.effect.TxExecutor
 
 trait RedisTx[F[_]] {
+  def exec(fs: List[F[Unit]]): F[Unit]
   def run[A](fs: RedisTx.Store[F, String, A] => List[F[Unit]]): F[Map[String, A]]
-  def run_(fs: List[F[Unit]]): F[Unit]
 }
 
 object RedisTx {
@@ -59,7 +59,7 @@ object RedisTx {
   ): Resource[F, RedisTx[F]] =
     TxExecutor.make[F].map { t =>
       new RedisTx[F] {
-        def run_(fs: List[F[Unit]]): F[Unit] = run((_: Store[F, String, String]) => fs).void
+        def exec(fs: List[F[Unit]]): F[Unit] = run((_: Store[F, String, String]) => fs).void
 
         def run[A](fs: Store[F, String, A] => List[F[Unit]]): F[Map[String, A]] =
           Store.make[F, String, A].flatMap { store =>

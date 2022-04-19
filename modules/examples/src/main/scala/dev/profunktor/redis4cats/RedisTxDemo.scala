@@ -44,7 +44,7 @@ object RedisTxDemo extends LoggerIOApp {
         tx: RedisTx[IO],
         ops: RedisTx.Store[IO, String, A] => List[IO[Unit]]
     ): IO[Unit] =
-      tx.run(ops) // or tx.run_(ops) to discard the result
+      tx.run(ops) // or tx.exec(ops) to discard the result
         .flatMap(kv => IO.println(s"KV: $kv"))
         .handleErrorWith {
           case TransactionDiscarded =>

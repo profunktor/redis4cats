@@ -21,7 +21,7 @@ These are internals, though. All you need to care about is what commands you wan
 
 ### Working with transactions
 
-The most common way is to create a `RedisTx` once by passing the commands API as a parameter and invoke the `run` function (or `run_` to discard the result) every time you want to run the given commands as part of a new transaction.
+The most common way is to create a `RedisTx` once by passing the commands API as a parameter and invoke the `run` function (or `exec` to discard the result) every time you want to run the given commands as part of a new transaction.
 
 Every command has to be atomic and independent of previous Redis results, so it is not recommended to chain commands using `flatMap`.
 
@@ -95,7 +95,7 @@ Transactional commands may be discarded if something went wrong in between.
 
 The `run` function returns the values stored in the given `RedisTx.Store`, which is used to save results of commands that run as part of the transaction for later retrieval.
 
-If you are only writing values (e.g. only using `set`), you may prefer to use `run_` instead.
+If you are only writing values (e.g. only using `set`), you may prefer to use `exec` instead.
 
 ### How NOT to use transactions
 
@@ -108,7 +108,7 @@ commandsApi.use { redis =>
       redis.get(key1).flatTap(showResult(key1)) *>
         redis.get(key2).flatTap(showResult(key2))
 
-    val setters = tx.run_(
+    val setters = tx.exec(
       List(redis.set(key1, "foo"), redis.set(key2, "bar"), redis.discard)
     )
 
@@ -128,7 +128,7 @@ commandsApi.use { redis =>
       redis.get(key1).flatTap(showResult(key1)) *>
         redis.get(key2).flatTap(showResult(key2))
 
-    val failedTx = tx.run_(
+    val failedTx = tx.exec(
       List(redis.set(key1, "foo"), redis.set(key2, "bar"), IO.raiseError(new Exception("boom")))
     )
 
@@ -163,7 +163,7 @@ def txProgram(v1: String, v2: String) =
 
       val prog: IO[Unit] =
         RedisTx.make(redis).use { tx =>
-          tx.run_(ops)
+          tx.exec(ops)
             .onError {
               case TransactionDiscarded =>
                 Log[IO].error("[Error] - Transaction Discarded")

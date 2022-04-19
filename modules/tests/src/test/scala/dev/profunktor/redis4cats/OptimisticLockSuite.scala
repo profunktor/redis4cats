@@ -69,7 +69,7 @@ class OptimisticLockSuite extends IOSuite {
         .semiflatMap(_ => counter.update(_ + 1) >> attemptComplete >> promise.get)
         .flatMapF(_ =>
           RedisTx.make(cmd).use {
-            _.run_(cmd.set(testKey, UpdatedValue) :: Nil)
+            _.exec(cmd.set(testKey, UpdatedValue) :: Nil)
               .as(Either.right[String, Unit](()))
               .recover {
                 case TransactionDiscarded => Left("Discarded")
