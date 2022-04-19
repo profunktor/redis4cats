@@ -20,8 +20,7 @@ import cats.effect._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.log4cats._
-import dev.profunktor.redis4cats.tx.RedisTx
-import dev.profunktor.redis4cats.transactions.TransactionDiscarded
+import dev.profunktor.redis4cats.tx.{ RedisTx, TransactionDiscarded }
 
 object RedisTxDemo extends LoggerIOApp {
 

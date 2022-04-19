@@ -29,7 +29,7 @@ import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect._
 import dev.profunktor.redis4cats.effect.FutureLift._
 import dev.profunktor.redis4cats.effects._
-import dev.profunktor.redis4cats.transactions.TransactionDiscarded
+import dev.profunktor.redis4cats.tx.TransactionDiscarded
 import io.lettuce.core.{
   BitFieldArgs,
   ClientOptions,
