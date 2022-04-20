@@ -17,10 +17,9 @@
 package dev.profunktor.redis4cats
 
 import cats.effect._
+import cats.syntax.all._
 import dev.profunktor.redis4cats.effect.Log.NoOp._
-import dev.profunktor.redis4cats.hlist._
-import dev.profunktor.redis4cats.pipeline._
-import java.util.concurrent.TimeoutException
+import dev.profunktor.redis4cats.tx._
 
 object RedisPipelineDemo extends LoggerIOApp {
 
@@ -36,34 +35,33 @@ object RedisPipelineDemo extends LoggerIOApp {
     val commandsApi: Resource[IO, RedisCommands[IO, String, String]] =
       Redis[IO].utf8(redisURI)
 
-    commandsApi
-      .use { cmd =>
-        val getters =
-          cmd.get(key1).flatTap(showResult(key1)) *>
-              cmd.get(key2).flatTap(showResult(key2))
+    commandsApi.use { redis =>
+      val getters =
+        redis.get(key1).flatTap(showResult(key1)) *>
+            redis.get(key2).flatTap(showResult(key2))
 
-        val operations =
-          cmd.set(key1, "noop") :: cmd.set(key2, "windows") :: cmd.get(key1) ::
-              cmd.set(key1, "nix") :: cmd.set(key2, "linux") :: cmd.get(key1) :: HNil
+      val operations = (store: TxStore[IO, String, Option[String]]) =>
+        List(
+          redis.set(key1, "noop"),
+          redis.set(key2, "windows"),
+          redis.get(key1).flatMap(store.set(s"$key1-v1")),
+          redis.set(key1, "nix"),
+          redis.set(key2, "linux"),
+          redis.get(key1).flatMap(store.set(s"$key1-v2"))
+        )
 
-        val prog =
-          RedisPipeline(cmd)
-            .filterExec(operations)
-            .flatMap {
-              case res1 ~: res2 ~: HNil =>
-                putStrLn(s"res1: $res1, res2: $res2")
-            }
-            .onError {
-              case PipelineError =>
-                putStrLn("[Error] - Pipeline failed")
-              case _: TimeoutException =>
-                putStrLn("[Error] - Timeout")
+      val prog =
+        RedisPipe.make(redis).use {
+          _.run(operations)
+            .flatMap(kv => IO.println(s"KV: $kv"))
+            .recoverWith {
               case e =>
                 putStrLn(s"[Error] - ${e.getMessage}")
             }
+        }
 
-        getters >> prog >> getters >> putStrLn("keep doing stuff...")
-      }
+      getters >> prog >> getters >> putStrLn("keep doing stuff...")
+    }
   }
 
 }

@@ -17,18 +17,16 @@
 package dev.profunktor.redis4cats
 
 import java.time.Instant
-import java.util.concurrent.TimeoutException
+
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
+
 import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrUnsignedBy, SetUnsigned }
 import dev.profunktor.redis4cats.algebra.BitCommands
 import dev.profunktor.redis4cats.data.KeyScanCursor
-import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects._
-import dev.profunktor.redis4cats.hlist._
-import dev.profunktor.redis4cats.pipeline.{ PipelineError, RedisPipeline }
-import dev.profunktor.redis4cats.tx.RedisTx
+import dev.profunktor.redis4cats.tx._
 import io.lettuce.core.{ GeoArgs, ZAggregateArgs }
 import munit.FunSuite
 
@@ -36,7 +34,7 @@ import scala.concurrent.duration._
 
 trait TestScenarios { self: FunSuite =>
 
-  def locationScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def locationScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val _BuenosAires  = GeoLocation(Longitude(-58.3816), Latitude(-34.6037), "Buenos Aires")
     val _RioDeJaneiro = GeoLocation(Longitude(-43.1729), Latitude(-22.9068), "Rio de Janeiro")
     val _Montevideo   = GeoLocation(Longitude(-56.164532), Latitude(-34.901112), "Montevideo")
@@ -44,120 +42,120 @@ trait TestScenarios { self: FunSuite =>
 
     val testKey = "location"
     for {
-      _ <- cmd.geoAdd(testKey, _BuenosAires)
-      _ <- cmd.geoAdd(testKey, _RioDeJaneiro)
-      _ <- cmd.geoAdd(testKey, _Montevideo)
-      _ <- cmd.geoAdd(testKey, _Tokyo)
-      x <- cmd.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoArgs.Unit.km)
+      _ <- redis.geoAdd(testKey, _BuenosAires)
+      _ <- redis.geoAdd(testKey, _RioDeJaneiro)
+      _ <- redis.geoAdd(testKey, _Montevideo)
+      _ <- redis.geoAdd(testKey, _Tokyo)
+      x <- redis.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoArgs.Unit.km)
       _ <- IO(assertEquals(x, 18374.9052))
-      y <- cmd.geoPos(testKey, _RioDeJaneiro.value)
+      y <- redis.geoPos(testKey, _RioDeJaneiro.value)
       _ <- IO(assert(y.contains(GeoCoordinate(-43.17289799451828, -22.906801071586663))))
-      z <- cmd.geoRadius(testKey, GeoRadius(_Montevideo.lon, _Montevideo.lat, Distance(10000.0)), GeoArgs.Unit.km)
+      z <- redis.geoRadius(testKey, GeoRadius(_Montevideo.lon, _Montevideo.lat, Distance(10000.0)), GeoArgs.Unit.km)
       _ <- IO(assert(z.toList.containsSlice(List(_BuenosAires.value, _Montevideo.value, _RioDeJaneiro.value))))
     } yield ()
   }
 
-  def hashesScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def hashesScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val testKey    = "foo"
     val testField  = "bar"
     val testField2 = "baz"
     for {
-      x <- cmd.hGet(testKey, testField)
+      x <- redis.hGet(testKey, testField)
       _ <- IO(assert(x.isEmpty))
-      isSet1 <- cmd.hSetNx(testKey, testField, "some value")
+      isSet1 <- redis.hSetNx(testKey, testField, "some value")
       _ <- IO(assert(isSet1))
-      y <- cmd.hGet(testKey, testField)
+      y <- redis.hGet(testKey, testField)
       _ <- IO(assert(y.contains("some value")))
-      isSet2 <- cmd.hSetNx(testKey, testField, "should not happen")
+      isSet2 <- redis.hSetNx(testKey, testField, "should not happen")
       _ <- IO(assert(!isSet2))
-      w <- cmd.hGet(testKey, testField)
+      w <- redis.hGet(testKey, testField)
       _ <- IO(assert(w.contains("some value")))
-      w <- cmd.hmGet(testKey, testField, testField2)
+      w <- redis.hmGet(testKey, testField, testField2)
       _ <- IO(assertEquals(w, Map(testField -> "some value")))
-      d <- cmd.hDel(testKey, testField)
+      d <- redis.hDel(testKey, testField)
       _ <- IO(assertEquals(d, 1L))
-      z <- cmd.hGet(testKey, testField)
+      z <- redis.hGet(testKey, testField)
       _ <- IO(assert(z.isEmpty))
-      _ <- cmd.hSet(testKey, Map(testField -> "some value", testField2 -> "another value"))
-      v <- cmd.hGet(testKey, testField)
+      _ <- redis.hSet(testKey, Map(testField -> "some value", testField2 -> "another value"))
+      v <- redis.hGet(testKey, testField)
       _ <- IO(assert(v.contains("some value")))
-      v <- cmd.hGet(testKey, testField2)
+      v <- redis.hGet(testKey, testField2)
       _ <- IO(assert(v.contains("another value")))
     } yield ()
   }
 
-  def listsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def listsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val testKey = "listos"
     for {
-      first1 <- cmd.blPop(1.second, NonEmptyList.one(testKey))
+      first1 <- redis.blPop(1.second, NonEmptyList.one(testKey))
       _ <- IO(assert(first1.isEmpty))
-      last1 <- cmd.brPop(1.second, NonEmptyList.one(testKey))
+      last1 <- redis.brPop(1.second, NonEmptyList.one(testKey))
       _ <- IO(assert(last1.isEmpty))
-      pLength1 <- cmd.rPush(testKey, "one", "two")
+      pLength1 <- redis.rPush(testKey, "one", "two")
       _ <- IO(assert(pLength1 === 2))
-      last2 <- cmd.brPop(1.second, NonEmptyList.one(testKey))
+      last2 <- redis.brPop(1.second, NonEmptyList.one(testKey))
       _ <- IO(assert(last2.contains((testKey, "two"))))
-      first2 <- cmd.blPop(1.second, NonEmptyList.one(testKey))
+      first2 <- redis.blPop(1.second, NonEmptyList.one(testKey))
       _ <- IO(assert(first2.contains((testKey, "one"))))
-      t <- cmd.lRange(testKey, 0, 10)
+      t <- redis.lRange(testKey, 0, 10)
       _ <- IO(assert(t.isEmpty))
-      pLength2 <- cmd.rPush(testKey, "one", "two", "three")
+      pLength2 <- redis.rPush(testKey, "one", "two", "three")
       _ <- IO(assert(pLength2 === 3))
-      x <- cmd.lRange(testKey, 0, 10)
+      x <- redis.lRange(testKey, 0, 10)
       _ <- IO(assertEquals(x, List("one", "two", "three")))
-      y <- cmd.lLen(testKey)
+      y <- redis.lLen(testKey)
       _ <- IO(assert(y.contains(3)))
-      a <- cmd.lPop(testKey)
+      a <- redis.lPop(testKey)
       _ <- IO(assert(a.contains("one")))
-      b <- cmd.rPop(testKey)
+      b <- redis.rPop(testKey)
       _ <- IO(assert(b.contains("three")))
-      z <- cmd.lRange(testKey, 0, 10)
+      z <- redis.lRange(testKey, 0, 10)
       _ <- IO(assertEquals(z, List("two")))
-      c <- cmd.lInsertAfter(testKey, "two", "three")
+      c <- redis.lInsertAfter(testKey, "two", "three")
       _ <- IO(assertEquals(c, 2L))
-      d <- cmd.lInsertBefore(testKey, "n/a", "one")
+      d <- redis.lInsertBefore(testKey, "n/a", "one")
       _ <- IO(assertEquals(d, -1L))
-      e <- cmd.lInsertBefore(testKey, "two", "one")
+      e <- redis.lInsertBefore(testKey, "two", "one")
       _ <- IO(assertEquals(e, 3L))
-      f <- cmd.lRange(testKey, 0, 10)
+      f <- redis.lRange(testKey, 0, 10)
       _ <- IO(assertEquals(f, List("one", "two", "three")))
-      g <- cmd.lRem(testKey, 0, "one")
+      g <- redis.lRem(testKey, 0, "one")
       _ <- IO(assertEquals(g, 1L))
-      _ <- cmd.lSet(testKey, 1, "four")
-      _ <- cmd.lTrim(testKey, 1, 2)
-      h <- cmd.lRange(testKey, 0, 10)
+      _ <- redis.lSet(testKey, 1, "four")
+      _ <- redis.lTrim(testKey, 1, 2)
+      h <- redis.lRange(testKey, 0, 10)
       _ <- IO(assertEquals(h, List("four")))
     } yield ()
   }
 
-  def setsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def setsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val testKey = "foos"
     for {
-      x <- cmd.sMembers(testKey)
+      x <- redis.sMembers(testKey)
       _ <- IO(assert(x.isEmpty))
-      a <- cmd.sAdd(testKey, "set value")
+      a <- redis.sAdd(testKey, "set value")
       _ <- IO(assertEquals(a, 1L))
-      b <- cmd.sAdd(testKey, "set value")
+      b <- redis.sAdd(testKey, "set value")
       _ <- IO(assertEquals(b, 0L))
-      y <- cmd.sMembers(testKey)
+      y <- redis.sMembers(testKey)
       _ <- IO(assert(y.contains("set value")))
-      o <- cmd.sCard(testKey)
+      o <- redis.sCard(testKey)
       _ <- IO(assertEquals(o, 1L))
-      _ <- cmd.sRem("non-existing", "random")
-      w <- cmd.sMembers(testKey)
+      _ <- redis.sRem("non-existing", "random")
+      w <- redis.sMembers(testKey)
       _ <- IO(assert(w.contains("set value")))
-      _ <- cmd.sRem(testKey, "set value")
-      z <- cmd.sMembers(testKey)
+      _ <- redis.sRem(testKey, "set value")
+      z <- redis.sMembers(testKey)
       _ <- IO(assert(z.isEmpty))
-      t <- cmd.sCard(testKey)
+      t <- redis.sCard(testKey)
       _ <- IO(assertEquals(t, 0L))
-      _ <- cmd.sAdd(testKey, "value 1", "value 2")
-      r <- cmd.sMisMember(testKey, "value 1", "random", "value 2")
+      _ <- redis.sAdd(testKey, "value 1", "value 2")
+      r <- redis.sMisMember(testKey, "value 1", "random", "value 2")
       _ <- IO(assertEquals(r, List(true, false, true)))
     } yield ()
   }
 
-  def sortedSetsScenario(cmd: RedisCommands[IO, String, Long]): IO[Unit] = {
+  def sortedSetsScenario(redis: RedisCommands[IO, String, Long]): IO[Unit] = {
     val testKey         = "{same_hash_slot}:zztop"
     val otherTestKey    = "{same_hash_slot}:sharp:dressed:man"
     val scoreWithValue1 = ScoreWithValue(Score(1), 1L)
@@ -165,41 +163,41 @@ trait TestScenarios { self: FunSuite =>
     val scoreWithValue3 = ScoreWithValue(Score(5), 3L)
     val timeout         = 1.second
     for {
-      minPop1 <- cmd.zPopMin(testKey, 1)
+      minPop1 <- redis.zPopMin(testKey, 1)
       _ <- IO(assert(minPop1.isEmpty))
-      maxPop1 <- cmd.zPopMax(testKey, 1)
+      maxPop1 <- redis.zPopMax(testKey, 1)
       _ <- IO(assert(maxPop1.isEmpty))
-      minBPop1 <- cmd.bzPopMin(timeout, NonEmptyList.one(testKey))
+      minBPop1 <- redis.bzPopMin(timeout, NonEmptyList.one(testKey))
       _ <- IO(assert(minBPop1.isEmpty))
-      maxBPop1 <- cmd.bzPopMax(timeout, NonEmptyList.one(testKey))
+      maxBPop1 <- redis.bzPopMax(timeout, NonEmptyList.one(testKey))
       _ <- IO(assert(maxBPop1.isEmpty))
-      t <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
+      t <- redis.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
       _ <- IO(assert(t.isEmpty))
-      add2 <- cmd.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
+      add2 <- redis.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
       _ <- IO(assertEquals(add2, 2L))
-      minPop2 <- cmd.zPopMin(testKey, 1)
+      minPop2 <- redis.zPopMin(testKey, 1)
       _ <- IO(assertEquals(minPop2, List(scoreWithValue1)))
-      maxPop2 <- cmd.zPopMax(testKey, 1)
+      maxPop2 <- redis.zPopMax(testKey, 1)
       _ <- IO(assertEquals(maxPop2, List(scoreWithValue2)))
-      _ <- cmd.zCard(testKey).map(card => assert(card.contains(0)))
-      _ <- cmd.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
-      minBPop2 <- cmd.bzPopMin(timeout, NonEmptyList.one(testKey))
+      _ <- redis.zCard(testKey).map(card => assert(card.contains(0)))
+      _ <- redis.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
+      minBPop2 <- redis.bzPopMin(timeout, NonEmptyList.one(testKey))
       _ <- IO(assert(minBPop2.contains((testKey, scoreWithValue1))))
-      maxBPop2 <- cmd.bzPopMax(timeout, NonEmptyList.one(testKey))
+      maxBPop2 <- redis.bzPopMax(timeout, NonEmptyList.one(testKey))
       _ <- IO(assert(maxBPop2.contains((testKey, scoreWithValue2))))
-      _ <- cmd.zCard(testKey).map(card => assert(card.contains(0)))
-      _ <- cmd.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
-      x <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
+      _ <- redis.zCard(testKey).map(card => assert(card.contains(0)))
+      _ <- redis.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
+      x <- redis.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
       _ <- IO(assertEquals(x, List(1L)))
-      y <- cmd.zCard(testKey)
+      y <- redis.zCard(testKey)
       _ <- IO(assert(y.contains(2)))
-      z <- cmd.zCount(testKey, ZRange(0, 1))
+      z <- redis.zCount(testKey, ZRange(0, 1))
       _ <- IO(assert(z.contains(1)))
-      _ <- cmd.zAdd(otherTestKey, args = None, scoreWithValue1, scoreWithValue3)
-      zUnion <- cmd.zUnion(args = None, testKey, otherTestKey)
+      _ <- redis.zAdd(otherTestKey, args = None, scoreWithValue1, scoreWithValue3)
+      zUnion <- redis.zUnion(args = None, testKey, otherTestKey)
       _ <- IO(assertEquals(zUnion, List(1L, 2L, 3L)))
       aggregateArgs = ZAggregateArgs.Builder.sum().weights(10L, 20L)
-      zUnionWithScoreAndArgs <- cmd.zUnionWithScores(Some(aggregateArgs), testKey, otherTestKey)
+      zUnionWithScoreAndArgs <- redis.zUnionWithScores(Some(aggregateArgs), testKey, otherTestKey)
       _ <- IO(
             assertEquals(
               zUnionWithScoreAndArgs,
@@ -207,92 +205,92 @@ trait TestScenarios { self: FunSuite =>
               List(ScoreWithValue(Score(30), 1L), ScoreWithValue(Score(30), 2L), ScoreWithValue(Score(100), 3L))
             )
           )
-      zInter <- cmd.zInter(args = None, testKey, otherTestKey)
+      zInter <- redis.zInter(args = None, testKey, otherTestKey)
       _ <- IO(assertEquals(zInter, List(1L)))
-      zDiff <- cmd.zDiff(testKey, otherTestKey)
+      zDiff <- redis.zDiff(testKey, otherTestKey)
       _ <- IO(assertEquals(zDiff, List(2L)))
-      r <- cmd.zRemRangeByScore(testKey, ZRange(1, 3))
+      r <- redis.zRemRangeByScore(testKey, ZRange(1, 3))
       _ <- IO(assertEquals(r, 2L))
     } yield ()
   }
 
-  def keysScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def keysScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val key1 = "key1"
     val key2 = "key2"
     for {
-      x <- cmd.get(key1)
+      x <- redis.get(key1)
       _ <- IO(assertEquals(x, None))
-      exist1 <- cmd.exists(key1)
+      exist1 <- redis.exists(key1)
       _ <- IO(assert(!exist1))
-      idletime1 <- cmd.objectIdletime(key1)
+      idletime1 <- redis.objectIdletime(key1)
       _ <- IO(assert(idletime1.isEmpty))
-      _ <- cmd.set(key1, "some value")
-      exist2 <- cmd.exists(key1)
+      _ <- redis.set(key1, "some value")
+      exist2 <- redis.exists(key1)
       _ <- IO(assert(exist2))
-      idletime2 <- cmd.objectIdletime(key1)
+      idletime2 <- redis.objectIdletime(key1)
       _ <- IO(assert(idletime2.isDefined))
-      _ <- cmd.mSet(Map(key2 -> "some value 2"))
-      exist3 <- cmd.exists(key1, key2)
+      _ <- redis.mSet(Map(key2 -> "some value 2"))
+      exist3 <- redis.exists(key1, key2)
       _ <- IO(assert(exist3))
-      exist4 <- cmd.exists(key1, key2, "_not_existing_key_")
+      exist4 <- redis.exists(key1, key2, "_not_existing_key_")
       _ <- IO(assert(!exist4))
-      g <- cmd.del(key1)
+      g <- redis.del(key1)
       _ <- IO(assertEquals(g, 1L))
-      exist5 <- cmd.exists(key1)
+      exist5 <- redis.exists(key1)
       _ <- IO(assert(!exist5))
-      a <- cmd.ttl("whatever+")
+      a <- redis.ttl("whatever+")
       _ <- IO(assert(a.isEmpty))
-      b <- cmd.pttl("whatever+")
+      b <- redis.pttl("whatever+")
       _ <- IO(assert(b.isEmpty))
-      _ <- cmd.set("f1", "bar")
-      h <- cmd.expire("f1", 10.seconds)
+      _ <- redis.set("f1", "bar")
+      h <- redis.expire("f1", 10.seconds)
       _ <- IO(assertEquals(h, true))
-      c <- cmd.ttl("f1")
+      c <- redis.ttl("f1")
       _ <- IO(assert(c.nonEmpty))
-      d <- cmd.pttl("f1")
+      d <- redis.pttl("f1")
       _ <- IO(assert(d.nonEmpty))
-      _ <- cmd.set("f2", "yay")
-      i <- cmd.expire("f2", 50.millis)
+      _ <- redis.set("f2", "yay")
+      i <- redis.expire("f2", 50.millis)
       _ <- IO(assertEquals(i, true))
-      e <- cmd.ttl("f2")
+      e <- redis.ttl("f2")
       _ <- IO(assert(e.nonEmpty))
       _ <- IO.sleep(50.millis)
-      f <- cmd.ttl("f2")
+      f <- redis.ttl("f2")
       _ <- IO(assert(f.isEmpty))
-      j <- cmd.expire("_not_existing_key_", 50.millis)
+      j <- redis.expire("_not_existing_key_", 50.millis)
       _ <- IO(assertEquals(j, false))
-      _ <- cmd.del("f1")
+      _ <- redis.del("f1")
     } yield ()
   }
 
-  def scanScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def scanScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val keys = (1 until 10).map("key" + _).sorted.toList
     for {
-      _ <- cmd.mSet(keys.map(key => (key, key + "#value")).toMap)
-      scan0 <- cmd.scan
+      _ <- redis.mSet(keys.map(key => (key, key + "#value")).toMap)
+      scan0 <- redis.scan
       _ <- IO(assertEquals(scan0.cursor, "0"))
       _ <- IO(assertEquals(scan0.keys.sorted, keys))
-      scan1 <- cmd.scan(ScanArgs(1))
+      scan1 <- redis.scan(ScanArgs(1))
       _ <- IO(assert(scan1.keys.nonEmpty, "read at least something but no hard requirement"))
       _ <- IO(assert(scan1.keys.size < keys.size, "but read less than all of them"))
-      scan2 <- cmd.scan(scan1, ScanArgs("key*"))
+      scan2 <- redis.scan(scan1, ScanArgs("key*"))
       _ <- IO(assertEquals(scan2.cursor, "0"))
       _ <- IO(assertEquals((scan1.keys ++ scan2.keys).sorted, keys, "read to the end in result"))
     } yield ()
   }
 
-  def clusterScanScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def clusterScanScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val keys = (1 to 10).map("key" + _).sorted.toList
     for {
-      _ <- cmd.mSet(keys.map(key => (key, key + "#value")).toMap)
-      tp <- clusterScan(cmd, args = None)
+      _ <- redis.mSet(keys.map(key => (key, key + "#value")).toMap)
+      tp <- clusterScan(redis, args = None)
       (keys0, iterations0) = tp
       _ <- IO(assertEquals(keys0.sorted, keys))
-      tp <- clusterScan(cmd, args = Some(ScanArgs("key*")))
+      tp <- clusterScan(redis, args = Some(ScanArgs("key*")))
       (keys1, iterations1) = tp
       _ <- IO(assertEquals(keys1.sorted, keys))
       _ <- IO(assertEquals(iterations1, iterations0))
-      tp <- clusterScan(cmd, args = Some(ScanArgs(1)))
+      tp <- clusterScan(redis, args = Some(ScanArgs(1)))
       (keys2, iterations2) = tp
       _ <- IO(assertEquals(keys2.sorted, keys))
       _ <- IO(assert(iterations2 > iterations0, "made more iterations because of limit"))
@@ -305,54 +303,54 @@ trait TestScenarios { self: FunSuite =>
     * Does scan on all cluster nodes until all keys collected since order of scanned nodes can't be guaranteed
     */
   private def clusterScan(
-      cmd: RedisCommands[IO, String, String],
+      redis: RedisCommands[IO, String, String],
       args: Option[ScanArgs]
   ): IO[(List[String], Iterations)] = {
     def scanRec(previous: KeyScanCursor[String], acc: List[String], cnt: Int): IO[(List[String], Iterations)] =
       if (previous.isFinished) IO.pure((previous.keys ++ acc, cnt))
       else
-        args.fold(cmd.scan(previous))(cmd.scan(previous, _)).flatMap {
+        args.fold(redis.scan(previous))(redis.scan(previous, _)).flatMap {
           scanRec(_, previous.keys ++ acc, cnt + 1)
         }
 
-    args.fold(cmd.scan)(cmd.scan).flatMap(scanRec(_, List.empty, 0))
+    args.fold(redis.scan)(redis.scan).flatMap(scanRec(_, List.empty, 0))
   }
 
-  def bitmapsScenario(cmd: BitCommands[IO, String, String]): IO[Unit] = {
+  def bitmapsScenario(redis: BitCommands[IO, String, String]): IO[Unit] = {
     val key       = "foo"
     val secondKey = "bar"
     val thirdKey  = "baz"
     for {
-      _ <- cmd.setBit(key, 0, 1)
-      oneBit <- cmd.getBit(key, 0)
+      _ <- redis.setBit(key, 0, 1)
+      oneBit <- redis.getBit(key, 0)
       _ <- IO(assertEquals(oneBit, Some(1.toLong)))
-      _ <- cmd.setBit(key, 1, 1)
-      bitLen <- cmd.bitCount(key)
+      _ <- redis.setBit(key, 1, 1)
+      bitLen <- redis.bitCount(key)
       _ <- IO(assertEquals(bitLen, 2.toLong))
-      bitLen2 <- cmd.bitCount(key, 0, 2)
+      bitLen2 <- redis.bitCount(key, 0, 2)
       _ <- IO(assertEquals(bitLen2, 2.toLong))
-      _ <- cmd.setBit(key, 0, 1)
-      _ <- cmd.setBit(secondKey, 0, 1)
-      _ <- cmd.bitOpAnd(thirdKey, key, secondKey)
-      r <- cmd.getBit(thirdKey, 0)
+      _ <- redis.setBit(key, 0, 1)
+      _ <- redis.setBit(secondKey, 0, 1)
+      _ <- redis.bitOpAnd(thirdKey, key, secondKey)
+      r <- redis.getBit(thirdKey, 0)
       _ <- IO(assertEquals(r, Some(1.toLong)))
-      _ <- cmd.bitOpNot(thirdKey, key)
-      r2 <- cmd.getBit(thirdKey, 0)
+      _ <- redis.bitOpNot(thirdKey, key)
+      r2 <- redis.getBit(thirdKey, 0)
       _ <- IO(assertEquals(r2, Some(0.toLong)))
-      _ <- cmd.bitOpOr(thirdKey, key, secondKey)
-      r3 <- cmd.getBit(thirdKey, 0)
+      _ <- redis.bitOpOr(thirdKey, key, secondKey)
+      r3 <- redis.getBit(thirdKey, 0)
       _ <- IO(assertEquals(r3, Some(1.toLong)))
       _ <- for {
-            s1 <- cmd.setBit(key, 2, 1)
-            s2 <- cmd.setBit(key, 3, 1)
-            s3 <- cmd.setBit(key, 5, 1)
-            s4 <- cmd.setBit(key, 10, 1)
-            s5 <- cmd.setBit(key, 11, 1)
-            s6 <- cmd.setBit(key, 14, 1)
+            s1 <- redis.setBit(key, 2, 1)
+            s2 <- redis.setBit(key, 3, 1)
+            s3 <- redis.setBit(key, 5, 1)
+            s4 <- redis.setBit(key, 10, 1)
+            s5 <- redis.setBit(key, 11, 1)
+            s6 <- redis.setBit(key, 14, 1)
           } yield s1 + s2 + s3 + s4 + s5 + s6
-      k <- cmd.getBit(key, 2)
+      k <- redis.getBit(key, 2)
       _ <- IO(assertEquals(k, Some(1.toLong)))
-      _ <- cmd.bitField(
+      _ <- redis.bitField(
             secondKey,
             SetUnsigned(2, 1),
             SetUnsigned(3, 1),
@@ -361,126 +359,126 @@ trait TestScenarios { self: FunSuite =>
             SetUnsigned(11, 1),
             IncrUnsignedBy(14, 1)
           )
-      bits <- 0.to(14).toList.traverse(offset => cmd.getBit(secondKey, offset.toLong))
+      bits <- 0.to(14).toList.traverse(offset => redis.getBit(secondKey, offset.toLong))
       number <- IO.pure(Integer.parseInt(bits.map(_.getOrElse(0).toString).foldLeft("")(_ + _), 2))
       _ <- IO(assertEquals(number, 23065))
-      pos <- cmd.bitPos(key, state = false)
+      pos <- redis.bitPos(key, state = false)
       _ <- IO(assertEquals(pos, 4.toLong))
     } yield ()
   }
 
-  def stringsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def stringsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val key = "test"
     for {
-      x <- cmd.get(key)
+      x <- redis.get(key)
       _ <- IO(assert(x.isEmpty))
-      isSet1 <- cmd.setNx(key, "some value")
+      isSet1 <- redis.setNx(key, "some value")
       _ <- IO(assert(isSet1))
-      y <- cmd.get(key)
+      y <- redis.get(key)
       _ <- IO(assert(y.contains("some value")))
-      isSet2 <- cmd.setNx(key, "should not happen")
+      isSet2 <- redis.setNx(key, "should not happen")
       _ <- IO(assert(!isSet2))
-      isSet3 <- cmd.mSetNx(Map("multikey1" -> "someVal1", "multikey2" -> "someVal2"))
+      isSet3 <- redis.mSetNx(Map("multikey1" -> "someVal1", "multikey2" -> "someVal2"))
       _ <- IO(assert(isSet3))
-      isSet4 <- cmd.mSetNx(Map("multikey1" -> "someVal0", "multikey3" -> "someVal3"))
+      isSet4 <- redis.mSetNx(Map("multikey1" -> "someVal0", "multikey3" -> "someVal3"))
       _ <- IO(assert(!isSet4))
-      val1 <- cmd.get("multikey1")
+      val1 <- redis.get("multikey1")
       _ <- IO(assert(val1.contains("someVal1")))
-      val3 <- cmd.get("multikey3")
+      val3 <- redis.get("multikey3")
       _ <- IO(assert(val3.isEmpty))
-      isSet5 <- cmd.mSetNx(Map("multikey1" -> "someVal1", "multikey2" -> "someVal2"))
+      isSet5 <- redis.mSetNx(Map("multikey1" -> "someVal1", "multikey2" -> "someVal2"))
       _ <- IO(assert(!isSet5))
-      w <- cmd.get(key)
+      w <- redis.get(key)
       _ <- IO(assert(w.contains("some value")))
-      isSet6 <- cmd.set(key, "some value", SetArgs(SetArg.Existence.Nx))
+      isSet6 <- redis.set(key, "some value", SetArgs(SetArg.Existence.Nx))
       _ <- IO(assert(!isSet6))
-      isSet7 <- cmd.set(key, "some value 2", SetArgs(SetArg.Existence.Xx))
+      isSet7 <- redis.set(key, "some value 2", SetArgs(SetArg.Existence.Xx))
       _ <- IO(assert(isSet7))
-      val4 <- cmd.get(key)
+      val4 <- redis.get(key)
       _ <- IO(assert(val4.contains("some value 2")))
-      _ <- cmd.del(key)
-      isSet8 <- cmd.set(key, "some value", SetArgs(SetArg.Existence.Xx))
+      _ <- redis.del(key)
+      isSet8 <- redis.set(key, "some value", SetArgs(SetArg.Existence.Xx))
       _ <- IO(assert(!isSet8))
-      isSet9 <- cmd.set(key, "some value", SetArgs(SetArg.Existence.Nx))
+      isSet9 <- redis.set(key, "some value", SetArgs(SetArg.Existence.Nx))
       _ <- IO(assert(isSet9))
-      val5 <- cmd.get(key)
+      val5 <- redis.get(key)
       _ <- IO(assert(val5.contains("some value")))
-      isSet10 <- cmd.set(key, "some value 2", SetArgs(None, None))
+      isSet10 <- redis.set(key, "some value 2", SetArgs(None, None))
       _ <- IO(assert(isSet10))
-      val6 <- cmd.get(key)
+      val6 <- redis.get(key)
       _ <- IO(assert(val6.contains("some value 2")))
-      _ <- cmd.del(key)
-      z <- cmd.get(key)
+      _ <- redis.del(key)
+      z <- redis.get(key)
       _ <- IO(assert(z.isEmpty))
     } yield ()
   }
 
-  def stringsClusterScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def stringsClusterScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val key = "test"
     for {
-      x <- cmd.get(key)
+      x <- redis.get(key)
       _ <- IO(assert(x.isEmpty))
-      isSet1 <- cmd.setNx(key, "some value")
+      isSet1 <- redis.setNx(key, "some value")
       _ <- IO(assert(isSet1))
-      y <- cmd.get(key)
+      y <- redis.get(key)
       _ <- IO(assert(y.contains("some value")))
-      isSet2 <- cmd.setNx(key, "should not happen")
+      isSet2 <- redis.setNx(key, "should not happen")
       _ <- IO(assert(!isSet2))
-      w <- cmd.get(key)
+      w <- redis.get(key)
       _ <- IO(assert(w.contains("some value")))
-      _ <- cmd.del(key)
-      z <- cmd.get(key)
+      _ <- redis.del(key)
+      z <- redis.get(key)
       _ <- IO(assert(z.isEmpty))
     } yield ()
   }
 
-  def connectionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] =
-    cmd.ping.flatMap(pong => IO(assertEquals(pong, "PONG"))).void
+  def connectionScenario(redis: RedisCommands[IO, String, String]): IO[Unit] =
+    redis.ping.flatMap(pong => IO(assertEquals(pong, "PONG"))).void
 
-  def serverScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] =
+  def serverScenario(redis: RedisCommands[IO, String, String]): IO[Unit] =
     for {
-      _ <- cmd.mSet(Map("firstname" -> "Jack", "lastname" -> "Stuntman", "age" -> "35"))
-      names <- cmd.keys("*name*").map(_.toSet)
+      _ <- redis.mSet(Map("firstname" -> "Jack", "lastname" -> "Stuntman", "age" -> "35"))
+      names <- redis.keys("*name*").map(_.toSet)
       _ <- IO(assertEquals(names, Set("firstname", "lastname")))
-      age <- cmd.keys("a??")
+      age <- redis.keys("a??")
       _ <- IO(assertEquals(age, List("age")))
-      info <- cmd.info
+      info <- redis.info
       _ <- IO(assert(info.contains("role")))
-      dbsize <- cmd.dbsize
+      dbsize <- redis.dbsize
       _ <- IO(assert(dbsize > 0))
-      lastSave <- cmd.lastSave
+      lastSave <- redis.lastSave
       _ <- IO(assert(lastSave.isBefore(Instant.now)))
-      slowLogLen <- cmd.slowLogLen
+      slowLogLen <- redis.slowLogLen
       _ <- IO(assert(slowLogLen.isValidLong))
     } yield ()
 
-  def pipelineScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def pipelineScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val key1 = "testp1"
     val key2 = "testp2"
     val key3 = "testp3"
 
-    val operations =
-      cmd.set(key1, "osx") :: cmd.get(key3) :: cmd.set(key2, "linux") :: cmd.sIsMember("foo", "bar") :: HNil
+    val ops = (store: TxStore[IO, String, Option[String]]) =>
+      List(
+        redis.set(key1, "osx"),
+        redis.get(key3).flatMap(store.set(key3)),
+        redis.set(key2, "linux")
+      )
 
     val runPipeline =
-      RedisPipeline(cmd)
-        .filterExec(operations)
-        .map {
-          case res1 ~: res2 ~: HNil =>
-            assertEquals(res1, Some("3"))
-            assert(!res2)
+      RedisPipe
+        .make(redis)
+        .use {
+          _.run(ops).map(kv => assertEquals(kv.get(key3).flatten, Some("3")))
         }
-        .onError {
-          case PipelineError       => fail("[Error] - Pipeline failed")
-          case _: TimeoutException => fail("[Error] - Timeout")
-          case e                   => fail(s"[Error] - ${e.getMessage}")
+        .recoverWith {
+          case e => fail(s"[Error] - ${e.getMessage}")
         }
 
     for {
-      _ <- cmd.set(key3, "3")
+      _ <- redis.set(key3, "3")
       _ <- runPipeline
-      v1 <- cmd.get(key1)
-      v2 <- cmd.get(key2)
+      v1 <- redis.get(key1)
+      v2 <- redis.get(key2)
     } yield {
       assertEquals(v1, Some("osx"))
       assertEquals(v2, Some("linux"))
@@ -496,7 +494,7 @@ trait TestScenarios { self: FunSuite =>
     val val3 = "linux"
     val del1 = "deleteme"
 
-    val operations = (store: RedisTx.Store[IO, String, Option[String]]) =>
+    val operations = (store: TxStore[IO, String, Option[String]]) =>
       List(
         redis.set(key2, val2),
         redis.get(key1).flatMap(store.set(s"$key1-v1")),
@@ -521,32 +519,20 @@ trait TestScenarios { self: FunSuite =>
       }
   }
 
-  // TODO: not sure if this is relevant anymore
-  //def canceledTransactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
-  //val key1 = "tx-1"
-  //val key2 = "tx-2"
-  //val tx   = RedisTransaction(cmd)
-
-  //val commands = cmd.set(key1, "v1") :: cmd.set(key2, "v2") :: cmd.set("tx-3", "v3") :: HNil
-
-  //// We race it with a plain `IO.unit` so the transaction may or may not start at all but the result should be the same
-  //IO.race(tx.exec(commands), IO.unit) >> cmd.get(key1).map(assertEquals(_, None)) // no keys written
-  //}
-
-  def scriptsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def scriptsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val statusScript =
       """
         |redis.call('set',KEYS[1],ARGV[1])
         |redis.call('del',KEYS[1])
         |return redis.status_reply('OK')""".stripMargin
     for {
-      fortyTwo <- cmd.eval("return 42", ScriptOutputType.Integer)
+      fortyTwo <- redis.eval("return 42", ScriptOutputType.Integer)
       _ <- IO(assertEquals(fortyTwo, 42L))
-      value <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
+      value <- redis.eval("return 'Hello World'", ScriptOutputType.Value)
       _ <- IO(assertEquals(value, "Hello World"))
-      bool <- cmd.eval("return true", ScriptOutputType.Boolean, List("Foo"))
+      bool <- redis.eval("return true", ScriptOutputType.Boolean, List("Foo"))
       _ <- IO(assert(bool))
-      list <- cmd.eval(
+      list <- redis.eval(
                "return {'Let', 'us', ARGV[1], ARGV[2]}",
                ScriptOutputType.Multi,
                Nil,
@@ -556,39 +542,39 @@ trait TestScenarios { self: FunSuite =>
                )
              )
       _ <- IO(assertEquals(list, List("Let", "us", "have", "fun")))
-      _ <- cmd.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
-      sha42 <- cmd.scriptLoad("return 42")
-      fortyTwoSha <- cmd.evalSha(sha42, ScriptOutputType.Integer)
+      _ <- redis.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
+      sha42 <- redis.scriptLoad("return 42")
+      fortyTwoSha <- redis.evalSha(sha42, ScriptOutputType.Integer)
       _ <- IO(assertEquals(fortyTwoSha, 42L))
-      shaStatusScript <- cmd.scriptLoad(statusScript)
-      _ <- cmd.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
-      exists <- cmd.scriptExists(sha42, "foobar")
+      shaStatusScript <- redis.scriptLoad(statusScript)
+      _ <- redis.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
+      exists <- redis.scriptExists(sha42, "foobar")
       _ <- IO(assertEquals(exists, List(true, false)))
-      shaStatusDigest <- cmd.digest(statusScript)
+      shaStatusDigest <- redis.digest(statusScript)
       _ <- IO(assertEquals(shaStatusScript, shaStatusDigest))
-      _ <- cmd.scriptFlush
-      exists2 <- cmd.scriptExists(sha42)
+      _ <- redis.scriptFlush
+      exists2 <- redis.scriptExists(sha42)
       _ <- IO(assertEquals(exists2, List(false)))
     } yield ()
   }
 
-  def hyperloglogScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def hyperloglogScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val key  = "hll"
     val key2 = "hll2"
     val key3 = "hll3"
     for {
-      x <- cmd.get(key)
+      x <- redis.get(key)
       _ <- IO(assert(x.isEmpty))
-      c1 <- cmd.pfCount(key)
+      c1 <- redis.pfCount(key)
       _ <- IO(assertEquals(c1, 0L))
-      _ <- cmd.pfAdd(key, "a", "b", "c")
-      c2 <- cmd.pfCount(key)
+      _ <- redis.pfAdd(key, "a", "b", "c")
+      c2 <- redis.pfCount(key)
       _ <- IO(assert(c2 > 0, "hyperloglog should think it has more than 0 items in"))
-      _ <- cmd.pfAdd(key2, "a", "b", "c")
-      c3 <- cmd.pfCount(key2)
+      _ <- redis.pfAdd(key2, "a", "b", "c")
+      c3 <- redis.pfCount(key2)
       _ <- IO(assert(c3 > 0, "second hyperloglog should think it has more than 0 items in"))
-      _ <- cmd.pfMerge(key3, key2, key)
-      c4 <- cmd.pfCount(key3)
+      _ <- redis.pfMerge(key3, key2, key)
+      c4 <- redis.pfCount(key3)
       _ <- IO(assert(c4 > 0, "merged hyperloglog should think it has more than 0 items in"))
     } yield ()
   }

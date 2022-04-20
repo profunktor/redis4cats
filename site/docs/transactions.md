@@ -65,7 +65,7 @@ commandsApi.use { redis => // RedisCommands[IO, String, String]
       redis.get(key1).flatTap(showResult(key1)) >>
         redis.get(key2).flatTap(showResult(key2))
 
-    val ops = (store: RedisTx.Store[IO, String, Option[String]]) =>
+    val ops = (store: TxStore[IO, String, Option[String]]) =>
       List(
         redis.set(key1, "foo"),
         redis.del(key2).void,
@@ -93,7 +93,7 @@ It should be exclusively used to run Redis commands as part of a transaction, no
 
 Transactional commands may be discarded if something went wrong in between.
 
-The `run` function returns the values stored in the given `RedisTx.Store`, which is used to save results of commands that run as part of the transaction for later retrieval.
+The `run` function returns the values stored in the given `TxStore`, which is used to save results of commands that run as part of the transaction for later retrieval.
 
 If you are only writing values (e.g. only using `set`), you may prefer to use `exec` instead.
 

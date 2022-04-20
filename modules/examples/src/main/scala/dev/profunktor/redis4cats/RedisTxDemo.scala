@@ -20,7 +20,7 @@ import cats.effect._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.log4cats._
-import dev.profunktor.redis4cats.tx.{ RedisTx, TransactionDiscarded }
+import dev.profunktor.redis4cats.tx._
 
 object RedisTxDemo extends LoggerIOApp {
 
@@ -42,7 +42,7 @@ object RedisTxDemo extends LoggerIOApp {
 
     def prog[A](
         tx: RedisTx[IO],
-        ops: RedisTx.Store[IO, String, A] => List[IO[Unit]]
+        ops: TxStore[IO, String, A] => List[IO[Unit]]
     ): IO[Unit] =
       tx.run(ops) // or tx.exec(ops) to discard the result
         .flatMap(kv => IO.println(s"KV: $kv"))
@@ -63,7 +63,7 @@ object RedisTxDemo extends LoggerIOApp {
 
           // it is not possible to mix different stores. In case of needing to preserve values
           // of other types, you'd need to use a local Ref or so.
-          val ops = (store: RedisTx.Store[IO, String, Option[String]]) =>
+          val ops = (store: TxStore[IO, String, Option[String]]) =>
             List(
               redis.set(key1, "sad"),
               redis.set(key2, "windows"),
@@ -79,7 +79,7 @@ object RedisTxDemo extends LoggerIOApp {
 
       val p2 = mkRedis(cli).use { redis =>
         RedisTx.make(redis).use { tx =>
-          val ops = (store: RedisTx.Store[IO, String, Long]) =>
+          val ops = (store: TxStore[IO, String, Long]) =>
             List(
               redis.set("yo", "wat"),
               redis.incr(key3).flatMap(store.set(s"$key3-v1")),
