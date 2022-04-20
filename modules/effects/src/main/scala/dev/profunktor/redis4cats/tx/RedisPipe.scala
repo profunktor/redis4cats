@@ -17,37 +17,38 @@
 package dev.profunktor.redis4cats.tx
 
 import cats.effect.kernel._
+import cats.effect.kernel.syntax.monadCancel._
 import cats.syntax.all._
 
 import dev.profunktor.redis4cats.RedisCommands
 import dev.profunktor.redis4cats.effect.TxExecutor
 
-trait RedisTx[F[_]] {
+trait RedisPipe[F[_]] {
   def exec(fs: List[F[Unit]]): F[Unit]
   def run[A](fs: TxStore[F, String, A] => List[F[Unit]]): F[Map[String, A]]
 }
 
-object RedisTx {
+object RedisPipe {
 
   /**
-    * Note: a single instance of `RedisCommands` can only handle a transaction at a time.
+    * Note: a single instance of `RedisCommands` can only handle a pipeline at a time.
     *
-    * If you wish to run concurrent transactions, each of them needs to run a a dedicated
+    * If you wish to run concurrent pipelines, each of them needs to run a a dedicated
     * `RedisCommands` instance.
     */
   def make[F[_]: Async, K, V](
       redis: RedisCommands[F, K, V]
-  ): Resource[F, RedisTx[F]] =
+  ): Resource[F, RedisPipe[F]] =
     TxExecutor.make[F].map { txe =>
-      new RedisTx[F] {
+      new RedisPipe[F] {
         def exec(fs: List[F[Unit]]): F[Unit] =
           run((_: TxStore[F, String, String]) => fs).void
 
         def run[A](fs: TxStore[F, String, A] => List[F[Unit]]): F[Map[String, A]] =
           TxRunner.run[F, K, V, A](
-            acquire = redis.multi,
-            release = redis.exec,
-            onError = redis.discard,
+            acquire = redis.disableAutoFlush,
+            release = redis.flushCommands.guarantee(redis.enableAutoFlush),
+            onError = ().pure[F],
             t = txe
           )(fs)
       }

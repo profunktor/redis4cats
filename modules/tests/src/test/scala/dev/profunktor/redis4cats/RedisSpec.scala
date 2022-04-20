@@ -40,14 +40,11 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("connection api")(withRedis(connectionScenario))
 
-  // TODO: re-enable once the implementation is fixed as RedisTx
-  //test("pipelining")(withRedis(pipelineScenario))
+  test("pipelining")(withRedis(pipelineScenario))
 
   test("server")(withRedis(serverScenario))
 
   test("transactions: successful")(withRedis(transactionScenario))
-
-  //test("transactions: canceled")(withRedis(canceledTransactionScenario))
 
   test("scripts")(withRedis(scriptsScenario))
 
