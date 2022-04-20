@@ -40,7 +40,7 @@
       <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
         <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
 
-    <span class="k">val</span> <span class="nv">ops</span> <span class="k">=</span> <span class="o">(</span><span class="n">store</span><span class="k">:</span> <span class="kt">RedisTx.Store</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">String</span>, <span class="kt">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">]])</span> <span class="k">=&gt;</span>
+    <span class="k">val</span> <span class="nv">ops</span> <span class="k">=</span> <span class="o">(</span><span class="n">store</span><span class="k">:</span> <span class="kt">TxStore</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">String</span>, <span class="kt">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">]])</span> <span class="k">=&gt;</span>
       <span class="nc">List</span><span class="o">(</span>
         <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span>
         <span class="nv">redis</span><span class="o">.</span><span class="py">del</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">void</span><span class="o">,</span>
@@ -68,7 +68,7 @@
 
 <p>Transactional commands may be discarded if something went wrong in between.</p>
 
-<p>The <code class="language-plaintext highlighter-rouge">run</code> function returns the values stored in the given <code class="language-plaintext highlighter-rouge">RedisTx.Store</code>, which is used to save results of commands that run as part of the transaction for later retrieval.</p>
+<p>The <code class="language-plaintext highlighter-rouge">run</code> function returns the values stored in the given <code class="language-plaintext highlighter-rouge">TxStore</code>, which is used to save results of commands that run as part of the transaction for later retrieval.</p>
 
 <p>If you are only writing values (e.g. only using <code class="language-plaintext highlighter-rouge">set</code>), you may prefer to use <code class="language-plaintext highlighter-rouge">exec</code> instead.</p>
 

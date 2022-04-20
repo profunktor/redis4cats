@@ -2,48 +2,35 @@
 
 <p>Use <a href="https://redis.io/topics/pipelining">pipelining</a> to speed up your queries by having full control of commands flushing. By default Redis works in autoflush mode but it can be disabled to “pipeline” commands to the server without waiting for a response. And at any point in time you can “flush commands”.</p>
 
-<p><code class="language-plaintext highlighter-rouge">redis4cats</code> provides a <code class="language-plaintext highlighter-rouge">RedisPipeline</code> utility that models this behavior with some guarantees described below:</p>
+<p><code class="language-plaintext highlighter-rouge">redis4cats</code> provides a <code class="language-plaintext highlighter-rouge">RedisPipe</code> utility that models this behavior with some guarantees described below:</p>
 
 <ul>
-  <li><code class="language-plaintext highlighter-rouge">acquire</code>: disable autoflush and send a bunch of commands defined as a custom <code class="language-plaintext highlighter-rouge">HList</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">acquire</code>: disable autoflush and send a bunch of commands defined as a <code class="language-plaintext highlighter-rouge">List[F[Unit]]</code>.</li>
   <li><code class="language-plaintext highlighter-rouge">release</code>: either flush commands on success or log error on failure / cancellation.</li>
   <li><code class="language-plaintext highlighter-rouge">guarantee</code>: re-enable autoflush.</li>
 </ul>
 
-<h2 id="caveats">Caveats</h2>
-
-<p>⚠️ <strong>Pipelining shares the same asynchronous implementation of transactions, meaning the order of the commands cannot be guaranteed.</strong> ⚠️</p>
-
-<p>This statement means that given the following set of operations.</p>
-
-<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">val</span> <span class="nv">operations</span> <span class="k">=</span>
-  <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"osx"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"linux"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">)</span> <span class="o">::</span>
-    <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">)</span> <span class="o">::</span> <span class="nc">HNil</span>
-</code></pre></div></div>
-
-<p>The result of those two <code class="language-plaintext highlighter-rouge">get</code> operations will not be deterministic.</p>
+<p>⚠️ <strong>Pipelining shares the same asynchronous implementation of transactions, so you can only run sequential pipelines from a single <code class="language-plaintext highlighter-rouge">RedisCommands</code> instance.</strong> ⚠️</p>
 
 <h3 id="redispipeline-usage">RedisPipeline usage</h3>
 
-<p>The API for disabling / enabling autoflush and flush commands manually is available for you to use but since the pattern is so common it is recommended to just use <code class="language-plaintext highlighter-rouge">RedisPipeline</code>. You can create a pipeline by passing the commands API as a parameter and invoke the <code class="language-plaintext highlighter-rouge">exec</code> function (or <code class="language-plaintext highlighter-rouge">filterExec</code>) given the set of commands you wish to send to the server.</p>
+<p>The API for disabling / enabling autoflush and flush commands manually is available for you to use but since the pattern is so common it is recommended to use <code class="language-plaintext highlighter-rouge">RedisPipe</code>, because it shares the same implementation of <code class="language-plaintext highlighter-rouge">RedisTx</code>, which can be tricky to get right.</p>
+
+<p>You can create a pipeline by passing the commands API as a parameter and invoke the <code class="language-plaintext highlighter-rouge">run</code> function (or <code class="language-plaintext highlighter-rouge">exec</code>) given the set of commands you wish to send to the server.</p>
 
 <p>Note that every command has to be forked (<code class="language-plaintext highlighter-rouge">.start</code>) because the commands need to be sent to the server in an asynchronous way but no response will be received until the commands are successfully flushed. Also, it is not possible to sequence commands (<code class="language-plaintext highlighter-rouge">flatMap</code>) that are part of a pipeline. Every command has to be atomic and independent of previous results.</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">cats.effect.IO</span>
 <span class="k">import</span> <span class="nn">cats.implicits._</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats._</span>
-<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.hlist._</span>
-<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.pipeline._</span>
-<span class="k">import</span> <span class="nn">java.util.concurrent.TimeoutException</span>
-
-<span class="k">def</span> <span class="nf">putStrLn</span><span class="o">(</span><span class="n">str</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="nc">IO</span><span class="o">(</span><span class="nf">println</span><span class="o">(</span><span class="n">str</span><span class="o">))</span>
+<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.tx._</span>
 
 <span class="k">val</span> <span class="nv">key1</span> <span class="k">=</span> <span class="s">"testp1"</span>
 <span class="k">val</span> <span class="nv">key2</span> <span class="k">=</span> <span class="s">"testp2"</span>
 <span class="k">val</span> <span class="nv">key3</span> <span class="k">=</span> <span class="s">"testp3"</span>
 
 <span class="k">val</span> <span class="nv">showResult</span><span class="k">:</span> <span class="kt">String</span> <span class="o">=&gt;</span> <span class="nc">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span> <span class="k">=&gt;</span> <span class="nc">IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="n">key</span> <span class="k">=&gt;</span>
-<span class="nv">_</span><span class="o">.</span><span class="py">fold</span><span class="o">(</span><span class="nf">putStrLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Not found key: $key"</span><span class="o">))(</span><span class="n">s</span> <span class="k">=&gt;</span> <span class="nf">putStrLn</span><span class="o">(</span><span class="n">s</span><span class="s">"$key: $s"</span><span class="o">))</span>
+  <span class="nv">_</span><span class="o">.</span><span class="py">fold</span><span class="o">(</span><span class="nv">IO</span><span class="o">.</span><span class="py">println</span><span class="o">(</span><span class="n">s</span><span class="s">"Not found key: $key"</span><span class="o">))(</span><span class="n">s</span> <span class="k">=&gt;</span> <span class="nv">IO</span><span class="o">.</span><span class="py">println</span><span class="o">(</span><span class="n">s</span><span class="s">"$key: $s"</span><span class="o">))</span>
 
 <span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span> <span class="c1">// RedisCommands[IO, String, String]</span>
   <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
@@ -51,25 +38,22 @@
         <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
         <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key3</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key3</span><span class="o">))</span>
 
-   <span class="k">val</span> <span class="nv">operations</span> <span class="k">=</span>
-      <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"osx"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key3</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"linux"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">sIsMember</span><span class="o">(</span><span class="s">"foo"</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">)</span> <span class="o">::</span> <span class="nc">HNil</span>
+   <span class="k">val</span> <span class="nv">ops</span> <span class="k">=</span> <span class="o">(</span><span class="n">store</span><span class="k">:</span> <span class="kt">TxStore</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">String</span>, <span class="kt">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">]])</span> <span class="k">=&gt;</span>
+     <span class="nc">List</span><span class="o">(</span>
+       <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"osx"</span><span class="o">),</span>
+       <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key3</span><span class="o">).</span><span class="py">flatMap</span><span class="o">(</span><span class="nv">store</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key3</span><span class="o">)),</span>
+       <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"linux"</span><span class="o">)</span>
+     <span class="o">)</span>
 
     <span class="k">val</span> <span class="nv">runPipeline</span> <span class="k">=</span>
-      <span class="nc">RedisPipeline</span><span class="o">(</span><span class="n">redis</span><span class="o">)</span>
-        <span class="o">.</span><span class="py">filterExec</span><span class="o">(</span><span class="n">operations</span><span class="o">)</span>
-        <span class="o">.</span><span class="py">map</span> <span class="o">{</span>
-          <span class="k">case</span> <span class="n">res1</span> <span class="o">~:</span> <span class="n">res2</span> <span class="o">~:</span> <span class="nc">HNil</span> <span class="k">=&gt;</span>
-            <span class="nf">assert</span><span class="o">(</span><span class="nv">res1</span><span class="o">.</span><span class="py">contains</span><span class="o">(</span><span class="s">"3"</span><span class="o">))</span>
-            <span class="nf">assert</span><span class="o">(!</span><span class="n">res2</span><span class="o">)</span>
-        <span class="o">}</span>
-        <span class="o">.</span><span class="py">onError</span> <span class="o">{</span>
-          <span class="k">case</span> <span class="nc">PipelineError</span> <span class="k">=&gt;</span>
-            <span class="nf">putStrLn</span><span class="o">(</span><span class="s">"[Error] - Pipeline failed"</span><span class="o">)</span>
-          <span class="k">case</span> <span class="k">_:</span> <span class="kt">TimeoutException</span> <span class="o">=&gt;</span>
-            <span class="nf">putStrLn</span><span class="o">(</span><span class="s">"[Error] - Timeout"</span><span class="o">)</span>
-          <span class="k">case</span> <span class="n">e</span> <span class="k">=&gt;</span>
-            <span class="nf">putStrLn</span><span class="o">(</span><span class="n">s</span><span class="s">"[Error] - $e"</span><span class="o">)</span>
-        <span class="o">}</span>
+      <span class="nv">RedisPipe</span><span class="o">.</span><span class="py">make</span><span class="o">(</span><span class="n">redis</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span>
+        <span class="nv">_</span><span class="o">.</span><span class="py">run</span><span class="o">(</span><span class="n">ops</span><span class="o">)</span>
+          <span class="o">.</span><span class="py">flatMap</span><span class="o">(</span><span class="n">kv</span> <span class="k">=&gt;</span> <span class="nv">IO</span><span class="o">.</span><span class="py">println</span><span class="o">(</span><span class="n">s</span><span class="s">"KV: $kv"</span><span class="o">))</span>
+          <span class="o">.</span><span class="py">recoverWith</span> <span class="o">{</span>
+            <span class="k">case</span> <span class="n">e</span> <span class="k">=&gt;</span>
+              <span class="nv">IO</span><span class="o">.</span><span class="py">println</span><span class="o">(</span><span class="n">s</span><span class="s">"[Error] - ${e.getMessage}"</span><span class="o">)</span>
+          <span class="o">}</span>
+      <span class="o">}</span>
 
   <span class="k">val</span> <span class="nv">prog</span> <span class="k">=</span>
     <span class="k">for</span> <span class="o">{</span>
@@ -82,11 +66,11 @@
       <span class="nf">assert</span><span class="o">(</span><span class="nv">v2</span><span class="o">.</span><span class="py">contains</span><span class="o">(</span><span class="s">"linux"</span><span class="o">))</span>
     <span class="o">}</span>
 
-  <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="n">prog</span> <span class="o">&gt;&gt;</span> <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="nf">putStrLn</span><span class="o">(</span><span class="s">"keep doing stuff..."</span><span class="o">)</span>
+  <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="n">prog</span> <span class="o">&gt;&gt;</span> <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="nv">IO</span><span class="o">.</span><span class="py">println</span><span class="o">(</span><span class="s">"keep doing stuff..."</span><span class="o">)</span>
 <span class="o">}</span>
 </code></pre></div></div>
 
-<p>The <code class="language-plaintext highlighter-rouge">filterExec</code> function filters out values of type <code class="language-plaintext highlighter-rouge">Unit</code>, which are normally irrelevant. If you find yourself needing the <code class="language-plaintext highlighter-rouge">Unit</code> types to verify some behavior, use <code class="language-plaintext highlighter-rouge">exec</code> instead.</p>
+<p>The <code class="language-plaintext highlighter-rouge">run</code> function provides a <code class="language-plaintext highlighter-rouge">TxStore</code> we can use to store values we run within the pipeline for later retrieval, same as we do with transactions. If you don’t need the store, prefer to use <code class="language-plaintext highlighter-rouge">exec</code> instead.</p>
 </section></div></div></div></div><script src="/highlight/highlight.pack.js"></script><script src="/lunr/lunr.js"></script><script>
 // For all code blocks, copy the language from the containing div
 // to the inner code tag (where hljs expects it to be)
