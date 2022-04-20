@@ -22,7 +22,7 @@ import scala.concurrent.duration.Duration
 import cats.effect.kernel._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.JavaConversions._
-import dev.profunktor.redis4cats.effect.{ FutureLift, RedisExecutor }
+import dev.profunktor.redis4cats.effect.FutureLift
 import dev.profunktor.redis4cats.streams.data._
 import dev.profunktor.redis4cats.streams.data.StreamingOffset.{ All, Custom, Latest }
 
@@ -30,7 +30,7 @@ import io.lettuce.core.{ XAddArgs, XReadArgs }
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
 
-private[streams] class RedisRawStreaming[F[_]: FutureLift: RedisExecutor: Sync, K, V](
+private[streams] class RedisRawStreaming[F[_]: FutureLift: Sync, K, V](
     val client: StatefulRedisConnection[K, V]
 ) extends RawStreaming[F, K, V] {
 
@@ -38,8 +38,7 @@ private[streams] class RedisRawStreaming[F[_]: FutureLift: RedisExecutor: Sync, 
     FutureLift[F]
       .lift {
         val args = approxMaxlen.map(XAddArgs.Builder.maxlen(_).approximateTrimming(true))
-
-        Sync[F].delay(client.async().xadd(key, args.orNull, body.asJava))
+        client.async().xadd(key, args.orNull, body.asJava)
       }
       .map(MessageId.apply)
 
@@ -50,20 +49,18 @@ private[streams] class RedisRawStreaming[F[_]: FutureLift: RedisExecutor: Sync, 
   ): F[List[XReadMessage[K, V]]] =
     FutureLift[F]
       .lift {
-        Sync[F].delay {
-          val offsets = streams.map {
-            case All(key)            => StreamOffset.from(key, "0")
-            case Latest(key)         => StreamOffset.latest(key)
-            case Custom(key, offset) => StreamOffset.from(key, offset)
-          }.toSeq
+        val offsets = streams.map {
+          case All(key)            => StreamOffset.from(key, "0")
+          case Latest(key)         => StreamOffset.latest(key)
+          case Custom(key, offset) => StreamOffset.from(key, offset)
+        }.toSeq
 
-          (block, count) match {
-            case (None, None)        => client.async().xread(offsets: _*)
-            case (None, Some(count)) => client.async().xread(XReadArgs.Builder.count(count), offsets: _*)
-            case (Some(block), None) => client.async().xread(XReadArgs.Builder.block(block.toMillis), offsets: _*)
-            case (Some(block), Some(count)) =>
-              client.async().xread(XReadArgs.Builder.block(block.toMillis).count(count), offsets: _*)
-          }
+        (block, count) match {
+          case (None, None)        => client.async().xread(offsets: _*)
+          case (None, Some(count)) => client.async().xread(XReadArgs.Builder.count(count), offsets: _*)
+          case (Some(block), None) => client.async().xread(XReadArgs.Builder.block(block.toMillis), offsets: _*)
+          case (Some(block), Some(count)) =>
+            client.async().xread(XReadArgs.Builder.block(block.toMillis).count(count), offsets: _*)
         }
       }
       .map { list =>

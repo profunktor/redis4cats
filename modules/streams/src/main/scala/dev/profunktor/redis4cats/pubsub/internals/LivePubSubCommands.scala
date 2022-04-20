@@ -22,11 +22,11 @@ import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.pubsub.data.Subscription
-import dev.profunktor.redis4cats.effect.{ FutureLift, Log, RedisExecutor }
+import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-private[pubsub] class LivePubSubCommands[F[_]: Async: RedisExecutor: Log, K, V](
+private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V],
     pubConnection: StatefulRedisPubSubConnection[K, V]
@@ -45,7 +45,7 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: RedisExecutor: Log, K, V](
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
     _.flatMap { message =>
       Stream.resource(Resource.eval(state.get) >>= PubSubInternals[F, K, V](state, subConnection).apply(channel)) >>
-        Stream.eval(FutureLift[F].lift(Sync[F].delay(pubConnection.async().publish(channel.underlying, message))).void)
+        Stream.eval(FutureLift[F].lift(pubConnection.async().publish(channel.underlying, message)).void)
     }
 
   override def pubSubChannels: Stream[F, List[K]] =

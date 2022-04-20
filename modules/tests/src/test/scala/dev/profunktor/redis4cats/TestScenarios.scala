@@ -28,7 +28,7 @@ import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.hlist._
 import dev.profunktor.redis4cats.pipeline.{ PipelineError, RedisPipeline }
-import dev.profunktor.redis4cats.transactions.RedisTransaction
+import dev.profunktor.redis4cats.tx.RedisTx
 import io.lettuce.core.{ GeoArgs, ZAggregateArgs }
 import munit.FunSuite
 
@@ -487,7 +487,7 @@ trait TestScenarios { self: FunSuite =>
     }
   }
 
-  def transactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  def transactionScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val key1 = "txtest1"
     val val1 = "osx"
     val key2 = "txtest2"
@@ -496,46 +496,42 @@ trait TestScenarios { self: FunSuite =>
     val val3 = "linux"
     val del1 = "deleteme"
 
-    val operations = cmd.set(key2, val2) :: cmd.get(key1) :: cmd.set(key3, val3) :: cmd.del(del1) :: HNil
+    val operations = (store: RedisTx.Store[IO, String, Option[String]]) =>
+      List(
+        redis.set(key2, val2),
+        redis.get(key1).flatMap(store.set(s"$key1-v1")),
+        redis.set(key3, val3),
+        redis.del(del1).flatMap(x => store.set(s"$key1-v2")(Some(x.toString)))
+      )
 
-    cmd.set(del1, "foo") >> cmd.set(key1, val1) >>
-      RedisTransaction(cmd)
-        .filterExec(operations)
-        .map {
-          case res1 ~: res2 ~: HNil =>
-            assertEquals(res1, Some(val1))
-            assertEquals(res2, 1L)
-        }
-        .flatMap { _ =>
-          (cmd.get(key2), cmd.get(key3)).mapN {
-            case (x, y) =>
-              assertEquals(x, Some(val2))
-              assertEquals(y, Some(val3))
+    redis.set(del1, "foo") >> redis.set(key1, val1) >>
+      RedisTx.make(redis).use { tx =>
+        tx.run(operations)
+          .map { kv =>
+            assertEquals(kv.get(s"$key1-v1").flatten, Some(val1))
+            assertEquals(kv.get(s"$key1-v2").flatten, Some(1L.toString))
           }
-        }
+          .flatMap { _ =>
+            (redis.get(key2), redis.get(key3)).mapN {
+              case (x, y) =>
+                assertEquals(x, Some(val2))
+                assertEquals(y, Some(val3))
+            }
+          }
+      }
   }
 
-  def transactionDoubleSetScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
-    val key = "txtest-double-set"
+  // TODO: not sure if this is relevant anymore
+  //def canceledTransactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
+  //val key1 = "tx-1"
+  //val key2 = "tx-2"
+  //val tx   = RedisTransaction(cmd)
 
-    val operations = cmd.set(key, "osx") :: cmd.set(key, "nix") :: HNil
+  //val commands = cmd.set(key1, "v1") :: cmd.set(key2, "v2") :: cmd.set("tx-3", "v3") :: HNil
 
-    for {
-      _ <- RedisTransaction(cmd).exec(operations).void
-      v <- cmd.get(key)
-    } yield assert(v.contains("osx") || v.contains("nix"))
-  }
-
-  def canceledTransactionScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
-    val key1 = "tx-1"
-    val key2 = "tx-2"
-    val tx   = RedisTransaction(cmd)
-
-    val commands = cmd.set(key1, "v1") :: cmd.set(key2, "v2") :: cmd.set("tx-3", "v3") :: HNil
-
-    // We race it with a plain `IO.unit` so the transaction may or may not start at all but the result should be the same
-    IO.race(tx.exec(commands), IO.unit) >> cmd.get(key1).map(assertEquals(_, None)) // no keys written
-  }
+  //// We race it with a plain `IO.unit` so the transaction may or may not start at all but the result should be the same
+  //IO.race(tx.exec(commands), IO.unit) >> cmd.get(key1).map(assertEquals(_, None)) // no keys written
+  //}
 
   def scriptsScenario(cmd: RedisCommands[IO, String, String]): IO[Unit] = {
     val statusScript =
