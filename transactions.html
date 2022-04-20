@@ -1,10 +1,10 @@
 <!DOCTYPE html><html><head><title>Redis4Cats: Transactions</title><meta charset="utf-8" /><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="ProfunKtor" /><meta name="description" content="Redis client for Cats Effect &amp; Fs2" /><meta name="og:image" content="/img/poster.png" /><meta name="image" property="og:image" content="/img/poster.png" /><meta name="og:title" content="Redis4Cats: Transactions" /><meta name="title" property="og:title" content="Redis4Cats: Transactions" /><meta name="og:site_name" content="Redis4Cats" /><meta name="og:url" content="https://redis4cats.profunktor.dev/" /><meta name="og:type" content="website" /><meta name="og:description" content="Redis client for Cats Effect &amp; Fs2" /><link rel="icon" type="image/png" href="/img/favicon.png" /><meta name="twitter:title" content="Redis4Cats: Transactions" /><meta name="twitter:image" content="/img/poster.png" /><meta name="twitter:description" content="Redis client for Cats Effect &amp; Fs2" /><meta name="twitter:card" content="summary_large_image" /><link rel="icon" type="image/png" sizes="16x16" href="/img/favicon16x16.png" /><link rel="icon" type="image/png" sizes="24x24" href="/img/favicon24x24.png" /><link rel="icon" type="image/png" sizes="32x32" href="/img/favicon32x32.png" /><link rel="icon" type="image/png" sizes="48x48" href="/img/favicon48x48.png" /><link rel="icon" type="image/png" sizes="57x57" href="/img/favicon57x57.png" /><link rel="icon" type="image/png" sizes="60x60" href="/img/favicon60x60.png" /><link rel="icon" type="image/png" sizes="64x64" href="/img/favicon64x64.png" /><link rel="icon" type="image/png" sizes="70x70" href="/img/favicon70x70.png" /><link rel="icon" type="image/png" sizes="72x72" href="/img/favicon72x72.png" /><link rel="icon" type="image/png" sizes="76x76" href="/img/favicon76x76.png" /><link rel="icon" type="image/png" sizes="96x96" href="/img/favicon96x96.png" /><link rel="icon" type="image/png" sizes="114x114" href="/img/favicon114x114.png" /><link rel="icon" type="image/png" sizes="120x120" href="/img/favicon120x120.png" /><link rel="icon" type="image/png" sizes="128x128" href="/img/favicon128x128.png" /><link rel="icon" type="image/png" sizes="144x144" href="/img/favicon144x144.png" /><link rel="icon" type="image/png" sizes="150x150" href="/img/favicon150x150.png" /><link rel="icon" type="image/png" sizes="152x152" href="/img/favicon152x152.png" /><link rel="icon" type="image/png" sizes="196x196" href="/img/favicon196x196.png" /><link rel="icon" type="image/png" sizes="310x310" href="/img/favicon310x310.png" /><link rel="icon" type="image/png" sizes="310x150" href="/img/favicon310x150.png" /><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" /><link rel="stylesheet" href="/highlight/styles/vs.css" /><link rel="stylesheet" href="/css/light-style.css" /></head><body class="docs"><div id="wrapper"><div id="sidebar-wrapper"><div id="sidebar-brand"><a href="/" class="brand"><div class="brand-wrapper"></div><span>Redis4Cats</span></a><button id="main-toggle" class="sidebar-toggle"><span class="close"></span></button></div><div class="sidebar-nav"> <div class="sidebar-nav-item  "><a href="/quickstart.html" title="Quick Start" class="">Quick Start</a></div> <div class="sidebar-nav-item  "><a href="/client.html" title="Client" class="">Client</a></div> <div class="sidebar-nav-item  "><a href="/codecs.html" title="Codecs" class="">Codecs</a></div> <div class="sidebar-nav-item  "><a href="/effects/" title="Effects API" class="drop-nested">Effects API</a><i class="fa fa-angle-right"></i><div class="sub-section"> <a href="/effects/bitmaps.html" title="Bitmaps" class="">Bitmaps</a> <a href="/effects/connection.html" title="Connection" class="">Connection</a> <a href="/effects/geo.html" title="Geo" class="">Geo</a> <a href="/effects/hashes.html" title="Hashes" class="">Hashes</a> <a href="/effects/keys.html" title="Keys" class="">Keys</a> <a href="/effects/lists.html" title="Lists" class="">Lists</a> <a href="/effects/scripting.html" title="Scripting" class="">Scripting</a> <a href="/effects/server.html" title="Server" class="">Server</a> <a href="/effects/sets.html" title="Sets" class="">Sets</a> <a href="/effects/sortedsets.html" title="Sorted Sets" class="">Sorted Sets</a> <a href="/effects/strings.html" title="Strings" class="">Strings</a></div></div> <div class="sidebar-nav-item  "><a href="/streams/" title="Streams API" class="drop-nested">Streams API</a><i class="fa fa-angle-right"></i><div class="sub-section"> <a href="/streams/pubsub.html" title="PubSub" class="">PubSub</a> <a href="/streams/streams.html" title="Streams" class="">Streams</a></div></div> <div class="sidebar-nav-item active "><a href="/transactions.html" title="Transactions" class="active">Transactions</a></div> <div class="sidebar-nav-item  "><a href="/pipelining.html" title="Pipelining" class="">Pipelining</a></div></div></div><div id="page-content-wrapper"><div class="nav"><div class="container-fluid"><div class="row"><div class="col-lg-12"><div class="action-menu pull-left clearfix"><a href="#menu-toggle" id="menu-toggle"><i class="fa fa-bars" aria-hidden="true"></i></a></div><ul class="pull-right"><li class="search-nav"><div id="search-dropdown"><label><i class="fa fa-search"></i>Search</label><input id="search-bar" type="text" placeholder="Enter keywords here..." onclick="displayToggleSearch(event)" /><ul id="search-dropdown-content" class="dropdown dropdown-content"></ul></div></li><li id="gh-eyes-item" class="hidden-xs to-uppercase"><a href="https://github.com/profunktor/redis4cats" target="_blank" rel="noopener noreferrer"><i class="fa fa-eye"></i><span>Watchers<span id="eyes" class="label label-default">--</span></span></a></li><li id="gh-stars-item" class="hidden-xs to-uppercase"><a href="https://github.com/profunktor/redis4cats" target="_blank" rel="noopener noreferrer"><i class="fa fa-star-o"></i><span>Stars<span id="stars" class="label label-default">--</span></span></a></li></ul></div></div></div></div><div id="content" data-github-owner="profunktor" data-github-repo="redis4cats"><div class="content-wrapper"><section><h1 id="transactions">Transactions</h1>
 
-<p>Redis supports <a href="https://redis.io/topics/transactions">transactions</a> via the <code class="language-plaintext highlighter-rouge">MULTI</code>, <code class="language-plaintext highlighter-rouge">EXEC</code> and <code class="language-plaintext highlighter-rouge">DISCARD</code> commands. <code class="language-plaintext highlighter-rouge">redis4cats</code> provides a <code class="language-plaintext highlighter-rouge">RedisTransaction</code> utility that models a transaction as a <code class="language-plaintext highlighter-rouge">Resource</code>.</p>
+<p>Redis supports <a href="https://redis.io/topics/transactions">transactions</a> via the <code class="language-plaintext highlighter-rouge">MULTI</code>, <code class="language-plaintext highlighter-rouge">EXEC</code> and <code class="language-plaintext highlighter-rouge">DISCARD</code> commands. <code class="language-plaintext highlighter-rouge">redis4cats</code> provides a <code class="language-plaintext highlighter-rouge">RedisTx</code> utility that models a transaction as a <code class="language-plaintext highlighter-rouge">Resource</code>.</p>
 
 <h2 id="caveats">Caveats</h2>
 
-<p>Note that every command has to be forked (<code class="language-plaintext highlighter-rouge">.start</code>) because the commands need to be sent to the server asynchronously and no response will be received until either an <code class="language-plaintext highlighter-rouge">EXEC</code> or a <code class="language-plaintext highlighter-rouge">DISCARD</code> command is sent. Both forking and sending the final command is handled by <code class="language-plaintext highlighter-rouge">RedisTransaction</code>.</p>
+<p>Note that every command has to be forked (<code class="language-plaintext highlighter-rouge">.start</code>) because the commands need to be sent to the server asynchronously and no response will be received until either an <code class="language-plaintext highlighter-rouge">EXEC</code> or a <code class="language-plaintext highlighter-rouge">DISCARD</code> command is sent. Both forking and sending the final command is handled by <code class="language-plaintext highlighter-rouge">RedisTx</code>.</p>
 
 <p>These are internals, though. All you need to care about is what commands you want to run as part of a transaction and handle the possible errors and retry logic.</p>
 
@@ -14,7 +14,7 @@
 
 <h3 id="working-with-transactions">Working with transactions</h3>
 
-<p>The most common way is to create a <code class="language-plaintext highlighter-rouge">RedisTransaction</code> once by passing the commands API as a parameter and invoke the <code class="language-plaintext highlighter-rouge">exec</code> function (or <code class="language-plaintext highlighter-rouge">filterExec</code>) every time you want to run the given commands as part of a new transaction.</p>
+<p>The most common way is to create a <code class="language-plaintext highlighter-rouge">RedisTx</code> once by passing the commands API as a parameter and invoke the <code class="language-plaintext highlighter-rouge">run</code> function (or <code class="language-plaintext highlighter-rouge">exec</code> to discard the result) every time you want to run the given commands as part of a new transaction.</p>
 
 <p>Every command has to be atomic and independent of previous Redis results, so it is not recommended to chain commands using <code class="language-plaintext highlighter-rouge">flatMap</code>.</p>
 
@@ -23,11 +23,7 @@
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">cats.effect.IO</span>
 <span class="k">import</span> <span class="nn">cats.implicits._</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats._</span>
-<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.hlist._</span>
-<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.transactions._</span>
-<span class="k">import</span> <span class="nn">java.util.concurrent.TimeoutException</span>
-
-<span class="k">def</span> <span class="nf">putStrLn</span><span class="o">(</span><span class="n">str</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="nc">IO</span><span class="o">(</span><span class="nf">println</span><span class="o">(</span><span class="n">str</span><span class="o">))</span>
+<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.tx._</span>
 
 <span class="k">val</span> <span class="nv">key1</span> <span class="k">=</span> <span class="s">"test1"</span>
 <span class="k">val</span> <span class="nv">key2</span> <span class="k">=</span> <span class="s">"test2"</span>
@@ -37,70 +33,61 @@
   <span class="nv">_</span><span class="o">.</span><span class="py">fold</span><span class="o">(</span><span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">info</span><span class="o">(</span><span class="n">s</span><span class="s">"Key not found: $key"</span><span class="o">))(</span><span class="n">s</span> <span class="k">=&gt;</span> <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">info</span><span class="o">(</span><span class="n">s</span><span class="s">"$key: $s"</span><span class="o">))</span>
 
 <span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span> <span class="c1">// RedisCommands[IO, String, String]</span>
-  <span class="k">val</span> <span class="nv">tx</span> <span class="k">=</span> <span class="nc">RedisTransaction</span><span class="o">(</span><span class="n">redis</span><span class="o">)</span>
+  <span class="nv">RedisTx</span><span class="o">.</span><span class="py">make</span><span class="o">(</span><span class="n">redis</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">tx</span> <span class="k">=&gt;</span>
+    <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"delete_me"</span><span class="o">)</span> <span class="o">&gt;&gt;</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key3</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span>
 
-  <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"delete_me"</span><span class="o">)</span> <span class="o">&gt;&gt;</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key3</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span>
+    <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
+      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
+        <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
 
-  <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
-    <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
-      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
+    <span class="k">val</span> <span class="nv">ops</span> <span class="k">=</span> <span class="o">(</span><span class="n">store</span><span class="k">:</span> <span class="kt">RedisTx.Store</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">String</span>, <span class="kt">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">]])</span> <span class="k">=&gt;</span>
+      <span class="nc">List</span><span class="o">(</span>
+        <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span>
+        <span class="nv">redis</span><span class="o">.</span><span class="py">del</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">void</span><span class="o">,</span>
+        <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key3</span><span class="o">).</span><span class="py">flatMap</span><span class="o">(</span><span class="nv">store</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key3</span><span class="o">))</span>
+      <span class="o">)</span>
 
-  <span class="c1">// the commands type is fully inferred</span>
-  <span class="c1">// IO[Unit] :: IO[Option[String]] :: IO[Unit] :: HNil</span>
-  <span class="k">val</span> <span class="nv">commands</span> <span class="k">=</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">del</span><span class="o">(</span><span class="n">key2</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key3</span><span class="o">)</span> <span class="o">::</span> <span class="nc">HNil</span>
+    <span class="k">val</span> <span class="nv">prog</span> <span class="k">=</span>
+      <span class="nv">tx</span><span class="o">.</span><span class="py">run</span><span class="o">(</span><span class="n">ops</span><span class="o">)</span>
+        <span class="o">.</span><span class="py">flatMap</span> <span class="o">{</span> <span class="n">kv</span> <span class="k">=&gt;</span>
+          <span class="nv">IO</span><span class="o">.</span><span class="py">println</span><span class="o">(</span><span class="n">s</span><span class="s">"KV: ${kv}"</span><span class="o">)</span>
+        <span class="o">}</span>
+        <span class="o">.</span><span class="py">recoverWith</span> <span class="o">{</span>
+          <span class="k">case</span> <span class="nc">TransactionDiscarded</span> <span class="k">=&gt;</span>
+            <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Transaction Discarded"</span><span class="o">)</span>
+          <span class="k">case</span> <span class="n">e</span> <span class="k">=&gt;</span>
+            <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="n">s</span><span class="s">"[Error] - $e"</span><span class="o">)</span>
+        <span class="o">}</span>
 
-  <span class="c1">// the result type is inferred as well</span>
-  <span class="c1">// Option[String] :: HNil</span>
-  <span class="k">val</span> <span class="nv">prog</span> <span class="k">=</span>
-    <span class="nv">tx</span><span class="o">.</span><span class="py">filterExec</span><span class="o">(</span><span class="n">commands</span><span class="o">)</span>
-      <span class="o">.</span><span class="py">flatMap</span> <span class="o">{</span>
-        <span class="k">case</span> <span class="n">res1</span> <span class="o">~:</span> <span class="n">res2</span> <span class="o">~:</span> <span class="nc">HNil</span> <span class="k">=&gt;</span>
-          <span class="nf">putStrLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Key2 result: $res1"</span><span class="o">)</span> <span class="o">&gt;&gt;</span>
-            <span class="nf">putStrLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Key3 result: $res2"</span><span class="o">)</span>
-      <span class="o">}</span>
-      <span class="o">.</span><span class="py">onError</span> <span class="o">{</span>
-        <span class="k">case</span> <span class="nc">TransactionAborted</span> <span class="k">=&gt;</span>
-          <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Transaction Aborted"</span><span class="o">)</span>
-        <span class="k">case</span> <span class="nc">TransactionDiscarded</span> <span class="k">=&gt;</span>
-          <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Transaction Discarded"</span><span class="o">)</span>
-        <span class="k">case</span> <span class="k">_:</span> <span class="kt">TimeoutException</span> <span class="o">=&gt;</span>
-          <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Timeout"</span><span class="o">)</span>
-        <span class="k">case</span> <span class="n">e</span> <span class="k">=&gt;</span>
-          <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="n">s</span><span class="s">"[Error] - $e"</span><span class="o">)</span>
-      <span class="o">}</span>
-
-  <span class="n">setters</span> <span class="o">&gt;&gt;</span> <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="n">prog</span> <span class="o">&gt;&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
+    <span class="n">setters</span> <span class="o">&gt;&gt;</span> <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="n">prog</span> <span class="o">&gt;&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
+  <span class="o">}</span>
 <span class="o">}</span>
 </code></pre></div></div>
 
 <p>It should be exclusively used to run Redis commands as part of a transaction, not any other computations. Fail to do so, may result in unexpected behavior.</p>
 
-<p>Transactional commands may be discarded if something went wrong in between. The possible errors you may get are:</p>
+<p>Transactional commands may be discarded if something went wrong in between.</p>
 
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">TransactionDiscarded</code>: The <code class="language-plaintext highlighter-rouge">EXEC</code> command failed and the transactional commands were discarded.</li>
-  <li><code class="language-plaintext highlighter-rouge">TransactionAborted</code>: The <code class="language-plaintext highlighter-rouge">DISCARD</code> command was triggered due to cancellation or other failure within the transaction.</li>
-  <li><code class="language-plaintext highlighter-rouge">TimeoutException</code>: The transaction timed out due to some unknown error.</li>
-</ul>
+<p>The <code class="language-plaintext highlighter-rouge">run</code> function returns the values stored in the given <code class="language-plaintext highlighter-rouge">RedisTx.Store</code>, which is used to save results of commands that run as part of the transaction for later retrieval.</p>
 
-<p>The <code class="language-plaintext highlighter-rouge">filterExec</code> function filters out values of type <code class="language-plaintext highlighter-rouge">Unit</code>, which are normally irrelevant. If you find yourself needing the <code class="language-plaintext highlighter-rouge">Unit</code> types to verify some behavior, use <code class="language-plaintext highlighter-rouge">exec</code> instead.</p>
+<p>If you are only writing values (e.g. only using <code class="language-plaintext highlighter-rouge">set</code>), you may prefer to use <code class="language-plaintext highlighter-rouge">exec</code> instead.</p>
 
 <h3 id="how-not-to-use-transactions">How NOT to use transactions</h3>
 
 <p>For example, the following transaction will result in a dead-lock:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span>
-  <span class="k">val</span> <span class="nv">tx</span> <span class="k">=</span> <span class="nc">RedisTransaction</span><span class="o">(</span><span class="n">redis</span><span class="o">)</span>
+  <span class="nv">RedisTx</span><span class="o">.</span><span class="py">make</span><span class="o">(</span><span class="n">redis</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">tx</span> <span class="k">=&gt;</span>
+    <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
+      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span>
+        <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
 
-  <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
-    <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span>
-      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
+    <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">tx</span><span class="o">.</span><span class="py">exec</span><span class="o">(</span>
+      <span class="nc">List</span><span class="o">(</span><span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">discard</span><span class="o">)</span>
+    <span class="o">)</span>
 
-  <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">tx</span><span class="o">.</span><span class="py">exec</span><span class="o">(</span>
-    <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">discard</span> <span class="o">::</span> <span class="nc">HNil</span>
-  <span class="o">)</span>
-
-  <span class="n">getters</span> <span class="o">*&gt;</span> <span class="nv">setters</span><span class="o">.</span><span class="py">void</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
+    <span class="n">getters</span> <span class="o">*&gt;</span> <span class="nv">setters</span><span class="o">.</span><span class="py">void</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
+  <span class="o">}</span>
 <span class="o">}</span>
 </code></pre></div></div>
 
@@ -109,17 +96,17 @@
 <p>The following example will result in a successful transaction on Redis. Yet, the operation will end up raising the error passed as a command.</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span>
-  <span class="k">val</span> <span class="nv">tx</span> <span class="k">=</span> <span class="nc">RedisTransaction</span><span class="o">(</span><span class="n">redis</span><span class="o">)</span>
+  <span class="nv">RedisTx</span><span class="o">.</span><span class="py">make</span><span class="o">(</span><span class="n">redis</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">tx</span> <span class="k">=&gt;</span>
+    <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
+      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span>
+        <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
 
-  <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
-    <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span>
-      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
+    <span class="k">val</span> <span class="nv">failedTx</span> <span class="k">=</span> <span class="nv">tx</span><span class="o">.</span><span class="py">exec</span><span class="o">(</span>
+      <span class="nc">List</span><span class="o">(</span><span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">),</span> <span class="nv">IO</span><span class="o">.</span><span class="py">raiseError</span><span class="o">(</span><span class="k">new</span> <span class="nc">Exception</span><span class="o">(</span><span class="s">"boom"</span><span class="o">)))</span>
+    <span class="o">)</span>
 
-  <span class="k">val</span> <span class="nv">failedTx</span> <span class="k">=</span> <span class="nv">tx</span><span class="o">.</span><span class="py">exec</span><span class="o">(</span>
-    <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">)</span> <span class="o">::</span> <span class="nv">IO</span><span class="o">.</span><span class="py">raiseError</span><span class="o">(</span><span class="k">new</span> <span class="nc">Exception</span><span class="o">(</span><span class="s">"boom"</span><span class="o">))</span> <span class="o">::</span> <span class="nc">HNil</span>
-  <span class="o">)</span>
-
-  <span class="n">getters</span> <span class="o">*&gt;</span> <span class="nv">failedTx</span><span class="o">.</span><span class="py">void</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
+    <span class="n">getters</span> <span class="o">*&gt;</span> <span class="nv">failedTx</span><span class="o">.</span><span class="py">void</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
+  <span class="o">}</span>
 <span class="o">}</span>
 </code></pre></div></div>
 
@@ -146,21 +133,17 @@
           <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
           <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key3</span><span class="o">))</span>
 
-      <span class="k">val</span> <span class="nv">operations</span> <span class="k">=</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="n">v1</span><span class="o">)</span> <span class="o">::</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="n">v2</span><span class="o">)</span> <span class="o">::</span> <span class="nc">HNil</span>
+      <span class="k">val</span> <span class="nv">ops</span> <span class="k">=</span> <span class="nc">List</span><span class="o">(</span><span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="n">v1</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="n">v2</span><span class="o">))</span>
 
       <span class="k">val</span> <span class="nv">prog</span><span class="k">:</span> <span class="kt">IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
-        <span class="nc">RedisTransaction</span><span class="o">(</span><span class="n">redis</span><span class="o">)</span>
-          <span class="o">.</span><span class="py">exec</span><span class="o">(</span><span class="n">operations</span><span class="o">)</span>
-          <span class="o">.</span><span class="py">void</span>
-          <span class="o">.</span><span class="py">onError</span> <span class="o">{</span>
-            <span class="k">case</span> <span class="nc">TransactionAborted</span> <span class="k">=&gt;</span>
-              <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Transaction Aborted"</span><span class="o">)</span>
-            <span class="k">case</span> <span class="nc">TransactionDiscarded</span> <span class="k">=&gt;</span>
-              <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Transaction Discarded"</span><span class="o">)</span>
-            <span class="k">case</span> <span class="k">_:</span> <span class="kt">TimeoutException</span> <span class="o">=&gt;</span>
-              <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Timeout"</span><span class="o">)</span>
-            <span class="k">case</span> <span class="n">e</span> <span class="k">=&gt;</span>
-              <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="n">s</span><span class="s">"[Error] - $e"</span><span class="o">)</span>
+        <span class="nv">RedisTx</span><span class="o">.</span><span class="py">make</span><span class="o">(</span><span class="n">redis</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">tx</span> <span class="k">=&gt;</span>
+          <span class="nv">tx</span><span class="o">.</span><span class="py">exec</span><span class="o">(</span><span class="n">ops</span><span class="o">)</span>
+            <span class="o">.</span><span class="py">onError</span> <span class="o">{</span>
+              <span class="k">case</span> <span class="nc">TransactionDiscarded</span> <span class="k">=&gt;</span>
+                <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Transaction Discarded"</span><span class="o">)</span>
+              <span class="k">case</span> <span class="n">e</span> <span class="k">=&gt;</span>
+                <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="n">s</span><span class="s">"[Error] - $e"</span><span class="o">)</span>
+            <span class="o">}</span>
           <span class="o">}</span>
 
       <span class="k">val</span> <span class="nv">watching</span> <span class="k">=</span> <span class="nv">redis</span><span class="o">.</span><span class="py">watch</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="n">key2</span><span class="o">)</span>
@@ -186,7 +169,7 @@
 
 <p>The first transaction will be successful, but ultimately, the second transaction will retry and set the values “foo” and “bar”.</p>
 
-<p>All these examples can be found under <a href="https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/RedisTransactionsDemo.scala">RedisTransactionsDemo</a> and <a href="https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/ConcurrentTransactionsDemo.scala">ConcurrentTransactionsDemo</a>, respectively.</p>
+<p>All these examples can be found under <a href="https://github.com/profunktor/redis4cats/blob/master/modules/examples/src/main/scala/dev/profunktor/redis4cats/RedisTxDemo.scala">RedisTxDemo</a>.</p>
 </section></div></div></div></div><script src="/highlight/highlight.pack.js"></script><script src="/lunr/lunr.js"></script><script>
 // For all code blocks, copy the language from the containing div
 // to the inner code tag (where hljs expects it to be)
