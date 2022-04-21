@@ -14,20 +14,25 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats
+package dev.profunktor.redis4cats.tx
 
-import cats.effect.IO
-import dev.profunktor.redis4cats.codecs.Codecs
-import dev.profunktor.redis4cats.codecs.splits._
-import dev.profunktor.redis4cats.data.RedisCodec
+import cats.effect.kernel.{ Async, Ref }
+import cats.syntax.functor._
 
-object Demo {
+/**
+  * Provides a way to store transactional results for later retrieval.
+  */
+trait TxStore[F[_], K, V] {
+  def get: F[Map[K, V]]
+  def set(key: K)(v: V): F[Unit]
+}
 
-  val redisURI: String                        = "redis://localhost"
-  val redisClusterURI: String                 = "redis://localhost:30001"
-  val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
-  val longCodec: RedisCodec[String, Long]     = Codecs.derive(stringCodec, stringLongEpi)
-
-  def putStrLn[A](a: A): IO[Unit] = IO.println(a)
-
+object TxStore {
+  private[redis4cats] def make[F[_]: Async, K, V]: F[TxStore[F, K, V]] =
+    Ref.of[F, Map[K, V]](Map.empty).map { ref =>
+      new TxStore[F, K, V] {
+        def get: F[Map[K, V]]          = ref.get
+        def set(key: K)(v: V): F[Unit] = ref.update(_.updated(key, v))
+      }
+    }
 }

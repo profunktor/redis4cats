@@ -21,21 +21,19 @@ package internals
 import cats.FlatMap
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.data.RedisChannel
-import dev.profunktor.redis4cats.effect.{ FutureLift, RedisExecutor }
+import dev.profunktor.redis4cats.effect.FutureLift
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
-private[pubsub] class Publisher[F[_]: FlatMap: FutureLift: RedisExecutor, K, V](
+private[pubsub] class Publisher[F[_]: FlatMap: FutureLift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
 ) extends PublishCommands[Stream[F, *], K, V] {
 
   private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection)
 
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
-    _.evalMap(message =>
-      FutureLift[F].lift(RedisExecutor[F].lift(pubConnection.async().publish(channel.underlying, message))).void
-    )
+    _.evalMap(message => FutureLift[F].lift(pubConnection.async().publish(channel.underlying, message)).void)
 
   override def pubSubChannels: Stream[F, List[K]] =
     pubSubStats.pubSubChannels

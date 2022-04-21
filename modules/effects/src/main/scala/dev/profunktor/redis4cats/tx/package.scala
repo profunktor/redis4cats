@@ -16,18 +16,9 @@
 
 package dev.profunktor.redis4cats
 
-import cats.effect.IO
-import dev.profunktor.redis4cats.codecs.Codecs
-import dev.profunktor.redis4cats.codecs.splits._
-import dev.profunktor.redis4cats.data.RedisCodec
+import scala.util.control.NoStackTrace
 
-object Demo {
-
-  val redisURI: String                        = "redis://localhost"
-  val redisClusterURI: String                 = "redis://localhost:30001"
-  val stringCodec: RedisCodec[String, String] = RedisCodec.Utf8
-  val longCodec: RedisCodec[String, Long]     = Codecs.derive(stringCodec, stringLongEpi)
-
-  def putStrLn[A](a: A): IO[Unit] = IO.println(a)
-
+package object tx {
+  case object PipelineError extends NoStackTrace
+  case object TransactionDiscarded extends NoStackTrace
 }

@@ -20,7 +20,7 @@ import cats.effect.{ IO, Resource }
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log.NoOp._
-import dev.profunktor.redis4cats.transactions._
+import dev.profunktor.redis4cats.tx._
 
 object RedisClusterTransactionsDemo extends LoggerIOApp {
 
@@ -61,13 +61,13 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
           notAllowed *>
             // Transaction runs in a single shard, where "key1" is stored
             nodeCmdResource.use { nodeCmd =>
-              val tx = RedisTransaction(nodeCmd)
+              RedisTx.make(nodeCmd).use { tx =>
+                val getter = cmd.get(key1).flatTap(showResult(key1))
 
-              val getter = cmd.get(key1).flatTap(showResult(key1))
+                val tx1 = putStrLn(tx) //.run(cmd.set(key1, "foo"))
 
-              val tx1 = putStrLn(tx) //.run(cmd.set(key1, "foo"))
-
-              getter *> tx1 *> getter.void
+                getter *> tx1 *> getter.void
+              }
             }
       }
 

@@ -24,9 +24,10 @@ import io.lettuce.core.{ ConnectionFuture, RedisFuture }
 import java.util.concurrent._
 
 private[redis4cats] trait FutureLift[F[_]] {
-  def lift[A](fa: F[RedisFuture[A]])(implicit F: RedisExecutor[F]): F[A]
-  def liftConnectionFuture[A](fa: F[ConnectionFuture[A]])(implicit F: RedisExecutor[F]): F[A]
-  def liftCompletableFuture[A](fa: F[CompletableFuture[A]])(implicit F: RedisExecutor[F]): F[A]
+  def delay[A](thunk: => A): F[A]
+  def lift[A](fa: => RedisFuture[A]): F[A]
+  def liftConnectionFuture[A](fa: => ConnectionFuture[A]): F[A]
+  def liftCompletableFuture[A](fa: => CompletableFuture[A]): F[A]
 }
 
 object FutureLift {
@@ -36,40 +37,40 @@ object FutureLift {
 
   implicit def forAsync[F[_]: Async]: FutureLift[F] =
     new FutureLift[F] {
-      def lift[A](fa: F[RedisFuture[A]])(implicit F: RedisExecutor[F]): F[A] =
+      val F = Async[F]
+
+      def delay[A](thunk: => A): F[A] = F.delay(thunk)
+
+      def lift[A](fa: => RedisFuture[A]): F[A] =
         liftJFuture[RedisFuture[A], A](fa)
 
-      def liftConnectionFuture[A](fa: F[ConnectionFuture[A]])(implicit F: RedisExecutor[F]): F[A] =
+      def liftConnectionFuture[A](fa: => ConnectionFuture[A]): F[A] =
         liftJFuture[ConnectionFuture[A], A](fa)
 
-      def liftCompletableFuture[A](fa: F[CompletableFuture[A]])(implicit F: RedisExecutor[F]): F[A] =
+      def liftCompletableFuture[A](fa: => CompletableFuture[A]): F[A] =
         liftJFuture[CompletableFuture[A], A](fa)
 
-      private[redis4cats] def liftJFuture[G <: JFuture[A], A](fa: F[G])(implicit F: RedisExecutor[F]): F[A] =
-        F.eval {
-          fa.flatMap[A] { f =>
-            Async[F].async { cb =>
-              F.delay {
-                  f.handle[Unit] { (res: A, err: Throwable) =>
-                    err match {
-                      case null =>
-                        cb(Right(res))
-                      case _: CancellationException =>
-                        ()
-                      case ex: CompletionException if ex.getCause ne null =>
-                        cb(Left(ex.getCause))
-                      case ex =>
-                        cb(Left(ex))
-                    }
-                  }
+      private[redis4cats] def liftJFuture[G <: JFuture[A], A](f: => G): F[A] =
+        F.async { cb =>
+          F.delay {
+              f.handle[Unit] { (res: A, err: Throwable) =>
+                err match {
+                  case null =>
+                    cb(Right(res))
+                  case _: CancellationException =>
+                    ()
+                  case ex: CompletionException if ex.getCause ne null =>
+                    cb(Left(ex.getCause))
+                  case ex =>
+                    cb(Left(ex))
                 }
-                .as(Some(F.delay(f.cancel(true)).void))
+              }
             }
-          }
+            .as(Some(F.delay(f.cancel(true)).void))
         }
     }
 
-  implicit final class FutureLiftOps[F[_]: ApplicativeThrow: FutureLift: Log: RedisExecutor, A](fa: F[RedisFuture[A]]) {
+  implicit final class FutureLiftOps[F[_]: ApplicativeThrow: FutureLift: Log, A](fa: => RedisFuture[A]) {
     def futureLift: F[A] =
       FutureLift[F].lift(fa).onError {
         case e: ExecutionException => Log[F].error(s"${e.getMessage()} - ${Option(e.getCause())}")

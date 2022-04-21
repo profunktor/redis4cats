@@ -46,10 +46,6 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("transactions: successful")(withRedis(transactionScenario))
 
-  test("transactions (double set): successful")(withRedis(transactionDoubleSetScenario))
-
-  test("transactions: canceled")(withRedis(canceledTransactionScenario))
-
   test("scripts")(withRedis(scriptsScenario))
 
   test("hyperloglog api")(withRedis(hyperloglogScenario))

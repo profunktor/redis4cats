@@ -21,9 +21,8 @@ import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data.RedisCodec
-import dev.profunktor.redis4cats.hlist.HNil
 import dev.profunktor.redis4cats.effect.Log.NoOp._
-import dev.profunktor.redis4cats.transactions._
+import dev.profunktor.redis4cats.tx._
 
 class OptimisticLockSuite extends IOSuite {
 
@@ -69,14 +68,14 @@ class OptimisticLockSuite extends IOSuite {
         .right[String](cmd.watch(testKey))
         .semiflatMap(_ => counter.update(_ + 1) >> attemptComplete >> promise.get)
         .flatMapF(_ =>
-          RedisTransaction(cmd)
-            .exec(cmd.set(testKey, UpdatedValue) :: HNil)
-            .void
-            .as(Either.right[String, Unit](()))
-            .recover {
-              case TransactionAborted | TransactionDiscarded => Left("Discarded")
-            }
-            .uncancelable
+          RedisTx.make(cmd).use {
+            _.exec(cmd.set(testKey, UpdatedValue) :: Nil)
+              .as(Either.right[String, Unit](()))
+              .recover {
+                case TransactionDiscarded => Left("Discarded")
+              }
+              .uncancelable
+          }
         )
         .value
     }
