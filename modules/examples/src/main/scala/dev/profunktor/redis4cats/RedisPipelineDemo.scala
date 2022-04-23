@@ -40,7 +40,7 @@ object RedisPipelineDemo extends LoggerIOApp {
         redis.get(key1).flatTap(showResult(key1)) *>
             redis.get(key2).flatTap(showResult(key2))
 
-      val operations = (store: TxStore[IO, String, Option[String]]) =>
+      val ops = (store: TxStore[IO, String, Option[String]]) =>
         List(
           redis.set(key1, "noop"),
           redis.set(key2, "windows"),
@@ -51,14 +51,13 @@ object RedisPipelineDemo extends LoggerIOApp {
         )
 
       val prog =
-        RedisPipe.make(redis).use {
-          _.run(operations)
-            .flatMap(kv => IO.println(s"KV: $kv"))
-            .recoverWith {
-              case e =>
-                putStrLn(s"[Error] - ${e.getMessage}")
-            }
-        }
+        redis
+          .pipeline(ops)
+          .flatMap(kv => IO.println(s"KV: $kv"))
+          .recoverWith {
+            case e =>
+              putStrLn(s"[Error] - ${e.getMessage}")
+          }
 
       getters >> prog >> getters >> putStrLn("keep doing stuff...")
     }

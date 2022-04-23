@@ -29,7 +29,7 @@ import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect._
 import dev.profunktor.redis4cats.effect.FutureLift._
 import dev.profunktor.redis4cats.effects._
-import dev.profunktor.redis4cats.tx.TransactionDiscarded
+import dev.profunktor.redis4cats.tx.{ TransactionDiscarded, TxRunner, TxStore }
 import io.lettuce.core.{
   BitFieldArgs,
   ClientOptions,
@@ -56,11 +56,12 @@ object Redis {
 
   private[redis4cats] def acquireAndRelease[F[_]: FutureLift: Log: MonadThrow, K, V](
       client: RedisClient,
-      codec: RedisCodec[K, V]
+      codec: RedisCodec[K, V],
+      tx: TxRunner[F]
   ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
     val acquire: F[Redis[F, K, V]] = FutureLift[F]
       .liftConnectionFuture(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
-      .map(c => new Redis[F, K, V](new RedisStatefulConnection[F, K, V](c)))
+      .map(c => new Redis[F, K, V](new RedisStatefulConnection[F, K, V](c), tx))
 
     val release: Redis[F, K, V] => F[Unit] = c =>
       Log[F].info(s"Releasing Commands connection: ${client.uri.underlying}") *> c.conn.close
@@ -71,12 +72,13 @@ object Redis {
   private[redis4cats] def acquireAndReleaseCluster[F[_]: FutureLift: Log: MonadThrow, K, V](
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
-      readFrom: Option[JReadFrom]
+      readFrom: Option[JReadFrom],
+      tx: TxRunner[F]
   ): (F[RedisCluster[F, K, V]], RedisCluster[F, K, V] => F[Unit]) = {
     val acquire: F[RedisCluster[F, K, V]] = FutureLift[F]
       .liftCompletableFuture(client.underlying.connectAsync[K, V](codec.underlying))
       .flatTap(c => FutureLift[F].delay(readFrom.foreach(c.setReadFrom)))
-      .map(c => new RedisCluster[F, K, V](new RedisStatefulClusterConnection[F, K, V](c)))
+      .map(c => new RedisCluster[F, K, V](new RedisStatefulClusterConnection[F, K, V](c), tx))
 
     val release: RedisCluster[F, K, V] => F[Unit] = c =>
       Log[F].info(s"Releasing cluster Commands connection: ${client.underlying}") *> c.conn.close
@@ -88,13 +90,14 @@ object Redis {
       client: RedisClusterClient,
       codec: RedisCodec[K, V],
       readFrom: Option[JReadFrom],
-      nodeId: NodeId
+      nodeId: NodeId,
+      tx: TxRunner[F]
   ): (F[BaseRedis[F, K, V]], BaseRedis[F, K, V] => F[Unit]) = {
     val acquire = FutureLift[F]
       .liftCompletableFuture(client.underlying.connectAsync[K, V](codec.underlying))
       .flatTap(c => FutureLift[F].delay(readFrom.foreach(c.setReadFrom)))
       .map { c =>
-        new BaseRedis[F, K, V](new RedisStatefulClusterConnection[F, K, V](c), cluster = true) {
+        new BaseRedis[F, K, V](new RedisStatefulClusterConnection[F, K, V](c), tx, cluster = true) {
           override def async: F[RedisClusterAsyncCommands[K, V]] =
             if (cluster) conn.byNode(nodeId).widen[RedisClusterAsyncCommands[K, V]]
             else conn.async.widen[RedisClusterAsyncCommands[K, V]]
@@ -193,10 +196,11 @@ object Redis {
     def fromClient[K, V](
         client: RedisClient,
         codec: RedisCodec[K, V]
-    ): Resource[F, RedisCommands[F, K, V]] = {
-      val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
-      Resource.make(acquire)(release).widen
-    }
+    ): Resource[F, RedisCommands[F, K, V]] =
+      MkRedis[F].txRunner.flatMap { tx =>
+        val (acquire, release) = acquireAndRelease[F, K, V](client, codec, tx)
+        Resource.make(acquire)(release).widen
+      }
 
     /**
       * Creates a [[RedisCommands]] for a cluster connection.
@@ -274,10 +278,11 @@ object Redis {
     def fromClusterClient[K, V](
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V]
-    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] = {
-      val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, readFrom)
-      Resource.make(acquire)(release).widen
-    }
+    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
+      MkRedis[F].txRunner.flatMap { tx =>
+        val (acquire, release) = acquireAndReleaseCluster(clusterClient, codec, readFrom, tx)
+        Resource.make(acquire)(release).widen
+      }
 
     /**
       * Creates a [[RedisCommands]] by trying to establish a cluster
@@ -304,10 +309,11 @@ object Redis {
         clusterClient: RedisClusterClient,
         codec: RedisCodec[K, V],
         nodeId: NodeId
-    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] = {
-      val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, readFrom, nodeId)
-      Resource.make(acquire)(release).widen
-    }
+    )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, K, V]] =
+      MkRedis[F].txRunner.flatMap { tx =>
+        val (acquire, release) = acquireAndReleaseClusterByNode(clusterClient, codec, readFrom, nodeId, tx)
+        Resource.make(acquire)(release).widen
+      }
 
     /**
       * Creates a [[RedisCommands]] from a MasterReplica connection
@@ -326,9 +332,7 @@ object Redis {
     def masterReplica[K, V](
         conn: RedisMasterReplica[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
-      Resource.pure {
-        new Redis[F, K, V](new RedisStatefulConnection(conn.underlying))
-      }
+      MkRedis[F].txRunner.map(tx => new Redis[F, K, V](new RedisStatefulConnection(conn.underlying), tx))
 
   }
 
@@ -338,12 +342,13 @@ object Redis {
 
 private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     val conn: RedisConnection[F, K, V],
+    val tx: TxRunner[F],
     val cluster: Boolean
 ) extends RedisCommands[F, K, V]
     with RedisConversionOps {
 
   def liftK[G[_]: Async: Log]: RedisCommands[G, K, V] =
-    new BaseRedis[G, K, V](conn.liftK[G], cluster)
+    new BaseRedis[G, K, V](conn.liftK[G], tx.liftK[G], cluster)
 
   import dev.profunktor.redis4cats.JavaConversions._
 
@@ -459,6 +464,26 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case c: RedisAsyncCommands[K, V] => c.unwatch().futureLift.void
       case _                           => conn.async.flatMap(_.unwatch().futureLift).void
     }
+
+  override def transact[A](fs: TxStore[F, String, A] => List[F[Unit]]): F[Map[String, A]] =
+    tx.run[A](
+      acquire = this.multi,
+      release = this.exec,
+      onError = this.discard
+    )(fs)
+
+  override def transact_(fs: List[F[Unit]]): F[Unit] =
+    transact[Nothing](_ => fs).void
+
+  override def pipeline[A](fs: TxStore[F, String, A] => List[F[Unit]]): F[Map[String, A]] =
+    tx.run[A](
+      acquire = this.disableAutoFlush,
+      release = FutureLift[F].guarantee(this.flushCommands, this.enableAutoFlush),
+      onError = ().pure[F]
+    )(fs)
+
+  override def pipeline_(fs: List[F[Unit]]): F[Unit] =
+    pipeline[Nothing](_ => fs).void
 
   /******************************* AutoFlush API **********************************/
   override def enableAutoFlush: F[Unit] =
@@ -1251,9 +1276,11 @@ private[redis4cats] trait RedisConversionOps {
 }
 
 private[redis4cats] class Redis[F[_]: FutureLift: MonadThrow: Log, K, V](
-    connection: RedisStatefulConnection[F, K, V]
-) extends BaseRedis[F, K, V](connection, cluster = false)
+    connection: RedisStatefulConnection[F, K, V],
+    tx: TxRunner[F]
+) extends BaseRedis[F, K, V](connection, tx, cluster = false)
 
 private[redis4cats] class RedisCluster[F[_]: FutureLift: MonadThrow: Log, K, V](
-    connection: RedisStatefulClusterConnection[F, K, V]
-) extends BaseRedis[F, K, V](connection, cluster = true)
+    connection: RedisStatefulClusterConnection[F, K, V],
+    tx: TxRunner[F]
+) extends BaseRedis[F, K, V](connection, tx, cluster = true)

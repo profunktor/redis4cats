@@ -41,10 +41,11 @@ object RedisTxDemo extends LoggerIOApp {
       Redis[IO].fromClient(cli, RedisCodec.Utf8)
 
     def prog[A](
-        tx: RedisTx[IO],
+        redis: RedisCommands[IO, String, String],
         ops: TxStore[IO, String, A] => List[IO[Unit]]
     ): IO[Unit] =
-      tx.run(ops) // or tx.exec(ops) to discard the result
+      redis
+        .transact(ops) // or redis.transact_(ops) to discard the result
         .flatMap(kv => IO.println(s"KV: $kv"))
         .handleErrorWith {
           case TransactionDiscarded =>
@@ -56,39 +57,35 @@ object RedisTxDemo extends LoggerIOApp {
     // Running two concurrent transactions (needs two different RedisCommands)
     mkClient.use { cli =>
       val p1 = mkRedis(cli).use { redis =>
-        RedisTx.make(redis).use { tx =>
-          val getters =
-            redis.get(key1).flatTap(showResult(key1)) *>
-                redis.get(key2).flatTap(showResult(key2))
+        val getters =
+          redis.get(key1).flatTap(showResult(key1)) *>
+              redis.get(key2).flatTap(showResult(key2))
 
-          // it is not possible to mix different stores. In case of needing to preserve values
-          // of other types, you'd need to use a local Ref or so.
-          val ops = (store: TxStore[IO, String, Option[String]]) =>
-            List(
-              redis.set(key1, "sad"),
-              redis.set(key2, "windows"),
-              redis.get(key1).flatMap(store.set(s"$key1-v1")),
-              redis.set(key1, "nix"),
-              redis.set(key2, "linux"),
-              redis.get(key1).flatMap(store.set(s"$key1-v2"))
-            )
+        // it is not possible to mix different stores. In case of needing to preserve values
+        // of other types, you'd need to use a local Ref or so.
+        val ops = (store: TxStore[IO, String, Option[String]]) =>
+          List(
+            redis.set(key1, "sad"),
+            redis.set(key2, "windows"),
+            redis.get(key1).flatMap(store.set(s"$key1-v1")),
+            redis.set(key1, "nix"),
+            redis.set(key2, "linux"),
+            redis.get(key1).flatMap(store.set(s"$key1-v2"))
+          )
 
-          getters >> prog(tx, ops) >> getters >> putStrLn("keep doing stuff...")
-        }
+        getters >> prog(redis, ops) >> getters >> putStrLn("keep doing stuff...")
       }
 
       val p2 = mkRedis(cli).use { redis =>
-        RedisTx.make(redis).use { tx =>
-          val ops = (store: TxStore[IO, String, Long]) =>
-            List(
-              redis.set("yo", "wat"),
-              redis.incr(key3).flatMap(store.set(s"$key3-v1")),
-              redis.incr(key3).flatMap(store.set(s"$key3-v2")),
-              redis.set("wat", "yo")
-            )
+        val ops = (store: TxStore[IO, String, Long]) =>
+          List(
+            redis.set("yo", "wat"),
+            redis.incr(key3).flatMap(store.set(s"$key3-v1")),
+            redis.incr(key3).flatMap(store.set(s"$key3-v2")),
+            redis.set("wat", "yo")
+          )
 
-          prog(tx, ops)
-        }
+        prog(redis, ops)
       }
 
       p1 &> p2

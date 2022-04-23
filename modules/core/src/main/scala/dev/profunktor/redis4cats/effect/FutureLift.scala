@@ -18,6 +18,7 @@ package dev.profunktor.redis4cats.effect
 
 import cats.ApplicativeThrow
 import cats.effect.kernel.Async
+import cats.effect.kernel.syntax.monadCancel._
 import cats.syntax.all._
 import io.lettuce.core.{ ConnectionFuture, RedisFuture }
 
@@ -25,6 +26,7 @@ import java.util.concurrent._
 
 private[redis4cats] trait FutureLift[F[_]] {
   def delay[A](thunk: => A): F[A]
+  def guarantee[A](fa: F[A], fu: F[Unit]): F[A]
   def lift[A](fa: => RedisFuture[A]): F[A]
   def liftConnectionFuture[A](fa: => ConnectionFuture[A]): F[A]
   def liftCompletableFuture[A](fa: => CompletableFuture[A]): F[A]
@@ -40,6 +42,8 @@ object FutureLift {
       val F = Async[F]
 
       def delay[A](thunk: => A): F[A] = F.delay(thunk)
+
+      def guarantee[A](fa: F[A], fu: F[Unit]): F[A] = fa.guarantee(fu)
 
       def lift[A](fa: => RedisFuture[A]): F[A] =
         liftJFuture[RedisFuture[A], A](fa)
