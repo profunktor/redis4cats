@@ -63,19 +63,18 @@ class OptimisticLockSuite extends IOSuite {
       counter: Ref[IO, Int],
       attemptComplete: IO[Unit]
   ): IO[Either[String, Unit]] =
-    commands(client).use { cmd =>
+    commands(client).use { redis =>
       EitherT
-        .right[String](cmd.watch(testKey))
+        .right[String](redis.watch(testKey))
         .semiflatMap(_ => counter.update(_ + 1) >> attemptComplete >> promise.get)
         .flatMapF(_ =>
-          RedisTx.make(cmd).use {
-            _.exec(cmd.set(testKey, UpdatedValue) :: Nil)
-              .as(Either.right[String, Unit](()))
-              .recover {
-                case TransactionDiscarded => Left("Discarded")
-              }
-              .uncancelable
-          }
+          redis
+            .transact_(redis.set(testKey, UpdatedValue) :: Nil)
+            .as(Either.right[String, Unit](()))
+            .recover {
+              case TransactionDiscarded => Left("Discarded")
+            }
+            .uncancelable
         )
         .value
     }

@@ -9,7 +9,7 @@ position: 7
 
 Use [pipelining](https://redis.io/topics/pipelining) to speed up your queries by having full control of commands flushing. By default Redis works in autoflush mode but it can be disabled to "pipeline" commands to the server without waiting for a response. And at any point in time you can "flush commands".
 
-`redis4cats` provides a `RedisPipe` utility that models this behavior with some guarantees described below:
+`RedisCommands` provides two methods: `pipeline` and `pipeline_`, which are very similar to the transactional commands (see [Transactions](./transactions.html)). The behavior is modeled as a resource described below:
 
 - `acquire`: disable autoflush and send a bunch of commands defined as a `List[F[Unit]]`.
 - `release`: either flush commands on success or log error on failure / cancellation.
@@ -20,8 +20,6 @@ Use [pipelining](https://redis.io/topics/pipelining) to speed up your queries by
 ### RedisPipeline usage
 
 The API for disabling / enabling autoflush and flush commands manually is available for you to use but since the pattern is so common it is recommended to use `RedisPipe`, because it shares the same implementation of `RedisTx`, which can be tricky to get right.
-
-You can create a pipeline by passing the commands API as a parameter and invoke the `run` function (or `exec`) given the set of commands you wish to send to the server.
 
 Note that every command has to be forked (`.start`) because the commands need to be sent to the server in an asynchronous way but no response will be received until the commands are successfully flushed. Also, it is not possible to sequence commands (`flatMap`) that are part of a pipeline. Every command has to be atomic and independent of previous results.
 
@@ -44,7 +42,7 @@ val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
 import cats.effect.IO
 import cats.implicits._
 import dev.profunktor.redis4cats._
-import dev.profunktor.redis4cats.tx._
+import dev.profunktor.redis4cats.tx.TxStore
 
 val key1 = "testp1"
 val key2 = "testp2"
@@ -59,21 +57,19 @@ commandsApi.use { redis => // RedisCommands[IO, String, String]
         redis.get(key2).flatTap(showResult(key2)) >>
         redis.get(key3).flatTap(showResult(key3))
 
-   val ops = (store: TxStore[IO, String, Option[String]]) =>
-     List(
-       redis.set(key1, "osx"),
-       redis.get(key3).flatMap(store.set(key3)),
-       redis.set(key2, "linux")
-     )
+  val ops = (store: TxStore[IO, String, Option[String]]) =>
+    List(
+      redis.set(key1, "osx"),
+      redis.get(key3).flatMap(store.set(key3)),
+      redis.set(key2, "linux")
+    )
 
-    val runPipeline =
-      RedisPipe.make(redis).use {
-        _.run(ops)
-          .flatMap(kv => IO.println(s"KV: $kv"))
-          .recoverWith {
-            case e =>
-              IO.println(s"[Error] - ${e.getMessage}")
-          }
+  val runPipeline =
+    redis.pipeline(ops)
+      .flatMap(kv => IO.println(s"KV: $kv"))
+      .recoverWith {
+        case e =>
+          IO.println(s"[Error] - ${e.getMessage}")
       }
 
   val prog =
@@ -91,4 +87,4 @@ commandsApi.use { redis => // RedisCommands[IO, String, String]
 }
 ```
 
-The `run` function provides a `TxStore` we can use to store values we run within the pipeline for later retrieval, same as we do with transactions. If you don't need the store, prefer to use `exec` instead.
+The `pipeline` method provides a `TxStore` we can use to store values we run within the pipeline for later retrieval, same as we do with transactions. If you don't need the store, prefer to use `pipeline_` instead.

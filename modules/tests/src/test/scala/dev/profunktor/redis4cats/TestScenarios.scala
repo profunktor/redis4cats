@@ -465,11 +465,9 @@ trait TestScenarios { self: FunSuite =>
       )
 
     val runPipeline =
-      RedisPipe
-        .make(redis)
-        .use {
-          _.run(ops).map(kv => assertEquals(kv.get(key3).flatten, Some("3")))
-        }
+      redis
+        .pipeline(ops)
+        .map(kv => assertEquals(kv.get(key3).flatten, Some("3")))
         .recoverWith {
           case e => fail(s"[Error] - ${e.getMessage}")
         }
@@ -494,7 +492,7 @@ trait TestScenarios { self: FunSuite =>
     val val3 = "linux"
     val del1 = "deleteme"
 
-    val operations = (store: TxStore[IO, String, Option[String]]) =>
+    val ops = (store: TxStore[IO, String, Option[String]]) =>
       List(
         redis.set(key2, val2),
         redis.get(key1).flatMap(store.set(s"$key1-v1")),
@@ -503,20 +501,19 @@ trait TestScenarios { self: FunSuite =>
       )
 
     redis.set(del1, "foo") >> redis.set(key1, val1) >>
-      RedisTx.make(redis).use { tx =>
-        tx.run(operations)
-          .map { kv =>
-            assertEquals(kv.get(s"$key1-v1").flatten, Some(val1))
-            assertEquals(kv.get(s"$key1-v2").flatten, Some(1L.toString))
+      redis
+        .transact(ops)
+        .map { kv =>
+          assertEquals(kv.get(s"$key1-v1").flatten, Some(val1))
+          assertEquals(kv.get(s"$key1-v2").flatten, Some(1L.toString))
+        }
+        .flatMap { _ =>
+          (redis.get(key2), redis.get(key3)).mapN {
+            case (x, y) =>
+              assertEquals(x, Some(val2))
+              assertEquals(y, Some(val3))
           }
-          .flatMap { _ =>
-            (redis.get(key2), redis.get(key3)).mapN {
-              case (x, y) =>
-                assertEquals(x, Some(val2))
-                assertEquals(y, Some(val3))
-            }
-          }
-      }
+        }
   }
 
   def scriptsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {

@@ -21,9 +21,18 @@ These are internals, though. All you need to care about is what commands you wan
 
 ### Working with transactions
 
-The most common way is to create a `RedisTx` once by passing the commands API as a parameter and invoke the `run` function (or `exec` to discard the result) every time you want to run the given commands as part of a new transaction.
+There are two methods available in `RedisCommands`: `transact` and `transact_`. The former takes a function `TxStore[F, K, V] => List[F[Unit]]` whereas the latter only takes a `List[F[Unit]]`.
 
-Every command has to be atomic and independent of previous Redis results, so it is not recommended to chain commands using `flatMap`.
+`TxStore` provides a way to store transactional values for later retrieval, as we cannot chain transactional together via `flatMap` and friends (every command needs to be atomic and independent of previous Redis results).
+
+```scala
+trait TxStore[F[_], K, V] {
+  def get: F[Map[K, V]]
+  def set(key: K)(v: V): F[Unit]
+}
+```
+
+The `List[F[Unit]]` represents a list of Redis operations you wish to run within a transaction, ordered from left to right.
 
 Below you can find a first example of transactional commands.
 
@@ -48,7 +57,7 @@ val commandsApi: Resource[IO, RedisCommands[IO, String, String]] = {
 import cats.effect.IO
 import cats.implicits._
 import dev.profunktor.redis4cats._
-import dev.profunktor.redis4cats.tx._
+import dev.profunktor.redis4cats.tx.{ TransactionDiscarded, TxStore }
 
 val key1 = "test1"
 val key2 = "test2"
@@ -58,34 +67,32 @@ val showResult: String => Option[String] => IO[Unit] = key =>
   _.fold(Log[IO].info(s"Key not found: $key"))(s => Log[IO].info(s"$key: $s"))
 
 commandsApi.use { redis => // RedisCommands[IO, String, String]
-  RedisTx.make(redis).use { tx =>
-    val setters = redis.set(key2, "delete_me") >> redis.set(key3, "foo")
+  val setters = redis.set(key2, "delete_me") >> redis.set(key3, "foo")
 
-    val getters =
-      redis.get(key1).flatTap(showResult(key1)) >>
-        redis.get(key2).flatTap(showResult(key2))
+  val getters =
+    redis.get(key1).flatTap(showResult(key1)) >>
+      redis.get(key2).flatTap(showResult(key2))
 
-    val ops = (store: TxStore[IO, String, Option[String]]) =>
-      List(
-        redis.set(key1, "foo"),
-        redis.del(key2).void,
-        redis.get(key3).flatMap(store.set(key3))
-      )
+  val ops = (store: TxStore[IO, String, Option[String]]) =>
+    List(
+      redis.set(key1, "foo"),
+      redis.del(key2).void,
+      redis.get(key3).flatMap(store.set(key3))
+    )
 
-    val prog =
-      tx.run(ops)
-        .flatMap { kv =>
-          IO.println(s"KV: ${kv}")
-        }
-        .recoverWith {
-          case TransactionDiscarded =>
-            Log[IO].error("[Error] - Transaction Discarded")
-          case e =>
-            Log[IO].error(s"[Error] - $e")
-        }
+  val prog =
+    redis.transact(ops)
+      .flatMap { kv =>
+        IO.println(s"KV: ${kv}")
+      }
+      .recoverWith {
+        case TransactionDiscarded =>
+          Log[IO].error("[Error] - Transaction Discarded")
+        case e =>
+          Log[IO].error(s"[Error] - $e")
+      }
 
-    setters >> getters >> prog >> getters.void
-  }
+  setters >> getters >> prog >> getters.void
 }
 ```
 
@@ -93,9 +100,9 @@ It should be exclusively used to run Redis commands as part of a transaction, no
 
 Transactional commands may be discarded if something went wrong in between.
 
-The `run` function returns the values stored in the given `TxStore`, which is used to save results of commands that run as part of the transaction for later retrieval.
+The `transact` method returns the values stored in the given `TxStore`, which is used to save results of commands that run as part of the transaction for later retrieval.
 
-If you are only writing values (e.g. only using `set`), you may prefer to use `exec` instead.
+If you are only writing values (e.g. only using `set`), you may prefer to use `transact_` instead.
 
 ### How NOT to use transactions
 
@@ -103,17 +110,15 @@ For example, the following transaction will result in a dead-lock:
 
 ```scala mdoc:silent
 commandsApi.use { redis =>
-  RedisTx.make(redis).use { tx =>
-    val getters =
-      redis.get(key1).flatTap(showResult(key1)) *>
-        redis.get(key2).flatTap(showResult(key2))
+  val getters =
+    redis.get(key1).flatTap(showResult(key1)) *>
+      redis.get(key2).flatTap(showResult(key2))
 
-    val setters = tx.exec(
-      List(redis.set(key1, "foo"), redis.set(key2, "bar"), redis.discard)
-    )
+  val setters = redis.transact_(
+    List(redis.set(key1, "foo"), redis.set(key2, "bar"), redis.discard)
+  )
 
-    getters *> setters.void *> getters.void
-  }
+  getters *> setters.void *> getters.void
 }
 ```
 
@@ -123,17 +128,15 @@ The following example will result in a successful transaction on Redis. Yet, the
 
 ```scala mdoc:silent
 commandsApi.use { redis =>
-  RedisTx.make(redis).use { tx =>
-    val getters =
-      redis.get(key1).flatTap(showResult(key1)) *>
-        redis.get(key2).flatTap(showResult(key2))
+  val getters =
+    redis.get(key1).flatTap(showResult(key1)) *>
+      redis.get(key2).flatTap(showResult(key2))
 
-    val failedTx = tx.exec(
-      List(redis.set(key1, "foo"), redis.set(key2, "bar"), IO.raiseError(new Exception("boom")))
-    )
+  val failedTx = redis.transact_(
+    List(redis.set(key1, "foo"), redis.set(key2, "bar"), IO.raiseError(new Exception("boom")))
+  )
 
-    getters *> failedTx.void *> getters.void
-  }
+  getters *> failedTx.void *> getters.void
 }
 ```
 
@@ -152,30 +155,27 @@ val mkRedis: Resource[IO, RedisCommands[IO, String, String]] =
   }
 
 def txProgram(v1: String, v2: String) =
-  mkRedis
-    .use { redis =>
-      val getters =
-        redis.get(key1).flatTap(showResult(key1)) >>
-          redis.get(key2).flatTap(showResult(key2)) >>
-          redis.get(key2).flatTap(showResult(key3))
+  mkRedis.use { redis =>
+    val getters =
+      redis.get(key1).flatTap(showResult(key1)) >>
+        redis.get(key2).flatTap(showResult(key2)) >>
+        redis.get(key2).flatTap(showResult(key3))
 
-      val ops = List(redis.set(key1, v1), redis.set(key2, v2))
+    val ops = List(redis.set(key1, v1), redis.set(key2, v2))
 
-      val prog: IO[Unit] =
-        RedisTx.make(redis).use { tx =>
-          tx.exec(ops)
-            .onError {
-              case TransactionDiscarded =>
-                Log[IO].error("[Error] - Transaction Discarded")
-              case e =>
-                Log[IO].error(s"[Error] - $e")
-            }
-          }
+    val prog: IO[Unit] =
+      redis.transact_(ops)
+        .onError {
+          case TransactionDiscarded =>
+            Log[IO].error("[Error] - Transaction Discarded")
+          case e =>
+            Log[IO].error(s"[Error] - $e")
+        }
 
-      val watching = redis.watch(key1, key2)
+    val watching = redis.watch(key1, key2)
 
-      getters >> watching >> prog >> getters >> Log[IO].info("keep doing stuff...")
-    }
+    getters >> watching >> prog >> getters >> Log[IO].info("keep doing stuff...")
+  }
 ```
 
 Before executing the transaction, we invoke `redis.watch(key1, key2)`. Next, let's run two concurrent transactions:

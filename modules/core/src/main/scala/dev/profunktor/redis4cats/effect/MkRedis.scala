@@ -16,11 +16,13 @@
 
 package dev.profunktor.redis4cats.effect
 
+import scala.annotation.implicitNotFound
+
 import cats.effect.kernel._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisClusterClient, RedisURI }
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
+import dev.profunktor.redis4cats.tx.TxRunner
 import io.lettuce.core.ClientOptions
-import scala.annotation.implicitNotFound
 
 /**
   * MkRedis is a capability trait that abstracts over the creation of RedisClient,
@@ -46,6 +48,7 @@ sealed trait MkRedis[F[_]] {
 
   def clusterClient(uri: RedisURI*): Resource[F, RedisClusterClient]
 
+  private[redis4cats] def txRunner: Resource[F, TxRunner[F]]
   private[redis4cats] def futureLift: FutureLift[F]
   private[redis4cats] def log: Log[F]
 }
@@ -73,6 +76,9 @@ object MkRedis {
 
       def clusterClient(uri: RedisURI*): Resource[F, RedisClusterClient] =
         RedisClusterClient[F](uri: _*)
+
+      private[redis4cats] def txRunner: Resource[F, TxRunner[F]] =
+        TxExecutor.make[F].map(TxRunner.make[F])
 
       private[redis4cats] def futureLift: FutureLift[F] = implicitly
 
