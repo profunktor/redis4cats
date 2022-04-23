@@ -14,16 +14,24 @@
 
 <h3 id="working-with-transactions">Working with transactions</h3>
 
-<p>The most common way is to create a <code class="language-plaintext highlighter-rouge">RedisTx</code> once by passing the commands API as a parameter and invoke the <code class="language-plaintext highlighter-rouge">run</code> function (or <code class="language-plaintext highlighter-rouge">exec</code> to discard the result) every time you want to run the given commands as part of a new transaction.</p>
+<p>There are two methods available in <code class="language-plaintext highlighter-rouge">RedisCommands</code>: <code class="language-plaintext highlighter-rouge">transact</code> and <code class="language-plaintext highlighter-rouge">transact_</code>. The former takes a function <code class="language-plaintext highlighter-rouge">TxStore[F, K, V] =&gt; List[F[Unit]]</code> whereas the latter only takes a <code class="language-plaintext highlighter-rouge">List[F[Unit]]</code>.</p>
 
-<p>Every command has to be atomic and independent of previous Redis results, so it is not recommended to chain commands using <code class="language-plaintext highlighter-rouge">flatMap</code>.</p>
+<p><code class="language-plaintext highlighter-rouge">TxStore</code> provides a way to store transactional values for later retrieval, as we cannot chain transactional together via <code class="language-plaintext highlighter-rouge">flatMap</code> and friends (every command needs to be atomic and independent of previous Redis results).</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">trait</span> <span class="nc">TxStore</span><span class="o">[</span><span class="kt">F</span><span class="o">[</span><span class="k">_</span><span class="o">]</span>, <span class="kt">K</span>, <span class="kt">V</span><span class="o">]</span> <span class="o">{</span>
+  <span class="k">def</span> <span class="nf">get</span><span class="k">:</span> <span class="kt">F</span><span class="o">[</span><span class="kt">Map</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">]]</span>
+  <span class="k">def</span> <span class="nf">set</span><span class="o">(</span><span class="n">key</span><span class="k">:</span> <span class="kt">K</span><span class="o">)(</span><span class="n">v</span><span class="k">:</span> <span class="kt">V</span><span class="o">)</span><span class="k">:</span> <span class="kt">F</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">List[F[Unit]]</code> represents a list of Redis operations you wish to run within a transaction, ordered from left to right.</p>
 
 <p>Below you can find a first example of transactional commands.</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">cats.effect.IO</span>
 <span class="k">import</span> <span class="nn">cats.implicits._</span>
 <span class="k">import</span> <span class="nn">dev.profunktor.redis4cats._</span>
-<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.tx._</span>
+<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.tx.</span><span class="o">{</span> <span class="nc">TransactionDiscarded</span><span class="o">,</span> <span class="nc">TxStore</span> <span class="o">}</span>
 
 <span class="k">val</span> <span class="nv">key1</span> <span class="k">=</span> <span class="s">"test1"</span>
 <span class="k">val</span> <span class="nv">key2</span> <span class="k">=</span> <span class="s">"test2"</span>
@@ -33,34 +41,32 @@
   <span class="nv">_</span><span class="o">.</span><span class="py">fold</span><span class="o">(</span><span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">info</span><span class="o">(</span><span class="n">s</span><span class="s">"Key not found: $key"</span><span class="o">))(</span><span class="n">s</span> <span class="k">=&gt;</span> <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">info</span><span class="o">(</span><span class="n">s</span><span class="s">"$key: $s"</span><span class="o">))</span>
 
 <span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span> <span class="c1">// RedisCommands[IO, String, String]</span>
-  <span class="nv">RedisTx</span><span class="o">.</span><span class="py">make</span><span class="o">(</span><span class="n">redis</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">tx</span> <span class="k">=&gt;</span>
-    <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"delete_me"</span><span class="o">)</span> <span class="o">&gt;&gt;</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key3</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span>
+  <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"delete_me"</span><span class="o">)</span> <span class="o">&gt;&gt;</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key3</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">)</span>
 
-    <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
-      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
-        <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
+  <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
+    <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
+      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
 
-    <span class="k">val</span> <span class="nv">ops</span> <span class="k">=</span> <span class="o">(</span><span class="n">store</span><span class="k">:</span> <span class="kt">TxStore</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">String</span>, <span class="kt">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">]])</span> <span class="k">=&gt;</span>
-      <span class="nc">List</span><span class="o">(</span>
-        <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span>
-        <span class="nv">redis</span><span class="o">.</span><span class="py">del</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">void</span><span class="o">,</span>
-        <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key3</span><span class="o">).</span><span class="py">flatMap</span><span class="o">(</span><span class="nv">store</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key3</span><span class="o">))</span>
-      <span class="o">)</span>
+  <span class="k">val</span> <span class="nv">ops</span> <span class="k">=</span> <span class="o">(</span><span class="n">store</span><span class="k">:</span> <span class="kt">TxStore</span><span class="o">[</span><span class="kt">IO</span>, <span class="kt">String</span>, <span class="kt">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">]])</span> <span class="k">=&gt;</span>
+    <span class="nc">List</span><span class="o">(</span>
+      <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span>
+      <span class="nv">redis</span><span class="o">.</span><span class="py">del</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">void</span><span class="o">,</span>
+      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key3</span><span class="o">).</span><span class="py">flatMap</span><span class="o">(</span><span class="nv">store</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key3</span><span class="o">))</span>
+    <span class="o">)</span>
 
-    <span class="k">val</span> <span class="nv">prog</span> <span class="k">=</span>
-      <span class="nv">tx</span><span class="o">.</span><span class="py">run</span><span class="o">(</span><span class="n">ops</span><span class="o">)</span>
-        <span class="o">.</span><span class="py">flatMap</span> <span class="o">{</span> <span class="n">kv</span> <span class="k">=&gt;</span>
-          <span class="nv">IO</span><span class="o">.</span><span class="py">println</span><span class="o">(</span><span class="n">s</span><span class="s">"KV: ${kv}"</span><span class="o">)</span>
-        <span class="o">}</span>
-        <span class="o">.</span><span class="py">recoverWith</span> <span class="o">{</span>
-          <span class="k">case</span> <span class="nc">TransactionDiscarded</span> <span class="k">=&gt;</span>
-            <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Transaction Discarded"</span><span class="o">)</span>
-          <span class="k">case</span> <span class="n">e</span> <span class="k">=&gt;</span>
-            <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="n">s</span><span class="s">"[Error] - $e"</span><span class="o">)</span>
-        <span class="o">}</span>
+  <span class="k">val</span> <span class="nv">prog</span> <span class="k">=</span>
+    <span class="nv">redis</span><span class="o">.</span><span class="py">transact</span><span class="o">(</span><span class="n">ops</span><span class="o">)</span>
+      <span class="o">.</span><span class="py">flatMap</span> <span class="o">{</span> <span class="n">kv</span> <span class="k">=&gt;</span>
+        <span class="nv">IO</span><span class="o">.</span><span class="py">println</span><span class="o">(</span><span class="n">s</span><span class="s">"KV: ${kv}"</span><span class="o">)</span>
+      <span class="o">}</span>
+      <span class="o">.</span><span class="py">recoverWith</span> <span class="o">{</span>
+        <span class="k">case</span> <span class="nc">TransactionDiscarded</span> <span class="k">=&gt;</span>
+          <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Transaction Discarded"</span><span class="o">)</span>
+        <span class="k">case</span> <span class="n">e</span> <span class="k">=&gt;</span>
+          <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="n">s</span><span class="s">"[Error] - $e"</span><span class="o">)</span>
+      <span class="o">}</span>
 
-    <span class="n">setters</span> <span class="o">&gt;&gt;</span> <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="n">prog</span> <span class="o">&gt;&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
-  <span class="o">}</span>
+  <span class="n">setters</span> <span class="o">&gt;&gt;</span> <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="n">prog</span> <span class="o">&gt;&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
 <span class="o">}</span>
 </code></pre></div></div>
 
@@ -68,26 +74,24 @@
 
 <p>Transactional commands may be discarded if something went wrong in between.</p>
 
-<p>The <code class="language-plaintext highlighter-rouge">run</code> function returns the values stored in the given <code class="language-plaintext highlighter-rouge">TxStore</code>, which is used to save results of commands that run as part of the transaction for later retrieval.</p>
+<p>The <code class="language-plaintext highlighter-rouge">transact</code> method returns the values stored in the given <code class="language-plaintext highlighter-rouge">TxStore</code>, which is used to save results of commands that run as part of the transaction for later retrieval.</p>
 
-<p>If you are only writing values (e.g. only using <code class="language-plaintext highlighter-rouge">set</code>), you may prefer to use <code class="language-plaintext highlighter-rouge">exec</code> instead.</p>
+<p>If you are only writing values (e.g. only using <code class="language-plaintext highlighter-rouge">set</code>), you may prefer to use <code class="language-plaintext highlighter-rouge">transact_</code> instead.</p>
 
 <h3 id="how-not-to-use-transactions">How NOT to use transactions</h3>
 
 <p>For example, the following transaction will result in a dead-lock:</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span>
-  <span class="nv">RedisTx</span><span class="o">.</span><span class="py">make</span><span class="o">(</span><span class="n">redis</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">tx</span> <span class="k">=&gt;</span>
-    <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
-      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span>
-        <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
+  <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
+    <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span>
+      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
 
-    <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">tx</span><span class="o">.</span><span class="py">exec</span><span class="o">(</span>
-      <span class="nc">List</span><span class="o">(</span><span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">discard</span><span class="o">)</span>
-    <span class="o">)</span>
+  <span class="k">val</span> <span class="nv">setters</span> <span class="k">=</span> <span class="nv">redis</span><span class="o">.</span><span class="py">transact_</span><span class="o">(</span>
+    <span class="nc">List</span><span class="o">(</span><span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">discard</span><span class="o">)</span>
+  <span class="o">)</span>
 
-    <span class="n">getters</span> <span class="o">*&gt;</span> <span class="nv">setters</span><span class="o">.</span><span class="py">void</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
-  <span class="o">}</span>
+  <span class="n">getters</span> <span class="o">*&gt;</span> <span class="nv">setters</span><span class="o">.</span><span class="py">void</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
 <span class="o">}</span>
 </code></pre></div></div>
 
@@ -96,17 +100,15 @@
 <p>The following example will result in a successful transaction on Redis. Yet, the operation will end up raising the error passed as a command.</p>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span>
-  <span class="nv">RedisTx</span><span class="o">.</span><span class="py">make</span><span class="o">(</span><span class="n">redis</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">tx</span> <span class="k">=&gt;</span>
-    <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
-      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span>
-        <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
+  <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
+    <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">*&gt;</span>
+      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span>
 
-    <span class="k">val</span> <span class="nv">failedTx</span> <span class="k">=</span> <span class="nv">tx</span><span class="o">.</span><span class="py">exec</span><span class="o">(</span>
-      <span class="nc">List</span><span class="o">(</span><span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">),</span> <span class="nv">IO</span><span class="o">.</span><span class="py">raiseError</span><span class="o">(</span><span class="k">new</span> <span class="nc">Exception</span><span class="o">(</span><span class="s">"boom"</span><span class="o">)))</span>
-    <span class="o">)</span>
+  <span class="k">val</span> <span class="nv">failedTx</span> <span class="k">=</span> <span class="nv">redis</span><span class="o">.</span><span class="py">transact_</span><span class="o">(</span>
+    <span class="nc">List</span><span class="o">(</span><span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="s">"foo"</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="s">"bar"</span><span class="o">),</span> <span class="nv">IO</span><span class="o">.</span><span class="py">raiseError</span><span class="o">(</span><span class="k">new</span> <span class="nc">Exception</span><span class="o">(</span><span class="s">"boom"</span><span class="o">)))</span>
+  <span class="o">)</span>
 
-    <span class="n">getters</span> <span class="o">*&gt;</span> <span class="nv">failedTx</span><span class="o">.</span><span class="py">void</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
-  <span class="o">}</span>
+  <span class="n">getters</span> <span class="o">*&gt;</span> <span class="nv">failedTx</span><span class="o">.</span><span class="py">void</span> <span class="o">*&gt;</span> <span class="nv">getters</span><span class="o">.</span><span class="py">void</span>
 <span class="o">}</span>
 </code></pre></div></div>
 
@@ -126,30 +128,27 @@
   <span class="o">}</span>
 
 <span class="k">def</span> <span class="nf">txProgram</span><span class="o">(</span><span class="n">v1</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">v2</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span> <span class="k">=</span>
-  <span class="n">mkRedis</span>
-    <span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span>
-      <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
-        <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
-          <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
-          <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key3</span><span class="o">))</span>
+  <span class="nv">mkRedis</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span>
+    <span class="k">val</span> <span class="nv">getters</span> <span class="k">=</span>
+      <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key1</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key1</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
+        <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key2</span><span class="o">))</span> <span class="o">&gt;&gt;</span>
+        <span class="nv">redis</span><span class="o">.</span><span class="py">get</span><span class="o">(</span><span class="n">key2</span><span class="o">).</span><span class="py">flatTap</span><span class="o">(</span><span class="nf">showResult</span><span class="o">(</span><span class="n">key3</span><span class="o">))</span>
 
-      <span class="k">val</span> <span class="nv">ops</span> <span class="k">=</span> <span class="nc">List</span><span class="o">(</span><span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="n">v1</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="n">v2</span><span class="o">))</span>
+    <span class="k">val</span> <span class="nv">ops</span> <span class="k">=</span> <span class="nc">List</span><span class="o">(</span><span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="n">v1</span><span class="o">),</span> <span class="nv">redis</span><span class="o">.</span><span class="py">set</span><span class="o">(</span><span class="n">key2</span><span class="o">,</span> <span class="n">v2</span><span class="o">))</span>
 
-      <span class="k">val</span> <span class="nv">prog</span><span class="k">:</span> <span class="kt">IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
-        <span class="nv">RedisTx</span><span class="o">.</span><span class="py">make</span><span class="o">(</span><span class="n">redis</span><span class="o">).</span><span class="py">use</span> <span class="o">{</span> <span class="n">tx</span> <span class="k">=&gt;</span>
-          <span class="nv">tx</span><span class="o">.</span><span class="py">exec</span><span class="o">(</span><span class="n">ops</span><span class="o">)</span>
-            <span class="o">.</span><span class="py">onError</span> <span class="o">{</span>
-              <span class="k">case</span> <span class="nc">TransactionDiscarded</span> <span class="k">=&gt;</span>
-                <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Transaction Discarded"</span><span class="o">)</span>
-              <span class="k">case</span> <span class="n">e</span> <span class="k">=&gt;</span>
-                <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="n">s</span><span class="s">"[Error] - $e"</span><span class="o">)</span>
-            <span class="o">}</span>
-          <span class="o">}</span>
+    <span class="k">val</span> <span class="nv">prog</span><span class="k">:</span> <span class="kt">IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
+      <span class="nv">redis</span><span class="o">.</span><span class="py">transact_</span><span class="o">(</span><span class="n">ops</span><span class="o">)</span>
+        <span class="o">.</span><span class="py">onError</span> <span class="o">{</span>
+          <span class="k">case</span> <span class="nc">TransactionDiscarded</span> <span class="k">=&gt;</span>
+            <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="s">"[Error] - Transaction Discarded"</span><span class="o">)</span>
+          <span class="k">case</span> <span class="n">e</span> <span class="k">=&gt;</span>
+            <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">error</span><span class="o">(</span><span class="n">s</span><span class="s">"[Error] - $e"</span><span class="o">)</span>
+        <span class="o">}</span>
 
-      <span class="k">val</span> <span class="nv">watching</span> <span class="k">=</span> <span class="nv">redis</span><span class="o">.</span><span class="py">watch</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="n">key2</span><span class="o">)</span>
+    <span class="k">val</span> <span class="nv">watching</span> <span class="k">=</span> <span class="nv">redis</span><span class="o">.</span><span class="py">watch</span><span class="o">(</span><span class="n">key1</span><span class="o">,</span> <span class="n">key2</span><span class="o">)</span>
 
-      <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="n">watching</span> <span class="o">&gt;&gt;</span> <span class="n">prog</span> <span class="o">&gt;&gt;</span> <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">info</span><span class="o">(</span><span class="s">"keep doing stuff..."</span><span class="o">)</span>
-    <span class="o">}</span>
+    <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="n">watching</span> <span class="o">&gt;&gt;</span> <span class="n">prog</span> <span class="o">&gt;&gt;</span> <span class="n">getters</span> <span class="o">&gt;&gt;</span> <span class="nc">Log</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">info</span><span class="o">(</span><span class="s">"keep doing stuff..."</span><span class="o">)</span>
+  <span class="o">}</span>
 </code></pre></div></div>
 
 <p>Before executing the transaction, we invoke <code class="language-plaintext highlighter-rouge">redis.watch(key1, key2)</code>. Next, let’s run two concurrent transactions:</p>
