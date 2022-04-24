@@ -27,6 +27,7 @@ trait Flush[F[_], K] {
 
 trait Diagnostic[F[_]] {
   def info: F[Map[String, String]]
+  def info(section: String): F[Map[String, String]]
   def dbsize: F[Long]
   def lastSave: F[Instant]
   def slowLogLen: F[Long]

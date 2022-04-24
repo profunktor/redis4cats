@@ -17,6 +17,7 @@
 package dev.profunktor.redis4cats
 
 import cats.effect.{ IO, Resource }
+import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.ReadFrom
 import dev.profunktor.redis4cats.effect.Log.NoOp._
@@ -31,29 +32,36 @@ object RedisMasterReplicaStringsDemo extends LoggerIOApp {
     val showResult: Option[String] => IO[Unit] =
       _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
 
+    val masterUri: String  = "redis://localhost"
+    val replicaUri: String = "redis://localhost:6380"
+
     val connection: Resource[IO, RedisCommands[IO, String, String]] =
       for {
-        uri <- Resource.eval(RedisURI.make[IO](redisURI))
-        conn <- RedisMasterReplica[IO].make(stringCodec, uri)(Some(ReadFrom.UpstreamPreferred))
-        cmds <- Redis[IO].masterReplica(conn)
-      } yield cmds
+        uri1 <- Resource.eval(RedisURI.make[IO](masterUri))
+        uri2 <- Resource.eval(RedisURI.make[IO](replicaUri))
+        conn <- RedisMasterReplica[IO].make(stringCodec, uri1, uri2)(Some(ReadFrom.Replica))
+        redis <- Redis[IO].masterReplica(conn)
+      } yield redis
 
-    connection
-      .use { cmd =>
-        for {
-          x <- cmd.get(usernameKey)
-          _ <- showResult(x)
-          _ <- cmd.set(usernameKey, "some value")
-          y <- cmd.get(usernameKey)
-          _ <- showResult(y)
-          _ <- cmd.setNx(usernameKey, "should not happen")
-          w <- cmd.get(usernameKey)
-          _ <- showResult(w)
-          _ <- cmd.del(usernameKey)
-          z <- cmd.get(usernameKey)
-          _ <- showResult(z)
-        } yield ()
-      }
+    connection.use { redis =>
+      for {
+        i <- redis.info("replication")
+        _ <- IO.println("SERVER INFO\n")
+        _ <- i.toList.traverse_(kv => IO.println(kv))
+        _ <- IO.println("----------\n")
+        x <- redis.get(usernameKey)
+        _ <- showResult(x)
+        _ <- redis.set(usernameKey, "some value")
+        y <- redis.get(usernameKey)
+        _ <- showResult(y)
+        _ <- redis.setNx(usernameKey, "should not happen")
+        w <- redis.get(usernameKey)
+        _ <- showResult(w)
+        _ <- redis.del(usernameKey)
+        z <- redis.get(usernameKey)
+        _ <- showResult(z)
+      } yield ()
+    }
   }
 
 }

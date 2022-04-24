@@ -38,18 +38,15 @@ object RedisMasterReplica {
       readFrom: Option[JReadFrom],
       uris: RedisURI*
   ): (F[RedisMasterReplica[K, V]], RedisMasterReplica[K, V] => F[Unit]) = {
+    val connection: F[RedisMasterReplica[K, V]] =
+      FutureLift[F]
+        .liftCompletableFuture[StatefulRedisMasterReplicaConnection[K, V]](
+          MasterReplica.connectAsync[K, V](client.underlying, codec.underlying, uris.map(_.underlying).asJava)
+        )
+        .map(new RedisMasterReplica(_) {})
 
-    val acquire: F[RedisMasterReplica[K, V]] = {
-
-      val connection: F[RedisMasterReplica[K, V]] =
-        FutureLift[F]
-          .liftCompletableFuture[StatefulRedisMasterReplicaConnection[K, V]](
-            MasterReplica.connectAsync[K, V](client.underlying, codec.underlying, uris.map(_.underlying).asJava)
-          )
-          .map(new RedisMasterReplica(_) {})
-
-      readFrom.fold(connection)(rf => connection.flatMap(c => Sync[F].delay(c.underlying.setReadFrom(rf)) *> c.pure[F]))
-    }
+    val acquire: F[RedisMasterReplica[K, V]] =
+      readFrom.fold(connection)(rf => connection.flatTap(c => Sync[F].delay(c.underlying.setReadFrom(rf))))
 
     val release: RedisMasterReplica[K, V] => F[Unit] = connection =>
       Log[F].info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>

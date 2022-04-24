@@ -8,6 +8,17 @@ services:
     environment:
       - DEBUG=false
 
+  ReplicaNode:
+    restart: always
+    image: redis:6.2.0
+    ports:
+      - "6380:6379"
+    command: redis-server --replicaof SingleNode 6379
+    links:
+      - SingleNode:SingleNode
+    environment:
+      - DEBUG=false
+
   RedisCluster:
     restart: always
     image: grokzen/redis-cluster:6.2.0
