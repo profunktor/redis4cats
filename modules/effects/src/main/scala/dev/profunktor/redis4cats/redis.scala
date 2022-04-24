@@ -1112,19 +1112,21 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def keys(key: K): F[List[K]] =
     async.flatMap(_.keys(key).futureLift.map(_.asScala.toList))
 
+  private def parseInfo(info: String): F[Map[String, String]] =
+    FutureLift[F].delay(
+      info
+        .split("\\r?\\n")
+        .toList
+        .map(_.split(":", 2).toList)
+        .collect { case k :: v :: Nil => (k, v) }
+        .toMap
+    )
+
   override def info: F[Map[String, String]] =
-    async
-      .flatMap(_.info.futureLift)
-      .flatMap { info =>
-        FutureLift[F].delay(
-          info
-            .split("\\r?\\n")
-            .toList
-            .map(_.split(":", 2).toList)
-            .collect { case k :: v :: Nil => (k, v) }
-            .toMap
-        )
-      }
+    async.flatMap(_.info.futureLift).flatMap(parseInfo)
+
+  override def info(section: String): F[Map[String, String]] =
+    async.flatMap(_.info(section).futureLift).flatMap(parseInfo)
 
   override def dbsize: F[Long] =
     async.flatMap(_.dbsize.futureLift.map(Long.unbox))
