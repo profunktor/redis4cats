@@ -114,9 +114,11 @@ object data {
     val MasterPreferred   = JReadFrom.UPSTREAM_PREFERRED
     val Upstream          = JReadFrom.UPSTREAM
     val UpstreamPreferred = JReadFrom.UPSTREAM_PREFERRED
-    val Nearest           = JReadFrom.NEAREST
-    val Replica           = JReadFrom.REPLICA
-    val ReplicaPreferred  = JReadFrom.REPLICA_PREFERRED
+    @deprecated(message = "in favour of LowestLatency", since = "v1.2.0")
+    val Nearest          = JReadFrom.LOWEST_LATENCY
+    val LowestLatency    = JReadFrom.LOWEST_LATENCY
+    val Replica          = JReadFrom.REPLICA
+    val ReplicaPreferred = JReadFrom.REPLICA_PREFERRED
   }
 
 }
