@@ -31,6 +31,9 @@ import io.lettuce.core.{ GeoArgs, ZAggregateArgs }
 import munit.FunSuite
 
 import scala.concurrent.duration._
+import dev.profunktor.redis4cats.connection.RedisClient
+import dev.profunktor.redis4cats.pubsub.PubSub
+import dev.profunktor.redis4cats.data.{ RedisChannel, RedisCodec, RedisPattern, RedisPatternEvent }
 
 trait TestScenarios { self: FunSuite =>
 
@@ -574,5 +577,50 @@ trait TestScenarios { self: FunSuite =>
       c4 <- redis.pfCount(key3)
       _ <- IO(assert(c4 > 0, "merged hyperloglog should think it has more than 0 items in"))
     } yield ()
+  }
+
+  def keyPatternSubScenario(client: RedisClient): IO[Unit] = {
+    import dev.profunktor.redis4cats.effect.Log.NoOp._
+    import scala.language.postfixOps
+
+    val pattern = "__keyevent*__:*"
+    val key     = "somekey"
+    val resources = for {
+      ref <- Resource.eval(Ref.of[IO, Option[RedisPatternEvent[String, String]]](None))
+      commands <- Redis[IO].fromClient(client, RedisCodec.Utf8)
+      sub <- PubSub.mkSubscriberConnection[IO, String, String](client, RedisCodec.Utf8)
+      stream <- Resource.pure(sub.psubscribe(RedisPattern(pattern)))
+      _ <- stream.foreach(output => ref.set(Some(output))).compile.drain.background
+      _ <- Resource.eval(commands.set(key, ""))
+      _ <- Resource.eval(commands.expire(key, 1 seconds))
+    } yield ref.get
+    resources.use(get => get.iterateUntil(_.isDefined).timeout(2 seconds)).map { result =>
+      assert(
+        result == Some(RedisPatternEvent(pattern, "__keyevent@0__:expired", key)),
+        s"Unexpected result $result"
+      )
+    }
+  }
+
+  def channelPatternSubScenario(client: RedisClient): IO[Unit] = {
+    import dev.profunktor.redis4cats.effect.Log.NoOp._
+    import scala.language.postfixOps
+
+    val pattern = "f*"
+    val channel = "foo"
+    val message = "somemessage"
+    val resources = for {
+      ref <- Resource.eval(Ref.of[IO, Option[RedisPatternEvent[String, String]]](None))
+      pubsub <- PubSub.mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
+      stream <- Resource.pure(pubsub.psubscribe(RedisPattern(pattern)))
+      _ <- stream.foreach(output => ref.set(Some(output))).compile.drain.background
+      _ <- Resource.eval(pubsub.publish(RedisChannel(channel))(fs2.Stream(message)).compile.drain)
+    } yield ref.get
+    resources.use(get => get.iterateUntil(_.isDefined).timeout(2 seconds)).map { result =>
+      assert(
+        result == Some(RedisPatternEvent(pattern, channel, message)),
+        s"Unexpected result $result"
+      )
+    }
   }
 }

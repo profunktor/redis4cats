@@ -21,6 +21,8 @@ package internals
 import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
+import dev.profunktor.redis4cats.data.RedisPattern
+import dev.profunktor.redis4cats.data.RedisPatternEvent
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import fs2.Stream
@@ -42,9 +44,17 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
   override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
     subCommands.unsubscribe(channel)
 
+  override def psubscribe(pattern: RedisPattern[K]): Stream[F, RedisPatternEvent[K, V]] =
+    subCommands.psubscribe(pattern)
+
+  override def punsubscribe(pattern: RedisPattern[K]): Stream[F, Unit] =
+    subCommands.punsubscribe(pattern)
+
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
     _.flatMap { message =>
-      Stream.resource(Resource.eval(state.get) >>= PubSubInternals[F, K, V](state, subConnection).apply(channel)) >>
+      Stream.resource(
+        Resource.eval(state.get) >>= PubSubInternals.channel[F, K, V](state, subConnection).apply(channel)
+      ) >>
         Stream.eval(FutureLift[F].lift(pubConnection.async().publish(channel.underlying, message)).void)
     }
 
