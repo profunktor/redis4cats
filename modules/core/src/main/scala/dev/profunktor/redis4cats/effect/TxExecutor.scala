@@ -22,12 +22,13 @@
 
 package dev.profunktor.redis4cats.effect
 
-import cats.syntax.all._
-import cats.effect.kernel._
-
 import java.util.concurrent.Executors
+
 import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
+
+import cats.effect.kernel._
+import cats.syntax.all._
 
 private[redis4cats] trait TxExecutor[F[_]] {
   def delay[A](thunk: => A): F[A]
@@ -39,7 +40,7 @@ private[redis4cats] trait TxExecutor[F[_]] {
 private[redis4cats] object TxExecutor {
   def make[F[_]: Async]: Resource[F, TxExecutor[F]] =
     Resource
-      .make(Sync[F].delay(Executors.newFixedThreadPool(1))) { ec =>
+      .make(Sync[F].delay(Executors.newFixedThreadPool(1, TxThreadFactory))) { ec =>
         Sync[F]
           .delay(ec.shutdownNow())
           .ensure(new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread"))(

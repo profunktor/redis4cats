@@ -430,6 +430,10 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   /******************************* Transactions API **********************************/
   // When in a cluster, transactions should run against a single node.
 
+  // Leaving this here for debugging purposes when working on the lib
+  def showThread(op: String): F[Unit] =
+    FutureLift[F].delay(println(s"$op - ${Thread.currentThread().getName()}"))
+
   def multi: F[Unit] =
     async.flatMap {
       case c: RedisAsyncCommands[K, V] => c.multi().futureLift.void
