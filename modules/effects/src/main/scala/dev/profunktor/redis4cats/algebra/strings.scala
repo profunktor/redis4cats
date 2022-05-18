@@ -16,9 +16,12 @@
 
 package dev.profunktor.redis4cats.algebra
 
+import scala.concurrent.duration.FiniteDuration
+
 import dev.profunktor.redis4cats.effects.SetArgs
 
-import scala.concurrent.duration.FiniteDuration
+import io.lettuce.core.RedisFuture
+import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 
 trait StringCommands[F[_], K, V]
     extends Getter[F, K, V]
@@ -26,6 +29,7 @@ trait StringCommands[F[_], K, V]
     with MultiKey[F, K, V]
     with Decrement[F, K, V]
     with Increment[F, K, V]
+    with Unsafe[F, K, V]
 
 trait Getter[F[_], K, V] {
   def get(key: K): F[Option[V]]
@@ -58,4 +62,21 @@ trait Increment[F[_], K, V] {
   def incr(key: K): F[Long]
   def incrBy(key: K, amount: Long): F[Long]
   def incrByFloat(key: K, amount: Double): F[Double]
+}
+
+trait Unsafe[F[_], K, V] {
+
+  /**
+    * USE WITH CAUTION! It gives you access to the underlying Java API.
+    *
+    * Useful whenever Redis4cats does not yet support the operation you're looking for.
+    */
+  def unsafe[A](f: RedisClusterAsyncCommands[K, V] => RedisFuture[A]): F[A]
+
+  /**
+    * USE WITH CAUTION! It gives you access to the underlying Java API.
+    *
+    * Useful whenever Redis4cats does not yet support the operation you're looking for.
+    */
+  def unsafeSync[A](f: RedisClusterAsyncCommands[K, V] => A): F[A]
 }

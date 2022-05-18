@@ -36,6 +36,7 @@ import io.lettuce.core.{
   GeoArgs,
   GeoRadiusStoreArgs,
   GeoWithin,
+  RedisFuture,
   ScoredValue,
   ZAddArgs,
   ZAggregateArgs,
@@ -498,6 +499,13 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def flushCommands: F[Unit] =
     async.flatMap(c => FutureLift[F].delay(c.flushCommands()))
+
+  /******************************* Unsafe API **********************************/
+  override def unsafe[A](f: RedisClusterAsyncCommands[K, V] => RedisFuture[A]): F[A] =
+    async.flatMap(f(_).futureLift)
+
+  override def unsafeSync[A](f: RedisClusterAsyncCommands[K, V] => A): F[A] =
+    async.flatMap(cmd => FutureLift[F].delay(f(cmd)))
 
   /******************************* Strings API **********************************/
   override def append(key: K, value: V): F[Unit] =
