@@ -21,6 +21,7 @@ import java.time.Instant
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
+import fs2.Stream
 
 import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrUnsignedBy, SetUnsigned }
 import dev.profunktor.redis4cats.algebra.BitCommands
@@ -589,16 +590,20 @@ trait TestScenarios { self: FunSuite =>
       sub <- PubSub.mkSubscriberConnection[IO, String, String](client, RedisCodec.Utf8)
       stream <- Resource.pure(sub.psubscribe(RedisPattern(pattern)))
       listener <- Resource.eval(stream.head.compile.toList.start)
-      _ <- Resource.eval(commands.set(key, ""))
-      _ <- Resource.eval(commands.expire(key, 1.seconds))
+      _ <- (for {
+            _ <- commands.setEx(key, "", 1.second)
+            _ <- IO.sleep(2.seconds)
+          } yield ()).foreverM.background
       firstEvent <- Resource.eval(
                      listener.joinWith(IO.raiseError(new IllegalStateException("Fiber should not be cancelled")))
                    )
     } yield firstEvent.headOption
-    resources.use(IO.pure).map { result =>
-      assert(
-        result == Some(RedisPatternEvent(pattern, "__keyevent@0__:expired", key)),
-        s"Unexpected result $result"
+    resources.use { result =>
+      IO(
+        assert(
+          result == Some(RedisPatternEvent(pattern, "__keyevent@0__:expired", key)),
+          s"Unexpected result $result"
+        )
       )
     }
   }
@@ -613,16 +618,23 @@ trait TestScenarios { self: FunSuite =>
       pubsub <- PubSub.mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
       stream <- Resource.pure(pubsub.psubscribe(RedisPattern(pattern)))
       listener <- Resource.eval(stream.head.compile.toList.start)
-      _ <- Resource.eval(IO.sleep(100.millis))
-      _ <- Resource.eval(pubsub.publish(RedisChannel(channel))(fs2.Stream(message)).compile.drain)
+      _ <- Stream
+            .awakeEvery[IO](100.milli)
+            .map(_ => message)
+            .through(pubsub.publish(RedisChannel(channel)))
+            .compile
+            .drain
+            .background
       firstEvent <- Resource.eval(
                      listener.joinWith(IO.raiseError(new IllegalStateException("Fiber should not be cancelled")))
                    )
     } yield firstEvent.headOption
-    resources.use(IO.pure).map { result =>
-      assert(
-        result == Some(RedisPatternEvent(pattern, channel, message)),
-        s"Unexpected result $result"
+    resources.use { result =>
+      IO(
+        assert(
+          result == Some(RedisPatternEvent(pattern, channel, message)),
+          s"Unexpected result $result"
+        )
       )
     }
   }
