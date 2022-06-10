@@ -1,15 +1,19 @@
 pull_request_rules:
   - name: assign and label scala-steward's PRs
     conditions:
-      - author=scala-steward
+      - author=gvolpe
+      - title~=(?i)Update
+      - body~=(?i)Configure Scala Steward for your repository
     actions:
       label:
         add: [dependency-update]
-  - name: automatically merge Scala Steward PRs on CI success
+  - name: automatically merge gvolpe's Scala Steward PRs on CI success
     conditions:
-      - author=scala-steward
-      - "check-success=Build (jdk11)"
-      - "check-success=Build (jdk17)"
+      - author=gvolpe
+      - title~=(?i)Update
+      - body~=(?i)Configure Scala Steward for your repository
+      - "status-success=Build (jdk11)"
+      - "status-success=Build (jdk17)"
     actions:
       merge:
         method: merge
