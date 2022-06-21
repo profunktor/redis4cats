@@ -15,8 +15,10 @@
  */
 
 package dev.profunktor.redis4cats.pubsub.internals
-import fs2.concurrent.Topic
+
 import dev.profunktor.redis4cats.data.RedisPatternEvent
+import fs2.concurrent.Topic
+
 final case class PubSubState[F[_], K, V](
     channels: Map[K, Topic[F, Option[V]]],
     patterns: Map[K, Topic[F, Option[RedisPatternEvent[K, V]]]]
