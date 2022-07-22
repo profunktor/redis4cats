@@ -266,7 +266,7 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(kTtl.nonEmpty))
       _ <- redis.set("k", "v", SetArgs(SetArg.Ttl.KeepTtl))
       kv <- redis.get("k")
-      _ <- IO(assert(kv.nonEmpty && kv.exists(_==="v")))
+      _ <- IO(assertEquals(kv, Some("v")))
       kTtl2 <- redis.ttl("k")
       _ <- IO(assert(kTtl2.nonEmpty))
       _ <- redis.del("k")
