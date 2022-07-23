@@ -637,10 +637,10 @@ trait TestScenarios { self: FunSuite =>
       _ <- Resource.eval(
             Stream(s1, s2).parJoin(2).onFinalize(IO.println("Stream join end")).compile.drain
           )
-      fe <- Resource.eval(gate.get)
+      fe <- Resource.eval(gate.get.flatTap(x => IO.println(s"RES: $x")))
     } yield fe
 
-    resources.use { result =>
+    resources.onFinalize(IO.println("Resources end")).use { result =>
       IO(
         assert(
           result == RedisPatternEvent(pattern, channel, message),
