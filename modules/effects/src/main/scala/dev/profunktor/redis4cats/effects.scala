@@ -122,6 +122,9 @@ object effects {
 
       /** Set Expiration in Seconds */
       case class Ex(duration: FiniteDuration) extends Ttl
+
+      /** Set KeepTtl */
+      case object Keep extends Ttl
     }
   }
   case class SetArgs(existence: Option[SetArg.Existence], ttl: Option[SetArg.Ttl])

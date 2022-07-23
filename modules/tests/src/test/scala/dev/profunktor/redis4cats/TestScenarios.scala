@@ -260,6 +260,16 @@ trait TestScenarios { self: FunSuite =>
       j <- redis.expire("_not_existing_key_", 50.millis)
       _ <- IO(assertEquals(j, false))
       _ <- redis.del("f1")
+      k <- redis.set("k", "", SetArgs(SetArg.Ttl.Ex(10.seconds)))
+      _ <- IO(assertEquals(k, true))
+      kTtl <-  redis.ttl("k")
+      _ <- IO(assert(kTtl.nonEmpty))
+      _ <- redis.set("k", "v", SetArgs(SetArg.Ttl.Keep))
+      kv <- redis.get("k")
+      _ <- IO(assertEquals(kv, Some("v")))
+      kTtl2 <- redis.ttl("k")
+      _ <- IO(assert(kTtl2.nonEmpty))
+      _ <- redis.del("k")
     } yield ()
   }
 
