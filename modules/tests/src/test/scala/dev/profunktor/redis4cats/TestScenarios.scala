@@ -625,14 +625,18 @@ trait TestScenarios { self: FunSuite =>
       gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
       i = Stream.eval(gate.get.as(true))
       s1 = stream
-        .evalMap(gate.complete(_).void)
+        .evalMap(gate.complete(_).flatMap(b => IO.println(s"Gate complete: $b")))
         .interruptWhen(i)
+        .onFinalize(IO.println("S1 end"))
       s2 = Stream
         .awakeEvery[IO](100.milli)
         .as(message)
         .through(pubsub.publish(RedisChannel(channel)))
         .interruptWhen(i)
-      _ <- Resource.eval(Stream(s1, s2).parJoin(2).compile.drain)
+        .onFinalize(IO.println("S2 end"))
+      _ <- Resource.eval(
+            Stream(s1, s2).parJoin(2).onFinalize(IO.println("Stream join end")).compile.drain
+          )
       fe <- Resource.eval(gate.get)
     } yield fe
 
