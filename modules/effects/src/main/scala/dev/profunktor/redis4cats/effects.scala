@@ -124,7 +124,7 @@ object effects {
       case class Ex(duration: FiniteDuration) extends Ttl
 
       /** Set KeepTtl */
-      case object KeepTtl extends Ttl
+      case object Keep extends Ttl
     }
   }
   case class SetArgs(existence: Option[SetArg.Existence], ttl: Option[SetArg.Ttl])

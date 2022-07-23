@@ -528,7 +528,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     setArgs.ttl.foreach {
       case SetArg.Ttl.Px(d) => jSetArgs.px(d.toMillis)
       case SetArg.Ttl.Ex(d) => jSetArgs.ex(d.toSeconds)
-      case SetArg.Ttl.KeepTtl => jSetArgs.keepttl()
+      case SetArg.Ttl.Keep => jSetArgs.keepttl()
     }
 
     async.flatMap(_.set(key, value, jSetArgs).futureLift.map(_ == "OK"))
