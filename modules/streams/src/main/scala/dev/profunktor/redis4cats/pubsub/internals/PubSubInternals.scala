@@ -16,6 +16,8 @@
 
 package dev.profunktor.redis4cats.pubsub.internals
 
+import scala.util.control.NoStackTrace
+
 import cats.effect.kernel.{ Async, Ref, Resource, Sync }
 import cats.effect.std.Dispatcher
 import cats.syntax.all._
@@ -28,6 +30,7 @@ import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnecti
 import io.lettuce.core.pubsub.RedisPubSubAdapter
 
 object PubSubInternals {
+  case class DispatcherAlreadyShutdown() extends NoStackTrace
 
   private[redis4cats] def channelListener[F[_]: Async, K, V](
       channel: RedisChannel[K],
@@ -37,7 +40,11 @@ object PubSubInternals {
     new RedisPubSubAdapter[K, V] {
       override def message(ch: K, msg: V): Unit =
         if (ch == channel.underlying) {
-          dispatcher.unsafeRunSync(topic.publish1(Option(msg)).void)
+          try {
+            dispatcher.unsafeRunSync(topic.publish1(Option(msg)).void)
+          } catch {
+            case _: IllegalStateException => throw DispatcherAlreadyShutdown()
+          }
         }
       override def message(pattern: K, channel: K, message: V): Unit = this.message(channel, message)
     }
@@ -49,7 +56,11 @@ object PubSubInternals {
     new RedisPubSubAdapter[K, V] {
       override def message(pattern: K, channel: K, message: V): Unit =
         if (pattern == redisPattern.underlying) {
-          dispatcher.unsafeRunSync(topic.publish1(Option(RedisPatternEvent(pattern, channel, message))).void)
+          try {
+            dispatcher.unsafeRunSync(topic.publish1(Option(RedisPatternEvent(pattern, channel, message))).void)
+          } catch {
+            case _: IllegalStateException => throw DispatcherAlreadyShutdown()
+          }
         }
     }
 
