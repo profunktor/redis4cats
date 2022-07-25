@@ -18,6 +18,8 @@ package dev.profunktor.redis4cats
 
 import java.time.Instant
 
+import scala.concurrent.duration._
+
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
@@ -25,16 +27,13 @@ import fs2.Stream
 
 import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrUnsignedBy, SetUnsigned }
 import dev.profunktor.redis4cats.algebra.BitCommands
-import dev.profunktor.redis4cats.data.KeyScanCursor
+import dev.profunktor.redis4cats.connection.RedisClient
+import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effects._
+import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
 import io.lettuce.core.{ GeoArgs, RedisException, ZAggregateArgs }
 import munit.FunSuite
-
-import scala.concurrent.duration._
-import dev.profunktor.redis4cats.connection.RedisClient
-import dev.profunktor.redis4cats.pubsub.PubSub
-import dev.profunktor.redis4cats.data.{ RedisChannel, RedisCodec, RedisPattern, RedisPatternEvent }
 
 trait TestScenarios { self: FunSuite =>
 
