@@ -622,6 +622,7 @@ trait TestScenarios { self: FunSuite =>
     val resources = for {
       pubsub <- PubSub
                  .mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
+                 .onCancel(Resource.eval(IO.println("pubsub connection canceled")))
                  .onFinalize(IO.println("pubsub connection end"))
       stream <- Resource.pure(pubsub.psubscribe(RedisPattern(pattern)))
       gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
