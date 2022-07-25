@@ -23,6 +23,8 @@ import cats.effect.kernel._
 import cats.effect.kernel.implicits._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
+import dev.profunktor.redis4cats.data.RedisPattern
+import dev.profunktor.redis4cats.data.RedisPatternEvent
 import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
@@ -34,7 +36,7 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     Stream
-      .resource(Resource.eval(state.get) >>= PubSubInternals[F, K, V](state, subConnection).apply(channel))
+      .resource(Resource.eval(state.get) >>= PubSubInternals.channel[F, K, V](state, subConnection).apply(channel))
       .evalTap(_ => FutureLift[F].lift(subConnection.async().subscribe(channel.underlying)))
       .flatMap(_.subscribe(500).unNone)
 
@@ -44,9 +46,27 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
         .lift(subConnection.async().unsubscribe(channel.underlying))
         .void
         .guarantee(state.get.flatMap { st =>
-          st.get(channel.underlying).fold(Applicative[F].unit)(_.publish1(none[V]).void) *> state.update(
-            _ - channel.underlying
-          )
+          st.channels.get(channel.underlying).fold(Applicative[F].unit)(_.publish1(none[V]).void) *> state
+            .update(s => s.copy(channels = s.channels - channel.underlying))
+        })
+    }
+
+  override def psubscribe(pattern: RedisPattern[K]): Stream[F, RedisPatternEvent[K, V]] =
+    Stream
+      .resource(Resource.eval(state.get) >>= PubSubInternals.pattern[F, K, V](state, subConnection).apply(pattern))
+      .evalTap(_ => FutureLift[F].lift(subConnection.async().psubscribe(pattern.underlying)))
+      .flatMap(_.subscribe(500).unNone)
+
+  override def punsubscribe(pattern: RedisPattern[K]): Stream[F, Unit] =
+    Stream.eval {
+      FutureLift[F]
+        .lift(subConnection.async().punsubscribe(pattern.underlying))
+        .void
+        .guarantee(state.get.flatMap { st =>
+          st.patterns
+            .get(pattern.underlying)
+            .fold(Applicative[F].unit)(_.publish1(none[RedisPatternEvent[K, V]]).void) *> state
+            .update(s => s.copy(patterns = s.patterns - pattern.underlying))
         })
     }
 }

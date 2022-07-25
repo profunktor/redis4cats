@@ -28,6 +28,8 @@ import javax.crypto.spec.SecretKeySpec
 object data {
 
   final case class RedisChannel[K](underlying: K) extends AnyVal
+  final case class RedisPattern[K](underlying: K) extends AnyVal
+  final case class RedisPatternEvent[K, V](pattern: K, channel: K, data: V)
 
   final case class RedisCodec[K, V](underlying: JRedisCodec[K, V]) extends AnyVal
   final case class NodeId(value: String) extends AnyVal

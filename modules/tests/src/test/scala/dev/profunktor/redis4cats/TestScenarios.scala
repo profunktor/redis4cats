@@ -18,19 +18,22 @@ package dev.profunktor.redis4cats
 
 import java.time.Instant
 
+import scala.concurrent.duration._
+
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
+import fs2.Stream
 
 import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrUnsignedBy, SetUnsigned }
 import dev.profunktor.redis4cats.algebra.BitCommands
-import dev.profunktor.redis4cats.data.KeyScanCursor
+import dev.profunktor.redis4cats.connection.RedisClient
+import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effects._
+import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
-import io.lettuce.core.{ GeoArgs, ZAggregateArgs }
+import io.lettuce.core.{ GeoArgs, RedisException, ZAggregateArgs }
 import munit.FunSuite
-
-import scala.concurrent.duration._
 
 trait TestScenarios { self: FunSuite =>
 
@@ -600,4 +603,85 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(c4 > 0, "merged hyperloglog should think it has more than 0 items in"))
     } yield ()
   }
+
+  def keyPatternSubScenario(client: RedisClient): IO[Unit] = {
+    import dev.profunktor.redis4cats.effect.Log.NoOp._
+
+    val pattern = "__keyevent*__:*"
+    val key     = "somekey"
+
+    def resources(finalizer: Stream[IO, Boolean]) =
+      for {
+        commands <- Redis[IO].fromClient(client, RedisCodec.Utf8)
+        gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
+        i = Stream.eval(gate.get.as(true))
+        sub <- PubSub
+                .mkSubscriberConnection[IO, String, String](client, RedisCodec.Utf8)
+                .withFinalizer(finalizer.combine(i))
+        stream <- Resource.pure(sub.psubscribe(RedisPattern(pattern)))
+        s1 = stream
+          .evalMap(gate.complete(_).void)
+          .interruptWhen(i)
+        s2 = Stream
+          .eval(commands.setEx(key, "", 1.second))
+          .meteredStartImmediately(2.seconds)
+          .interruptWhen(i)
+        _ <- Resource.eval(Stream(s1, s2).parJoin(2).compile.drain)
+        fe <- Resource.eval(gate.get)
+      } yield fe
+
+    IO.deferred[Boolean].flatMap { finalizer =>
+      resources(Stream.eval(finalizer.get))
+        .use { result =>
+          IO(
+            assert(
+              result == RedisPatternEvent(pattern, "__keyevent@0__:expired", key),
+              s"Unexpected result $result"
+            )
+          ) <* finalizer.complete(true)
+        }
+        .recover { case _: RedisException => () } // forcing connection to close raises this exception
+    }
+  }
+
+  def channelPatternSubScenario(client: RedisClient): IO[Unit] = {
+    import dev.profunktor.redis4cats.effect.Log.NoOp._
+
+    val pattern = "f*"
+    val channel = "foo"
+    val message = "somemessage"
+
+    def resources(finalizer: Stream[IO, Boolean]) =
+      for {
+        gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
+        i = Stream.eval(gate.get.as(true))
+        pubsub <- PubSub
+                   .mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
+                   .withFinalizer(finalizer.combine(i))
+        stream <- Resource.pure(pubsub.psubscribe(RedisPattern(pattern)))
+        s1 = stream.evalMap(gate.complete(_)).interruptWhen(i)
+        s2 = Stream
+          .awakeEvery[IO](100.milli)
+          .as(message)
+          .through(pubsub.publish(RedisChannel(channel)))
+          .recover { case _: RedisException => () }
+          .interruptWhen(i)
+        _ <- Resource.eval(Stream(s1, s2).parJoin(2).compile.drain)
+        fe <- Resource.eval(gate.get)
+      } yield fe
+
+    IO.deferred[Boolean].flatMap { finalizer =>
+      resources(Stream.eval(finalizer.get))
+        .use { result =>
+          IO(
+            assert(
+              result == RedisPatternEvent(pattern, channel, message),
+              s"Unexpected result $result"
+            )
+          ) <* finalizer.complete(true)
+        }
+        .recover { case _: RedisException => () } // forcing connection to close raises this exception
+    }
+  }
+
 }

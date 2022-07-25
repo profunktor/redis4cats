@@ -47,6 +47,9 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
   def withRedis[A](f: RedisCommands[IO, String, String] => IO[A]): Future[Unit] =
     withAbstractRedis[A, String, String](f)(stringCodec)
 
+  def withRedisClient[A](f: RedisClient => IO[A]): Future[Unit] =
+    RedisClient[IO].from("redis://localhost").use(f).as(assert(true)).unsafeToFuture()
+
   def withRedisStream[A](f: Streaming[fs2.Stream[IO, *], String, String] => IO[A]): Future[Unit] =
     (for {
       client <- fs2.Stream.resource(RedisClient[IO].from("redis://localhost"))
