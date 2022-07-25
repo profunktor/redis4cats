@@ -643,6 +643,7 @@ trait TestScenarios { self: FunSuite =>
           .awakeEvery[IO](100.milli)
           .as(message)
           .through(pubsub.publish(RedisChannel(channel)))
+          .recover { case _: RedisException => () }
           .interruptWhen(i)
           .onFinalize(IO.println("S2 end"))
         _ <- Resource.eval(
