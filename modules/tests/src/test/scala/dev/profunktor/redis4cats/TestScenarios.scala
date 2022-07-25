@@ -28,7 +28,7 @@ import dev.profunktor.redis4cats.algebra.BitCommands
 import dev.profunktor.redis4cats.data.KeyScanCursor
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.tx._
-import io.lettuce.core.{ GeoArgs, ZAggregateArgs }
+import io.lettuce.core.{ GeoArgs, RedisException, ZAggregateArgs }
 import munit.FunSuite
 
 import scala.concurrent.duration._
@@ -619,37 +619,50 @@ trait TestScenarios { self: FunSuite =>
     val channel = "foo"
     val message = "somemessage"
 
-    val resources = for {
-      pubsub <- PubSub
-                 .mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
-                 .onCancel(Resource.eval(IO.println("pubsub connection canceled")))
-                 .onFinalize(IO.println("pubsub connection end"))
-      stream <- Resource.pure(pubsub.psubscribe(RedisPattern(pattern)))
-      gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
-      i = Stream.eval(gate.get.as(true))
-      s1 = stream
-        .evalMap(gate.complete(_).flatMap(b => IO.println(s"Gate complete: $b")))
-        .interruptWhen(i)
-        .onFinalize(IO.println("S1 end"))
-      s2 = Stream
-        .awakeEvery[IO](100.milli)
-        .as(message)
-        .through(pubsub.publish(RedisChannel(channel)))
-        .interruptWhen(i)
-        .onFinalize(IO.println("S2 end"))
-      _ <- Resource.eval(
-            Stream(s1, s2).parJoin(2).onFinalize(IO.println("Stream join end")).compile.drain
-          )
-      fe <- Resource.eval(gate.get.flatTap(x => IO.println(s"RES: $x")))
-    } yield fe
+    def resources(finalizer: Stream[IO, Boolean]) =
+      for {
+        gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
+        i = Stream.eval(gate.get.as(true))
+        pubsub <- Stream
+                   .resource(
+                     PubSub
+                       .mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
+                       .onCancel(Resource.eval(IO.println("pubsub connection canceled")))
+                       .onFinalize(IO.println("pubsub connection end"))
+                   )
+                   .interruptWhen(finalizer)
+                   .compile
+                   .resource
+                   .lastOrError
+        stream <- Resource.pure(pubsub.psubscribe(RedisPattern(pattern)))
+        s1 = stream
+          .evalMap(gate.complete(_).flatMap(b => IO.println(s"Gate complete: $b")))
+          .interruptWhen(i)
+          .onFinalize(IO.println("S1 end"))
+        s2 = Stream
+          .awakeEvery[IO](100.milli)
+          .as(message)
+          .through(pubsub.publish(RedisChannel(channel)))
+          .interruptWhen(i)
+          .onFinalize(IO.println("S2 end"))
+        _ <- Resource.eval(
+              Stream(s1, s2).parJoin(2).onFinalize(IO.println("Stream join end")).compile.drain
+            )
+        fe <- Resource.eval(gate.get.flatTap(x => IO.println(s"RES: $x")))
+      } yield fe
 
-    resources.onFinalize(IO.println("Resources end")).use { result =>
-      IO.println("Resource `use` block") *> IO(
-        assert(
-          result == RedisPatternEvent(pattern, channel, message),
-          s"Unexpected result $result"
-        )
-      )
+    IO.deferred[Boolean].flatMap { finalizer =>
+      resources(Stream.eval(finalizer.get))
+        .onFinalize(IO.println("Resources end"))
+        .use { result =>
+          IO.println("Resource `use` block") *> IO(
+            assert(
+              result == RedisPatternEvent(pattern, channel, message),
+              s"Unexpected result $result"
+            )
+          ) <* finalizer.complete(true)
+        }
+        .recover { case _: RedisException => () } // forcing connection to close raises this exception
     }
   }
 
