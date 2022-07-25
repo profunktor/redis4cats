@@ -585,30 +585,38 @@ trait TestScenarios { self: FunSuite =>
 
     val pattern = "__keyevent*__:*"
     val key     = "somekey"
-    val resources = for {
-      commands <- Redis[IO].fromClient(client, RedisCodec.Utf8)
-      sub <- PubSub.mkSubscriberConnection[IO, String, String](client, RedisCodec.Utf8)
-      stream <- Resource.pure(sub.psubscribe(RedisPattern(pattern)))
-      gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
-      i = Stream.eval(gate.get.as(true))
-      s1 = stream
-        .evalMap(gate.complete(_).void)
-        .interruptWhen(i)
-      s2 = Stream
-        .eval(commands.setEx(key, "", 1.second))
-        .meteredStartImmediately(2.seconds)
-        .interruptWhen(i)
-      _ <- Resource.eval(Stream(s1, s2).parJoin(2).compile.drain)
-      fe <- Resource.eval(gate.get)
-    } yield fe
 
-    resources.use { result =>
-      IO(
-        assert(
-          result == RedisPatternEvent(pattern, "__keyevent@0__:expired", key),
-          s"Unexpected result $result"
-        )
-      )
+    def resources(finalizer: Stream[IO, Boolean]) =
+      for {
+        commands <- Redis[IO].fromClient(client, RedisCodec.Utf8)
+        gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
+        i = Stream.eval(gate.get.as(true))
+        sub <- PubSub
+                .mkSubscriberConnection[IO, String, String](client, RedisCodec.Utf8)
+                .withFinalizer(finalizer.combine(i))
+        stream <- Resource.pure(sub.psubscribe(RedisPattern(pattern)))
+        s1 = stream
+          .evalMap(gate.complete(_).void)
+          .interruptWhen(i)
+        s2 = Stream
+          .eval(commands.setEx(key, "", 1.second))
+          .meteredStartImmediately(2.seconds)
+          .interruptWhen(i)
+        _ <- Resource.eval(Stream(s1, s2).parJoin(2).compile.drain)
+        fe <- Resource.eval(gate.get)
+      } yield fe
+
+    IO.deferred[Boolean].flatMap { finalizer =>
+      resources(Stream.eval(finalizer.get))
+        .use { result =>
+          IO(
+            assert(
+              result == RedisPatternEvent(pattern, "__keyevent@0__:expired", key),
+              s"Unexpected result $result"
+            )
+          ) <* finalizer.complete(true)
+        }
+        .recover { case _: RedisException => () } // forcing connection to close raises this exception
     }
   }
 
@@ -623,40 +631,25 @@ trait TestScenarios { self: FunSuite =>
       for {
         gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
         i = Stream.eval(gate.get.as(true))
-        pubsub <- Stream
-                   .resource(
-                     PubSub
-                       .mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
-                       .onCancel(Resource.eval(IO.println("pubsub connection canceled")))
-                       .onFinalize(IO.println("pubsub connection end"))
-                   )
-                   .interruptWhen(finalizer)
-                   .compile
-                   .resource
-                   .lastOrError
+        pubsub <- PubSub
+                   .mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
+                   .withFinalizer(finalizer.combine(i))
         stream <- Resource.pure(pubsub.psubscribe(RedisPattern(pattern)))
-        s1 = stream
-          .evalMap(gate.complete(_).flatMap(b => IO.println(s"Gate complete: $b")))
-          .interruptWhen(i)
-          .onFinalize(IO.println("S1 end"))
+        s1 = stream.evalMap(gate.complete(_)).interruptWhen(i)
         s2 = Stream
           .awakeEvery[IO](100.milli)
           .as(message)
           .through(pubsub.publish(RedisChannel(channel)))
           .recover { case _: RedisException => () }
           .interruptWhen(i)
-          .onFinalize(IO.println("S2 end"))
-        _ <- Resource.eval(
-              Stream(s1, s2).parJoin(2).onFinalize(IO.println("Stream join end")).compile.drain
-            )
-        fe <- Resource.eval(gate.get.flatTap(x => IO.println(s"RES: $x")))
+        _ <- Resource.eval(Stream(s1, s2).parJoin(2).compile.drain)
+        fe <- Resource.eval(gate.get)
       } yield fe
 
     IO.deferred[Boolean].flatMap { finalizer =>
       resources(Stream.eval(finalizer.get))
-        .onFinalize(IO.println("Resources end"))
         .use { result =>
-          IO.println("Resource `use` block") *> IO(
+          IO(
             assert(
               result == RedisPatternEvent(pattern, channel, message),
               s"Unexpected result $result"

@@ -50,7 +50,7 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("hyperloglog api")(withRedis(hyperloglogScenario))
 
-  test("pattern key sub".ignore)(withRedisClient(keyPatternSubScenario))
+  test("pattern key sub")(withRedisClient(keyPatternSubScenario))
 
   test("pattern channel sub")(withRedisClient(channelPatternSubScenario))
 
