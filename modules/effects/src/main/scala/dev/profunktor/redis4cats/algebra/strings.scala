@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats.algebra
 
 import scala.concurrent.duration.FiniteDuration
 
-import dev.profunktor.redis4cats.effects.SetArgs
+import dev.profunktor.redis4cats.effects.{GetExArg, SetArgs}
 
 import io.lettuce.core.RedisFuture
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
@@ -33,6 +33,7 @@ trait StringCommands[F[_], K, V]
 
 trait Getter[F[_], K, V] {
   def get(key: K): F[Option[V]]
+  def getEx(key: K, getExArg: GetExArg): F[Option[V]]
   def getRange(key: K, start: Long, end: Long): F[Option[V]]
   def strLen(key: K): F[Option[Long]]
 }
