@@ -620,7 +620,9 @@ trait TestScenarios { self: FunSuite =>
     val message = "somemessage"
 
     val resources = for {
-      pubsub <- PubSub.mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
+      pubsub <- PubSub
+                 .mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
+                 .onFinalize(IO.println("pubsub connection end"))
       stream <- Resource.pure(pubsub.psubscribe(RedisPattern(pattern)))
       gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
       i = Stream.eval(gate.get.as(true))
@@ -641,7 +643,7 @@ trait TestScenarios { self: FunSuite =>
     } yield fe
 
     resources.onFinalize(IO.println("Resources end")).use { result =>
-      IO(
+      IO.println("Resource `use` block") *> IO(
         assert(
           result == RedisPatternEvent(pattern, channel, message),
           s"Unexpected result $result"
