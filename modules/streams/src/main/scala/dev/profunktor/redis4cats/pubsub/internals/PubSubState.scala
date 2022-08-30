@@ -14,18 +14,12 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.pubsub
+package dev.profunktor.redis4cats.pubsub.internals
 
-import cats.effect.kernel.Resource
-import dev.profunktor.redis4cats.data.RedisChannel
-import fs2.concurrent.Topic
-import dev.profunktor.redis4cats.data.RedisPattern
 import dev.profunktor.redis4cats.data.RedisPatternEvent
+import fs2.concurrent.Topic
 
-package object internals {
-  private[pubsub] type GetOrCreateTopicListener[F[_], K, V] =
-    RedisChannel[K] => PubSubState[F, K, V] => Resource[F, Topic[F, Option[V]]]
-
-  private[pubsub] type GetOrCreatePatternListener[F[_], K, V] =
-    RedisPattern[K] => PubSubState[F, K, V] => Resource[F, Topic[F, Option[RedisPatternEvent[K, V]]]]
-}
+final case class PubSubState[F[_], K, V](
+    channels: Map[K, Topic[F, Option[V]]],
+    patterns: Map[K, Topic[F, Option[RedisPatternEvent[K, V]]]]
+)

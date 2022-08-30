@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.pubsub
+package dev.profunktor
 
-import cats.effect.kernel.Resource
-import dev.profunktor.redis4cats.data.RedisChannel
-import fs2.concurrent.Topic
-import dev.profunktor.redis4cats.data.RedisPattern
-import dev.profunktor.redis4cats.data.RedisPatternEvent
+import cats.effect.{ IO, Resource }
+import fs2.Stream
 
-package object internals {
-  private[pubsub] type GetOrCreateTopicListener[F[_], K, V] =
-    RedisChannel[K] => PubSubState[F, K, V] => Resource[F, Topic[F, Option[V]]]
+package object redis4cats {
 
-  private[pubsub] type GetOrCreatePatternListener[F[_], K, V] =
-    RedisPattern[K] => PubSubState[F, K, V] => Resource[F, Topic[F, Option[RedisPatternEvent[K, V]]]]
+  implicit class ResourceOps[A](res: Resource[IO, A]) {
+    def withFinalizer(f: Stream[IO, Boolean]): Resource[IO, A] =
+      Stream.resource(res).interruptWhen(f).compile.resource.lastOrError
+  }
+
 }

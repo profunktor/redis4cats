@@ -25,7 +25,7 @@ import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect._
 import dev.profunktor.redis4cats.pubsub.internals.{ LivePubSubCommands, Publisher, Subscriber }
 import fs2.Stream
-import fs2.concurrent.Topic
+import dev.profunktor.redis4cats.pubsub.internals.PubSubState
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 object PubSub {
@@ -58,7 +58,7 @@ object PubSub {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
     // One exclusive connection for subscriptions and another connection for publishing / stats
     for {
-      state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
+      state <- Resource.eval(Ref.of[F, PubSubState[F, K, V]](PubSubState(Map.empty, Map.empty)))
       sConn <- Resource.make(acquire)(release)
       pConn <- Resource.make(acquire)(release)
     } yield new LivePubSubCommands[F, K, V](state, sConn, pConn)
@@ -88,7 +88,7 @@ object PubSub {
   ): Resource[F, SubscribeCommands[Stream[F, *], K, V]] = {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
     for {
-      state <- Resource.eval(Ref.of[F, Map[K, Topic[F, Option[V]]]](Map.empty))
+      state <- Resource.eval(Ref.of[F, PubSubState[F, K, V]](PubSubState(Map.empty, Map.empty)))
       conn <- Resource.make(acquire)(release)
     } yield new Subscriber(state, conn)
   }

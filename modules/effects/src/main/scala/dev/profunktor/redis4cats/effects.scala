@@ -16,6 +16,8 @@
 
 package dev.profunktor.redis4cats
 
+import java.time.Instant
+
 import io.lettuce.core.{ GeoArgs, ScriptOutputType => JScriptOutputType, ScanArgs => JScanArgs }
 
 import scala.concurrent.duration.FiniteDuration
@@ -102,6 +104,23 @@ object effects {
     def apply(`match`: String, count: Long): ScanArgs = ScanArgs(Some(`match`), Some(count))
   }
 
+  sealed trait GetExArg
+  object GetExArg {
+    /** Set Expiration in Millis */
+    case class Px(duration: FiniteDuration) extends GetExArg
+
+    /** Set Expiration in Seconds */
+    case class Ex(duration: FiniteDuration) extends GetExArg
+
+    /** Set Expiration time in Seconds */
+    case class ExAt(at: Instant) extends GetExArg
+
+    /** Set Expiration time in Millis */
+    case class PxAt(at: Instant) extends GetExArg
+
+    case object Persist extends GetExArg
+  }
+
   sealed trait SetArg
   object SetArg {
     sealed trait Existence extends SetArg
@@ -122,6 +141,9 @@ object effects {
 
       /** Set Expiration in Seconds */
       case class Ex(duration: FiniteDuration) extends Ttl
+
+      /** Set KeepTtl */
+      case object Keep extends Ttl
     }
   }
   case class SetArgs(existence: Option[SetArg.Existence], ttl: Option[SetArg.Ttl])

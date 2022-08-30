@@ -41,6 +41,7 @@ import io.lettuce.core.{
   ZAddArgs,
   ZAggregateArgs,
   ZStoreArgs,
+  GetExArgs => JGetExArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
@@ -528,6 +529,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     setArgs.ttl.foreach {
       case SetArg.Ttl.Px(d) => jSetArgs.px(d.toMillis)
       case SetArg.Ttl.Ex(d) => jSetArgs.ex(d.toSeconds)
+      case SetArg.Ttl.Keep  => jSetArgs.keepttl()
     }
 
     async.flatMap(_.set(key, value, jSetArgs).futureLift.map(_ == "OK"))
@@ -564,6 +566,20 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def get(key: K): F[Option[V]] =
     async.flatMap(_.get(key).futureLift.map(Option.apply))
+
+  override def getEx(key: K, getExArg: GetExArg): F[Option[V]] = {
+    val jgetExArgs = new JGetExArgs()
+
+    getExArg match {
+      case GetExArg.Ex(d)    => jgetExArgs.ex(d.toSeconds)
+      case GetExArg.Px(d)    => jgetExArgs.ex(d.toMillis)
+      case GetExArg.ExAt(at) => jgetExArgs.exAt(at)
+      case GetExArg.PxAt(at) => jgetExArgs.pxAt(at)
+      case GetExArg.Persist  => jgetExArgs.persist()
+    }
+
+    async.flatMap(_.getex(key, jgetExArgs).futureLift.map(Option.apply))
+  }
 
   override def getRange(key: K, start: Long, end: Long): F[Option[V]] =
     async.flatMap(_.getrange(key, start, end).futureLift.map(Option.apply))
