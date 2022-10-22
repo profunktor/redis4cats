@@ -106,6 +106,7 @@ object effects {
 
   sealed trait GetExArg
   object GetExArg {
+
     /** Set Expiration in Millis */
     case class Px(duration: FiniteDuration) extends GetExArg
 

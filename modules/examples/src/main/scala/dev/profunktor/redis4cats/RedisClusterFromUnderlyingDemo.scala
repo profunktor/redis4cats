@@ -46,7 +46,6 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
                            .builder()
                            .pingBeforeActivateConnection(true)
                            .autoReconnect(true)
-                           .cancelCommandsOnReconnectFailure(true)
                            .validateClusterNodeMembership(true)
                            .timeoutOptions(timeoutOptions)
                            .build()
