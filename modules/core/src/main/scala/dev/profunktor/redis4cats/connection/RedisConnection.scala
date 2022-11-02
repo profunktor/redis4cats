@@ -61,7 +61,7 @@ private[redis4cats] class RedisStatefulConnection[F[_]: ApplicativeThrow: Future
     new RedisStatefulConnection[G, K, V](conn)
   private[redis4cats] def setAutoFlushCommands(autoFlush: Boolean): F[Unit] =
     FutureLift[F].delay(conn.setAutoFlushCommands(autoFlush))
-  private[redis4cats] def flushCommands: F[Unit] = FutureLift[F].delay(conn.flushCommands())
+  private[redis4cats] def flushCommands: F[Unit] = FutureLift[F].blocking(conn.flushCommands())
 }
 
 private[redis4cats] class RedisStatefulClusterConnection[F[_]: FutureLift: MonadThrow, K, V](
