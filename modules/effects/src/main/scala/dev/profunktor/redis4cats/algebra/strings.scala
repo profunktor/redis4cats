@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats.algebra
 
 import scala.concurrent.duration.FiniteDuration
 
-import dev.profunktor.redis4cats.effects.{GetExArg, SetArgs}
+import dev.profunktor.redis4cats.effects.{ GetExArg, SetArgs }
 
 import io.lettuce.core.RedisFuture
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands

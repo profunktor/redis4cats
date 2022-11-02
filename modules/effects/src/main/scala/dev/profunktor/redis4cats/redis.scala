@@ -492,14 +492,11 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     pipeline[Nothing](_ => fs).void
 
   /******************************* AutoFlush API **********************************/
-  override def enableAutoFlush: F[Unit] =
-    async.flatMap(c => FutureLift[F].delay(c.setAutoFlushCommands(true)))
+  override def enableAutoFlush: F[Unit] = conn.setAutoFlushCommands(true)
 
-  override def disableAutoFlush: F[Unit] =
-    async.flatMap(c => FutureLift[F].delay(c.setAutoFlushCommands(false)))
+  override def disableAutoFlush: F[Unit] = conn.setAutoFlushCommands(false)
 
-  override def flushCommands: F[Unit] =
-    async.flatMap(c => FutureLift[F].delay(c.flushCommands()))
+  override def flushCommands: F[Unit] = conn.flushCommands
 
   /******************************* Unsafe API **********************************/
   override def unsafe[A](f: RedisClusterAsyncCommands[K, V] => RedisFuture[A]): F[A] =

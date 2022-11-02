@@ -26,6 +26,7 @@ import java.util.concurrent._
 
 private[redis4cats] trait FutureLift[F[_]] {
   def delay[A](thunk: => A): F[A]
+  def blocking[A](thunk: => A): F[A]
   def guarantee[A](fa: F[A], fu: F[Unit]): F[A]
   def lift[A](fa: => RedisFuture[A]): F[A]
   def liftConnectionFuture[A](fa: => ConnectionFuture[A]): F[A]
@@ -42,6 +43,8 @@ object FutureLift {
       val F = Async[F]
 
       def delay[A](thunk: => A): F[A] = F.delay(thunk)
+
+      def blocking[A](thunk: => A): F[A] = F.blocking(thunk)
 
       def guarantee[A](fa: F[A], fu: F[Unit]): F[A] = fa.guarantee(fu)
 

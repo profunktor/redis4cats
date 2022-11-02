@@ -41,6 +41,8 @@ private[redis4cats] trait RedisConnection[F[_], K, V] {
   def close: F[Unit]
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]]
   def liftK[G[_]: Async]: RedisConnection[G, K, V]
+  private[redis4cats] def setAutoFlushCommands(autoFlush: Boolean): F[Unit]
+  private[redis4cats] def flushCommands: F[Unit]
 }
 
 private[redis4cats] class RedisStatefulConnection[F[_]: ApplicativeThrow: FutureLift, K, V](
@@ -57,6 +59,9 @@ private[redis4cats] class RedisStatefulConnection[F[_]: ApplicativeThrow: Future
     OperationNotSupported("Running in a single node").raiseError
   def liftK[G[_]: Async]: RedisConnection[G, K, V] =
     new RedisStatefulConnection[G, K, V](conn)
+  private[redis4cats] def setAutoFlushCommands(autoFlush: Boolean): F[Unit] =
+    FutureLift[F].delay(conn.setAutoFlushCommands(autoFlush))
+  private[redis4cats] def flushCommands: F[Unit] = FutureLift[F].blocking(conn.flushCommands())
 }
 
 private[redis4cats] class RedisStatefulClusterConnection[F[_]: FutureLift: MonadThrow, K, V](
@@ -75,4 +80,7 @@ private[redis4cats] class RedisStatefulClusterConnection[F[_]: FutureLift: Monad
     }
   def liftK[G[_]: Async]: RedisConnection[G, K, V] =
     new RedisStatefulClusterConnection[G, K, V](conn)
+  private[redis4cats] def setAutoFlushCommands(autoFlush: Boolean): F[Unit] =
+    FutureLift[F].delay(conn.setAutoFlushCommands(autoFlush))
+  private[redis4cats] def flushCommands: F[Unit] = FutureLift[F].delay(conn.flushCommands())
 }
