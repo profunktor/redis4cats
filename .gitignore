@@ -30,6 +30,7 @@
 .tags
 .tags_sorted_by_file
 .target
+.vscode
 .worksheet
 Makefile
 TAGS
