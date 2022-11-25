@@ -72,7 +72,7 @@ object PubSubInternals {
       .get(channel.underlying)
       .fold {
         for {
-          dispatcher <- Dispatcher[F]
+          dispatcher <- Dispatcher.parallel[F]
           topic <- Resource.eval(Topic[F, Option[V]])
           _ <- Resource.eval(Log[F].info(s"Creating listener for channel: $channel"))
           listener = channelListener(channel, topic, dispatcher)
@@ -95,7 +95,7 @@ object PubSubInternals {
       .get(channel.underlying)
       .fold {
         for {
-          dispatcher <- Dispatcher[F]
+          dispatcher <- Dispatcher.parallel[F]
           topic <- Resource.eval(Topic[F, Option[RedisPatternEvent[K, V]]])
           _ <- Resource.eval(Log[F].info(s"Creating listener for pattern: $channel"))
           listener = patternListener(channel, topic, dispatcher)
