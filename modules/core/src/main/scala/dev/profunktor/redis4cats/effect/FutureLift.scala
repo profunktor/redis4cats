@@ -58,7 +58,7 @@ object FutureLift {
         liftJFuture[CompletableFuture[A], A](fa)
 
       private[redis4cats] def liftJFuture[G <: JFuture[A], A](f: => G): F[A] =
-        Async[F].fromCompletionStage(F.delay(f))
+        F.fromCompletionStage(F.delay(f))
     }
 
   implicit final class FutureLiftOps[F[_]: ApplicativeThrow: FutureLift: Log, A](fa: => RedisFuture[A]) {
