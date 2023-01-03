@@ -58,23 +58,7 @@ object FutureLift {
         liftJFuture[CompletableFuture[A], A](fa)
 
       private[redis4cats] def liftJFuture[G <: JFuture[A], A](f: => G): F[A] =
-        F.async { cb =>
-          F.delay {
-              f.handle[Unit] { (res: A, err: Throwable) =>
-                err match {
-                  case null =>
-                    cb(Right(res))
-                  case _: CancellationException =>
-                    ()
-                  case ex: CompletionException if ex.getCause ne null =>
-                    cb(Left(ex.getCause))
-                  case ex =>
-                    cb(Left(ex))
-                }
-              }
-            }
-            .as(Some(F.delay(f.cancel(true)).void))
-        }
+        Async[F].fromCompletionStage(F.delay(f))
     }
 
   implicit final class FutureLiftOps[F[_]: ApplicativeThrow: FutureLift: Log, A](fa: => RedisFuture[A]) {

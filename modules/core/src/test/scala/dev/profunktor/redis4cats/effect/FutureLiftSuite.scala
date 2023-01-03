@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.effect
 
-import java.util.concurrent.CompletableFuture
+import java.util.concurrent.{ CancellationException, CompletableFuture }
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import munit.FunSuite
@@ -51,6 +51,19 @@ class FutureLiftSuite extends FunSuite {
 
     (ioa.attempt *> currentThread)
       .flatMap(t => IO(assert(t.contains("io-compute"))))
+      .unsafeToFuture()
+  }
+
+  test("it fails with CancellationException") {
+    val e = new CancellationException("purposeful")
+    val ioa =
+      instance.liftCompletableFuture[String] {
+        val jFuture = new CompletableFuture[String]()
+        jFuture.completeExceptionally(e)
+        jFuture
+      }
+    ioa.attempt
+      .flatMap(att => IO(assertEquals(att, Left[Throwable, String](e))))
       .unsafeToFuture()
   }
 
