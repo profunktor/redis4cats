@@ -29,27 +29,26 @@ object RedisHashesDemo extends LoggerIOApp {
     val testField = "bar"
 
     val showResult: Option[String] => IO[Unit] =
-      _.fold(putStrLn(s"Not found key: $testKey | field: $testField"))(s => putStrLn(s))
+      _.fold(IO.println(s"Not found key: $testKey | field: $testField"))(s => IO.println(s))
 
     val commandsApi: Resource[IO, HashCommands[IO, String, String]] =
       Redis[IO].utf8(redisURI)
 
-    commandsApi
-      .use { cmd =>
-        for {
-          x <- cmd.hGet(testKey, testField)
-          _ <- showResult(x)
-          _ <- cmd.hSet(testKey, testField, "some value")
-          y <- cmd.hGet(testKey, testField)
-          _ <- showResult(y)
-          _ <- cmd.hSetNx(testKey, testField, "should not happen")
-          w <- cmd.hGet(testKey, testField)
-          _ <- showResult(w)
-          _ <- cmd.hDel(testKey, testField)
-          z <- cmd.hGet(testKey, testField)
-          _ <- showResult(z)
-        } yield ()
-      }
+    commandsApi.use { redis =>
+      for {
+        x <- redis.hGet(testKey, testField)
+        _ <- showResult(x)
+        _ <- redis.hSet(testKey, testField, "some value")
+        y <- redis.hGet(testKey, testField)
+        _ <- showResult(y)
+        _ <- redis.hSetNx(testKey, testField, "should not happen")
+        w <- redis.hGet(testKey, testField)
+        _ <- showResult(w)
+        _ <- redis.hDel(testKey, testField)
+        z <- redis.hGet(testKey, testField)
+        _ <- showResult(z)
+      } yield ()
+    }
   }
 
 }

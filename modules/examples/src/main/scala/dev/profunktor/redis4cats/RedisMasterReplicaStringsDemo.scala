@@ -30,7 +30,7 @@ object RedisMasterReplicaStringsDemo extends LoggerIOApp {
     val usernameKey = "test"
 
     val showResult: Option[String] => IO[Unit] =
-      _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
+      _.fold(IO.println(s"Not found key: $usernameKey"))(s => IO.println(s))
 
     val masterUri: String  = "redis://localhost"
     val replicaUri: String = "redis://localhost:6380"

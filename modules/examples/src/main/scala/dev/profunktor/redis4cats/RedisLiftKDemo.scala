@@ -28,7 +28,7 @@ object RedisLiftKDemo extends LoggerIOApp {
     val usernameKey = "test"
 
     val showResult: Option[String] => IO[Unit] =
-      _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
+      _.fold(IO.println(s"Not found key: $usernameKey"))(s => IO.println(s))
 
     val commandsApi: Resource[IO, RedisCommands[IO, String, String]] =
       Redis[IO].utf8(redisURI)

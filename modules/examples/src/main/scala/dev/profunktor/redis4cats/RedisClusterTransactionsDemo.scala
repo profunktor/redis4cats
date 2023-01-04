@@ -28,7 +28,7 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
     val key1 = "test1"
 
     val showResult: String => Option[String] => IO[Unit] = key =>
-      _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s))
+      _.fold(IO.println(s"Not found key: $key"))(s => IO.println(s))
 
     val commandsApi: Resource[IO, (RedisClusterClient, RedisCommands[IO, String, String])] =
       for {
@@ -52,7 +52,7 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
             cmd.multi
               .bracket(_ => cmd.set(key1, "nope") >> cmd.exec.void)(_ => cmd.discard)
               .recoverWith {
-                case e: OperationNotSupported => putStrLn(e)
+                case e: OperationNotSupported => IO.println(e)
               }
               .void
 

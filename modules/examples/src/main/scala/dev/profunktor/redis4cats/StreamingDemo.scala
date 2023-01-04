@@ -49,7 +49,7 @@ object StreamingDemo extends LoggerIOApp {
       source   = streaming.read(Set(streamKey1, streamKey2), 1)
       appender = streaming.append
     } yield Stream(
-      source.evalMap(putStrLn),
+      source.evalMap(IO.println),
       Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
     ).parJoin(2).drain).flatten
 

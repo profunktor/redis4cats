@@ -35,7 +35,7 @@ object PubSubDemo extends LoggerIOApp {
   private val txChannel     = RedisChannel("tx-ps")
 
   def sink(name: String): Pipe[IO, String, Unit] =
-    _.evalMap(x => putStrLn(s"Subscriber: $name >> $x"))
+    _.evalMap(x => IO.println(s"Subscriber: $name >> $x"))
 
   val stream: Stream[IO, Stream[IO, Unit]] =
     for {
@@ -60,7 +60,7 @@ object PubSubDemo extends LoggerIOApp {
       Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
       Stream.awakeEvery[IO](6.seconds) >> pubSub
             .pubSubSubscriptions(List(eventsChannel, gamesChannel, txChannel))
-            .evalMap(putStrLn),
+            .evalMap(IO.println),
       Stream.sleep[IO](1.second) ++ Stream.exec(redis.transact_(ops))
     ).parJoinUnbounded.drain
 

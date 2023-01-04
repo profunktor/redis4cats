@@ -35,12 +35,12 @@ object PubSub {
       codec: RedisCodec[K, V]
   ): (F[StatefulRedisPubSubConnection[K, V]], StatefulRedisPubSubConnection[K, V] => F[Unit]) = {
 
-    val acquire: F[StatefulRedisPubSubConnection[K, V]] = FutureLift[F].liftConnectionFuture(
+    val acquire: F[StatefulRedisPubSubConnection[K, V]] = FutureLift[F].lift(
       client.underlying.connectPubSubAsync(codec.underlying, client.uri.underlying)
     )
 
     val release: StatefulRedisPubSubConnection[K, V] => F[Unit] = c =>
-      FutureLift[F].liftCompletableFuture(c.closeAsync()) *>
+      FutureLift[F].lift(c.closeAsync()) *>
           Log[F].info(s"Releasing PubSub connection: ${client.uri.underlying}")
 
     (acquire, release)
