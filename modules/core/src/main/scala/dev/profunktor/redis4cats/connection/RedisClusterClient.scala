@@ -53,7 +53,7 @@ object RedisClusterClient {
     val release: RedisClusterClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *>
           FutureLift[F]
-            .liftCompletableFuture(
+            .lift(
               client.underlying.shutdownAsync(
                 config.shutdown.quietPeriod.toNanos,
                 config.shutdown.timeout.toNanos,

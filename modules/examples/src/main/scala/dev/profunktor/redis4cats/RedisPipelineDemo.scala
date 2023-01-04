@@ -29,7 +29,7 @@ object RedisPipelineDemo extends LoggerIOApp {
     val key2 = "testp2"
 
     val showResult: String => Option[String] => IO[Unit] = key =>
-      _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s"$key: $s"))
+      _.fold(IO.println(s"Not found key: $key"))(s => IO.println(s"$key: $s"))
 
     val commandsApi: Resource[IO, RedisCommands[IO, String, String]] =
       Redis[IO].utf8(redisURI)
@@ -55,10 +55,10 @@ object RedisPipelineDemo extends LoggerIOApp {
           .flatMap(kv => IO.println(s"KV: $kv"))
           .recoverWith {
             case e =>
-              putStrLn(s"[Error] - ${e.getMessage}")
+              IO.println(s"[Error] - ${e.getMessage}")
           }
 
-      getters >> prog >> getters >> putStrLn("keep doing stuff...")
+      getters >> prog >> getters >> IO.println("keep doing stuff...")
     }
   }
 

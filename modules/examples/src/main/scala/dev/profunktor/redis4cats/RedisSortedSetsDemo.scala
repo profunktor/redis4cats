@@ -31,18 +31,17 @@ object RedisSortedSetsDemo extends LoggerIOApp {
     val commandsApi: Resource[IO, SortedSetCommands[IO, String, Long]] =
       Redis[IO].simple(redisURI, longCodec)
 
-    commandsApi
-      .use { cmd =>
-        for {
-          _ <- cmd.zAdd(testKey, args = None, ScoreWithValue(Score(1), 1), ScoreWithValue(Score(3), 2))
-          x <- cmd.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
-          _ <- putStrLn(s"Score: $x")
-          y <- cmd.zCard(testKey)
-          _ <- putStrLn(s"Size: $y")
-          z <- cmd.zCount(testKey, ZRange(0, 1))
-          _ <- putStrLn(s"Count: $z")
-        } yield ()
-      }
+    commandsApi.use { redis =>
+      for {
+        _ <- redis.zAdd(testKey, args = None, ScoreWithValue(Score(1), 1), ScoreWithValue(Score(3), 2))
+        x <- redis.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
+        _ <- IO.println(s"Score: $x")
+        y <- redis.zCard(testKey)
+        _ <- IO.println(s"Size: $y")
+        z <- redis.zCount(testKey, ZRange(0, 1))
+        _ <- IO.println(s"Count: $z")
+      } yield ()
+    }
   }
 
 }

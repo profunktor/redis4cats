@@ -40,14 +40,13 @@ object RedisStream {
       client: RedisClient,
       codec: RedisCodec[K, V]
   ): Resource[F, Streaming[Stream[F, *], K, V]] = {
-    val acquire = FutureLift[F]
-      .liftConnectionFuture(
-        client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)
-      )
-      .map(new RedisRawStreaming(_))
+    val acquire =
+      FutureLift[F]
+        .lift(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying))
+        .map(new RedisRawStreaming(_))
 
     val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
-      FutureLift[F].liftCompletableFuture(c.client.closeAsync()) *>
+      FutureLift[F].lift(c.client.closeAsync()) *>
           Log[F].info(s"Releasing Streaming connection: ${client.uri.underlying}")
 
     Resource.make(acquire)(release).map(rs => new RedisStream(rs))

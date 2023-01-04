@@ -29,42 +29,39 @@ object RedisClusterFromUnderlyingDemo extends LoggerIOApp {
 
   import Demo._
 
+  def makeRedisCluster(uri: RedisURI) =
+    Resource.make(IO {
+      val timeoutOptions =
+        TimeoutOptions
+          .builder()
+          .fixedTimeout(Duration.ofMillis(500L))
+          .build()
+      val clusterOptions =
+        ClusterClientOptions
+          .builder()
+          .pingBeforeActivateConnection(true)
+          .autoReconnect(true)
+          .validateClusterNodeMembership(true)
+          .timeoutOptions(timeoutOptions)
+          .build()
+
+      val client = JRedisClusterClient.create(uri.underlying)
+      client.setOptions(clusterOptions)
+      client
+    })(client => FutureLift[IO].lift(client.shutdownAsync()).void)
+
   val program: IO[Unit] = {
     val usernameKey = "test"
 
     val commandsApi =
       for {
         uri <- Resource.eval(RedisURI.make[IO](redisClusterURI))
-        underlying <- Resource.make(IO {
-                       val timeoutOptions =
-                         TimeoutOptions
-                           .builder()
-                           .fixedTimeout(Duration.ofMillis(500L))
-                           .build()
-                       val clusterOptions =
-                         ClusterClientOptions
-                           .builder()
-                           .pingBeforeActivateConnection(true)
-                           .autoReconnect(true)
-                           .validateClusterNodeMembership(true)
-                           .timeoutOptions(timeoutOptions)
-                           .build()
-
-                       val client = JRedisClusterClient.create(uri.underlying)
-                       client.setOptions(clusterOptions)
-                       client
-                     })(client => FutureLift[IO].liftCompletableFuture(client.shutdownAsync()).void)
+        underlying <- makeRedisCluster(uri)
         client = RedisClusterClient.fromUnderlying(underlying)
         redis <- Redis[IO].fromClusterClient(client, stringCodec)()
       } yield redis
 
-    commandsApi
-      .use { cmd =>
-        for {
-          maybeValue <- cmd.get(usernameKey)
-          _ <- putStrLn(maybeValue)
-        } yield ()
-      }
+    commandsApi.use(_.get(usernameKey).flatMap(IO.println))
   }
 
 }

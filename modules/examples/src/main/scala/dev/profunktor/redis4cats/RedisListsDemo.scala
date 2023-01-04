@@ -30,36 +30,35 @@ object RedisListsDemo extends LoggerIOApp {
     val commandsApi: Resource[IO, ListCommands[IO, String, String]] =
       Redis[IO].utf8(redisURI)
 
-    commandsApi
-      .use { cmd =>
-        for {
-          d <- cmd.rPush(testKey, "one", "two", "three")
-          _ <- putStrLn(s"Length on Push: $d")
-          x <- cmd.lRange(testKey, 0, 10)
-          _ <- putStrLn(s"Range: $x")
-          y <- cmd.lLen(testKey)
-          _ <- putStrLn(s"Length: $y")
-          a <- cmd.lPop(testKey)
-          _ <- putStrLn(s"Left Pop: $a")
-          b <- cmd.rPop(testKey)
-          _ <- putStrLn(s"Right Pop: $b")
-          z <- cmd.lRange(testKey, 0, 10)
-          _ <- putStrLn(s"Range: $z")
-          c <- cmd.lInsertAfter(testKey, "two", "four")
-          _ <- putStrLn(s"Length on Insert After: $c")
-          e <- cmd.lInsertBefore(testKey, "four", "three")
-          _ <- putStrLn(s"Length on Insert Before: $e")
-          f <- cmd.lRange(testKey, 0, 10)
-          _ <- putStrLn(s"Range: $f")
-          _ <- cmd.lSet(testKey, 0, "four")
-          g <- cmd.lRange(testKey, 0, 10)
-          _ <- putStrLn(s"Range after Set: $g")
-          h <- cmd.lRem(testKey, 2, "four")
-          _ <- putStrLn(s"Removed: $h")
-          i <- cmd.lRange(testKey, 0, 10)
-          _ <- putStrLn(s"Range: $i")
-        } yield ()
-      }
+    commandsApi.use { redis =>
+      for {
+        d <- redis.rPush(testKey, "one", "two", "three")
+        _ <- IO.println(s"Length on Push: $d")
+        x <- redis.lRange(testKey, 0, 10)
+        _ <- IO.println(s"Range: $x")
+        y <- redis.lLen(testKey)
+        _ <- IO.println(s"Length: $y")
+        a <- redis.lPop(testKey)
+        _ <- IO.println(s"Left Pop: $a")
+        b <- redis.rPop(testKey)
+        _ <- IO.println(s"Right Pop: $b")
+        z <- redis.lRange(testKey, 0, 10)
+        _ <- IO.println(s"Range: $z")
+        c <- redis.lInsertAfter(testKey, "two", "four")
+        _ <- IO.println(s"Length on Insert After: $c")
+        e <- redis.lInsertBefore(testKey, "four", "three")
+        _ <- IO.println(s"Length on Insert Before: $e")
+        f <- redis.lRange(testKey, 0, 10)
+        _ <- IO.println(s"Range: $f")
+        _ <- redis.lSet(testKey, 0, "four")
+        g <- redis.lRange(testKey, 0, 10)
+        _ <- IO.println(s"Range after Set: $g")
+        h <- redis.lRem(testKey, 2, "four")
+        _ <- IO.println(s"Removed: $h")
+        i <- redis.lRange(testKey, 0, 10)
+        _ <- IO.println(s"Range: $i")
+      } yield ()
+    }
   }
 
 }

@@ -54,7 +54,7 @@ private[redis4cats] class RedisStatefulConnection[F[_]: ApplicativeThrow: Future
   def async: F[RedisAsyncCommands[K, V]] = FutureLift[F].delay(conn.async())
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]] =
     OperationNotSupported("Running in a single node").raiseError
-  def close: F[Unit] = FutureLift[F].liftCompletableFuture(conn.closeAsync()).void
+  def close: F[Unit] = FutureLift[F].lift(conn.closeAsync()).void
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
     OperationNotSupported("Running in a single node").raiseError
   def liftK[G[_]: Async]: RedisConnection[G, K, V] =
@@ -73,9 +73,9 @@ private[redis4cats] class RedisStatefulClusterConnection[F[_]: FutureLift: Monad
     OperationNotSupported("Transactions are not supported in a cluster. You must select a single node.").raiseError
   def clusterAsync: F[RedisClusterAsyncCommands[K, V]] = FutureLift[F].delay(conn.async())
   def clusterSync: F[RedisClusterSyncCommands[K, V]]   = FutureLift[F].delay(conn.sync())
-  def close: F[Unit]                                   = FutureLift[F].liftCompletableFuture(conn.closeAsync()).void
+  def close: F[Unit]                                   = FutureLift[F].lift(conn.closeAsync()).void
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]] =
-    FutureLift[F].liftCompletableFuture(conn.getConnectionAsync(nodeId.value)).flatMap { stateful =>
+    FutureLift[F].lift(conn.getConnectionAsync(nodeId.value)).flatMap { stateful =>
       FutureLift[F].delay(stateful.async())
     }
   def liftK[G[_]: Async]: RedisConnection[G, K, V] =

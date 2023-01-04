@@ -28,28 +28,27 @@ object RedisKeysDemo extends LoggerIOApp {
     val usernameKey = "test"
 
     val showResult: Option[String] => IO[Unit] =
-      _.fold(putStrLn(s"Not found key: $usernameKey"))(s => putStrLn(s))
+      _.fold(IO.println(s"Not found key: $usernameKey"))(s => IO.println(s))
 
     val commandsApi: Resource[IO, KeyCommands[IO, String] with StringCommands[IO, String, String]] =
       Redis[IO].utf8(redisURI)
 
-    commandsApi
-      .use { cmd =>
-        for {
-          x <- cmd.get(usernameKey)
-          _ <- showResult(x)
-          _ <- cmd.set(usernameKey, "some value")
-          y <- cmd.get(usernameKey)
-          _ <- showResult(y)
-          _ <- cmd.setNx(usernameKey, "should not happen")
-          w <- cmd.get(usernameKey)
-          v <- cmd.del(usernameKey)
-          _ <- putStrLn(s"del: $v")
-          z <- cmd.get(usernameKey)
-          _ <- showResult(z)
-          _ <- showResult(w)
-        } yield ()
-      }
+    commandsApi.use { redis =>
+      for {
+        x <- redis.get(usernameKey)
+        _ <- showResult(x)
+        _ <- redis.set(usernameKey, "some value")
+        y <- redis.get(usernameKey)
+        _ <- showResult(y)
+        _ <- redis.setNx(usernameKey, "should not happen")
+        w <- redis.get(usernameKey)
+        v <- redis.del(usernameKey)
+        _ <- IO.println(s"del: $v")
+        z <- redis.get(usernameKey)
+        _ <- showResult(z)
+        _ <- showResult(w)
+      } yield ()
+    }
   }
 
 }

@@ -29,39 +29,38 @@ object RedisScriptsDemo extends LoggerIOApp {
     val commandsApi: Resource[IO, ScriptCommands[IO, String, String]] =
       Redis[IO].utf8(redisURI)
 
-    commandsApi
-      .use { cmd =>
-        for {
-          greeting <- cmd.eval("return 'Hello World'", ScriptOutputType.Value)
-          _ <- putStrLn(s"Greetings from Lua: $greeting")
-          fortyTwo <- cmd.eval("return 42", ScriptOutputType.Integer)
-          _ <- putStrLn(s"Answer to the Ultimate Question of Life, the Universe, and Everything: $fortyTwo")
-          list <- cmd.eval(
-                   "return {'Let', 'us', ARGV[1], ARGV[2]}",
-                   ScriptOutputType.Multi,
-                   Nil,
-                   List("have", "fun")
-                 )
-          _ <- putStrLn(s"We can even return lists: $list")
-          randomScript = "math.randomseed(tonumber(ARGV[1])); return math.random() * 1000"
-          shaRandom <- cmd.scriptLoad(randomScript)
-          l <- cmd.scriptExists(shaRandom)
-          List(exists) = l
-          _ <- putStrLn(s"Script is cached on Redis: $exists")
-          // seeding the RNG with 7
-          random <- cmd.evalSha(shaRandom, ScriptOutputType.Integer, Nil, List("7"))
-          _ <- putStrLn(s"Execution of cached script returns a pseudo-random number: $random")
-          scriptDigest <- cmd.digest(randomScript)
-          l <- cmd.scriptExists(scriptDigest)
-          List(exists3) = l
-          _ <- putStrLn(s"Locally computed script digest is the same sha as Redis: $exists3")
-          _ <- cmd.scriptFlush
-          _ <- putStrLn("Flushed all cached scripts!")
-          l <- cmd.scriptExists(shaRandom)
-          List(exists2) = l
-          _ <- putStrLn(s"Script is still cached on Redis: $exists2")
-        } yield ()
-      }
+    commandsApi.use { redis =>
+      for {
+        greeting <- redis.eval("return 'Hello World'", ScriptOutputType.Value)
+        _ <- IO.println(s"Greetings from Lua: $greeting")
+        fortyTwo <- redis.eval("return 42", ScriptOutputType.Integer)
+        _ <- IO.println(s"Answer to the Ultimate Question of Life, the Universe, and Everything: $fortyTwo")
+        list <- redis.eval(
+                 "return {'Let', 'us', ARGV[1], ARGV[2]}",
+                 ScriptOutputType.Multi,
+                 Nil,
+                 List("have", "fun")
+               )
+        _ <- IO.println(s"We can even return lists: $list")
+        randomScript = "math.randomseed(tonumber(ARGV[1])); return math.random() * 1000"
+        shaRandom <- redis.scriptLoad(randomScript)
+        l <- redis.scriptExists(shaRandom)
+        List(exists) = l
+        _ <- IO.println(s"Script is cached on Redis: $exists")
+        // seeding the RNG with 7
+        random <- redis.evalSha(shaRandom, ScriptOutputType.Integer, Nil, List("7"))
+        _ <- IO.println(s"Execution of cached script returns a pseudo-random number: $random")
+        scriptDigest <- redis.digest(randomScript)
+        l <- redis.scriptExists(scriptDigest)
+        List(exists3) = l
+        _ <- IO.println(s"Locally computed script digest is the same sha as Redis: $exists3")
+        _ <- redis.scriptFlush
+        _ <- IO.println("Flushed all cached scripts!")
+        l <- redis.scriptExists(shaRandom)
+        List(exists2) = l
+        _ <- IO.println(s"Script is still cached on Redis: $exists2")
+      } yield ()
+    }
   }
 
 }

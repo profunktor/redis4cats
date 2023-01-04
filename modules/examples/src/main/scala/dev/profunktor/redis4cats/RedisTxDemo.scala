@@ -32,7 +32,7 @@ object RedisTxDemo extends LoggerIOApp {
     val key3 = "test3"
 
     val showResult: String => Option[String] => IO[Unit] = key =>
-      _.fold(putStrLn(s"Not found key: $key"))(s => putStrLn(s"$key: $s"))
+      _.fold(IO.println(s"Not found key: $key"))(s => IO.println(s"$key: $s"))
 
     val mkClient: Resource[IO, RedisClient] =
       RedisClient[IO].from(redisURI)
@@ -49,9 +49,9 @@ object RedisTxDemo extends LoggerIOApp {
         .flatMap(kv => IO.println(s"KV: $kv"))
         .handleErrorWith {
           case TransactionDiscarded =>
-            putStrLn("[Error] - Transaction Discarded")
+            IO.println("[Error] - Transaction Discarded")
           case e =>
-            putStrLn(s"[Error] - ${e.getMessage}")
+            IO.println(s"[Error] - ${e.getMessage}")
         }
 
     // Running two concurrent transactions (needs two different RedisCommands)
@@ -73,7 +73,7 @@ object RedisTxDemo extends LoggerIOApp {
             redis.get(key1).flatMap(store.set(s"$key1-v2"))
           )
 
-        getters >> prog(redis, ops) >> getters >> putStrLn("keep doing stuff...")
+        getters >> prog(redis, ops) >> getters >> IO.println("keep doing stuff...")
       }
 
       val p2 = mkRedis(cli).use { redis =>

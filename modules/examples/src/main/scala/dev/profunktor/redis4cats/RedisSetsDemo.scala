@@ -27,29 +27,28 @@ object RedisSetsDemo extends LoggerIOApp {
   val program: IO[Unit] = {
     val testKey = "foos"
 
-    val showResult: Set[String] => IO[Unit] = x => putStrLn(s"$testKey members: $x")
+    val showResult: Set[String] => IO[Unit] = x => IO.println(s"$testKey members: $x")
 
     val commandsApi: Resource[IO, SetCommands[IO, String, String]] =
       Redis[IO].utf8(redisURI)
 
-    commandsApi
-      .use { cmd =>
-        for {
-          x <- cmd.sMembers(testKey)
-          _ <- showResult(x)
-          _ <- cmd.sAdd(testKey, "set value")
-          y <- cmd.sMembers(testKey)
-          _ <- showResult(y)
-          _ <- cmd.sCard(testKey).flatMap(s => putStrLn(s"size: $s"))
-          _ <- cmd.sRem("non-existing", "random")
-          w <- cmd.sMembers(testKey)
-          _ <- showResult(w)
-          _ <- cmd.sRem(testKey, "set value")
-          z <- cmd.sMembers(testKey)
-          _ <- showResult(z)
-          _ <- cmd.sCard(testKey).flatMap(s => putStrLn(s"size: $s"))
-        } yield ()
-      }
+    commandsApi.use { redis =>
+      for {
+        x <- redis.sMembers(testKey)
+        _ <- showResult(x)
+        _ <- redis.sAdd(testKey, "set value")
+        y <- redis.sMembers(testKey)
+        _ <- showResult(y)
+        _ <- redis.sCard(testKey).flatMap(s => IO.println(s"size: $s"))
+        _ <- redis.sRem("non-existing", "random")
+        w <- redis.sMembers(testKey)
+        _ <- showResult(w)
+        _ <- redis.sRem(testKey, "set value")
+        z <- redis.sMembers(testKey)
+        _ <- showResult(z)
+        _ <- redis.sCard(testKey).flatMap(s => IO.println(s"size: $s"))
+      } yield ()
+    }
   }
 
 }

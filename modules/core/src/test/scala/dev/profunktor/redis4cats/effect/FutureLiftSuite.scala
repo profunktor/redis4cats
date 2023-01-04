@@ -30,7 +30,7 @@ class FutureLiftSuite extends FunSuite {
 
   test("it shifts back once the Future is converted") {
     val ioa =
-      instance.liftCompletableFuture[String] {
+      instance.lift[String] {
         val jFuture = new CompletableFuture[String]()
         jFuture.complete("foo")
         jFuture
@@ -43,7 +43,7 @@ class FutureLiftSuite extends FunSuite {
 
   test("it shifts back even when the CompletableFuture fails") {
     val ioa =
-      instance.liftCompletableFuture[String] {
+      instance.lift[String] {
         val jFuture = new CompletableFuture[String]()
         jFuture.completeExceptionally(new RuntimeException("Purposely fail"))
         jFuture
@@ -57,7 +57,7 @@ class FutureLiftSuite extends FunSuite {
   test("it fails with CancellationException") {
     val e = new CancellationException("purposeful")
     val ioa =
-      instance.liftCompletableFuture[String] {
+      instance.lift[String] {
         val jFuture = new CompletableFuture[String]()
         jFuture.completeExceptionally(e)
         jFuture

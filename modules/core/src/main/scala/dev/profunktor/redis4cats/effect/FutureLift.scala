@@ -20,7 +20,7 @@ import cats.ApplicativeThrow
 import cats.effect.kernel.Async
 import cats.effect.kernel.syntax.monadCancel._
 import cats.syntax.all._
-import io.lettuce.core.{ ConnectionFuture, RedisFuture }
+import io.lettuce.core.RedisFuture
 
 import java.util.concurrent._
 
@@ -28,9 +28,7 @@ private[redis4cats] trait FutureLift[F[_]] {
   def delay[A](thunk: => A): F[A]
   def blocking[A](thunk: => A): F[A]
   def guarantee[A](fa: F[A], fu: F[Unit]): F[A]
-  def lift[A](fa: => RedisFuture[A]): F[A]
-  def liftConnectionFuture[A](fa: => ConnectionFuture[A]): F[A]
-  def liftCompletableFuture[A](fa: => CompletableFuture[A]): F[A]
+  def lift[A](fa: => FutureLift.JFuture[A]): F[A]
 }
 
 object FutureLift {
@@ -48,17 +46,8 @@ object FutureLift {
 
       def guarantee[A](fa: F[A], fu: F[Unit]): F[A] = fa.guarantee(fu)
 
-      def lift[A](fa: => RedisFuture[A]): F[A] =
-        liftJFuture[RedisFuture[A], A](fa)
-
-      def liftConnectionFuture[A](fa: => ConnectionFuture[A]): F[A] =
-        liftJFuture[ConnectionFuture[A], A](fa)
-
-      def liftCompletableFuture[A](fa: => CompletableFuture[A]): F[A] =
-        liftJFuture[CompletableFuture[A], A](fa)
-
-      private[redis4cats] def liftJFuture[G <: JFuture[A], A](f: => G): F[A] =
-        F.fromCompletionStage(F.delay(f))
+      def lift[A](fa: => JFuture[A]): F[A] =
+        F.fromCompletionStage(F.delay(fa))
     }
 
   implicit final class FutureLiftOps[F[_]: ApplicativeThrow: FutureLift: Log, A](fa: => RedisFuture[A]) {

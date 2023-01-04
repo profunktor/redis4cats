@@ -38,11 +38,11 @@ object RedisBitmapsDemo extends LoggerIOApp {
           _ <- strings.del(testKey)
           a <- bits.setBit(testKey, 7, 1)
           b <- bits.setBit(testKey, 7, 0)
-          _ <- putStrLn(s"Before $a after $b")
+          _ <- IO.println(s"Before $a after $b")
           cSet <- bits.setBit(testKey, 6, 1)
-          _ <- putStrLn(s"Setting offset 6 to $cSet")
+          _ <- IO.println(s"Setting offset 6 to $cSet")
           c <- bits.getBit(testKey, 6)
-          _ <- putStrLn(s"Bit at offset 6 is $c")
+          _ <- IO.println(s"Bit at offset 6 is $c")
           batchSet <- for {
                        s1 <- bits.setBit("bitmapsarestrings", 2, 1)
                        s2 <- bits.setBit("bitmapsarestrings", 3, 1)
@@ -51,9 +51,9 @@ object RedisBitmapsDemo extends LoggerIOApp {
                        s5 <- bits.setBit("bitmapsarestrings", 11, 1)
                        s6 <- bits.setBit("bitmapsarestrings", 14, 1)
                      } yield s1 + s2 + s3 + s4 + s5 + s6
-          _ <- putStrLn(s"Set multiple $batchSet")
+          _ <- IO.println(s"Set multiple $batchSet")
           truth <- strings.get("bitmapsarestrings")
-          _ <- putStrLn(s"The answer to everything is $truth")
+          _ <- IO.println(s"The answer to everything is $truth")
           bf <- bits.bitField(
                  "inmap",
                  SetUnsigned(2, 1),
@@ -64,7 +64,7 @@ object RedisBitmapsDemo extends LoggerIOApp {
                  SetUnsigned(14, 1),
                  IncrUnsignedBy(14, 1)
                )
-          _ <- putStrLn(s"Via bitfield $bf")
+          _ <- IO.println(s"Via bitfield $bf")
         } yield ()
     }
   }

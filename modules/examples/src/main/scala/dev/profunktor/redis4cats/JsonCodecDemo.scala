@@ -52,16 +52,15 @@ object JsonCodecDemo extends LoggerIOApp {
     val commandsApi: Resource[IO, RedisCommands[IO, String, Event]] =
       Redis[IO].simple(redisURI, eventsCodec)
 
-    commandsApi
-      .use { cmd =>
-        for {
-          x <- cmd.sCard(eventsKey)
-          _ <- putStrLn(s"Number of events: $x")
-          _ <- cmd.sAdd(eventsKey, Event.Ack(1), Event.Message(23, "foo"))
-          y <- cmd.sMembers(eventsKey)
-          _ <- putStrLn(s"Events: $y")
-        } yield ()
-      }
+    commandsApi.use { redis =>
+      for {
+        x <- redis.sCard(eventsKey)
+        _ <- IO.println(s"Number of events: $x")
+        _ <- redis.sAdd(eventsKey, Event.Ack(1), Event.Message(23, "foo"))
+        y <- redis.sMembers(eventsKey)
+        _ <- IO.println(s"Events: $y")
+      } yield ()
+    }
   }
 
 }

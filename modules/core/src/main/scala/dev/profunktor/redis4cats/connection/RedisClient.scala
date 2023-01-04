@@ -43,7 +43,7 @@ object RedisClient {
     val release: RedisClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis connection: $uri") *>
           FutureLift[F]
-            .liftCompletableFuture(
+            .lift(
               client.underlying.shutdownAsync(
                 config.shutdown.quietPeriod.toNanos,
                 config.shutdown.timeout.toNanos,

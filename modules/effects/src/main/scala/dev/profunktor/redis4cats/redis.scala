@@ -62,7 +62,7 @@ object Redis {
       tx: TxRunner[F]
   ): (F[Redis[F, K, V]], Redis[F, K, V] => F[Unit]) = {
     val acquire: F[Redis[F, K, V]] = FutureLift[F]
-      .liftConnectionFuture(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
+      .lift(client.underlying.connectAsync(codec.underlying, client.uri.underlying))
       .map(c => new Redis[F, K, V](new RedisStatefulConnection[F, K, V](c), tx))
 
     val release: Redis[F, K, V] => F[Unit] = c =>
@@ -78,7 +78,7 @@ object Redis {
       tx: TxRunner[F]
   ): (F[RedisCluster[F, K, V]], RedisCluster[F, K, V] => F[Unit]) = {
     val acquire: F[RedisCluster[F, K, V]] = FutureLift[F]
-      .liftCompletableFuture(client.underlying.connectAsync[K, V](codec.underlying))
+      .lift(client.underlying.connectAsync[K, V](codec.underlying))
       .flatTap(c => FutureLift[F].delay(readFrom.foreach(c.setReadFrom)))
       .map(c => new RedisCluster[F, K, V](new RedisStatefulClusterConnection[F, K, V](c), tx))
 
@@ -96,7 +96,7 @@ object Redis {
       tx: TxRunner[F]
   ): (F[BaseRedis[F, K, V]], BaseRedis[F, K, V] => F[Unit]) = {
     val acquire = FutureLift[F]
-      .liftCompletableFuture(client.underlying.connectAsync[K, V](codec.underlying))
+      .lift(client.underlying.connectAsync[K, V](codec.underlying))
       .flatTap(c => FutureLift[F].delay(readFrom.foreach(c.setReadFrom)))
       .map { c =>
         new BaseRedis[F, K, V](new RedisStatefulClusterConnection[F, K, V](c), tx, cluster = true) {
