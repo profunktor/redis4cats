@@ -462,8 +462,18 @@ trait TestScenarios { self: FunSuite =>
     } yield ()
   }
 
-  def connectionScenario(redis: RedisCommands[IO, String, String]): IO[Unit] =
-    redis.ping.flatMap(pong => IO(assertEquals(pong, "PONG"))).void
+  def connectionScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
+    val clientName = "hello_world"
+    for {
+      _ <- redis.ping.flatMap(pong => IO(assertEquals(pong, "PONG"))).void
+      _ <- redis.getClientName().flatMap(name => IO(assertEquals(name, None)))
+      _ <- redis
+            .setClientName(clientName)
+            .flatMap(result => IO(assert(result, s"Failed to set client name: '$clientName'")))
+      _ <- redis.getClientName().flatMap(name => IO(assertEquals(name, Some(clientName))))
+      _ <- redis.getClientId()
+    } yield ()
+  }
 
   def serverScenario(redis: RedisCommands[IO, String, String]): IO[Unit] =
     for {

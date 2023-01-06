@@ -35,7 +35,12 @@ import cats.effect.IO
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 
 commandsApi.use { redis => // ConnectionCommands[IO]
-  redis.ping.flatMap(putStrLn) // "pong"
+  val clientName = "client_x"
+  for {
+    _ <- redis.ping.flatMap(putStrLn) // "pong"
+    _ <- redis.setClientName(clientName) // true
+    _ <- redis.getClientName().flatMap(putStrLn) // "client_x"
+  } yield ()
 }
 ```
 

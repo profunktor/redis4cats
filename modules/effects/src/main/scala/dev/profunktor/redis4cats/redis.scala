@@ -1130,6 +1130,15 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def auth(username: String, password: CharSequence): F[Boolean] =
     async.flatMap(_.auth(username, password).futureLift.map(_ == "OK"))
 
+  override def setClientName(name: K): F[Boolean] =
+    async.flatMap(_.clientSetname(name).futureLift.map(_ == "OK"))
+
+  override def getClientName(): F[Option[K]] =
+    async.flatMap(_.clientGetname().futureLift).map(Option.apply)
+
+  override def getClientId(): F[Long] =
+    async.flatMap(_.clientId().futureLift.map(Long.unbox))
+
   /******************************* Server API **********************************/
   override val flushAll: F[Unit] =
     async.flatMap(_.flushall().futureLift.void)
