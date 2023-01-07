@@ -465,12 +465,14 @@ trait TestScenarios { self: FunSuite =>
   def connectionScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val clientName = "hello_world"
     for {
-      _ <- redis.ping.flatMap(pong => IO(assertEquals(pong, "PONG"))).void
-      _ <- redis.getClientName().flatMap(name => IO(assertEquals(name, None)))
-      _ <- redis
-            .setClientName(clientName)
-            .flatMap(result => IO(assert(result, s"Failed to set client name: '$clientName'")))
-      _ <- redis.getClientName().flatMap(name => IO(assertEquals(name, Some(clientName))))
+      pong <- redis.ping
+      _ <- IO(assertEquals(pong, "PONG"))
+      oldClientName <- redis.getClientName()
+      _ <- IO(assertEquals(oldClientName, None))
+      res <- redis.setClientName(clientName)
+      _ <- IO(assert(res, s"Failed to set client name: '$clientName'"))
+      newClientName <- redis.getClientName()
+      _ <- IO(assertEquals(newClientName, Some(clientName)))
       _ <- redis.getClientId()
     } yield ()
   }
