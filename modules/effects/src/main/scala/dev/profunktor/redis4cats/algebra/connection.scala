@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.algebra
 
-trait ConnectionCommands[F[_]] extends Ping[F] with Auth[F]
+trait ConnectionCommands[F[_], K] extends Ping[F] with Auth[F] with Client[F, K]
 
 trait Ping[F[_]] {
   def ping: F[String]
@@ -26,4 +26,10 @@ trait Ping[F[_]] {
 trait Auth[F[_]] {
   def auth(password: CharSequence): F[Boolean]
   def auth(username: String, password: CharSequence): F[Boolean]
+}
+
+trait Client[F[_], K] {
+  def setClientName(name: K): F[Boolean]
+  def getClientName(): F[Option[K]]
+  def getClientId(): F[Long]
 }

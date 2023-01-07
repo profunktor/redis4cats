@@ -20,8 +20,8 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-val commandsApi: Resource[IO, ConnectionCommands[IO]] = {
-  Redis[IO].fromClient[String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[ConnectionCommands[IO]]
+val commandsApi: Resource[IO, ConnectionCommands[IO, String]] = {
+  Redis[IO].fromClient[String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[ConnectionCommands[IO, String]]
 }
 ```
 
@@ -34,8 +34,14 @@ import cats.effect.IO
 
 def putStrLn(str: String): IO[Unit] = IO(println(str))
 
-commandsApi.use { redis => // ConnectionCommands[IO]
-  redis.ping.flatMap(putStrLn) // "pong"
+commandsApi.use { redis => // ConnectionCommands[IO, String]
+  val clientName = "client_x"
+  for {
+    _ <- redis.ping.flatMap(putStrLn) // "pong"
+    _ <- redis.setClientName(clientName) // true
+    retrievedClientName <- redis.getClientName()
+    _ <- putStrLn(retrievedClientName.getOrElse("")) // "client_x"
+  } yield ()
 }
 ```
 
