@@ -668,8 +668,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def sPop(key: K, count: Long): F[Set[V]] =
     async.flatMap(_.spop(key, count).futureLift.map(_.asScala.toSet))
 
-  override def sRem(key: K, values: V*): F[Unit] =
-    async.flatMap(_.srem(key, values: _*).futureLift.void)
+  override def sRem(key: K, values: V*): F[Long] =
+    async.flatMap(_.srem(key, values: _*).futureLift.map(x => Long.box(x)))
 
   override def sCard(key: K): F[Long] =
     async.flatMap(_.scard(key).futureLift.map(x => Long.box(x)))
@@ -1129,6 +1129,15 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def auth(username: String, password: CharSequence): F[Boolean] =
     async.flatMap(_.auth(username, password).futureLift.map(_ == "OK"))
+
+  override def setClientName(name: K): F[Boolean] =
+    async.flatMap(_.clientSetname(name).futureLift.map(_ == "OK"))
+
+  override def getClientName(): F[Option[K]] =
+    async.flatMap(_.clientGetname().futureLift).map(Option.apply)
+
+  override def getClientId(): F[Long] =
+    async.flatMap(_.clientId().futureLift.map(Long.unbox))
 
   /******************************* Server API **********************************/
   override val flushAll: F[Unit] =

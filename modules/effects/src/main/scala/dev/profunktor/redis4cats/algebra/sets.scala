@@ -42,5 +42,5 @@ trait SetSetter[F[_], K, V] {
 trait SetDeletion[F[_], K, V] {
   def sPop(key: K): F[Option[V]]
   def sPop(key: K, count: Long): F[Set[V]]
-  def sRem(key: K, values: V*): F[Unit]
+  def sRem(key: K, values: V*): F[Long]
 }

@@ -144,10 +144,12 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(y.contains("set value")))
       o <- redis.sCard(testKey)
       _ <- IO(assertEquals(o, 1L))
-      _ <- redis.sRem("non-existing", "random")
+      d <- redis.sRem("non-existing", "random")
+      _ <- IO(assertEquals(d, 0L))
       w <- redis.sMembers(testKey)
       _ <- IO(assert(w.contains("set value")))
-      _ <- redis.sRem(testKey, "set value")
+      d <- redis.sRem(testKey, "set value")
+      _ <- IO(assertEquals(d, 1L))
       z <- redis.sMembers(testKey)
       _ <- IO(assert(z.isEmpty))
       t <- redis.sCard(testKey)
@@ -460,8 +462,20 @@ trait TestScenarios { self: FunSuite =>
     } yield ()
   }
 
-  def connectionScenario(redis: RedisCommands[IO, String, String]): IO[Unit] =
-    redis.ping.flatMap(pong => IO(assertEquals(pong, "PONG"))).void
+  def connectionScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
+    val clientName = "hello_world"
+    for {
+      pong <- redis.ping
+      _ <- IO(assertEquals(pong, "PONG"))
+      oldClientName <- redis.getClientName()
+      _ <- IO(assertEquals(oldClientName, None))
+      res <- redis.setClientName(clientName)
+      _ <- IO(assert(res, s"Failed to set client name: '$clientName'"))
+      newClientName <- redis.getClientName()
+      _ <- IO(assertEquals(newClientName, Some(clientName)))
+      _ <- redis.getClientId()
+    } yield ()
+  }
 
   def serverScenario(redis: RedisCommands[IO, String, String]): IO[Unit] =
     for {
