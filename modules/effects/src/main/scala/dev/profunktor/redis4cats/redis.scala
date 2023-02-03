@@ -24,6 +24,7 @@ import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.BitCommandOperation
 import dev.profunktor.redis4cats.algebra.BitCommandOperation.Overflows
+import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect._
@@ -158,6 +159,37 @@ object Redis {
         codec: RedisCodec[K, V]
     ): Resource[F, RedisCommands[F, K, V]] =
       MkRedis[F].clientWithOptions(uri, opts).flatMap(this.fromClient(_, codec))
+
+    /**
+      * Creates a [[RedisCommands]] for a single-node connection.
+      *
+      * It will create an underlying RedisClient using the supplied client options and config
+      * to establish connection with Redis. Can be used to customise advanced features like
+      * metric recording or shutdown delays via [[Redis4CatsConfig]].
+      *
+      * Example:
+      *
+      * {{{
+      * for {
+      *   opts <- Resource.eval(Sync[F].delay(ClientOptions.create())) // configure timeouts, etc
+      *   config = Redis4CatsConfig()
+      *   cmds <- Redis[IO].custom("redis://localhost", opts, config, RedisCodec.Ascii)
+      * } yield cmds
+      * }}}
+      *
+      * Note: if you need to create multiple connections, use `fromClient`
+      * instead, which allows you to re-use the same client.
+      */
+    def custom[K, V](
+        uri: String,
+        opts: ClientOptions,
+        config: Redis4CatsConfig,
+        codec: RedisCodec[K, V]
+    ): Resource[F, RedisCommands[F, K, V]] =
+      Resource
+        .eval(RedisURI.make(uri))
+        .flatMap(MkRedis[F].clientCustom(_, opts, config))
+        .flatMap(this.fromClient(_, codec))
 
     /**
       * Creates a [[RedisCommands]] for a single-node connection to deal

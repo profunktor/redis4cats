@@ -35,7 +35,7 @@ object RedisClient {
       config: Redis4CatsConfig
   ): (F[RedisClient], RedisClient => F[Unit]) = {
     val acquire: F[RedisClient] = FutureLift[F].delay {
-      val jClient: JRedisClient = JRedisClient.create(uri.underlying)
+      val jClient: JRedisClient = JRedisClient.create(config.clientResources.orNull, uri.underlying)
       jClient.setOptions(opts)
       new RedisClient(jClient, uri) {}
     }

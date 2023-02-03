@@ -17,9 +17,9 @@
 package dev.profunktor.redis4cats
 
 import scala.concurrent.duration._
-
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode
 import io.lettuce.core.cluster.ClusterClientOptions
+import io.lettuce.core.resource.ClientResources
 
 object config {
 
@@ -28,22 +28,27 @@ object config {
     val shutdown: ShutdownConfig
     val topologyViewRefreshStrategy: TopologyViewRefreshStrategy
     val nodeFilter: RedisClusterNode => Boolean
+    val clientResources: Option[ClientResources]
     def withShutdown(shutdown: ShutdownConfig): Redis4CatsConfig
     def withTopologyViewRefreshStrategy(strategy: TopologyViewRefreshStrategy): Redis4CatsConfig
     def withNodeFilter(nodeFilter: RedisClusterNode => Boolean): Redis4CatsConfig
+    def withClientResources(resources: Option[ClientResources]): Redis4CatsConfig
   }
 
   object Redis4CatsConfig {
     private case class Redis4CatsConfigImpl(
         shutdown: ShutdownConfig,
         topologyViewRefreshStrategy: TopologyViewRefreshStrategy = NoRefresh,
-        nodeFilter: RedisClusterNode => Boolean = ClusterClientOptions.DEFAULT_NODE_FILTER.test
+        nodeFilter: RedisClusterNode => Boolean = ClusterClientOptions.DEFAULT_NODE_FILTER.test,
+        clientResources: Option[ClientResources] = None
     ) extends Redis4CatsConfig {
       override def withShutdown(_shutdown: ShutdownConfig): Redis4CatsConfig = copy(shutdown = _shutdown)
       override def withTopologyViewRefreshStrategy(strategy: TopologyViewRefreshStrategy): Redis4CatsConfig =
         copy(topologyViewRefreshStrategy = strategy)
       override def withNodeFilter(_nodeFilter: RedisClusterNode => Boolean): Redis4CatsConfig =
         copy(nodeFilter = _nodeFilter)
+      override def withClientResources(resources: Option[ClientResources]): Redis4CatsConfig =
+        copy(clientResources = resources)
     }
     def apply(): Redis4CatsConfig = Redis4CatsConfigImpl(ShutdownConfig())
   }
