@@ -47,8 +47,8 @@ object RedisClusterClient {
       Log[F].info(s"Acquire Redis Cluster client") *>
           FutureLift[F]
             .delay {
-              val javaUri = uri.map(_.underlying).asJava
-              config.clientResources.fold(JClusterClient.create(javaUri))(JClusterClient.create(_, javaUri))
+              val javaUris = uri.map(_.underlying).asJava
+              config.clientResources.fold(JClusterClient.create(javaUris))(JClusterClient.create(_, javaUris))
             }
             .flatTap(initializeClusterTopology[F](_, config.topologyViewRefreshStrategy, config.nodeFilter))
             .map(new RedisClusterClient(_) {})
