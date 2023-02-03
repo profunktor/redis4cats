@@ -165,7 +165,7 @@ object Redis {
       *
       * It will create an underlying RedisClient using the supplied client options and config
       * to establish connection with Redis. Can be used to customise advanced features like
-      * metric recording or shutdown delays via [[Redis4CatsConfig]].
+      * metric recording or shutdown delays.
       *
       * Example:
       *
