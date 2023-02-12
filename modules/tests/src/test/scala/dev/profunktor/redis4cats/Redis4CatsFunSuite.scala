@@ -26,7 +26,7 @@ import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration.Duration
 
-abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
+abstract class Redis4CatsFunSuite(isCluster: Boolean) extends RedisSuite {
 
   val flushAllFixture = new Fixture[Unit]("FLUSHALL") {
     def apply(): Unit = ()
@@ -38,8 +38,6 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
   override def munitFixtures = List(flushAllFixture)
 
   override def munitFlakyOK: Boolean = true
-
-  private val redisUri = "redis://localhost"
 
   private val stringCodec = RedisCodec.Utf8
 
@@ -65,7 +63,7 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
   // --- Cluster ---
 
-  lazy val redisClusterUris = List(
+  private lazy val redisClusterUris = List(
     s"$redisUri:30001",
     s"$redisUri:30002",
     s"$redisUri:30003"

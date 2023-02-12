@@ -24,10 +24,9 @@ import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.tx._
 
-class OptimisticLockSuite extends IOSuite {
+class OptimisticLockSpec extends RedisSuite {
 
-  private val redisURI    = "redis://localhost:6379"
-  private val mkRedis     = RedisClient[IO].from(redisURI)
+  private val mkRedis     = RedisClient[IO].from(redisUri)
   private val Parallelism = 10
 
   private val testKey      = "tx-lock-key"
