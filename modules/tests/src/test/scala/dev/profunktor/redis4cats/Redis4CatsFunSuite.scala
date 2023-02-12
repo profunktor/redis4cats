@@ -39,20 +39,22 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
   override def munitFlakyOK: Boolean = true
 
+  private val redisUri = "redis://localhost"
+
   private val stringCodec = RedisCodec.Utf8
 
   def withAbstractRedis[A, K, V](f: RedisCommands[IO, K, V] => IO[A])(codec: RedisCodec[K, V]): Future[Unit] =
-    Redis[IO].simple("redis://localhost", codec).use(f).as(assert(true)).unsafeToFuture()
+    Redis[IO].simple(redisUri, codec).use(f).as(assert(true)).unsafeToFuture()
 
   def withRedis[A](f: RedisCommands[IO, String, String] => IO[A]): Future[Unit] =
     withAbstractRedis[A, String, String](f)(stringCodec)
 
   def withRedisClient[A](f: RedisClient => IO[A]): Future[Unit] =
-    RedisClient[IO].from("redis://localhost").use(f).as(assert(true)).unsafeToFuture()
+    RedisClient[IO].from(redisUri).use(f).as(assert(true)).unsafeToFuture()
 
   def withRedisStream[A](f: Streaming[fs2.Stream[IO, *], String, String] => IO[A]): Future[Unit] =
     (for {
-      client <- fs2.Stream.resource(RedisClient[IO].from("redis://localhost"))
+      client <- fs2.Stream.resource(RedisClient[IO].from(redisUri))
       streams <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
       results <- fs2.Stream.eval(f(streams))
     } yield results).compile.drain.void.unsafeToFuture()
@@ -63,15 +65,15 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
   // --- Cluster ---
 
-  lazy val redisUri = List(
-    "redis://localhost:30001",
-    "redis://localhost:30002",
-    "redis://localhost:30003"
+  lazy val redisClusterUris = List(
+    s"$redisUri:30001",
+    s"$redisUri:30002",
+    s"$redisUri:30003"
   ).traverse(RedisURI.make[IO](_))
 
   private def mkRedisCluster[K, V](codec: RedisCodec[K, V]): Resource[IO, RedisCommands[IO, K, V]] =
     for {
-      uris <- Resource.eval(redisUri)
+      uris <- Resource.eval(redisClusterUris)
       client <- RedisClusterClient[IO](uris: _*)
       cluster <- Redis[IO].fromClusterClient(client, codec)()
     } yield cluster
