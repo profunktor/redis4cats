@@ -16,9 +16,11 @@
 
 package dev.profunktor.redis4cats
 
+import cats.effect.IO
 import dev.profunktor.redis4cats.streams.data.XAddMessage
 
 import scala.concurrent.duration.DurationInt
+import scala.util.Random
 
 class RedisStreamSpec extends Redis4CatsFunSuite(false) {
 
@@ -31,7 +33,7 @@ class RedisStreamSpec extends Redis4CatsFunSuite(false) {
       read
         .concurrently(write)
         .take(1)
-        .interruptAfter(3.seconds)
+        .interruptAfter(1.seconds)
         .compile
         .lastOrError
         .map { read =>
@@ -41,4 +43,36 @@ class RedisStreamSpec extends Redis4CatsFunSuite(false) {
     }
   }
 
+  private def generateStr: String = {
+    val len = Random.nextInt(20) + 10
+    Random.alphanumeric.take(len).mkString
+  }
+
+  private def generateMsg: Map[String, String] = {
+    val size = Random.nextInt(5) + 5
+    (0 until size).map(_ => generateStr -> generateStr).toMap
+  }
+
+  test("write then read works") {
+    withRedisStream[Unit] { stream =>
+      val len  = 100
+      val msgs = List.fill(len)(generateMsg)
+
+      val streamName = "test-stream"
+      val read       = stream.read(Set(streamName), 1)
+      val write = stream.append {
+        fs2.Stream.emits(msgs).evalMap(msg => IO(XAddMessage(streamName, msg)))
+      }
+
+      write.compile.drain.flatMap { _ =>
+        read
+          .take(len.toLong)
+          .interruptAfter(10.seconds)
+          .compile
+          .toList
+          .map(_.map(readmsg => readmsg.body))
+          .map(msgsRead => assertEquals(msgsRead, msgs))
+      }
+    }
+  }
 }

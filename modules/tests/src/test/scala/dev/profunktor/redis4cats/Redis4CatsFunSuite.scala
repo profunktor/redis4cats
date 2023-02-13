@@ -64,9 +64,9 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends RedisSuite {
   // --- Cluster ---
 
   private lazy val redisClusterUris = List(
-    s"$redisUri:30001",
-    s"$redisUri:30002",
-    s"$redisUri:30003"
+    s"$redisHost:30001",
+    s"$redisHost:30002",
+    s"$redisHost:30003"
   ).traverse(RedisURI.make[IO](_))
 
   private def mkRedisCluster[K, V](codec: RedisCodec[K, V]): Resource[IO, RedisCommands[IO, K, V]] =
