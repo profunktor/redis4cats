@@ -17,28 +17,28 @@
 package dev.profunktor.redis4cats
 package streams
 
-import scala.concurrent.duration.Duration
-
 import cats.effect.kernel._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.effect.FutureLift
-import dev.profunktor.redis4cats.streams.data._
 import dev.profunktor.redis4cats.streams.data.StreamingOffset.{ All, Custom, Latest }
-
-import io.lettuce.core.{ XAddArgs, XReadArgs }
+import dev.profunktor.redis4cats.streams.data._
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
+import io.lettuce.core.{ XAddArgs, XReadArgs }
+
+import scala.concurrent.duration.Duration
 
 private[streams] class RedisRawStreaming[F[_]: FutureLift: Sync, K, V](
-    val client: StatefulRedisConnection[K, V]
+    val connection: StatefulRedisConnection[K, V],
+    val connection2: StatefulRedisConnection[K, V]
 ) extends RawStreaming[F, K, V] {
 
   override def xAdd(key: K, body: Map[K, V], approxMaxlen: Option[Long] = None): F[MessageId] =
     FutureLift[F]
       .lift {
         val args = approxMaxlen.map(XAddArgs.Builder.maxlen(_).approximateTrimming(true))
-        client.async().xadd(key, args.orNull, body.asJava)
+        connection.async().xadd(key, args.orNull, body.asJava)
       }
       .map(MessageId.apply)
 
@@ -56,11 +56,11 @@ private[streams] class RedisRawStreaming[F[_]: FutureLift: Sync, K, V](
         }.toSeq
 
         (block, count) match {
-          case (None, None)        => client.async().xread(offsets: _*)
-          case (None, Some(count)) => client.async().xread(XReadArgs.Builder.count(count), offsets: _*)
-          case (Some(block), None) => client.async().xread(XReadArgs.Builder.block(block.toMillis), offsets: _*)
+          case (None, None)        => connection2.async().xread(offsets: _*)
+          case (None, Some(count)) => connection2.async().xread(XReadArgs.Builder.count(count), offsets: _*)
+          case (Some(block), None) => connection2.async().xread(XReadArgs.Builder.block(block.toMillis), offsets: _*)
           case (Some(block), Some(count)) =>
-            client.async().xread(XReadArgs.Builder.block(block.toMillis).count(count), offsets: _*)
+            connection2.async().xread(XReadArgs.Builder.block(block.toMillis).count(count), offsets: _*)
         }
       }
       .map { list =>

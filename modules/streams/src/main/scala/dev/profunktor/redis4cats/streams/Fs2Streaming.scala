@@ -17,8 +17,6 @@
 package dev.profunktor.redis4cats
 package streams
 
-import scala.concurrent.duration.Duration
-
 import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
@@ -26,7 +24,13 @@ import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
+import io.lettuce.core.api.StatefulRedisConnection
+import io.lettuce.core.support.{ AsyncConnectionPoolSupport, BoundedPoolConfig }
 import io.lettuce.core.{ ReadFrom => JReadFrom }
+
+import java.util.concurrent.CompletionStage
+import java.util.function.Supplier
+import scala.concurrent.duration.Duration
 
 object RedisStream {
 
@@ -39,18 +43,43 @@ object RedisStream {
   def mkStreamingConnectionResource[F[_]: Async: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, Streaming[Stream[F, *], K, V]] = {
-    val acquire =
-      FutureLift[F]
-        .lift(client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying))
-        .map(new RedisRawStreaming(_))
+  ): Resource[F, Streaming[Stream[F, *], K, V]] =
+    Resource
+      .make(
+        FutureLift[F]
+          .lift {
+            val s: Supplier[CompletionStage[StatefulRedisConnection[K, V]]] =
+              () => client.underlying.connectAsync[K, V](codec.underlying, client.uri.underlying)
+            AsyncConnectionPoolSupport
+              .createBoundedObjectPoolAsync[StatefulRedisConnection[K, V]](
+                s,
+                BoundedPoolConfig.create
+              )
+              .toCompletableFuture
+          }
+      )(pool => FutureLift[F].lift(pool.closeAsync().thenApply(_ => ())))
+      .flatMap { pool =>
+        val acquire =
+          FutureLift[F]
+            .lift(pool.acquire().thenCompose(w => pool.acquire().thenApply(r => (w, r))))
+            .map {
+              case (w, r) =>
+                new RedisRawStreaming(
+                  w,
+                  r
+                )
+            }
 
-    val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
-      FutureLift[F].lift(c.client.closeAsync()) *>
-          Log[F].info(s"Releasing Streaming connection: ${client.uri.underlying}")
+        val release: RedisRawStreaming[F, K, V] => F[Unit] = c => {
+          FutureLift[F].lift {
+            println(c)
+            pool.release(c.connection).thenCompose(_ => pool.release(c.connection2))
+          } *>
+              Log[F].info(s"Releasing Streaming connection: ${client.uri.underlying}")
+        }
 
-    Resource.make(acquire)(release).map(rs => new RedisStream(rs))
-  }
+        Resource.make(acquire)(release).map(rs => new RedisStream(rs))
+      }
 
   def mkMasterReplicaConnection[F[_]: Async: Log, K, V](
       codec: RedisCodec[K, V],
@@ -63,7 +92,7 @@ object RedisStream {
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Resource[F, Streaming[Stream[F, *], K, V]] =
     RedisMasterReplica[F].make(codec, uris: _*)(readFrom).map { conn =>
-      new RedisStream(new RedisRawStreaming(conn.underlying))
+      new RedisStream(new RedisRawStreaming(conn.underlying, conn.underlying))
     }
 
 }

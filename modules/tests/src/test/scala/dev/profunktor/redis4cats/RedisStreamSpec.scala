@@ -62,7 +62,7 @@ class RedisStreamSpec extends Redis4CatsFunSuite(false) {
     val len  = 1000
     val msgs = List.fill(len)(generateMsg)
 
-    val read = stream.read(Set(streamName), 1, block = Some(1.millis))
+    val read = stream.read(Set(streamName), 1)
     val write = stream.append {
       fs2.Stream.emits(msgs).map(msg => XAddMessage(streamName, msg))
     }
