@@ -16,6 +16,7 @@
 
 package dev.profunktor.redis4cats.streams
 
+import cats.effect.IO
 import data._
 
 import scala.concurrent.duration.Duration
@@ -48,4 +49,7 @@ trait Streaming[F[_], K, V] {
       block: Option[Duration] = Some(Duration.Zero),
       count: Option[Long] = None
   ): F[XReadMessage[K, V]]
+}
+object Streaming {
+  type Fs2Streaming[K, V] = Streaming[fs2.Stream[IO, *], K, V]
 }
