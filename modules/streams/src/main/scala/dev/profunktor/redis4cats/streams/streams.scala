@@ -50,6 +50,3 @@ trait Streaming[F[_], K, V] {
       count: Option[Long] = None
   ): F[XReadMessage[K, V]]
 }
-object Streaming {
-  type Fs2Streaming[K, V] = Streaming[fs2.Stream[IO, *], K, V]
-}

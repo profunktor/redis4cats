@@ -21,8 +21,8 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effect.Log.NoOp._
-import dev.profunktor.redis4cats.streams.RedisStream
-import dev.profunktor.redis4cats.streams.Streaming.Fs2Streaming
+import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
+import dev.profunktor.redis4cats.Redis4CatsFunSuite.Fs2Streaming
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, Future }
@@ -86,4 +86,8 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
   def withRedisCluster[A](f: RedisCommands[IO, String, String] => IO[A]): Future[Unit] =
     withAbstractRedisCluster[A, String, String](f)(stringCodec)
 
+}
+object Redis4CatsFunSuite {
+
+  type Fs2Streaming[K, V] = Streaming[fs2.Stream[IO, *], K, V]
 }
