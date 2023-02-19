@@ -18,11 +18,11 @@ package dev.profunktor.redis4cats
 
 import cats.effect._
 import cats.syntax.all._
+import dev.profunktor.redis4cats.Redis4CatsFunSuite.Fs2Streaming
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
-import dev.profunktor.redis4cats.Redis4CatsFunSuite.Fs2Streaming
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, Future }
