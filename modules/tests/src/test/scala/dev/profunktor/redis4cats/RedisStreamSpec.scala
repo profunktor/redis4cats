@@ -16,29 +16,44 @@
 
 package dev.profunktor.redis4cats
 
+import cats.effect.IO
+import cats.implicits.toTraverseOps
 import dev.profunktor.redis4cats.streams.data.XAddMessage
 
 import scala.concurrent.duration.DurationInt
 
 class RedisStreamSpec extends Redis4CatsFunSuite(false) {
 
-  // FIXME: Flaky test -> https://github.com/profunktor/redis4cats/issues/460
-  test("append/read to/from a stream".ignore) {
-    withRedisStream[Unit] { stream =>
-      val read  = stream.read(Set("test-stream"), 1)
-      val write = stream.append(fs2.Stream(XAddMessage("test-stream", Map("hello" -> "world"))))
-
-      read
-        .concurrently(write)
-        .take(1)
-        .interruptAfter(3.seconds)
-        .compile
-        .lastOrError
-        .map { read =>
-          assertEquals(read.key, "test-stream")
-          assertEquals(read.body, Map("hello" -> "world"))
-        }
-    }
+  test("append/read to/from a stream") {
+    readWriteTest("test-stream", 1).unsafeToFuture()
   }
 
+  test("append/read to/from a stream - flakiness test") {
+    (1 to 10).toList
+      .traverse(i => readWriteTest(s"test-stream-$i", 100))
+      .void
+      .unsafeToFuture()
+  }
+
+  private def readWriteTest(streamKey: String, length: Long): IO[Unit] =
+    IO.fromFuture {
+      IO {
+        withRedisStream[Unit] { (readStream, writeStream) =>
+          val read = readStream.read(Set(streamKey), 1)
+          val write =
+            writeStream.append(fs2.Stream(XAddMessage(streamKey, Map("hello" -> "world"))).repeatN(length))
+
+          read
+            .concurrently(write)
+            .take(length)
+            .interruptAfter(3.seconds)
+            .compile
+            .lastOrError
+            .map { read =>
+              assertEquals(read.key, streamKey)
+              assertEquals(read.body, Map("hello" -> "world"))
+            }
+        }
+      }
+    }
 }

@@ -18,13 +18,14 @@ package dev.profunktor.redis4cats
 
 import cats.effect._
 import cats.syntax.all._
+import dev.profunktor.redis4cats.Redis4CatsFunSuite.Fs2Streaming
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
 
-import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ Await, Future }
 
 abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
@@ -50,11 +51,12 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
   def withRedisClient[A](f: RedisClient => IO[A]): Future[Unit] =
     RedisClient[IO].from("redis://localhost").use(f).as(assert(true)).unsafeToFuture()
 
-  def withRedisStream[A](f: Streaming[fs2.Stream[IO, *], String, String] => IO[A]): Future[Unit] =
+  def withRedisStream[A](f: (Fs2Streaming[String, String], Fs2Streaming[String, String]) => IO[A]): Future[Unit] =
     (for {
       client <- fs2.Stream.resource(RedisClient[IO].from("redis://localhost"))
-      streams <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
-      results <- fs2.Stream.eval(f(streams))
+      readStream <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
+      writeStream <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
+      results <- fs2.Stream.eval(f(readStream, writeStream))
     } yield results).compile.drain.void.unsafeToFuture()
 
   private def flushAll(): Future[Unit] =
@@ -84,4 +86,8 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
   def withRedisCluster[A](f: RedisCommands[IO, String, String] => IO[A]): Future[Unit] =
     withAbstractRedisCluster[A, String, String](f)(stringCodec)
 
+}
+object Redis4CatsFunSuite {
+
+  type Fs2Streaming[K, V] = Streaming[fs2.Stream[IO, *], K, V]
 }

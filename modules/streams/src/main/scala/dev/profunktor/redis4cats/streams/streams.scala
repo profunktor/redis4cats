@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.streams
 
-import data._
+import dev.profunktor.redis4cats.streams.data._
 
 import scala.concurrent.duration.Duration
 
