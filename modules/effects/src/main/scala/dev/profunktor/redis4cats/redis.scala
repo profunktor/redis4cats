@@ -628,8 +628,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.msetnx(keyValues.asJava).futureLift.map(x => Boolean.box(x)))
 
   /******************************* Hashes API **********************************/
-  override def hDel(key: K, fields: K*): F[Long] =
-    async.flatMap(_.hdel(key, fields: _*).futureLift.map(x => Long.box(x)))
+  override def hDel(key: K, field: K, fields: K*): F[Long] =
+    async.flatMap(_.hdel(key, (field +: fields): _*).futureLift.map(x => Long.box(x)))
 
   override def hExists(key: K, field: K): F[Boolean] =
     async.flatMap(_.hexists(key, field).futureLift.map(x => Boolean.box(x)))
@@ -640,9 +640,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def hGetAll(key: K): F[Map[K, V]] =
     async.flatMap(_.hgetall(key).futureLift.map(_.asScala.toMap))
 
-  override def hmGet(key: K, fields: K*): F[Map[K, V]] =
+  override def hmGet(key: K, field: K, fields: K*): F[Map[K, V]] =
     async
-      .flatMap(_.hmget(key, fields: _*).futureLift)
+      .flatMap(_.hmget(key, (field +: fields): _*).futureLift)
       .map(_.asScala.toList.collect { case kv if kv.hasValue => kv.getKey -> kv.getValue }.toMap)
 
   override def hKeys(key: K): F[List[K]] =
