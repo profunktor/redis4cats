@@ -75,6 +75,8 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(w.contains("some value")))
       w <- redis.hmGet(testKey, testField, testField2)
       _ <- IO(assertEquals(w, Map(testField -> "some value")))
+      w <- redis.hmGet(testKey, testField)
+      _ <- IO(assertEquals(w, Map(testField -> "some value")))
       d <- redis.hDel(testKey, testField)
       _ <- IO(assertEquals(d, 1L))
       z <- redis.hGet(testKey, testField)
