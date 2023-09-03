@@ -4,13 +4,13 @@ object Dependencies {
 
   object V {
     val cats       = "2.9.0"
-    val catsEffect = "3.4.11"
+    val catsEffect = "3.5.1"
     val circe      = "0.14.4"
     val fs2        = "3.6.1"
     val log4cats   = "2.6.0"
 
     val lettuce = "6.2.6.RELEASE"
-    val logback = "1.4.6"
+    val logback = "1.4.11"
 
     val kindProjector = "0.13.2"
 
