@@ -47,7 +47,8 @@ import io.lettuce.core.{
   Range => JRange,
   ReadFrom => JReadFrom,
   ScanCursor => JScanCursor,
-  SetArgs => JSetArgs
+  SetArgs => JSetArgs,
+  ExpireArgs => JExpireArgs
 }
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
@@ -413,6 +414,27 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
             c.pexpire(key, expiresIn.toMillis).futureLift
           case _ =>
             c.expire(key, expiresIn.toSeconds).futureLift
+        }
+      }
+      .map(x => Boolean.box(x))
+
+  override def expire(key: K, expiresIn: FiniteDuration, expireExistenceArg: ExpireExistenceArg): F[Boolean] =
+    async
+      .flatMap { c =>
+        val jExpireArgs = new JExpireArgs()
+
+        expireExistenceArg match {
+          case ExpireExistenceArg.Nx => jExpireArgs.nx()
+          case ExpireExistenceArg.Xx => jExpireArgs.xx()
+          case ExpireExistenceArg.Gt => jExpireArgs.gt()
+          case ExpireExistenceArg.Lt => jExpireArgs.lt()
+        }
+
+        expiresIn.unit match {
+          case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS =>
+            c.pexpire(key, expiresIn.toMillis, jExpireArgs).futureLift
+          case _ =>
+            c.expire(key, expiresIn.toSeconds, jExpireArgs).futureLift
         }
       }
       .map(x => Boolean.box(x))

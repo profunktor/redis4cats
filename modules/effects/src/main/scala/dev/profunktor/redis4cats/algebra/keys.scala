@@ -17,16 +17,16 @@
 package dev.profunktor.redis4cats.algebra
 
 import java.time.Instant
-
 import dev.profunktor.redis4cats.data.KeyScanCursor
+import dev.profunktor.redis4cats.effects.ExpireExistenceArg
 import dev.profunktor.redis4cats.effects.ScanArgs
-
 import scala.concurrent.duration.FiniteDuration
 
 trait KeyCommands[F[_], K] {
   def del(key: K*): F[Long]
   def exists(key: K*): F[Boolean]
   def expire(key: K, expiresIn: FiniteDuration): F[Boolean]
+  def expire(key: K, expiresIn: FiniteDuration, expireExistenceArg: ExpireExistenceArg): F[Boolean]
   def expireAt(key: K, at: Instant): F[Boolean]
   def objectIdletime(key: K): F[Option[FiniteDuration]]
   def ttl(key: K): F[Option[FiniteDuration]]
