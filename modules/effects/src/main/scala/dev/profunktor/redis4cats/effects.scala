@@ -153,4 +153,20 @@ object effects {
     def apply(ttl: SetArg.Ttl): SetArgs                       = SetArgs(None, Some(ttl))
     def apply(ex: SetArg.Existence, ttl: SetArg.Ttl): SetArgs = SetArgs(Some(ex), Some(ttl))
   }
+
+  sealed trait ExpireExistenceArg
+  object ExpireExistenceArg {
+
+    /** Set expiry only when the key has no expiry */
+    case object Nx extends ExpireExistenceArg
+
+    /** Set expiry only when the key has an existing expiry */
+    case object Xx extends ExpireExistenceArg
+
+    /** Set expiry only when the new expiry is greater than current one */
+    case object Gt extends ExpireExistenceArg
+
+    /** Set expiry only when the new expiry is greater than current one */
+    case object Lt extends ExpireExistenceArg
+  }
 }
