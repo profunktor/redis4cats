@@ -28,6 +28,7 @@ trait KeyCommands[F[_], K] {
   def expire(key: K, expiresIn: FiniteDuration): F[Boolean]
   def expire(key: K, expiresIn: FiniteDuration, expireExistenceArg: ExpireExistenceArg): F[Boolean]
   def expireAt(key: K, at: Instant): F[Boolean]
+  def expireAt(key: K, at: Instant, expireExistenceArg: ExpireExistenceArg): F[Boolean]
   def objectIdletime(key: K): F[Option[FiniteDuration]]
   def ttl(key: K): F[Option[FiniteDuration]]
   def pttl(key: K): F[Option[FiniteDuration]]

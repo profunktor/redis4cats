@@ -421,20 +421,11 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def expire(key: K, expiresIn: FiniteDuration, expireExistenceArg: ExpireExistenceArg): F[Boolean] =
     async
       .flatMap { c =>
-        val jExpireArgs = new JExpireArgs()
-
-        expireExistenceArg match {
-          case ExpireExistenceArg.Nx => jExpireArgs.nx()
-          case ExpireExistenceArg.Xx => jExpireArgs.xx()
-          case ExpireExistenceArg.Gt => jExpireArgs.gt()
-          case ExpireExistenceArg.Lt => jExpireArgs.lt()
-        }
-
         expiresIn.unit match {
           case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS =>
-            c.pexpire(key, expiresIn.toMillis, jExpireArgs).futureLift
+            c.pexpire(key, expiresIn.toMillis, expireExistenceArg.asJava).futureLift
           case _ =>
-            c.expire(key, expiresIn.toSeconds, jExpireArgs).futureLift
+            c.expire(key, expiresIn.toSeconds, expireExistenceArg.asJava).futureLift
         }
       }
       .map(x => Boolean.box(x))
@@ -446,6 +437,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     */
   override def expireAt(key: K, at: Instant): F[Boolean] =
     async.flatMap(_.pexpireat(key, at.toEpochMilli()).futureLift.map(x => Boolean.box(x)))
+
+  override def expireAt(key: K, at: Instant, expireExistenceArg: ExpireExistenceArg): F[Boolean] =
+    async.flatMap(_.pexpireat(key, at.toEpochMilli(), expireExistenceArg.asJava).futureLift.map(x => Boolean.box(x)))
 
   override def objectIdletime(key: K): F[Option[FiniteDuration]] =
     async.flatMap(_.objectIdletime(key).futureLift).map {
@@ -1349,6 +1343,21 @@ private[redis4cats] trait RedisConversionOps {
       val start: Number = toJavaNumber(range.start)
       val end: Number   = toJavaNumber(range.end)
       JRange.create(start, end)
+    }
+  }
+
+  private[redis4cats] implicit class ExpireExistenceArgOps(underlying: ExpireExistenceArg) {
+    def asJava: JExpireArgs = {
+      val jExpireArgs = new JExpireArgs()
+
+      underlying match {
+        case ExpireExistenceArg.Nx => jExpireArgs.nx()
+        case ExpireExistenceArg.Xx => jExpireArgs.xx()
+        case ExpireExistenceArg.Gt => jExpireArgs.gt()
+        case ExpireExistenceArg.Lt => jExpireArgs.lt()
+      }
+
+      jExpireArgs
     }
   }
 
