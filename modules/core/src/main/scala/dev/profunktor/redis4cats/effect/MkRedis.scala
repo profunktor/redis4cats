@@ -17,6 +17,7 @@
 package dev.profunktor.redis4cats.effect
 
 import scala.annotation.implicitNotFound
+import scala.annotation.nowarn
 
 import cats.effect.kernel._
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisClusterClient, RedisURI }
@@ -56,6 +57,7 @@ sealed trait MkRedis[F[_]] {
 object MkRedis {
   def apply[F[_]: MkRedis]: MkRedis[F] = implicitly
 
+  @nowarn
   implicit def forAsync[F[_]: Async: Log]: MkRedis[F] =
     new MkRedis[F] {
       def clientFrom(strUri: => String): Resource[F, RedisClient] =
