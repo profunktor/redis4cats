@@ -1,4 +1,5 @@
 name: Microsite
+
 on:
   # to allow the manual trigger workflows
   workflow_dispatch: {}
@@ -28,5 +29,5 @@ jobs:
           name: redis4cats
           signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
 
-      - name: "Building microsite 🚧"
-        run: nix-shell --run "sbt publishSite"
+      - name: "Building and publishing microsite 🚧"
+        run: nix develop -c sbt 'publishSite'
