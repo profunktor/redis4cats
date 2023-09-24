@@ -4,7 +4,7 @@ title:  "PubSub"
 number: 1
 ---
 
-# PubSub
+# PubSub (experimental)
 
 Simple, safe and pure functional streaming client to interact with [Redis PubSub](https://redis.io/topics/pubsub).
 

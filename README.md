@@ -1,10 +1,9 @@
 redis4cats
 ==========
 
-[![CI Status](https://github.com/profunktor/redis4cats/workflows/Build/badge.svg)](https://github.com/profunktor/redis4cats/actions)
+[![CI Status](https://github.com/profunktor/redis4cats/workflows/Scala/badge.svg)](https://github.com/profunktor/redis4cats/actions)
 [![Gitter Chat](https://badges.gitter.im/profunktor-dev/redis4cats.svg)](https://gitter.im/profunktor-dev/redis4cats)
 [![Maven Central](https://img.shields.io/maven-central/v/dev.profunktor/redis4cats-effects_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Credis4cats-effects) <a href="https://typelevel.org/cats/"><img src="https://raw.githubusercontent.com/typelevel/cats/c23130d2c2e4a320ba4cde9a7c7895c6f217d305/docs/src/main/resources/microsite/img/cats-badge.svg" height="40px" align="right" alt="Cats friendly" /></a>
-[![MergifyStatus](https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/profunktor/redis4cats&style=flat)](https://mergify.io)
 [![Scala Steward badge](https://img.shields.io/badge/Scala_Steward-helping-brightgreen.svg?style=flat&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAQCAMAAAARSr4IAAAAVFBMVEUAAACHjojlOy5NWlrKzcYRKjGFjIbp293YycuLa3pYY2LSqql4f3pCUFTgSjNodYRmcXUsPD/NTTbjRS+2jomhgnzNc223cGvZS0HaSD0XLjbaSjElhIr+AAAAAXRSTlMAQObYZgAAAHlJREFUCNdNyosOwyAIhWHAQS1Vt7a77/3fcxxdmv0xwmckutAR1nkm4ggbyEcg/wWmlGLDAA3oL50xi6fk5ffZ3E2E3QfZDCcCN2YtbEWZt+Drc6u6rlqv7Uk0LdKqqr5rk2UCRXOk0vmQKGfc94nOJyQjouF9H/wCc9gECEYfONoAAAAASUVORK5CYII=)](https://scala-steward.org)
 
 Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), [Fs2](http://fs2.io/) and the async Java client [Lettuce](https://lettuce.io/).
