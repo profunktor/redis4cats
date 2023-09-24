@@ -1,8 +1,7 @@
-resolvers += Classpaths.sbtPluginReleases
-resolvers += "Typesafe Repository" at "https://repo.typesafe.com/typesafe/releases/"
+ThisBuild / libraryDependencySchemes += "org.scala-lang.modules" %% "scala-xml" % VersionScheme.Always
 
 addSbtPlugin("com.github.sbt"            % "sbt-ci-release" % "1.5.10")
-addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat"   % "0.1.20")
+addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat"   % "0.4.4")
 addSbtPlugin("de.heikoseeberger"         % "sbt-header"     % "5.10.0")
 addSbtPlugin("org.scalameta"             % "sbt-scalafmt"   % "2.5.2")
 addSbtPlugin("com.47deg"                 % "sbt-microsites" % "1.3.4")

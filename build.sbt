@@ -5,6 +5,8 @@ import microsites.ExtraMdFileConfig
 
 ThisBuild / scalaVersion := "2.13.12"
 ThisBuild / crossScalaVersions := Seq("2.12.18", "2.13.12", "3.3.1")
+ThisBuild / evictionErrorLevel := Level.Info
+
 Test / parallelExecution := false
 
 // publishing
@@ -19,6 +21,8 @@ ThisBuild / developers := List(
     url("https://gvolpe.com")
   )
 )
+
+Global / onChangedBuildSource := ReloadOnSourceChanges
 
 promptTheme := PromptTheme(
   List(

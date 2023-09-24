@@ -12,25 +12,23 @@ Redis client built on top of [Cats Effect](https://typelevel.org/cats-effect/), 
 ### Quick Start
 
 ```scala
-import cats.effect._
-import cats.implicits._
+import cats.effect.*
+import cats.implicits.*
 import dev.profunktor.redis4cats.Redis
-import dev.profunktor.redis4cats.effect.Log.Stdout._
+import dev.profunktor.redis4cats.effect.Log.Stdout.given
 
-object QuickStart extends IOApp.Simple {
+object QuickStart extends IOApp.Simple:
 
-  def run: IO[Unit] =
+  val run: IO[Unit] =
     Redis[IO].utf8("redis://localhost").use { redis =>
-      for {
+      for
         _ <- redis.set("foo", "123")
         x <- redis.get("foo")
         _ <- redis.setNx("foo", "should not happen")
         y <- redis.get("foo")
         _ <- IO(println(x === y)) // true
-      } yield ()
+      yield ()
     }
-
-}
 ```
 
 The API is quite stable and *heavily used in production*. However, binary compatibility is not guaranteed across versions for now.
