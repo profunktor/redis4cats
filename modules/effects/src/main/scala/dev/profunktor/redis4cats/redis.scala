@@ -447,17 +447,17 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case d    => FiniteDuration(d, TimeUnit.SECONDS).some
     }
 
-  private def toFiniteDuration(duration: java.lang.Long): Option[FiniteDuration] =
+  private def toFiniteDuration(units: TimeUnit)(duration: java.lang.Long): Option[FiniteDuration] =
     duration match {
       case d if d < 0 => none[FiniteDuration]
-      case d          => FiniteDuration(d, TimeUnit.SECONDS).some
+      case d          => FiniteDuration(d, units).some
     }
 
   override def ttl(key: K): F[Option[FiniteDuration]] =
-    async.flatMap(_.ttl(key).futureLift.map(toFiniteDuration))
+    async.flatMap(_.ttl(key).futureLift.map(toFiniteDuration(TimeUnit.SECONDS)))
 
   override def pttl(key: K): F[Option[FiniteDuration]] =
-    async.flatMap(_.pttl(key).futureLift.map(toFiniteDuration))
+    async.flatMap(_.pttl(key).futureLift.map(toFiniteDuration(TimeUnit.MILLISECONDS)))
 
   override def scan: F[KeyScanCursor[K]] =
     async.flatMap(_.scan().futureLift.map(KeyScanCursor[K]))

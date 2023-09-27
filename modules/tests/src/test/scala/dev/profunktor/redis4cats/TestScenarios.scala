@@ -256,6 +256,7 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(c.nonEmpty))
       d <- redis.pttl("f1")
       _ <- IO(assert(d.nonEmpty))
+      _ <- IO(assert(d.exists(_ <= 10.seconds)))
       _ <- redis.set("f2", "yay")
       i <- redis.expire("f2", 50.millis)
       _ <- IO(assertEquals(i, true))
