@@ -2,7 +2,7 @@ version: "3.0"
 services:
   SingleNode:
     restart: always
-    image: redis:6.2.0
+    image: redis:7.0.10
     ports:
       - "6379:6379"
     environment:
@@ -11,7 +11,7 @@ services:
 
   ReplicaNode:
     restart: always
-    image: redis:6.2.0
+    image: redis:7.0.10
     ports:
       - "6380:6379"
     command: redis-server --replicaof SingleNode 6379
@@ -22,7 +22,7 @@ services:
 
   RedisCluster:
     restart: always
-    image: grokzen/redis-cluster:6.2.0
+    image: grokzen/redis-cluster:7.0.10
     ports:
       - "30001:30001"
       - "30002:30002"

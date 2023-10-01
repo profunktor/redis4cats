@@ -12,8 +12,7 @@ pull_request_rules:
       - author=gvolpe
       - title~=(?i)Update
       - body~=(?i)Configure Scala Steward for your repository
-      - "status-success=Build (jdk11)"
-      - "status-success=Build (jdk17)"
+      - status-success=Build
     actions:
       merge:
         method: merge

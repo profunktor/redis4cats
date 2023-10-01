@@ -3,8 +3,10 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / scalaVersion := "2.13.10"
-ThisBuild / crossScalaVersions := Seq("2.12.17", "2.13.10", "3.2.2")
+ThisBuild / scalaVersion := "2.13.12"
+ThisBuild / crossScalaVersions := Seq("2.12.18", "2.13.12", "3.3.1")
+ThisBuild / evictionErrorLevel := Level.Info
+
 Test / parallelExecution := false
 
 // publishing
@@ -19,6 +21,8 @@ ThisBuild / developers := List(
     url("https://gvolpe.com")
   )
 )
+
+Global / onChangedBuildSource := ReloadOnSourceChanges
 
 promptTheme := PromptTheme(
   List(
@@ -211,6 +215,7 @@ lazy val microsite = project
   .dependsOn(`redis4cats-effects`, `redis4cats-streams`, examples)
 
 // CI build
-addCommandAlias("buildRedis4Cats", ";+test;mdoc;doc")
+addCommandAlias("buildDoc", ";++2.13.12;mdoc;doc")
+addCommandAlias("buildRedis4Cats", ";+test;buildDoc")
 addCommandAlias("buildSite", ";doc;makeMicrosite")
 addCommandAlias("publishSite", ";doc;publishMicrosite")

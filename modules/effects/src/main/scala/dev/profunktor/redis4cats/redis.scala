@@ -47,7 +47,8 @@ import io.lettuce.core.{
   Range => JRange,
   ReadFrom => JReadFrom,
   ScanCursor => JScanCursor,
-  SetArgs => JSetArgs
+  SetArgs => JSetArgs,
+  ExpireArgs => JExpireArgs
 }
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
@@ -417,6 +418,18 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       }
       .map(x => Boolean.box(x))
 
+  override def expire(key: K, expiresIn: FiniteDuration, expireExistenceArg: ExpireExistenceArg): F[Boolean] =
+    async
+      .flatMap { c =>
+        expiresIn.unit match {
+          case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS =>
+            c.pexpire(key, expiresIn.toMillis, expireExistenceArg.asJava).futureLift
+          case _ =>
+            c.expire(key, expiresIn.toSeconds, expireExistenceArg.asJava).futureLift
+        }
+      }
+      .map(x => Boolean.box(x))
+
   /**
     * Expires a key at the given date.
     *
@@ -425,23 +438,26 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def expireAt(key: K, at: Instant): F[Boolean] =
     async.flatMap(_.pexpireat(key, at.toEpochMilli()).futureLift.map(x => Boolean.box(x)))
 
+  override def expireAt(key: K, at: Instant, expireExistenceArg: ExpireExistenceArg): F[Boolean] =
+    async.flatMap(_.pexpireat(key, at.toEpochMilli(), expireExistenceArg.asJava).futureLift.map(x => Boolean.box(x)))
+
   override def objectIdletime(key: K): F[Option[FiniteDuration]] =
     async.flatMap(_.objectIdletime(key).futureLift).map {
       case null => none[FiniteDuration]
       case d    => FiniteDuration(d, TimeUnit.SECONDS).some
     }
 
-  private def toFiniteDuration(duration: java.lang.Long): Option[FiniteDuration] =
+  private def toFiniteDuration(units: TimeUnit)(duration: java.lang.Long): Option[FiniteDuration] =
     duration match {
       case d if d < 0 => none[FiniteDuration]
-      case d          => FiniteDuration(d, TimeUnit.SECONDS).some
+      case d          => FiniteDuration(d, units).some
     }
 
   override def ttl(key: K): F[Option[FiniteDuration]] =
-    async.flatMap(_.ttl(key).futureLift.map(toFiniteDuration))
+    async.flatMap(_.ttl(key).futureLift.map(toFiniteDuration(TimeUnit.SECONDS)))
 
   override def pttl(key: K): F[Option[FiniteDuration]] =
-    async.flatMap(_.pttl(key).futureLift.map(toFiniteDuration))
+    async.flatMap(_.pttl(key).futureLift.map(toFiniteDuration(TimeUnit.MILLISECONDS)))
 
   override def scan: F[KeyScanCursor[K]] =
     async.flatMap(_.scan().futureLift.map(KeyScanCursor[K]))
@@ -1327,6 +1343,21 @@ private[redis4cats] trait RedisConversionOps {
       val start: Number = toJavaNumber(range.start)
       val end: Number   = toJavaNumber(range.end)
       JRange.create(start, end)
+    }
+  }
+
+  private[redis4cats] implicit class ExpireExistenceArgOps(underlying: ExpireExistenceArg) {
+    def asJava: JExpireArgs = {
+      val jExpireArgs = new JExpireArgs()
+
+      underlying match {
+        case ExpireExistenceArg.Nx => jExpireArgs.nx()
+        case ExpireExistenceArg.Xx => jExpireArgs.xx()
+        case ExpireExistenceArg.Gt => jExpireArgs.gt()
+        case ExpireExistenceArg.Lt => jExpireArgs.lt()
+      }
+
+      jExpireArgs
     }
   }
 
