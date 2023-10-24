@@ -598,7 +598,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.decr(key).futureLift.map(x => Long.box(x)))
 
   override def decrBy(key: K, amount: Long): F[Long] =
-    async.flatMap(_.incrby(key, amount).futureLift.map(x => Long.box(x)))
+    async.flatMap(_.decrby(key, amount).futureLift.map(x => Long.box(x)))
 
   override def incr(key: K): F[Long] =
     async.flatMap(_.incr(key).futureLift.map(x => Long.box(x)))
