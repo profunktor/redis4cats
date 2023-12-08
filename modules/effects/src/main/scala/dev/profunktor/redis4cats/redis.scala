@@ -269,7 +269,7 @@ object Redis {
       *   for {
       *     uri <- Resource.eval(RedisURI.make[IO]("redis://localhost"))
       *     cli <- RedisClient[IO](uri)
-      *     pool <- fs2.Stream.resource(Redis[IO].pooled(cli, RedisCodec.Utf8))
+      *     pool <- Redis[IO].pooled(cli, RedisCodec.Utf8)
       *   } yield pool
       *
       *  pool.use(_.withRedisCommands(redis => redis.set(usernameKey, "some value")))
