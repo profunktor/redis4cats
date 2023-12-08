@@ -22,6 +22,7 @@ import cats._
 import cats.data.NonEmptyList
 import cats.effect.kernel._
 import cats.syntax.all._
+import dev.profunktor.redis4cats.Redis.Pool.PoolSettings
 import dev.profunktor.redis4cats.algebra.BitCommandOperation
 import dev.profunktor.redis4cats.algebra.BitCommandOperation.Overflows
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
@@ -42,21 +43,42 @@ import io.lettuce.core.{
   ZAddArgs,
   ZAggregateArgs,
   ZStoreArgs,
+  ExpireArgs => JExpireArgs,
   GetExArgs => JGetExArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
   ScanCursor => JScanCursor,
-  SetArgs => JSetArgs,
-  ExpireArgs => JExpireArgs
+  SetArgs => JSetArgs
 }
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
+import org.typelevel.keypool.KeyPool
 
 import scala.concurrent.duration._
 
 object Redis {
+
+  object Pool {
+    final case class PoolSettings(maxTotal: Int, maxIdle: Int, idleTimeAllowedInPool: FiniteDuration)
+    object PoolSettings {
+      import scala.language.postfixOps
+      object Defaults {
+        val maxTotal: Int                         = Math.max(10, Runtime.getRuntime.availableProcessors())
+        val maxIdle: Int                          = 2
+        val idleTimeAllowedInPool: FiniteDuration = 60 seconds
+      }
+      val default: PoolSettings = PoolSettings(Defaults.maxTotal, Defaults.maxIdle, Defaults.idleTimeAllowedInPool)
+    }
+
+    implicit class PoolOps[F[_], K, V](val pool: KeyPool[F, Unit, RedisCommands[F, K, V]]) extends AnyVal {
+      @inline def withRedisCommands[A](
+          fn: RedisCommands[F, K, V] => F[A]
+      )(implicit M: MonadCancel[F, Throwable]): F[A] =
+        pool.take(()).use(managed => fn(managed.value))
+    }
+  }
 
   private[redis4cats] def acquireAndRelease[F[_]: FutureLift: Log: MonadThrow, K, V](
       client: RedisClient,
@@ -236,6 +258,38 @@ object Redis {
         val (acquire, release) = acquireAndRelease[F, K, V](client, codec, tx)
         Resource.make(acquire)(release).widen
       }
+
+    /**
+      * Creates a [[RedisCommands]] for a single-node connection.
+      *
+      * Example:
+      *
+      * {{{
+      * val redis: Resource[IO, RedisCommands[IO, String, String]] =
+      *   for {
+      *     uri <- Resource.eval(RedisURI.make[IO]("redis://localhost"))
+      *     cli <- RedisClient[IO](uri)
+      *     cmd <- Redis[IO].fromClient(cli, RedisCodec.Utf8)
+      *   } yield cmd
+      * }}}
+      *
+      * Note: if you don't need to create multiple connections, you might
+      * prefer to use either [[utf8]] or `simple` instead.
+      */
+    def pooled[K, V](
+        client: RedisClient,
+        codec: RedisCodec[K, V],
+        poolSettings: PoolSettings = PoolSettings.default
+    )(implicit T: Temporal[F]): Resource[F, KeyPool[F, Unit, RedisCommands[F, K, V]]] = {
+      val cmdsResource: Resource[F, RedisCommands[F, K, V]] = fromClient(client, codec)
+      KeyPool
+        .Builder[F, Unit, RedisCommands[F, K, V]]((_: Unit) => cmdsResource)
+        .withMaxPerKey(Function.const(poolSettings.maxTotal))
+        .withMaxTotal(poolSettings.maxTotal)
+        .withMaxIdle(poolSettings.maxIdle)
+        .withIdleTimeAllowedInPool(poolSettings.idleTimeAllowedInPool)
+        .build
+    }
 
     /**
       * Creates a [[RedisCommands]] for a cluster connection.
