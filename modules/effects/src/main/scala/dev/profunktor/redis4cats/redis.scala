@@ -260,21 +260,21 @@ object Redis {
       }
 
     /**
-      * Creates a [[RedisCommands]] for a single-node connection.
+      * Creates a pool of [[RedisCommands]] for a single-node connection.
       *
       * Example:
       *
       * {{{
-      * val redis: Resource[IO, RedisCommands[IO, String, String]] =
+      * val pool: Resource[IO, KeyPool[IO, Unit, RedisCommands[IO, String, String]]] =
       *   for {
       *     uri <- Resource.eval(RedisURI.make[IO]("redis://localhost"))
       *     cli <- RedisClient[IO](uri)
-      *     cmd <- Redis[IO].fromClient(cli, RedisCodec.Utf8)
-      *   } yield cmd
+      *     pool <- fs2.Stream.resource(Redis[IO].pooled(cli, RedisCodec.Utf8))
+      *   } yield pool
+      *
+      *  pool.use(_.withRedisCommands(redis => redis.set(usernameKey, "some value")))
       * }}}
       *
-      * Note: if you don't need to create multiple connections, you might
-      * prefer to use either [[utf8]] or `simple` instead.
       */
     def pooled[K, V](
         client: RedisClient,
