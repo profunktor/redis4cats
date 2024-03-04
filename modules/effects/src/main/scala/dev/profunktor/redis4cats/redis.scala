@@ -16,8 +16,6 @@
 
 package dev.profunktor.redis4cats
 
-import java.time.Instant
-import java.util.concurrent.TimeUnit
 import cats._
 import cats.data.NonEmptyList
 import cats.effect.kernel._
@@ -27,10 +25,13 @@ import dev.profunktor.redis4cats.algebra.BitCommandOperation.Overflows
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect._
 import dev.profunktor.redis4cats.effect.FutureLift._
+import dev.profunktor.redis4cats.effect._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.tx.{ TransactionDiscarded, TxRunner, TxStore }
+import io.lettuce.core.api.async.RedisAsyncCommands
+import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
+import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 import io.lettuce.core.{
   BitFieldArgs,
   ClientOptions,
@@ -42,18 +43,19 @@ import io.lettuce.core.{
   ZAddArgs,
   ZAggregateArgs,
   ZStoreArgs,
+  ExpireArgs => JExpireArgs,
+  FlushMode => JFlushMode,
+  FunctionRestoreMode => JFunctionRestoreMode,
   GetExArgs => JGetExArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
   ScanCursor => JScanCursor,
-  SetArgs => JSetArgs,
-  ExpireArgs => JExpireArgs
+  SetArgs => JSetArgs
 }
-import io.lettuce.core.api.async.RedisAsyncCommands
-import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
-import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
 
+import java.time.Instant
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 
 object Redis {
@@ -1288,6 +1290,90 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def digest(script: String): F[String] =
     async.map(_.digest(script))
+
+  override def fcall(function: String, output: ScriptOutputType[V], keys: K*): F[output.R] =
+    async.flatMap(
+      _.fcall[output.Underlying](
+        function,
+        output.outputType,
+        keys: _*
+      ).futureLift.map(output.convert(_))
+    )
+
+  override def fcall(function: String, output: ScriptOutputType[V], keys: Array[K], values: V*): F[output.R] =
+    async.flatMap(
+      _.fcall[output.Underlying](
+        function,
+        output.outputType,
+        // The Object requirement comes from the limitations of Java Generics. It is safe to assume K <: Object as
+        // the underlying JRedisCodec would also only support K <: Object.
+        keys.toArray[Any].asInstanceOf[Array[K with Object]],
+        values: _*
+      ).futureLift.map(output.convert(_))
+    )
+
+  override def fcallReadOnly(function: String, output: ScriptOutputType[V], keys: K*): F[output.R] =
+    async.flatMap(
+      _.fcallReadOnly[output.Underlying](
+        function,
+        output.outputType,
+        keys: _*
+      ).futureLift.map(output.convert(_))
+    )
+
+  override def fcallReadOnly(function: String, output: ScriptOutputType[V], keys: Array[K], values: V*): F[output.R] =
+    async.flatMap(
+      _.fcallReadOnly[output.Underlying](
+        function,
+        output.outputType,
+        // The Object requirement comes from the limitations of Java Generics. It is safe to assume K <: Object as
+        // the underlying JRedisCodec would also only support K <: Object.
+        keys.toArray[Any].asInstanceOf[Array[K with Object]],
+        values: _*
+      ).futureLift.map(output.convert(_))
+    )
+
+  override def functionLoad(functionCode: String): F[String] =
+    async.flatMap(_.functionLoad(functionCode).futureLift)
+
+  override def functionLoad(functionCode: String, replace: Boolean): F[String] =
+    async.flatMap(_.functionLoad(functionCode, replace).futureLift)
+
+  override def functionDump(): F[Array[Byte]] =
+    async.flatMap(_.functionDump().futureLift)
+
+  override def functionRestore(dump: Array[Byte]): F[String] =
+    async.flatMap(_.functionRestore(dump).futureLift)
+
+  override def functionRestore(dump: Array[Byte], mode: FunctionRestoreMode): F[String] = {
+    val jMode = mode match {
+      case FunctionRestoreMode.Flush   => JFunctionRestoreMode.FLUSH
+      case FunctionRestoreMode.Append  => JFunctionRestoreMode.APPEND
+      case FunctionRestoreMode.Replace => JFunctionRestoreMode.REPLACE
+    }
+    async.flatMap(_.functionRestore(dump, jMode).futureLift)
+  }
+
+  override def functionFlush(flushMode: FlushMode): F[String] = {
+    val jFlushMode = flushMode match {
+      case FlushMode.Sync  => JFlushMode.SYNC
+      case FlushMode.Async => JFlushMode.ASYNC
+    }
+    async.flatMap(_.functionFlush(jFlushMode).futureLift)
+  }
+
+  override def functionKill(): F[String] =
+    async.flatMap(_.functionKill().futureLift)
+
+  override def functionList(): F[List[Map[String, Any]]] =
+    async
+      .flatMap(_.functionList().futureLift)
+      .map(_.asScala.map(_.asScala.toMap).toList)
+
+  override def functionList(libraryName: String): F[List[Map[String, Any]]] =
+    async
+      .flatMap(_.functionList(libraryName).futureLift)
+      .map(_.asScala.map(_.asScala.toMap).toList)
 
   /** ***************************** HyperLoglog API **********************************/
   override def pfAdd(key: K, values: V*): F[Long] =

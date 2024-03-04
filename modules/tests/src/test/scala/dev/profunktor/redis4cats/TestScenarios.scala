@@ -16,24 +16,22 @@
 
 package dev.profunktor.redis4cats
 
-import java.time.Instant
-
-import scala.concurrent.duration._
-
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
-import fs2.Stream
-
-import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrUnsignedBy, SetUnsigned }
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.{IncrUnsignedBy, SetUnsigned}
 import dev.profunktor.redis4cats.algebra.BitCommands
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
-import io.lettuce.core.{ GeoArgs, RedisException, ZAggregateArgs }
+import fs2.Stream
+import io.lettuce.core.{GeoArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs}
 import munit.FunSuite
+
+import java.time.Instant
+import scala.concurrent.duration._
 
 trait TestScenarios { self: FunSuite =>
 
@@ -607,6 +605,48 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.scriptFlush
       exists2 <- redis.scriptExists(sha42)
       _ <- IO(assertEquals(exists2, List(false)))
+    } yield ()
+  }
+
+  def functionsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
+    val myFunc =
+      """#!lua name=mylib
+        | redis.register_function('myfunc', function(keys, args) return args[1] end)
+        | """.stripMargin
+
+    val myEcho =
+      """#!lua name=mylib_2
+        | local function my_echo(keys, args)
+        |   return args[1]
+        | end
+        | redis.register_function{function_name='my_echo',callback=my_echo, flags={ 'no-writes' }}
+        | """.stripMargin
+
+    for {
+      _ <- redis.functionFlush(FlushMode.Sync)
+      _ <- redis.functionLoad(myFunc)
+      _ <- redis.functionLoad(myFunc).recover({ case _: RedisCommandExecutionException => ""})
+      _ <- redis.functionLoad(myFunc, replace = true)
+      fcallResult <- redis.fcall("myfunc", ScriptOutputType.Status, Array("key"), "Hello")
+      _ <- IO(assertEquals(fcallResult, "Hello"))
+      _ <- redis.functionFlush(FlushMode.Sync)
+      _ <- redis.functionLoad(myEcho)
+      fcallReadOnlyResult <- redis.fcallReadOnly("my_echo", ScriptOutputType.Status, Array("key"), "Hello")
+      _ <- IO(assertEquals(fcallReadOnlyResult, "Hello"))
+      _ <- redis.functionFlush(FlushMode.Sync)
+      _ <- redis.functionLoad(myFunc)
+      dump <- redis.functionDump()
+      _ <- redis.functionFlush(FlushMode.Sync)
+      _ <- redis.functionRestore(dump)
+      fcallRestoreResult <- redis.fcall("myfunc", ScriptOutputType.Status, Array("key"), "Hello")
+      _ <- IO(assertEquals(fcallRestoreResult, "Hello"))
+      _ <- redis.functionFlush(FlushMode.Sync)
+      listResult <- redis.functionList()
+      _ = assertEquals(listResult.size, 0)
+      _ <- redis.functionLoad(myFunc)
+      _ <- redis.functionLoad(myEcho)
+      listResult <- redis.functionList()
+      _ = assertEquals(listResult.size, 2)
     } yield ()
   }
 
