@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
-import dev.profunktor.redis4cats.algebra.BitCommandOperation.{IncrUnsignedBy, SetUnsigned}
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrUnsignedBy, SetUnsigned }
 import dev.profunktor.redis4cats.algebra.BitCommands
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
@@ -27,7 +27,7 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
 import fs2.Stream
-import io.lettuce.core.{GeoArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs}
+import io.lettuce.core.{ GeoArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs }
 import munit.FunSuite
 
 import java.time.Instant
@@ -625,20 +625,20 @@ trait TestScenarios { self: FunSuite =>
     for {
       _ <- redis.functionFlush(FlushMode.Sync)
       _ <- redis.functionLoad(myFunc)
-      _ <- redis.functionLoad(myFunc).recover({ case _: RedisCommandExecutionException => ""})
+      _ <- redis.functionLoad(myFunc).recover({ case _: RedisCommandExecutionException => "" })
       _ <- redis.functionLoad(myFunc, replace = true)
-      fcallResult <- redis.fcall("myfunc", ScriptOutputType.Status, Array("key"), "Hello")
+      fcallResult <- redis.fcall("myfunc", ScriptOutputType.Status, List("key"), List("Hello"))
       _ <- IO(assertEquals(fcallResult, "Hello"))
       _ <- redis.functionFlush(FlushMode.Sync)
       _ <- redis.functionLoad(myEcho)
-      fcallReadOnlyResult <- redis.fcallReadOnly("my_echo", ScriptOutputType.Status, Array("key"), "Hello")
+      fcallReadOnlyResult <- redis.fcallReadOnly("my_echo", ScriptOutputType.Status, List("key"), List("Hello"))
       _ <- IO(assertEquals(fcallReadOnlyResult, "Hello"))
       _ <- redis.functionFlush(FlushMode.Sync)
       _ <- redis.functionLoad(myFunc)
       dump <- redis.functionDump()
       _ <- redis.functionFlush(FlushMode.Sync)
       _ <- redis.functionRestore(dump)
-      fcallRestoreResult <- redis.fcall("myfunc", ScriptOutputType.Status, Array("key"), "Hello")
+      fcallRestoreResult <- redis.fcall("myfunc", ScriptOutputType.Status, List("key"), List("Hello"))
       _ <- IO(assertEquals(fcallRestoreResult, "Hello"))
       _ <- redis.functionFlush(FlushMode.Sync)
       listResult <- redis.functionList()

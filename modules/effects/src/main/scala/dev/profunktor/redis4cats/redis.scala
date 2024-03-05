@@ -1291,7 +1291,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def digest(script: String): F[String] =
     async.map(_.digest(script))
 
-  override def fcall(function: String, output: ScriptOutputType[V], keys: K*): F[output.R] =
+  override def fcall(function: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
     async.flatMap(
       _.fcall[output.Underlying](
         function,
@@ -1300,7 +1300,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       ).futureLift.map(output.convert(_))
     )
 
-  override def fcall(function: String, output: ScriptOutputType[V], keys: Array[K], values: V*): F[output.R] =
+  override def fcall(function: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
     async.flatMap(
       _.fcall[output.Underlying](
         function,
@@ -1312,7 +1312,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       ).futureLift.map(output.convert(_))
     )
 
-  override def fcallReadOnly(function: String, output: ScriptOutputType[V], keys: K*): F[output.R] =
+  override def fcallReadOnly(function: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
     async.flatMap(
       _.fcallReadOnly[output.Underlying](
         function,
@@ -1321,7 +1321,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       ).futureLift.map(output.convert(_))
     )
 
-  override def fcallReadOnly(function: String, output: ScriptOutputType[V], keys: Array[K], values: V*): F[output.R] =
+  override def fcallReadOnly(
+      function: String,
+      output: ScriptOutputType[V],
+      keys: List[K],
+      values: List[V]
+  ): F[output.R] =
     async.flatMap(
       _.fcallReadOnly[output.Underlying](
         function,

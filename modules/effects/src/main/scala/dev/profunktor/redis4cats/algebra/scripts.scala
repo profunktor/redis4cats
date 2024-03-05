@@ -37,10 +37,10 @@ trait Scripting[F[_], K, V] {
 }
 
 trait Functions[F[_], K, V] {
-  def fcall(function: String, output: ScriptOutputType[V], keys: K*): F[output.R]
-  def fcall(function: String, output: ScriptOutputType[V], keys: Array[K], values: V*): F[output.R]
-  def fcallReadOnly(function: String, output: ScriptOutputType[V], keys: K*): F[output.R]
-  def fcallReadOnly(function: String, output: ScriptOutputType[V], keys: Array[K], values: V*): F[output.R]
+  def fcall(function: String, output: ScriptOutputType[V], keys: List[K]): F[output.R]
+  def fcall(function: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R]
+  def fcallReadOnly(function: String, output: ScriptOutputType[V], keys: List[K]): F[output.R]
+  def fcallReadOnly(function: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R]
   def functionLoad(functionCode: String): F[String]
   def functionLoad(functionCode: String, replace: Boolean): F[String]
   def functionDump(): F[Array[Byte]]
