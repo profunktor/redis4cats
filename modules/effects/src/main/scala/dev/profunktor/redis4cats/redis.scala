@@ -58,7 +58,6 @@ import org.typelevel.keypool.KeyPool
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 object Redis {
 
@@ -66,11 +65,19 @@ object Redis {
     final case class Settings(maxTotal: Int, maxIdle: Int, idleTimeAllowedInPool: FiniteDuration)
     object Settings {
       object Defaults {
-        val maxTotal: Int                         = Math.max(10, Runtime.getRuntime.availableProcessors())
+        val minimumTotal: Int                     = 10
         val maxIdle: Int                          = 2
-        val idleTimeAllowedInPool: FiniteDuration = 60 seconds
+        val idleTimeAllowedInPool: FiniteDuration = 60.seconds
       }
-      val default: Settings = Settings(Defaults.maxTotal, Defaults.maxIdle, Defaults.idleTimeAllowedInPool)
+
+      def default[F[_]: Sync]: F[Settings] =
+        Sync[F].blocking(Runtime.getRuntime.availableProcessors()).map { cpu =>
+          Settings(
+            maxTotal = Math.max(Defaults.minimumTotal, cpu),
+            maxIdle = Defaults.maxIdle,
+            idleTimeAllowedInPool = Defaults.idleTimeAllowedInPool
+          )
+        }
     }
 
     implicit class PoolOps[F[_], K, V](val pool: KeyPool[F, Unit, RedisCommands[F, K, V]]) extends AnyVal {
@@ -137,7 +144,7 @@ object Redis {
     (acquire, release)
   }
 
-  class RedisPartiallyApplied[F[_]: MkRedis: MonadThrow] {
+  class RedisPartiallyApplied[F[_]: MkRedis: Sync] {
     implicit val fl: FutureLift[F] = MkRedis[F].futureLift
     implicit val log: Log[F]       = MkRedis[F].log
 
@@ -279,8 +286,20 @@ object Redis {
       */
     def pooled[K, V](
         client: RedisClient,
+        codec: RedisCodec[K, V]
+    )(implicit T: Temporal[F]): Resource[F, KeyPool[F, Unit, RedisCommands[F, K, V]]] =
+      Resource
+        .eval(Redis.Pool.Settings.default[F])
+        .flatMap(poolSettings => customPooled[K, V](client, codec, poolSettings))
+
+    /**
+      * Creates a pool of [[RedisCommands]] for a single-node connection.
+      * Similar to [[pooled]] but allows custom [[Redis.Pool.Settings]]
+      */
+    def customPooled[K, V](
+        client: RedisClient,
         codec: RedisCodec[K, V],
-        poolSettings: Redis.Pool.Settings = Redis.Pool.Settings.default
+        poolSettings: Redis.Pool.Settings
     )(implicit T: Temporal[F]): Resource[F, KeyPool[F, Unit, RedisCommands[F, K, V]]] = {
       val cmdsResource: Resource[F, RedisCommands[F, K, V]] = fromClient(client, codec)
       KeyPool
@@ -426,7 +445,7 @@ object Redis {
 
   }
 
-  def apply[F[_]: MkRedis: MonadThrow]: RedisPartiallyApplied[F] = new RedisPartiallyApplied[F]
+  def apply[F[_]: MkRedis: Sync]: RedisPartiallyApplied[F] = new RedisPartiallyApplied[F]
 
 }
 
