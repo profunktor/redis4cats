@@ -82,11 +82,11 @@ object effects {
       override private[redis4cats] def convert(in: java.util.List[V]): List[V] = in.asScala.toList
     }
 
-    def Status[V]: ScriptOutputType.Aux[V, Unit] = new ScriptOutputType[V] {
-      type R                              = Unit
+    def Status[V]: ScriptOutputType.Aux[V, String] = new ScriptOutputType[V] {
+      type R                              = String
       private[redis4cats] type Underlying = String
-      override private[redis4cats] val outputType                = JScriptOutputType.STATUS
-      override private[redis4cats] def convert(in: String): Unit = ()
+      override private[redis4cats] val outputType                  = JScriptOutputType.STATUS
+      override private[redis4cats] def convert(in: String): String = in
     }
   }
 
@@ -102,6 +102,19 @@ object effects {
     def apply(`match`: String): ScanArgs              = ScanArgs(Some(`match`), None)
     def apply(count: Long): ScanArgs                  = ScanArgs(None, Some(count))
     def apply(`match`: String, count: Long): ScanArgs = ScanArgs(Some(`match`), Some(count))
+  }
+
+  sealed trait FlushMode
+  object FlushMode {
+    case object Sync extends FlushMode
+    case object Async extends FlushMode
+  }
+
+  sealed trait FunctionRestoreMode
+  object FunctionRestoreMode {
+    case object Append extends FunctionRestoreMode
+    case object Flush extends FunctionRestoreMode
+    case object Replace extends FunctionRestoreMode
   }
 
   sealed trait GetExArg
