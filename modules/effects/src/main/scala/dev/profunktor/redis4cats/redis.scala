@@ -70,8 +70,8 @@ object Redis {
         val idleTimeAllowedInPool: FiniteDuration = 60.seconds
       }
 
-      def default[F[_]: Sync]: F[Settings] =
-        Sync[F].blocking(Runtime.getRuntime.availableProcessors()).map { cpu =>
+      def default[F[_]: MkRedis: Functor]: F[Settings] =
+        MkRedis[F].availableProcessors.map { cpu =>
           Settings(
             maxTotal = Math.max(Defaults.minimumTotal, cpu),
             maxIdle = Defaults.maxIdle,
@@ -144,7 +144,7 @@ object Redis {
     (acquire, release)
   }
 
-  class RedisPartiallyApplied[F[_]: MkRedis: Sync] {
+  class RedisPartiallyApplied[F[_]: MkRedis: MonadThrow] {
     implicit val fl: FutureLift[F] = MkRedis[F].futureLift
     implicit val log: Log[F]       = MkRedis[F].log
 
@@ -445,7 +445,7 @@ object Redis {
 
   }
 
-  def apply[F[_]: MkRedis: Sync]: RedisPartiallyApplied[F] = new RedisPartiallyApplied[F]
+  def apply[F[_]: MkRedis: MonadThrow]: RedisPartiallyApplied[F] = new RedisPartiallyApplied[F]
 
 }
 
