@@ -52,6 +52,7 @@ sealed trait MkRedis[F[_]] {
   private[redis4cats] def txRunner: Resource[F, TxRunner[F]]
   private[redis4cats] def futureLift: FutureLift[F]
   private[redis4cats] def log: Log[F]
+  private[redis4cats] def availableProcessors: F[Int]
 }
 
 object MkRedis {
@@ -85,6 +86,8 @@ object MkRedis {
       private[redis4cats] def futureLift: FutureLift[F] = implicitly
 
       private[redis4cats] def log: Log[F] = implicitly
+
+      private[redis4cats] def availableProcessors: F[Int] = Async[F].blocking(Runtime.getRuntime.availableProcessors())
     }
 
 }
