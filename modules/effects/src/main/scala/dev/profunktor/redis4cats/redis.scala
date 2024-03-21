@@ -62,7 +62,7 @@ object Redis {
 
   object Pool {
     final case class PoolSettings(maxTotal: Int, maxIdle: Int, idleTimeAllowedInPool: FiniteDuration)
-    object PoolSettings {
+    object Settings {
       import scala.language.postfixOps
       object Defaults {
         val maxTotal: Int                         = Math.max(10, Runtime.getRuntime.availableProcessors())
