@@ -58,13 +58,13 @@ import org.typelevel.keypool.KeyPool
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 object Redis {
 
   object Pool {
     final case class Settings(maxTotal: Int, maxIdle: Int, idleTimeAllowedInPool: FiniteDuration)
     object Settings {
-      import scala.language.postfixOps
       object Defaults {
         val maxTotal: Int                         = Math.max(10, Runtime.getRuntime.availableProcessors())
         val maxIdle: Int                          = 2
