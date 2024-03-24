@@ -6,7 +6,7 @@ object Dependencies {
     val cats       = "2.10.0"
     val catsEffect = "3.5.4"
     val circe      = "0.14.6"
-    val fs2        = "3.9.4"
+    val fs2        = "3.10.0"
     val log4cats   = "2.6.0"
     val keyPool    = "0.4.9"
 
