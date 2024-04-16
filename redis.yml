@@ -1,26 +1,25 @@
 version: "3.0"
 services:
-  SingleNode:
+  SingleNodeRedis:
     restart: always
-    image: valkey/valkey:7.2
+    image: redis:7.0.10
     ports:
       - "6379:6379"
     environment:
       - DEBUG=false
-    command: valkey-server --notify-keyspace-events KEA
+    command: redis-server --notify-keyspace-events KEA
 
   ReplicaNode:
     restart: always
-    image: valkey/valkey:7.2
+    image: redis:7.0.10
     ports:
       - "6380:6379"
-    command: valkey-server --replicaof SingleNode 6379
+    command: redis-server --replicaof SingleNodeRedis 6379
     links:
-      - SingleNode:SingleNode
+      - SingleNodeRedis:SingleNodeRedis
     environment:
       - DEBUG=false
 
-  # FIXME: Need a replacement: https://github.com/Grokzen/docker-redis-cluster
   RedisCluster:
     restart: always
     image: grokzen/redis-cluster:7.0.10

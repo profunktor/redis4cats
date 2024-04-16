@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2.3.2
 
-      - name: "Starting up Redis 🐳"
+      - name: "Starting up Valkey 🐳"
         run: docker-compose up -d
 
       - name: "Cache for sbt & coursier ♨️"
