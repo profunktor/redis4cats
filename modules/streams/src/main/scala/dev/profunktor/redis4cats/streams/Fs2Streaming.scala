@@ -77,7 +77,7 @@ class RedisStream[F[_]: Sync, K, V](rawStreaming: RedisRawStreaming[F, K, V]) ex
     list => list.groupBy(_.key).map { case (k, values) => k -> values.lastOption.map(nextOffset(k)) }
 
   override def append: Stream[F, XAddMessage[K, V]] => Stream[F, MessageId] =
-    _.evalMap(msg => rawStreaming.xAdd(msg.key, msg.body, msg.approxMaxlen))
+    _.evalMap(msg => rawStreaming.xAdd(msg.key, msg.body, msg.approxMaxlen, msg.minId))
 
   override def read(
       keys: Set[K],

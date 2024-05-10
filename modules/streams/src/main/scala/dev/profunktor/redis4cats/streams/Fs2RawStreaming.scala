@@ -18,14 +18,13 @@ package dev.profunktor.redis4cats
 package streams
 
 import scala.concurrent.duration.Duration
-
 import cats.effect.kernel._
+import cats.syntax.option._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.effect.FutureLift
 import dev.profunktor.redis4cats.streams.data._
 import dev.profunktor.redis4cats.streams.data.StreamingOffset.{ All, Custom, Latest }
-
 import io.lettuce.core.{ XAddArgs, XReadArgs }
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.StatefulRedisConnection
@@ -34,10 +33,24 @@ private[streams] class RedisRawStreaming[F[_]: FutureLift: Sync, K, V](
     val client: StatefulRedisConnection[K, V]
 ) extends RawStreaming[F, K, V] {
 
-  override def xAdd(key: K, body: Map[K, V], approxMaxlen: Option[Long] = None): F[MessageId] =
+  override def xAdd(
+      key: K,
+      body: Map[K, V],
+      approxMaxlen: Option[Long] = None,
+      minId: Option[String] = None
+  ): F[MessageId] =
     FutureLift[F]
       .lift {
-        val args = approxMaxlen.map(XAddArgs.Builder.maxlen(_).approximateTrimming(true))
+        val args = (approxMaxlen, minId) match {
+          case (Some(len), Some(id)) =>
+            XAddArgs.Builder.maxlen(len).approximateTrimming(true).minId(id).some
+          case (Some(len), None) =>
+            XAddArgs.Builder.maxlen(len).approximateTrimming(true).some
+          case (None, Some(id)) =>
+            XAddArgs.Builder.minId(id).some
+          case (None, None) =>
+            None
+        }
         client.async().xadd(key, args.orNull, body.asJava)
       }
       .map(MessageId.apply)

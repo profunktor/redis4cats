@@ -3,10 +3,10 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / scalaVersion := "2.13.13"
-ThisBuild / crossScalaVersions := Seq("2.12.19", "2.13.13", "3.3.3")
+ThisBuild / scalaVersion := "2.13.14"
+ThisBuild / crossScalaVersions := Seq("2.12.19", "2.13.14", "3.3.3")
 ThisBuild / evictionErrorLevel := Level.Info
-
+ThisBuild / mimaBaseVersion := "1.7.0"
 Test / parallelExecution := false
 
 // publishing
@@ -107,12 +107,14 @@ lazy val `redis4cats-root` = project
 lazy val `redis4cats-core` = project
   .in(file("modules/core"))
   .settings(commonSettings: _*)
+  .settings(isMimaEnabled := true)
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `redis4cats-log4cats` = project
   .in(file("modules/log4cats"))
   .settings(commonSettings: _*)
+  .settings(isMimaEnabled := true)
   .settings(libraryDependencies += Libraries.log4CatsCore)
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -121,6 +123,7 @@ lazy val `redis4cats-log4cats` = project
 lazy val `redis4cats-effects` = project
   .in(file("modules/effects"))
   .settings(commonSettings: _*)
+  .settings(isMimaEnabled := true)
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
@@ -128,6 +131,7 @@ lazy val `redis4cats-effects` = project
 lazy val `redis4cats-streams` = project
   .in(file("modules/streams"))
   .settings(commonSettings: _*)
+  .settings(isMimaEnabled := true)
   .settings(libraryDependencies += Libraries.fs2Core)
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -217,6 +221,6 @@ lazy val microsite = project
 
 // CI build
 addCommandAlias("buildDoc", ";++2.13.12;mdoc;doc")
-addCommandAlias("buildRedis4Cats", ";+test;buildDoc")
+addCommandAlias("buildRedis4Cats", ";mimaReportBinaryIssuesIfRelevant;+test;buildDoc")
 addCommandAlias("buildSite", ";doc;makeMicrosite")
 addCommandAlias("publishSite", ";doc;publishMicrosite")

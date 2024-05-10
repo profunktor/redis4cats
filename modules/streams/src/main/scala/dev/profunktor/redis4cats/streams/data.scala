@@ -19,7 +19,12 @@ package streams
 
 object data {
 
-  final case class XAddMessage[K, V](key: K, body: Map[K, V], approxMaxlen: Option[Long] = None)
+  final case class XAddMessage[K, V](
+      key: K,
+      body: Map[K, V],
+      approxMaxlen: Option[Long] = None,
+      minId: Option[String] = None
+  )
   final case class XReadMessage[K, V](id: MessageId, key: K, body: Map[K, V])
   final case class MessageId(value: String) extends AnyVal
 

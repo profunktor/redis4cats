@@ -24,11 +24,13 @@ trait RawStreaming[F[_], K, V] {
 
   /**
     * @param approxMaxlen does XTRIM ~ maxlen if defined
+    * @param minId  the oldest ID in the stream will be exactly the minimum between its original oldest ID and the specified threshold.
     */
   def xAdd(
       key: K,
       body: Map[K, V],
-      approxMaxlen: Option[Long] = None
+      approxMaxlen: Option[Long] = None,
+      minId: Option[String] = None
   ): F[MessageId]
 
   def xRead(
