@@ -75,6 +75,27 @@
   <span class="o">}</span> <span class="k">yield</span> <span class="n">redis</span>
 </code></pre></div></div>
 
+<p>A RedisURI can also be created using the <code class="language-plaintext highlighter-rouge">redis</code> string interpolator:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.syntax.literals._</span>
+<span class="k">val</span> <span class="nv">uri</span> <span class="k">=</span> <span class="n">redis</span><span class="s">"redis://localhost"</span>
+
+<span class="k">val</span> <span class="nv">secure</span> <span class="k">=</span> <span class="n">redis</span><span class="s">"rediss://localhost"</span>
+
+<span class="k">val</span> <span class="nv">withPassword</span> <span class="k">=</span> <span class="n">redis</span><span class="s">"redis://:password@localhost"</span>
+
+<span class="k">val</span> <span class="nv">withDatabase</span> <span class="k">=</span> <span class="n">redis</span><span class="s">"redis://localhost/1"</span>
+
+<span class="k">val</span> <span class="nv">sentinel</span> <span class="k">=</span> <span class="n">redis</span><span class="s">"redis-sentinel://localhost:26379,localhost:26380?sentinelMasterId=m"</span>
+
+<span class="k">val</span> <span class="nv">`</span><span class="n">redis</span><span class="o">+</span><span class="n">ssl` = redis"redis+ssl://localhost"
+
+val `redis</span><span class="o">+</span><span class="n">tls` = redis"redis+tls://localhost"
+
+val `redis</span><span class="o">-</span><span class="n">socket</span><span class="o">`</span> <span class="k">=</span> <span class="n">redis</span><span class="s">"redis-socket:///tmp/redis.sock"</span>
+
+</code></pre></div></div>
+
 <h2 id="single-node-connection">Single node connection</h2>
 
 <p>For those who only need a simple API access to Redis commands, there are a few ways to acquire a connection:</p>
