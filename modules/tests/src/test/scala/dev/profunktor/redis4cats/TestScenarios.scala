@@ -32,6 +32,7 @@ import munit.FunSuite
 
 import java.time.Instant
 import scala.concurrent.duration._
+import io.lettuce.core.RedisReadOnlyException
 
 trait TestScenarios { self: FunSuite =>
 
@@ -592,10 +593,16 @@ trait TestScenarios { self: FunSuite =>
                )
              )
       _ <- IO(assertEquals(list, List("Let", "us", "have", "fun")))
+      boolReadOnly <- redis.evalReadOnly("return true", ScriptOutputType.Boolean, List("Foo"))
+      _ <- IO(assert(boolReadOnly))
       _ <- redis.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
+      either <- redis.evalReadOnly(statusScript, ScriptOutputType.Status, List("test"), List("foo")).attempt
+      _ <- IO(assert(either.left.exists(_.isInstanceOf[RedisReadOnlyException])))
       sha42 <- redis.scriptLoad("return 42")
       fortyTwoSha <- redis.evalSha(sha42, ScriptOutputType.Integer)
       _ <- IO(assertEquals(fortyTwoSha, 42L))
+      fortyTwoShaReadOnly <- redis.evalShaReadOnly(sha42, ScriptOutputType.Integer)
+      _ <- IO(assertEquals(fortyTwoShaReadOnly, 42L))
       shaStatusScript <- redis.scriptLoad(statusScript)
       _ <- redis.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
       exists <- redis.scriptExists(sha42, "foobar")
