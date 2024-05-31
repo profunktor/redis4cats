@@ -32,7 +32,6 @@ import munit.FunSuite
 
 import java.time.Instant
 import scala.concurrent.duration._
-import io.lettuce.core.RedisReadOnlyException
 
 trait TestScenarios { self: FunSuite =>
 
@@ -597,7 +596,14 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(boolReadOnly))
       _ <- redis.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
       either <- redis.evalReadOnly(statusScript, ScriptOutputType.Status, List("test"), List("foo")).attempt
-      _ <- IO(assert(either.left.exists(_.isInstanceOf[RedisReadOnlyException])))
+      _ <- IO(
+            assert(
+              either.left.exists { ex =>
+                ex.isInstanceOf[RedisCommandExecutionException] &&
+                ex.getMessage.startsWith("ERR Write commands are not allowed from read-only scripts")
+              }
+            )
+          )
       sha42 <- redis.scriptLoad("return 42")
       fortyTwoSha <- redis.evalSha(sha42, ScriptOutputType.Integer)
       _ <- IO(assertEquals(fortyTwoSha, 42L))
