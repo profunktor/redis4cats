@@ -24,6 +24,9 @@ jobs:
       - name: "Install Nix ❄️"
         uses: cachix/install-nix-action@v22
 
+      - name: "test sbt version"
+        run: nix develop -c sbt ';version;gitCurrentTags;gitUncommittedChanges'
+
       - name: "Install Cachix ❄️"
         uses: cachix/cachix-action@v12
         with:
