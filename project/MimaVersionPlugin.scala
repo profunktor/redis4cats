@@ -51,7 +51,7 @@ object MimaVersionPlugin extends AutoPlugin {
             },
           git.formattedShaVersion := {
             val suffix = git.makeUncommittedSignifierSuffix(
-              git.gitUncommittedChanges.value,
+              git.gitUncommittedChanges.value || isSnapshot.value,
               git.uncommittedSignifier.value
             )
 
