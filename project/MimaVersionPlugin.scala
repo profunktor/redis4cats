@@ -45,19 +45,13 @@ object MimaVersionPlugin extends AutoPlugin {
 
   override def buildSettings: Seq[Setting[_]] =
     GitPlugin.autoImport.versionWithGit ++ Seq(
-      git.gitUncommittedChanges := Try("git status -s".!!.trim.nonEmpty)
-        .getOrElse(true),
-      git.gitHeadCommit := Try("git rev-parse HEAD".!!.trim).toOption,
-      git.gitCurrentTags := Try(
-        "git tag --contains HEAD".!!.trim.split("\\s+").toList.filter(_ != "")
-      ).toOption.toList.flatten,
           git.gitTagToVersionNumber := {
               case ReleaseTag(version) => Some(version)
               case _                   => None
             },
           git.formattedShaVersion := {
             val suffix = git.makeUncommittedSignifierSuffix(
-              git.gitUncommittedChanges.value,
+              git.gitUncommittedChanges.value || isSnapshot.value,
               git.uncommittedSignifier.value
             )
 
@@ -72,8 +66,13 @@ object MimaVersionPlugin extends AutoPlugin {
             git.gitHeadCommit.value map { _.substring(0, 7) } map { sha =>
               autoImport.mimaBaseVersion.value + "-" + distance + sha + suffix
             }
-          }
-
+          },
+          git.gitUncommittedChanges := Try("git status -s".!!.trim.nonEmpty)
+                .getOrElse(true),
+          git.gitHeadCommit := Try("git rev-parse HEAD".!!.trim).toOption,
+          git.gitCurrentTags := Try(
+                "git tag --contains HEAD".!!.trim.split("\\s+").toList.filter(_ != "")
+              ).toOption.toList.flatten
         )
 
   override def projectSettings: Seq[Setting[_]] = Seq(
