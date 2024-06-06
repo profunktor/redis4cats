@@ -28,4 +28,4 @@ jobs:
           signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
 
       - name: "test sbt version"
-        run: nix develop -c sbt ';version;gitCurrentTags;gitUncommittedChanges;gitTagToVersionNumber;uncommittedSignifier;gitDescribedVersion;isSnapshot;'
+        run: nix develop -c sbt ';version;gitCurrentTags;gitUncommittedChanges;gitTagToVersionNumber;formattedShaVersion;uncommittedSignifier;gitDescribedVersion;isSnapshot;'
