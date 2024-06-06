@@ -75,7 +75,7 @@ object MimaVersionPlugin extends AutoPlugin {
               ).toOption.toList.flatten
         )
 
-  override def projectSettings: Seq[Setting[_]] = Seq(
+/*  override def projectSettings: Seq[Setting[_]] = Seq(
     isMimaEnabled := false,
     mimaReportBinaryIssuesIfRelevant := filterTaskWhereRelevant(
           mimaReportBinaryIssues
@@ -135,5 +135,5 @@ object MimaVersionPlugin extends AutoPlugin {
           .toSet
       }
     }
-  )
+  )*/
 }
