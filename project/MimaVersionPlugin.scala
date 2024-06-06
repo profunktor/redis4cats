@@ -54,6 +54,7 @@ object MimaVersionPlugin extends AutoPlugin {
               git.gitUncommittedChanges.value,
               git.uncommittedSignifier.value
             )
+            println(suffix)
 
             val description = Try("git describe --tags --match v*".!!.trim).toOption
             val optDistance = description collect {
