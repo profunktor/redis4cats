@@ -42,7 +42,7 @@ object MimaVersionPlugin extends AutoPlugin {
       )
     }
   }
-/*
+
   override def buildSettings: Seq[Setting[_]] =
     GitPlugin.autoImport.versionWithGit ++ Seq(
           git.gitTagToVersionNumber := {
@@ -73,7 +73,7 @@ object MimaVersionPlugin extends AutoPlugin {
           git.gitCurrentTags := Try(
                 "git tag --contains HEAD".!!.trim.split("\\s+").toList.filter(_ != "")
               ).toOption.toList.flatten
-        )*/
+        )
 
   override def projectSettings: Seq[Setting[_]] = Seq(
     isMimaEnabled := false,
