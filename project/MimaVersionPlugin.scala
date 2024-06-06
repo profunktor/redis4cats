@@ -67,7 +67,7 @@ object MimaVersionPlugin extends AutoPlugin {
               autoImport.mimaBaseVersion.value + "-" + distance + sha + suffix
             }
           },
-          git.gitUncommittedChanges := Try("git status -s".!!.trim.length > 0)
+          git.gitUncommittedChanges := Try("git status -s".!!.trim.nonEmpty)
                 .getOrElse(true),
           git.gitHeadCommit := Try("git rev-parse HEAD".!!.trim).toOption,
           git.gitCurrentTags := Try(

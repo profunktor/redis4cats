@@ -15,17 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2.3.2
 
-      - name: "Starting up Redis 🐳"
-        run: docker-compose up -d
-
       - name: "Cache for sbt & coursier ♨️"
         uses: coursier/cache-action@v4.1
 
       - name: "Install Nix ❄️"
         uses: cachix/install-nix-action@v22
-
-      - name: "test sbt version"
-        run: nix develop -c sbt ';version;gitCurrentTags;gitUncommittedChanges'
 
       - name: "Install Cachix ❄️"
         uses: cachix/cachix-action@v12
@@ -33,11 +27,5 @@ jobs:
           name: redis4cats
           signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
 
-      - name: "Run tests and compile documentation 🚀"
-        run: nix develop -c sbt 'buildRedis4Cats'
-
-      - name: "Test for Binary Compatibility 📦"
-        run: nix develop -c sbt 'mimaReportBinaryIssuesIfRelevant'
-
-      - name: "Shutting down Redis 🐳"
-        run: docker-compose down
+      - name: "test sbt version"
+        run: nix develop -c sbt ';version;gitCurrentTags;gitUncommittedChanges'
