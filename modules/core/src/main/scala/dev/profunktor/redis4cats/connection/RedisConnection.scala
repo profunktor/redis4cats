@@ -21,12 +21,14 @@ import cats.effect.kernel.Async
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.NodeId
 import dev.profunktor.redis4cats.effect.FutureLift
+import io.lettuce.core.ClientOptions
 import io.lettuce.core.api.StatefulRedisConnection
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.api.sync.{ RedisCommands => RedisSyncCommands }
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
+
 import scala.util.control.NoStackTrace
 
 case class OperationNotSupported(value: String) extends NoStackTrace {
@@ -41,6 +43,7 @@ private[redis4cats] trait RedisConnection[F[_], K, V] {
   def close: F[Unit]
   def byNode(nodeId: NodeId): F[RedisAsyncCommands[K, V]]
   def liftK[G[_]: Async]: RedisConnection[G, K, V]
+  private[redis4cats] def clientOptions: F[ClientOptions]
   private[redis4cats] def setAutoFlushCommands(autoFlush: Boolean): F[Unit]
   private[redis4cats] def flushCommands: F[Unit]
 }
@@ -59,6 +62,7 @@ private[redis4cats] class RedisStatefulConnection[F[_]: ApplicativeThrow: Future
     OperationNotSupported("Running in a single node").raiseError
   def liftK[G[_]: Async]: RedisConnection[G, K, V] =
     new RedisStatefulConnection[G, K, V](conn)
+  private[redis4cats] def clientOptions: F[ClientOptions] = FutureLift[F].delay(conn.getOptions)
   private[redis4cats] def setAutoFlushCommands(autoFlush: Boolean): F[Unit] =
     FutureLift[F].delay(conn.setAutoFlushCommands(autoFlush))
   private[redis4cats] def flushCommands: F[Unit] = FutureLift[F].blocking(conn.flushCommands())
@@ -80,6 +84,7 @@ private[redis4cats] class RedisStatefulClusterConnection[F[_]: FutureLift: Monad
     }
   def liftK[G[_]: Async]: RedisConnection[G, K, V] =
     new RedisStatefulClusterConnection[G, K, V](conn)
+  private[redis4cats] def clientOptions: F[ClientOptions] = FutureLift[F].delay(conn.getOptions)
   private[redis4cats] def setAutoFlushCommands(autoFlush: Boolean): F[Unit] =
     FutureLift[F].delay(conn.setAutoFlushCommands(autoFlush))
   private[redis4cats] def flushCommands: F[Unit] = FutureLift[F].delay(conn.flushCommands())
