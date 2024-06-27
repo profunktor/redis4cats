@@ -33,7 +33,7 @@ trait KeyCommands[F[_], K] {
   def expireAt(key: K, at: Instant): F[Boolean]
   def expireAt(key: K, at: Instant, expireExistenceArg: ExpireExistenceArg): F[Boolean]
   def objectIdletime(key: K): F[Option[FiniteDuration]]
-  def ttl(key: K): F[Option[FiniteDuration]]
+  def persist(key: K): F[Boolean]
   def pttl(key: K): F[Option[FiniteDuration]]
   // restores a key with the given serialized value, previously obtained using DUMP without a ttl
   def restore(key: K, value: Array[Byte]): F[Unit]
@@ -46,4 +46,6 @@ trait KeyCommands[F[_], K] {
   @deprecated("In favor of scan(cursor: KeyScanCursor[K], scanArgs: ScanArgs)", since = "0.10.4")
   def scan(cursor: Long, scanArgs: ScanArgs): F[KeyScanCursor[K]]
   def scan(previous: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]]
+  def ttl(key: K): F[Option[FiniteDuration]]
+
 }

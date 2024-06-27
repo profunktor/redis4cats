@@ -539,8 +539,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case d          => FiniteDuration(d, units).some
     }
 
-  override def ttl(key: K): F[Option[FiniteDuration]] =
-    async.flatMap(_.ttl(key).futureLift.map(toFiniteDuration(TimeUnit.SECONDS)))
+  override def persist(key: K): F[Boolean] =
+    async.flatMap(_.persist(key).futureLift.map(x => Boolean.box(x)))
 
   override def pttl(key: K): F[Option[FiniteDuration]] =
     async.flatMap(_.pttl(key).futureLift.map(toFiniteDuration(TimeUnit.MILLISECONDS)))
@@ -568,6 +568,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def scan(previous: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]] =
     async.flatMap(_.scan(previous.underlying, scanArgs.underlying).futureLift.map(KeyScanCursor[K]))
+
+  override def ttl(key: K): F[Option[FiniteDuration]] =
+    async.flatMap(_.ttl(key).futureLift.map(toFiniteDuration(TimeUnit.SECONDS)))
 
   /******************************* Transactions API **********************************/
   // When in a cluster, transactions should run against a single node.

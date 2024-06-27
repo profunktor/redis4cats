@@ -262,6 +262,12 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(h, true))
       c <- redis.ttl("f1")
       _ <- IO(assert(c.nonEmpty))
+      persisted <- redis.persist("f1")
+      _ <- IO(assert(persisted))
+      noTTL <- redis.ttl("f1")
+      _ <- IO(assert(noTTL.isEmpty))
+      //reset
+      _ <- redis.expire("f1", 10.seconds)
       d <- redis.pttl("f1")
       _ <- IO(assert(d.nonEmpty))
       _ <- IO(assert(d.exists(_ <= 10.seconds)))
