@@ -1,5 +1,6 @@
-import Dependencies.*
-import MimaVersionPlugin.autoImport.mimaBaseVersion
+import com.scalapenos.sbt.prompt.SbtPrompt.autoImport._
+import com.scalapenos.sbt.prompt._
+import Dependencies._
 import microsites.ExtraMdFileConfig
 
 ThisBuild / scalaVersion := "2.13.14"
@@ -7,14 +8,6 @@ ThisBuild / crossScalaVersions := Seq("2.12.19", "2.13.14", "3.3.3")
 ThisBuild / evictionErrorLevel := Level.Info
 ThisBuild / mimaBaseVersion := "1.7.0"
 Test / parallelExecution := false
-
-val blue  = "\u001b[34m"
-val reset = "\u001b[0m"
-
-def coloredPrompt(state: String, color: String): String =
-  s"$color$state$reset"
-
-ThisBuild / shellPrompt := { state => s"${coloredPrompt("[sbt]", blue)} redis4cats  λ " }
 
 // publishing
 ThisBuild / organization := "dev.profunktor"
@@ -30,6 +23,13 @@ ThisBuild / developers := List(
 )
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
+
+promptTheme := PromptTheme(
+  List(
+    text("[sbt] ", fg(105)),
+    text(_ => "redis4cats", fg(15)).padRight(" λ ")
+  )
+)
 
 def pred[A](p: Boolean, t: => Seq[A], f: => Seq[A]): Seq[A] =
   if (p) t else f
