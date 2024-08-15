@@ -23,9 +23,6 @@ trait Json[F[_],K,V] extends JsonArray[F,K,V] with JsonGet[F,K,V] with JsonSet[F
   def clear(key: K,path: JsonPath): F[Long]
   def del(key: K,path: JsonPath): F[Long]
   def jsonType(key: K,path: JsonPath): F[V]
-  def jsonToggle(key: K,path: JsonPath): F[Long]
-  def get(key: K,path: JsonPath): F[JsonValue[K,V]]
-
 }
 trait JsonGet[F[_],K,V] {
   def get(key: K,path: JsonPath): F[JsonValue[K,V]]
