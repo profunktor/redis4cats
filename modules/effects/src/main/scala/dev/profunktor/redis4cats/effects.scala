@@ -339,4 +339,11 @@ object effects {
     final case class Inclusive(id: String) extends XRangePoint
     final case class Exclusive(id: String) extends XRangePoint
   }
+
+  implicit class TimePrecisionOps(val duration: FiniteDuration) extends AnyVal {
+    def refine: Long = duration.unit match {
+      case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS => duration.toMillis
+      case _                                                                    => duration.toSeconds
+    }
+  }
 }

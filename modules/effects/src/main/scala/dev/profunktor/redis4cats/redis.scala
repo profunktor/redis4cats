@@ -530,6 +530,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case d          => FiniteDuration(d, units).some
     }
 
+  private def toEpoch(duration: java.lang.Long): Option[Instant] =
+    duration match {
+      case d if d < 0 => none[Instant]
+      case d          => Instant.ofEpochMilli(d).some
+    }
+
   override def persist(key: K): F[Boolean] =
     async.flatMap(_.persist(key).futureLift.map(x => Boolean.box(x)))
 
@@ -789,6 +795,62 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def hSet(key: K, fieldValues: Map[K, V]): F[Long] =
     async.flatMap(_.hset(key, fieldValues.asJava).futureLift.map(x => Long.box(x)))
+
+  override def hExpire(key: K, expiresIn: FiniteDuration, fields: K*): F[List[Long]] =
+    async
+      .flatMap { c =>
+        {
+          expiresIn.unit match {
+            case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS =>
+              c.hpexpire(key, expiresIn.toMillis, fields: _*)
+            case _ => c.hexpire(key, expiresIn.toSeconds, fields: _*)
+          }
+        }.futureLift.map(_.asScala.map(x => Long.unbox(x)).toList)
+      }
+
+  override def hExpire(key: K, expire: FiniteDuration, args: ExpireExistenceArg, fields: K*): F[List[Long]] =
+    async
+      .flatMap { c =>
+        {
+          expire.unit match {
+            case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS =>
+              c.hpexpire(key, expire.toMillis, args.asJava, fields: _*)
+            case _ => c.hexpire(key, expire.toSeconds, args.asJava, fields: _*)
+          }
+        }.futureLift.map(_.asScala.map(x => Long.unbox(x)).toList)
+      }
+
+  override def hExpireAt(key: K, expireAt: Instant, fields: K*): F[List[Long]] =
+    async.flatMap(
+      _.hpexpireat(key, expireAt.toEpochMilli(), fields: _*).futureLift.map(_.asScala.map(x => Long.unbox(x)).toList)
+    )
+  override def hExpireAt(key: K, expireAt: Instant, args: ExpireExistenceArg, fields: K*): F[List[Long]] =
+    async.flatMap(
+      _.hpexpireat(key, expireAt.toEpochMilli(), args.asJava, fields: _*).futureLift
+        .map(_.asScala.map(x => Long.unbox(x)).toList)
+    )
+
+  // milli precision command under hood
+  override def hExpireTime(key: K, fields: K*): F[List[Option[Instant]]] =
+    async.flatMap(
+      _.hpexpiretime(key, fields: _*).futureLift.map(_.asScala.map(toEpoch).toList)
+    )
+
+  override def hpExpireTime(key: K, fields: K*): F[List[Option[Instant]]] =
+    async.flatMap(
+      _.hpexpiretime(key, fields: _*).futureLift.map(_.asScala.map(toEpoch).toList)
+    )
+
+  override def hPersist(key: K, fields: K*): F[List[Boolean]] =
+    async.flatMap(_.hpersist(key, fields: _*).futureLift.map(_.asScala.map(l => l == 1).toList))
+
+  override def hpttl(key: K, fields: K*): F[List[Option[FiniteDuration]]] =
+    async.flatMap(
+      _.hpttl(key, fields: _*).futureLift.map(_.asScala.map(toFiniteDuration(TimeUnit.MILLISECONDS)).toList)
+    )
+
+  override def httl(key: K, fields: K*): F[List[Option[FiniteDuration]]] =
+    async.flatMap(_.httl(key, fields: _*).futureLift.map(_.asScala.map(toFiniteDuration(TimeUnit.SECONDS)).toList))
 
   override def hSetNx(key: K, field: K, value: V): F[Boolean] =
     async.flatMap(_.hsetnx(key, field, value).futureLift.map(x => Boolean.box(x)))
