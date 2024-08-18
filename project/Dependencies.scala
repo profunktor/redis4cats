@@ -16,6 +16,7 @@ object Dependencies {
     val kindProjector = "0.13.3"
 
     val munit = "1.0.0"
+    val munitScalacheck = "1.0.0"
   }
 
   object Libraries {
@@ -46,7 +47,7 @@ object Dependencies {
     val catsLaws        = cats("core")
     val catsTestKit     = cats("testkit")
     val munitCore       = "org.scalameta" %% "munit" % V.munit
-    val munitScalacheck = "org.scalameta" %% "munit-scalacheck" % V.munit
+    val munitScalacheck = "org.scalameta" %% "munit-scalacheck" % V.munitScalacheck
   }
 
   object CompilerPlugins {
