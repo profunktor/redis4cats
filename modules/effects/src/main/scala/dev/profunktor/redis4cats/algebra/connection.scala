@@ -32,4 +32,7 @@ trait Client[F[_], K] {
   def setClientName(name: K): F[Boolean]
   def getClientName(): F[Option[K]]
   def getClientId(): F[Long]
+  def getClientInfo: F[Map[String, String]]
+  def setLibName(name: String): F[Boolean]
+  def setLibVersion(version: String): F[Boolean]
 }

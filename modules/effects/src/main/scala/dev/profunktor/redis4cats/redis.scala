@@ -1281,6 +1281,29 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def getClientId(): F[Long] =
     async.flatMap(_.clientId().futureLift.map(Long.unbox))
 
+  override def setLibName(name: String): F[Boolean] =
+    async.flatMap(_.clientSetinfo("LIB-NAME", name).futureLift.map(_ == "OK"))
+
+  override def setLibVersion(version: String): F[Boolean] =
+    async.flatMap(_.clientSetinfo("LIB-VER", version).futureLift.map(_ == "OK"))
+
+  override def getClientInfo: F[Map[String, String]] =
+    async.flatMap(
+      _.clientInfo().futureLift
+        .flatMap(parseClientInfo)
+    )
+
+  private def parseClientInfo(info: String): F[Map[String, String]] =
+    FutureLift[F].delay(
+      info
+        .replace("\n", "")
+        .split(" ")
+        .toList
+        .map(_.split("=", 2).toList)
+        .collect { case k :: v :: Nil => (k, v) }
+        .toMap
+    )
+
   /******************************* Server API **********************************/
   override val flushAll: F[Unit] =
     async.flatMap(_.flushall().futureLift.void)

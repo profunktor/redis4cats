@@ -501,6 +501,15 @@ trait TestScenarios { self: FunSuite =>
       newClientName <- redis.getClientName()
       _ <- IO(assertEquals(newClientName, Some(clientName)))
       _ <- redis.getClientId()
+      info <- redis.getClientInfo
+      _ <- IO(assert(info.nonEmpty))
+      success <- redis.setLibName("redis4cats")
+      _ <- IO(assert(success))
+      success <- redis.setLibVersion("0.10.0")
+      _ <- IO(assert(success))
+      info <- redis.getClientInfo
+      _ <- IO(assert(info.get("lib-name").contains("redis4cats")))
+      _ <- IO(assert(info.get("lib-ver").contains("0.10.0")))
     } yield ()
   }
 
