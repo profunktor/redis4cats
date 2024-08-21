@@ -114,6 +114,24 @@ object RedisClusterClient {
               .build()
           )
           client.getPartitions
+
+        case Both(Periodic(interval), Adaptive(timeout)) =>
+          client.setOptions(
+            ClusterClientOptions
+              .builder()
+              .topologyRefreshOptions(
+                // Use implicit duration converters from scala 2.13 once 2.12 support is removed
+                ClusterTopologyRefreshOptions
+                  .builder()
+                  .enablePeriodicRefresh(Duration.ofMillis(interval.toMillis))
+                  .enableAllAdaptiveRefreshTriggers()
+                  .adaptiveRefreshTriggersTimeout(Duration.ofMillis(timeout.toMillis))
+                  .build()
+              )
+              .nodeFilter(nodeFilter(_))
+              .build()
+          )
+          client.getPartitions
       }
     }.void
 

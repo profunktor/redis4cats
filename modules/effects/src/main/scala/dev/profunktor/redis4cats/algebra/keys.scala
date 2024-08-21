@@ -18,20 +18,26 @@ package dev.profunktor.redis4cats.algebra
 
 import java.time.Instant
 import dev.profunktor.redis4cats.data.KeyScanCursor
-import dev.profunktor.redis4cats.effects.ExpireExistenceArg
-import dev.profunktor.redis4cats.effects.ScanArgs
+import dev.profunktor.redis4cats.effects.{ CopyArgs, ExpireExistenceArg, RestoreArgs, ScanArgs }
+
 import scala.concurrent.duration.FiniteDuration
 
 trait KeyCommands[F[_], K] {
+  def copy(source: K, destination: K): F[Boolean]
+  def copy(source: K, destination: K, copyArgs: CopyArgs): F[Boolean]
   def del(key: K*): F[Long]
+  def dump(key: K): F[Option[Array[Byte]]]
   def exists(key: K*): F[Boolean]
   def expire(key: K, expiresIn: FiniteDuration): F[Boolean]
   def expire(key: K, expiresIn: FiniteDuration, expireExistenceArg: ExpireExistenceArg): F[Boolean]
   def expireAt(key: K, at: Instant): F[Boolean]
   def expireAt(key: K, at: Instant, expireExistenceArg: ExpireExistenceArg): F[Boolean]
   def objectIdletime(key: K): F[Option[FiniteDuration]]
-  def ttl(key: K): F[Option[FiniteDuration]]
+  def persist(key: K): F[Boolean]
   def pttl(key: K): F[Option[FiniteDuration]]
+  // restores a key with the given serialized value, previously obtained using DUMP without a ttl
+  def restore(key: K, value: Array[Byte]): F[Unit]
+  def restore(key: K, value: Array[Byte], restoreArgs: RestoreArgs): F[Unit]
   def scan: F[KeyScanCursor[K]]
   @deprecated("In favor of scan(cursor: KeyScanCursor[K])", since = "0.10.4")
   def scan(cursor: Long): F[KeyScanCursor[K]]
@@ -40,4 +46,6 @@ trait KeyCommands[F[_], K] {
   @deprecated("In favor of scan(cursor: KeyScanCursor[K], scanArgs: ScanArgs)", since = "0.10.4")
   def scan(cursor: Long, scanArgs: ScanArgs): F[KeyScanCursor[K]]
   def scan(previous: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]]
+  def ttl(key: K): F[Option[FiniteDuration]]
+
 }

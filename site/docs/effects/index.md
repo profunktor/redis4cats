@@ -13,6 +13,7 @@ The API that operates at the effect level `F[_]` on top of `cats-effect`.
 - **[Connection API](./connection.html)**
 - **[Geo API](./geo.html)**
 - **[Hashes API](./hashes.html)**
+- **[Keys API](./keys.html)**
 - **[Lists API](./lists.html)**
 - **[Scripting API](./scripting.html)**
 - **[Server API](./server.html)**

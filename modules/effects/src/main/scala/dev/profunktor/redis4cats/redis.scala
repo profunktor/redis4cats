@@ -47,9 +47,11 @@ import io.lettuce.core.{
   FlushMode => JFlushMode,
   FunctionRestoreMode => JFunctionRestoreMode,
   GetExArgs => JGetExArgs,
+  CopyArgs => JCopyArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
+  RestoreArgs => JRestoreArgs,
   ScanCursor => JScanCursor,
   SetArgs => JSetArgs
 }
@@ -467,9 +469,18 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   def sync: F[RedisClusterSyncCommands[K, V]] =
     if (cluster) conn.clusterSync else conn.sync.widen
 
-  /******************************* Keys API *************************************/
+  /** ***************************** Keys API ************************************ */
+  override def copy(source: K, destination: K): F[Boolean] =
+    async.flatMap(_.copy(source, destination).futureLift.map(x => Boolean.box(x)))
+
+  override def copy(source: K, destination: K, copyArgs: CopyArgs): F[Boolean] =
+    async.flatMap(_.copy(source, destination, copyArgs.asJava).futureLift.map(x => Boolean.box(x)))
+
   def del(key: K*): F[Long] =
     async.flatMap(_.del(key: _*).futureLift.map(x => Long.box(x)))
+
+  override def dump(key: K): F[Option[Array[Byte]]] =
+    async.flatMap(_.dump(key).futureLift.map(Option(_)))
 
   override def exists(key: K*): F[Boolean] =
     async.flatMap(_.exists(key: _*).futureLift.map(_ == key.size.toLong))
@@ -527,11 +538,17 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case d          => FiniteDuration(d, units).some
     }
 
-  override def ttl(key: K): F[Option[FiniteDuration]] =
-    async.flatMap(_.ttl(key).futureLift.map(toFiniteDuration(TimeUnit.SECONDS)))
+  override def persist(key: K): F[Boolean] =
+    async.flatMap(_.persist(key).futureLift.map(x => Boolean.box(x)))
 
   override def pttl(key: K): F[Option[FiniteDuration]] =
     async.flatMap(_.pttl(key).futureLift.map(toFiniteDuration(TimeUnit.MILLISECONDS)))
+
+  override def restore(key: K, value: Array[Byte]): F[Unit] =
+    async.flatMap(_.restore(key, 0, value).futureLift.void)
+
+  override def restore(key: K, value: Array[Byte], restoreArgs: RestoreArgs): F[Unit] =
+    async.flatMap(_.restore(key, value, restoreArgs.asJava).futureLift.void)
 
   override def scan: F[KeyScanCursor[K]] =
     async.flatMap(_.scan().futureLift.map(KeyScanCursor[K]))
@@ -550,6 +567,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def scan(previous: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]] =
     async.flatMap(_.scan(previous.underlying, scanArgs.underlying).futureLift.map(KeyScanCursor[K]))
+
+  override def ttl(key: K): F[Option[FiniteDuration]] =
+    async.flatMap(_.ttl(key).futureLift.map(toFiniteDuration(TimeUnit.SECONDS)))
 
   /******************************* Transactions API **********************************/
   // When in a cluster, transactions should run against a single node.
@@ -703,8 +723,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def getRange(key: K, start: Long, end: Long): F[Option[V]] =
     async.flatMap(_.getrange(key, start, end).futureLift.map(Option.apply))
 
-  override def strLen(key: K): F[Option[Long]] =
-    async.flatMap(_.strlen(key).futureLift.map(x => Option(Long.unbox(x))))
+  override def strLen(key: K): F[Long] =
+    async.flatMap(_.strlen(key).futureLift.map(x => Long.unbox(x)))
 
   override def mGet(keys: Set[K]): F[Map[K, V]] =
     async
@@ -741,11 +761,11 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def hVals(key: K): F[List[V]] =
     async.flatMap(_.hvals(key).futureLift.map(_.asScala.toList))
 
-  override def hStrLen(key: K, field: K): F[Option[Long]] =
-    async.flatMap(_.hstrlen(key, field).futureLift.map(x => Option(Long.unbox(x))))
+  override def hStrLen(key: K, field: K): F[Long] =
+    async.flatMap(_.hstrlen(key, field).futureLift.map(x => Long.unbox(x)))
 
-  override def hLen(key: K): F[Option[Long]] =
-    async.flatMap(_.hlen(key).futureLift.map(x => Option(Long.unbox(x))))
+  override def hLen(key: K): F[Long] =
+    async.flatMap(_.hlen(key).futureLift.map(x => Long.unbox(x)))
 
   override def hSet(key: K, field: K, value: V): F[Boolean] =
     async.flatMap(_.hset(key, field, value).futureLift.map(x => Boolean.box(x)))
@@ -821,8 +841,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def lIndex(key: K, index: Long): F[Option[V]] =
     async.flatMap(_.lindex(key, index).futureLift.map(Option.apply))
 
-  override def lLen(key: K): F[Option[Long]] =
-    async.flatMap(_.llen(key).futureLift.map(x => Option(Long.unbox(x))))
+  override def lLen(key: K): F[Long] =
+    async.flatMap(_.llen(key).futureLift.map(x => Long.unbox(x)))
 
   override def lRange(key: K, start: Long, stop: Long): F[List[V]] =
     async.flatMap(_.lrange(key, start, stop).futureLift.map(_.asScala.toList))
@@ -1074,14 +1094,14 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     res.map(x => Long.box(x))
   }
 
-  override def zCard(key: K): F[Option[Long]] =
-    async.flatMap(_.zcard(key).futureLift.map(x => Option(Long.unbox(x))))
+  override def zCard(key: K): F[Long] =
+    async.flatMap(_.zcard(key).futureLift.map(x => Long.unbox(x)))
 
-  override def zCount[T: Numeric](key: K, range: ZRange[T]): F[Option[Long]] =
-    async.flatMap(_.zcount(key, range.asJavaRange).futureLift.map(x => Option(Long.unbox(x))))
+  override def zCount[T: Numeric](key: K, range: ZRange[T]): F[Long] =
+    async.flatMap(_.zcount(key, range.asJavaRange).futureLift.map(x => Long.unbox(x)))
 
-  override def zLexCount(key: K, range: ZRange[V]): F[Option[Long]] =
-    async.flatMap(_.zlexcount(key, JRange.create[V](range.start, range.end)).futureLift.map(x => Option(Long.unbox(x))))
+  override def zLexCount(key: K, range: ZRange[V]): F[Long] =
+    async.flatMap(_.zlexcount(key, JRange.create[V](range.start, range.end)).futureLift.map(x => Long.unbox(x)))
 
   override def zRange(key: K, start: Long, stop: Long): F[List[V]] =
     async.flatMap(_.zrange(key, start, stop).futureLift.map(_.asScala.toList))
@@ -1265,6 +1285,15 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override val flushAll: F[Unit] =
     async.flatMap(_.flushall().futureLift.void)
 
+  override def flushAll(mode: FlushMode): F[Unit] =
+    async.flatMap(_.flushall(mode.asJava).futureLift.void)
+
+  override val flushDb: F[Unit] =
+    async.flatMap(_.flushdb().futureLift.void)
+
+  override def flushDb(mode: FlushMode): F[Unit] =
+    async.flatMap(_.flushdb(mode.asJava).futureLift.void)
+
   override def keys(key: K): F[List[K]] =
     async.flatMap(_.keys(key).futureLift.map(_.asScala.toList))
 
@@ -1314,7 +1343,40 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       _.eval[output.Underlying](
         script,
         output.outputType,
-        // see comment in eval above
+        // see comment in eval above.
+        keys.toArray[Any].asInstanceOf[Array[K with Object]],
+        values: _*
+      ).futureLift.map(output.convert(_))
+    )
+
+  override def evalReadOnly(script: String, output: ScriptOutputType[V]): F[output.R] =
+    async
+      .flatMap(
+        _.evalReadOnly[output.Underlying](
+          script,
+          output.outputType,
+          // see comment in eval above.
+          Array.emptyObjectArray.asInstanceOf[Array[K with Object]]
+        ).futureLift
+      )
+      .map(r => output.convert(r))
+
+  override def evalReadOnly(script: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
+    async.flatMap(
+      _.evalReadOnly[output.Underlying](
+        script,
+        output.outputType,
+        // see comment in eval above.
+        keys.toArray[Any].asInstanceOf[Array[K with Object]]
+      ).futureLift.map(output.convert(_))
+    )
+
+  override def evalReadOnly(script: String, output: ScriptOutputType[V], keys: List[K], values: List[V]): F[output.R] =
+    async.flatMap(
+      _.evalReadOnly[output.Underlying](
+        script,
+        output.outputType,
+        // see comment in eval above.
         keys.toArray[Any].asInstanceOf[Array[K with Object]],
         values: _*
       ).futureLift.map(output.convert(_))
@@ -1330,7 +1392,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       _.evalsha[output.Underlying](
         digest,
         output.outputType,
-        // see comment in eval above
+        // see comment in eval above.
         keys.toArray[Any].asInstanceOf[Array[K with Object]]
       ).futureLift.map(output.convert(_))
     )
@@ -1340,7 +1402,45 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       _.evalsha[output.Underlying](
         digest,
         output.outputType,
-        // see comment in eval above
+        // see comment in eval above.
+        keys.toArray[Any].asInstanceOf[Array[K with Object]],
+        values: _*
+      ).futureLift.map(output.convert(_))
+    )
+
+  override def evalShaReadOnly(digest: String, output: ScriptOutputType[V]): F[output.R] =
+    async
+      .flatMap(
+        _.evalshaReadOnly[output.Underlying](
+          digest,
+          output.outputType,
+          // see comment in eval above.
+          Array.emptyObjectArray.asInstanceOf[Array[K with Object]]
+        ).futureLift
+      )
+      .map(output.convert(_))
+
+  override def evalShaReadOnly(digest: String, output: ScriptOutputType[V], keys: List[K]): F[output.R] =
+    async.flatMap(
+      _.evalshaReadOnly[output.Underlying](
+        digest,
+        output.outputType,
+        // see comment in eval above.
+        keys.toArray[Any].asInstanceOf[Array[K with Object]]
+      ).futureLift.map(output.convert(_))
+    )
+
+  override def evalShaReadOnly(
+      digest: String,
+      output: ScriptOutputType[V],
+      keys: List[K],
+      values: List[V]
+  ): F[output.R] =
+    async.flatMap(
+      _.evalshaReadOnly[output.Underlying](
+        digest,
+        output.outputType,
+        // see comment in eval above.
         keys.toArray[Any].asInstanceOf[Array[K with Object]],
         values: _*
       ).futureLift.map(output.convert(_))
@@ -1506,6 +1606,27 @@ private[redis4cats] trait RedisConversionOps {
       val start: Number = toJavaNumber(range.start)
       val end: Number   = toJavaNumber(range.end)
       JRange.create(start, end)
+    }
+  }
+
+  private[redis4cats] implicit class CopyArgOps(underlying: CopyArgs) {
+    def asJava: JCopyArgs = {
+      val jCopyArgs = new JCopyArgs()
+      underlying.destinationDb.foreach(jCopyArgs.destinationDb)
+      underlying.replace.foreach(jCopyArgs.replace)
+      jCopyArgs
+    }
+  }
+
+  private[redis4cats] implicit class RestoreArgOps(underlying: RestoreArgs) {
+
+    def asJava: JRestoreArgs = {
+      val u = new JRestoreArgs
+      underlying.ttl.foreach(u.ttl)
+      underlying.replace.foreach(u.replace)
+      underlying.absttl.foreach(u.absttl)
+      underlying.idleTime.foreach(u.idleTime)
+      u
     }
   }
 

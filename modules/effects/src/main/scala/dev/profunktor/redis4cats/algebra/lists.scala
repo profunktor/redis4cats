@@ -34,7 +34,7 @@ trait ListBlocking[F[_], K, V] {
 
 trait ListGetter[F[_], K, V] {
   def lIndex(key: K, index: Long): F[Option[V]]
-  def lLen(key: K): F[Option[Long]]
+  def lLen(key: K): F[Long]
   def lRange(key: K, start: Long, stop: Long): F[List[V]]
 }
 

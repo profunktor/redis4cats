@@ -107,7 +107,7 @@ trait TestScenarios { self: FunSuite =>
       x <- redis.lRange(testKey, 0, 10)
       _ <- IO(assertEquals(x, List("one", "two", "three")))
       y <- redis.lLen(testKey)
-      _ <- IO(assert(y.contains(3L)))
+      _ <- IO(assert(y == 3L))
       a <- redis.lPop(testKey)
       _ <- IO(assert(a.contains("one")))
       b <- redis.rPop(testKey)
@@ -184,20 +184,20 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(minPop2, List(scoreWithValue1)))
       maxPop2 <- redis.zPopMax(testKey, 1)
       _ <- IO(assertEquals(maxPop2, List(scoreWithValue2)))
-      _ <- redis.zCard(testKey).map(card => assert(card.contains(0L)))
+      _ <- redis.zCard(testKey).map(card => assert(card == 0L))
       _ <- redis.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
       minBPop2 <- redis.bzPopMin(timeout, NonEmptyList.one(testKey))
       _ <- IO(assert(minBPop2.contains((testKey, scoreWithValue1))))
       maxBPop2 <- redis.bzPopMax(timeout, NonEmptyList.one(testKey))
       _ <- IO(assert(maxBPop2.contains((testKey, scoreWithValue2))))
-      _ <- redis.zCard(testKey).map(card => assert(card.contains(0L)))
+      _ <- redis.zCard(testKey).map(card => assert(card == 0L))
       _ <- redis.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
       x <- redis.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
       _ <- IO(assertEquals(x, List(1L)))
       y <- redis.zCard(testKey)
-      _ <- IO(assert(y.contains(2L)))
+      _ <- IO(assert(y == 2L))
       z <- redis.zCount(testKey, ZRange(0, 1))
-      _ <- IO(assert(z.contains(1L)))
+      _ <- IO(assert(z == 1L))
       _ <- redis.zAdd(otherTestKey, args = None, scoreWithValue1, scoreWithValue3)
       zUnion <- redis.zUnion(args = None, testKey, otherTestKey)
       _ <- IO(assertEquals(zUnion, List(1L, 2L, 3L)))
@@ -220,8 +220,9 @@ trait TestScenarios { self: FunSuite =>
   }
 
   def keysScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
-    val key1 = "key1"
-    val key2 = "key2"
+    val key1    = "key1"
+    val key2    = "key2"
+    val keyCopy = "{key1}Copy"
     for {
       x <- redis.get(key1)
       _ <- IO(assertEquals(x, None))
@@ -232,6 +233,15 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.set(key1, "some value")
       exist2 <- redis.exists(key1)
       _ <- IO(assert(exist2))
+      dump <- redis.dump(key1)
+      _ <- IO(assert(dump.nonEmpty))
+      _ <- redis.restore(key1, dump.get, RestoreArgs().replace(true))
+      restored <- redis.get(key1)
+      _ <- IO(assertEquals(restored, Some("some value")))
+      copy <- redis.copy(key1, keyCopy)
+      _ <- IO(assertEquals(copy, true))
+      _ <- redis.get(keyCopy).map(value => assert(value.contains("some value")))
+      _ <- redis.del(keyCopy)
       idletime2 <- redis.objectIdletime(key1)
       _ <- IO(assert(idletime2.isDefined))
       _ <- redis.mSet(Map(key2 -> "some value 2"))
@@ -252,6 +262,12 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(h, true))
       c <- redis.ttl("f1")
       _ <- IO(assert(c.nonEmpty))
+      persisted <- redis.persist("f1")
+      _ <- IO(assert(persisted))
+      noTTL <- redis.ttl("f1")
+      _ <- IO(assert(noTTL.isEmpty))
+      //reset
+      _ <- redis.expire("f1", 10.seconds)
       d <- redis.pttl("f1")
       _ <- IO(assert(d.nonEmpty))
       _ <- IO(assert(d.exists(_ <= 10.seconds)))
@@ -592,10 +608,23 @@ trait TestScenarios { self: FunSuite =>
                )
              )
       _ <- IO(assertEquals(list, List("Let", "us", "have", "fun")))
+      boolReadOnly <- redis.evalReadOnly("return true", ScriptOutputType.Boolean, List("Foo"))
+      _ <- IO(assert(boolReadOnly))
       _ <- redis.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
+      either <- redis.evalReadOnly(statusScript, ScriptOutputType.Status, List("test"), List("foo")).attempt
+      _ <- IO(
+            assert(
+              either.left.exists { ex =>
+                ex.isInstanceOf[RedisCommandExecutionException] &&
+                ex.getMessage.startsWith("ERR Write commands are not allowed from read-only scripts")
+              }
+            )
+          )
       sha42 <- redis.scriptLoad("return 42")
       fortyTwoSha <- redis.evalSha(sha42, ScriptOutputType.Integer)
       _ <- IO(assertEquals(fortyTwoSha, 42L))
+      fortyTwoShaReadOnly <- redis.evalShaReadOnly(sha42, ScriptOutputType.Integer)
+      _ <- IO(assertEquals(fortyTwoShaReadOnly, 42L))
       shaStatusScript <- redis.scriptLoad(statusScript)
       _ <- redis.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
       exists <- redis.scriptExists(sha42, "foobar")

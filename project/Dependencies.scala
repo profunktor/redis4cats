@@ -3,19 +3,21 @@ import sbt._
 object Dependencies {
 
   object V {
-    val cats       = "2.10.0"
+    val cats       = "2.12.0"
     val catsEffect = "3.5.4"
-    val circe      = "0.14.6"
+    val circe      = "0.14.9"
     val fs2        = "3.10.2"
-    val log4cats   = "2.6.0"
-    val keyPool    = "0.4.9"
+    val log4cats   = "2.7.0"
+    val keyPool    = "0.4.10"
 
-    val lettuce = "6.3.2.RELEASE"
-    val logback = "1.5.5"
+    val lettuce = "6.4.0.RELEASE"
+    val logback = "1.5.7"
 
     val kindProjector = "0.13.3"
 
-    val munit = "0.7.29"
+    val munit = "1.0.1"
+    val munitScalacheck = "1.0.0"
+
   }
 
   object Libraries {
@@ -30,6 +32,10 @@ object Dependencies {
 
     val redisClient = "io.lettuce" % "lettuce-core" % V.lettuce
 
+    val literally = "org.typelevel" %% "literally" % "1.2.0"
+
+    def reflect(version: String): ModuleID = "org.scala-lang" % "scala-reflect" % version
+
     // Examples libraries
     val catsEffect    = "org.typelevel" %% "cats-effect" % V.catsEffect
     val circeCore     = "io.circe" %% "circe-core" % V.circe
@@ -42,7 +48,7 @@ object Dependencies {
     val catsLaws        = cats("core")
     val catsTestKit     = cats("testkit")
     val munitCore       = "org.scalameta" %% "munit" % V.munit
-    val munitScalacheck = "org.scalameta" %% "munit-scalacheck" % V.munit
+    val munitScalacheck = "org.scalameta" %% "munit-scalacheck" % V.munitScalacheck
   }
 
   object CompilerPlugins {

@@ -90,6 +90,25 @@ object effects {
     }
   }
 
+  final case class CopyArgs(destinationDb: Option[Long], replace: Option[Boolean])
+  object CopyArgs {
+    def apply(destinationDb: Long): CopyArgs                   = CopyArgs(Some(destinationDb), None)
+    def apply(replace: Boolean): CopyArgs                      = CopyArgs(None, Some(replace))
+    def apply(destinationDb: Long, replace: Boolean): CopyArgs = CopyArgs(Some(destinationDb), Some(replace))
+  }
+
+  final case class RestoreArgs(
+      ttl: Option[Long] = None,
+      replace: Option[Boolean] = None,
+      absttl: Option[Boolean] = None,
+      idleTime: Option[Long] = None
+  ) {
+    def replace(replace: Boolean): RestoreArgs = copy(replace = Some(replace))
+    def ttl(ttl: Long): RestoreArgs            = copy(ttl = Some(ttl))
+    def absttl(absttl: Boolean): RestoreArgs   = copy(absttl = Some(absttl))
+    def idleTime(idleTime: Long): RestoreArgs  = copy(idleTime = Some(idleTime))
+  }
+
   case class ScanArgs(`match`: Option[String], count: Option[Long]) {
     def underlying: JScanArgs = {
       val u = new JScanArgs
@@ -104,7 +123,14 @@ object effects {
     def apply(`match`: String, count: Long): ScanArgs = ScanArgs(Some(`match`), Some(count))
   }
 
-  sealed trait FlushMode
+  sealed trait FlushMode {
+    def asJava: io.lettuce.core.FlushMode =
+      this match {
+        case FlushMode.Sync  => io.lettuce.core.FlushMode.SYNC
+        case FlushMode.Async => io.lettuce.core.FlushMode.ASYNC
+      }
+
+  }
   object FlushMode {
     case object Sync extends FlushMode
     case object Async extends FlushMode

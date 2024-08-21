@@ -25,9 +25,9 @@ import scala.concurrent.duration.Duration
 trait SortedSetCommands[F[_], K, V] extends SortedSetGetter[F, K, V] with SortedSetSetter[F, K, V]
 
 trait SortedSetGetter[F[_], K, V] {
-  def zCard(key: K): F[Option[Long]]
-  def zCount[T: Numeric](key: K, range: ZRange[T]): F[Option[Long]]
-  def zLexCount(key: K, range: ZRange[V]): F[Option[Long]]
+  def zCard(key: K): F[Long]
+  def zCount[T: Numeric](key: K, range: ZRange[T]): F[Long]
+  def zLexCount(key: K, range: ZRange[V]): F[Long]
   def zRange(key: K, start: Long, stop: Long): F[List[V]]
   def zRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]]
   def zRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]]

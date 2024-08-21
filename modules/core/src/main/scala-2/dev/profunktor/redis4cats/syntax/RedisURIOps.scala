@@ -14,26 +14,17 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.algebra
+package dev.profunktor.redis4cats.syntax
 
-import dev.profunktor.redis4cats.effects.FlushMode
+import dev.profunktor.redis4cats.connection.RedisURI
 
-import java.time.Instant
-
-trait ServerCommands[F[_], K] extends Flush[F, K] with Diagnostic[F]
-
-trait Flush[F[_], K] {
-  def keys(key: K): F[List[K]]
-  def flushAll: F[Unit]
-  def flushAll(mode: FlushMode): F[Unit]
-  def flushDb: F[Unit]
-  def flushDb(mode: FlushMode): F[Unit]
+class RedisURIOps(val sc: StringContext) extends AnyVal {
+  def redis(args: Any*): RedisURI = macro macros.RedisLiteral.make
 }
 
-trait Diagnostic[F[_]] {
-  def info: F[Map[String, String]]
-  def info(section: String): F[Map[String, String]]
-  def dbsize: F[Long]
-  def lastSave: F[Instant]
-  def slowLogLen: F[Long]
+trait RedisSyntax {
+  implicit def toRedisURIOps(sc: StringContext): RedisURIOps =
+    new RedisURIOps(sc)
 }
+
+object literals extends RedisSyntax

@@ -17,13 +17,26 @@
 package dev.profunktor.redis4cats.connection
 
 import cats.ApplicativeThrow
+import cats.implicits.toBifunctorOps
 import io.lettuce.core.{ RedisURI => JRedisURI }
 
-sealed abstract case class RedisURI private (underlying: JRedisURI)
+import scala.util.Try
+import scala.util.control.NoStackTrace
+
+sealed abstract class RedisURI private (val underlying: JRedisURI)
 
 object RedisURI {
   def make[F[_]: ApplicativeThrow](uri: => String): F[RedisURI] =
     ApplicativeThrow[F].catchNonFatal(new RedisURI(JRedisURI.create(uri)) {})
 
   def fromUnderlying(j: JRedisURI): RedisURI = new RedisURI(j) {}
+
+  def fromString(uri: String): Either[InvalidRedisURI, RedisURI] =
+    Try(JRedisURI.create(uri)).toEither.bimap(InvalidRedisURI(uri, _), new RedisURI(_) {})
+
+  def unsafeFromString(uri: String): RedisURI = new RedisURI(JRedisURI.create(uri)) {}
+}
+
+final case class InvalidRedisURI(uri: String, throwable: Throwable) extends NoStackTrace {
+  override def getMessage: String = Option(throwable.getMessage).getOrElse(s"Invalid Redis URI: $uri")
 }

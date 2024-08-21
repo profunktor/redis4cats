@@ -1,13 +1,19 @@
-import com.scalapenos.sbt.prompt.SbtPrompt.autoImport._
-import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / scalaVersion := "2.13.13"
-ThisBuild / crossScalaVersions := Seq("2.12.19", "2.13.13", "3.3.3")
+ThisBuild / scalaVersion := "2.13.14"
+ThisBuild / crossScalaVersions := Seq("2.12.19", "2.13.14", "3.3.3")
 ThisBuild / evictionErrorLevel := Level.Info
-
+ThisBuild / mimaBaseVersion := "1.7.0"
 Test / parallelExecution := false
+
+val blue  = "\u001b[34m"
+val reset = "\u001b[0m"
+
+def coloredPrompt(state: String, color: String): String =
+  s"$color$state$reset"
+
+ThisBuild / shellPrompt := { state => s"${coloredPrompt("[sbt]", blue)} redis4cats  λ " }
 
 // publishing
 ThisBuild / organization := "dev.profunktor"
@@ -23,13 +29,6 @@ ThisBuild / developers := List(
 )
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
-
-promptTheme := PromptTheme(
-  List(
-    text("[sbt] ", fg(105)),
-    text(_ => "redis4cats", fg(15)).padRight(" λ ")
-  )
-)
 
 def pred[A](p: Boolean, t: => Seq[A], f: => Seq[A]): Seq[A] =
   if (p) t else f
@@ -107,12 +106,19 @@ lazy val `redis4cats-root` = project
 lazy val `redis4cats-core` = project
   .in(file("modules/core"))
   .settings(commonSettings: _*)
+  .settings(libraryDependencies += Libraries.literally)
+  .settings(
+    libraryDependencies ++=
+        pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(Libraries.reflect(scalaVersion.value)))
+  )
+  .settings(isMimaEnabled := true)
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `redis4cats-log4cats` = project
   .in(file("modules/log4cats"))
   .settings(commonSettings: _*)
+  .settings(isMimaEnabled := true)
   .settings(libraryDependencies += Libraries.log4CatsCore)
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -121,6 +127,7 @@ lazy val `redis4cats-log4cats` = project
 lazy val `redis4cats-effects` = project
   .in(file("modules/effects"))
   .settings(commonSettings: _*)
+  .settings(isMimaEnabled := true)
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
@@ -128,6 +135,7 @@ lazy val `redis4cats-effects` = project
 lazy val `redis4cats-streams` = project
   .in(file("modules/streams"))
   .settings(commonSettings: _*)
+  .settings(isMimaEnabled := true)
   .settings(libraryDependencies += Libraries.fs2Core)
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)

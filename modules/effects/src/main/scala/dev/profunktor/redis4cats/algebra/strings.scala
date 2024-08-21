@@ -35,7 +35,7 @@ trait Getter[F[_], K, V] {
   def get(key: K): F[Option[V]]
   def getEx(key: K, getExArg: GetExArg): F[Option[V]]
   def getRange(key: K, start: Long, end: Long): F[Option[V]]
-  def strLen(key: K): F[Option[Long]]
+  def strLen(key: K): F[Long]
 }
 
 trait Setter[F[_], K, V] {

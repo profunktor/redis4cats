@@ -85,6 +85,28 @@ val configuredApi: Resource[IO, StringCommands[IO, String, String]] =
   } yield redis
 ```
 
+A RedisURI can also be created using the `redis` string interpolator:
+
+```scala mdoc:silent
+import dev.profunktor.redis4cats.syntax.literals._
+val uri = redis"redis://localhost"
+
+val secure = redis"rediss://localhost"
+
+val withPassword = redis"redis://:password@localhost"
+
+val withDatabase = redis"redis://localhost/1"
+
+val sentinel = redis"redis-sentinel://localhost:26379,localhost:26380?sentinelMasterId=m"
+
+val `redis+ssl` = redis"redis+ssl://localhost"
+
+val `redis+tls` = redis"redis+tls://localhost"
+
+val `redis-socket` = redis"redis-socket:///tmp/redis.sock"
+
+```
+
 ## Single node connection
 
 For those who only need a simple API access to Redis commands, there are a few ways to acquire a connection:

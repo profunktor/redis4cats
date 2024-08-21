@@ -27,8 +27,8 @@ trait HashGetter[F[_], K, V] {
   def hmGet(key: K, field: K, fields: K*): F[Map[K, V]]
   def hKeys(key: K): F[List[K]]
   def hVals(key: K): F[List[V]]
-  def hStrLen(key: K, field: K): F[Option[Long]]
-  def hLen(key: K): F[Option[Long]]
+  def hStrLen(key: K, field: K): F[Long]
+  def hLen(key: K): F[Long]
 }
 
 trait HashSetter[F[_], K, V] {
