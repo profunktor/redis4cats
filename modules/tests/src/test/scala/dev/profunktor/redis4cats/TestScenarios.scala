@@ -302,6 +302,12 @@ trait TestScenarios { self: FunSuite =>
       kTtl2 <- redis.ttl("k")
       _ <- IO(assert(kTtl2.nonEmpty))
       _ <- redis.del("k")
+      tpe <- redis.typeOf("k")
+      _ <- IO(assertEquals(tpe, None))
+      _ <- redis.set("k", "v")
+      tpe2 <- redis.typeOf("k")
+      _ <- IO(assertEquals(tpe2, Some(RedisType.String)))
+      _ <- redis.del("k")
     } yield ()
   }
 

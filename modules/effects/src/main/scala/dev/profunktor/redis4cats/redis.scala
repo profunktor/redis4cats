@@ -571,6 +571,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def ttl(key: K): F[Option[FiniteDuration]] =
     async.flatMap(_.ttl(key).futureLift.map(toFiniteDuration(TimeUnit.SECONDS)))
 
+  override def typeOf(key: K): F[Option[RedisType]] =
+    async.flatMap(_.`type`(key).futureLift.map(RedisType.fromString))
+
   /******************************* Transactions API **********************************/
   // When in a cluster, transactions should run against a single node.
 

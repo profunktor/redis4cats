@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats.algebra
 
 import java.time.Instant
 import dev.profunktor.redis4cats.data.KeyScanCursor
-import dev.profunktor.redis4cats.effects.{ CopyArgs, ExpireExistenceArg, RestoreArgs, ScanArgs }
+import dev.profunktor.redis4cats.effects.{ CopyArgs, ExpireExistenceArg, RedisType, RestoreArgs, ScanArgs }
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -46,6 +46,7 @@ trait KeyCommands[F[_], K] {
   @deprecated("In favor of scan(cursor: KeyScanCursor[K], scanArgs: ScanArgs)", since = "0.10.4")
   def scan(cursor: Long, scanArgs: ScanArgs): F[KeyScanCursor[K]]
   def scan(previous: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]]
+  def typeOf(key: K): F[Option[RedisType]]
   def ttl(key: K): F[Option[FiniteDuration]]
 
 }
