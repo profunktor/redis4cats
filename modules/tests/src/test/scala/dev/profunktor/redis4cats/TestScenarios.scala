@@ -304,10 +304,20 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.del("k")
       tpe <- redis.typeOf("k")
       _ <- IO(assertEquals(tpe, None))
-      _ <- redis.set("k", "v")
-      tpe2 <- redis.typeOf("k")
+      _ <- redis.set("aV", "v")
+      tpe2 <- redis.typeOf("aV")
       _ <- IO(assertEquals(tpe2, Some(RedisType.String)))
-      _ <- redis.del("k")
+      _ <- redis.setBit("bits", 0, 1)
+      bitSet <- redis.typeOf("bits")
+      _ <- IO(assertEquals(bitSet, Some(RedisType.String)))
+      _ <- redis.lPush("list", "v", "u")
+      list <- redis.typeOf("list")
+      _ <- IO(assertEquals(list, Some(RedisType.List)))
+      // geospatial
+      _ <- redis.geoAdd("geo", GeoLocation(Longitude(13.361389), Latitude(38.115556), "Palermo"))
+      geo <- redis.typeOf("geo")
+      _ <- IO(assertEquals(geo, Some(RedisType.SortedSet)))
+      _ <- redis.flushAll
     } yield ()
   }
 

@@ -17,7 +17,8 @@
 package dev.profunktor.redis4cats
 
 import java.time.Instant
-import io.lettuce.core.{ GeoArgs, ScanArgs => JScanArgs, ScriptOutputType => JScriptOutputType }
+
+import io.lettuce.core.{ GeoArgs, ScriptOutputType => JScriptOutputType, ScanArgs => JScanArgs }
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -108,7 +109,7 @@ object effects {
     def idleTime(idleTime: Long): RestoreArgs  = copy(idleTime = Some(idleTime))
   }
 
-  sealed abstract class ScanArgs(`match`: Option[String], count: Option[Long]) {
+  case class ScanArgs(`match`: Option[String], count: Option[Long]) {
     def underlying: JScanArgs = {
       val u = new JScanArgs
       `match`.foreach(u.`match`)
@@ -117,9 +118,9 @@ object effects {
     }
   }
   object ScanArgs {
-    def apply(`match`: String): ScanArgs              = new ScanArgs(Some(`match`), None) {}
-    def apply(count: Long): ScanArgs                  = new ScanArgs(None, Some(count)) {}
-    def apply(`match`: String, count: Long): ScanArgs = new ScanArgs(Some(`match`), Some(count)) {}
+    def apply(`match`: String): ScanArgs              = ScanArgs(Some(`match`), None)
+    def apply(count: Long): ScanArgs                  = ScanArgs(None, Some(count))
+    def apply(`match`: String, count: Long): ScanArgs = ScanArgs(Some(`match`), Some(count))
   }
 
   sealed trait FlushMode {
@@ -208,17 +209,14 @@ object effects {
     case object Lt extends ExpireExistenceArg
   }
 
+  // Models the core Redis Types as described in https://redis.io/docs/latest/develop/data-types/
+  // Caveat: BitSet, GeoSpatial etc... are implemented in terms of the core types , i.e. Geo is a Sorted Set etc..
   sealed abstract class RedisType(val asString: String)
   object RedisType {
-    def fromString(s: String): Option[RedisType] = s match {
-      case "string" => Some(String)
-      case "list"   => Some(List)
-      case "set"    => Some(Set)
-      case "zset"   => Some(SortedSet)
-      case "hash"   => Some(Hash)
-      case "stream" => Some(Stream)
-      case _        => None
-    }
+    val all = scala.List(String, List, Set, SortedSet, Hash, Stream)
+
+    def fromString(s: String): Option[RedisType] = all.find(_.asString == s)
+
     case object String extends RedisType("string")
 
     case object List extends RedisType("list")
