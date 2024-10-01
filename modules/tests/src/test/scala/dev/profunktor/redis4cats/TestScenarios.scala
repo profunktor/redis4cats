@@ -233,6 +233,8 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.set(key1, "some value")
       exist2 <- redis.exists(key1)
       _ <- IO(assert(exist2))
+      rkey <- redis.randomKey
+      _ <- IO(assertEquals(rkey, Some(key1)))
       dump <- redis.dump(key1)
       _ <- IO(assert(dump.nonEmpty))
       _ <- redis.restore(key1, dump.get, RestoreArgs().replace(true))
