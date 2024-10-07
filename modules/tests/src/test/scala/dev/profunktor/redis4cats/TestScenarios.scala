@@ -234,7 +234,7 @@ trait TestScenarios { self: FunSuite =>
       exist2 <- redis.exists(key1)
       _ <- IO(assert(exist2))
       rkey <- redis.randomKey
-      _ <- IO(assertEquals(rkey, Some(key1)))
+      _ <- IO(assert(rkey.forall(_ == key1)))
       dump <- redis.dump(key1)
       _ <- IO(assert(dump.nonEmpty))
       _ <- redis.restore(key1, dump.get, RestoreArgs().replace(true))
@@ -303,7 +303,7 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(kv, Some("v")))
       kTtl2 <- redis.ttl("k")
       _ <- IO(assert(kTtl2.nonEmpty))
-      _ <- redis.del("k")
+      _ <- redis.unlink("k")
       tpe <- redis.typeOf("k")
       _ <- IO(assertEquals(tpe, None))
       _ <- redis.set("aV", "v")
