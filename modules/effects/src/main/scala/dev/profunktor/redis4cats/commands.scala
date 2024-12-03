@@ -22,6 +22,7 @@ import dev.profunktor.redis4cats.effect.Log
 
 trait RedisCommands[F[_], K, V]
     extends StringCommands[F, K, V]
+    with JsonCommands[F, K, V]
     with HashCommands[F, K, V]
     with SetCommands[F, K, V]
     with SortedSetCommands[F, K, V]
