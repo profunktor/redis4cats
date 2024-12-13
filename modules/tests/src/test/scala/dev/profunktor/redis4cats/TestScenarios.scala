@@ -280,7 +280,7 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(e.nonEmpty))
       _ <- IO.sleep(50.millis)
       f <- redis.ttl("f2")
-      _ <- IO(assert(f.isEmpty))
+      _ <- IO(assertEquals(f, None))
       _ <- redis.set("f3", "yay")
       expiref3 <- redis.expire("f3", 50.millis)
       _ <- IO(assertEquals(expiref3, true))
