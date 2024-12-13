@@ -38,7 +38,7 @@ class RedisStreamSpec extends Redis4CatsFunSuite(false) {
   private def readWriteTest(streamKey: String, length: Long): IO[Unit] =
     IO.fromFuture {
       IO {
-        withRedisStream[Unit] { (readStream, writeStream) =>
+        withRedisStream { (readStream, writeStream) =>
           val read = readStream.read(Set(streamKey), 1)
           val write =
             writeStream.append(fs2.Stream(XAddMessage(streamKey, Map("hello" -> "world"))).repeatN(length))
