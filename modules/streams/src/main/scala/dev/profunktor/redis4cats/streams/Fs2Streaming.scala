@@ -27,6 +27,7 @@ import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
 import io.lettuce.core.{ ReadFrom => JReadFrom }
+import io.lettuce.core.RedisCommandTimeoutException
 
 object RedisStream {
 
@@ -90,7 +91,12 @@ class RedisStream[F[_]: Sync, K, V](rawStreaming: RedisRawStreaming[F, K, V]) ex
     Stream.eval(Ref.of[F, Map[K, StreamingOffset[K]]](initial)).flatMap { ref =>
       (for {
         offsets <- Stream.eval(ref.get)
-        list <- Stream.eval(rawStreaming.xRead(offsets.values.toSet, block, count))
+        list <- Stream.eval(rawStreaming.xRead(offsets.values.toSet, block, count).recover {
+                 // If the stream has no data for a long time, lettuce will throw `RedisCommandTimeoutException`.
+                 // In that case we don't want to fail the stream and just return empty list. Then `repeat` will
+                 // restart the stream.
+                 case _: RedisCommandTimeoutException => Nil
+               })
         newOffsets = offsetsByKey(list).collect { case (key, Some(value)) => key -> value }.toList
         _ <- Stream.eval(newOffsets.map { case (k, v) => ref.update(_.updated(k, v)) }.sequence)
         result <- Stream.fromIterator[F](list.iterator, chunkSize)

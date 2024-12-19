@@ -26,6 +26,7 @@ import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, Future }
+import io.lettuce.core.ClientOptions
 
 abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
@@ -51,9 +52,14 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
   def withRedisClient[A](f: RedisClient => IO[A]): Future[Unit] =
     RedisClient[IO].from("redis://localhost").use(f).as(assert(true)).unsafeToFuture()
 
-  def withRedisStream[A](f: (Fs2Streaming[String, String], Fs2Streaming[String, String]) => IO[A]): Future[Unit] =
+  def withRedisStream(f: (Fs2Streaming[String, String], Fs2Streaming[String, String]) => IO[Unit]): Future[Unit] =
+    withRedisStreamOptions(ClientOptions.create())(f)
+
+  def withRedisStreamOptions(
+      options: ClientOptions
+  )(f: (Fs2Streaming[String, String], Fs2Streaming[String, String]) => IO[Unit]): Future[Unit] =
     (for {
-      client <- fs2.Stream.resource(RedisClient[IO].from("redis://localhost"))
+      client <- fs2.Stream.resource(RedisClient[IO].withOptions("redis://localhost", options))
       readStream <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
       writeStream <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
       results <- fs2.Stream.eval(f(readStream, writeStream))
