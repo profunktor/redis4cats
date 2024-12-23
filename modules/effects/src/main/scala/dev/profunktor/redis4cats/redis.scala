@@ -768,6 +768,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def del(key: K, path: JsonPath): F[Long] =
     async.flatMap(_.jsonDel(key, path).futureLift.map(x => Long.box(x)))
 
+  /*** JSON ARRAY ***/
   override def arrAppend(key: K, path: JsonPath, value: JsonValue*): F[Unit] =
     async.flatMap(_.jsonArrappend(key, path, value: _*).futureLift.void)
 
