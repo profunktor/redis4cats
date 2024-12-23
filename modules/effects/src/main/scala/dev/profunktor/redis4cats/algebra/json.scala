@@ -16,7 +16,8 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import io.lettuce.core.json.arguments.JsonRangeArgs
+import dev.profunktor.redis4cats.algebra.json.JsonGetArgs
+import io.lettuce.core.json.arguments.{ JsonRangeArgs, JsonGetArgs => LJsonGetArgs }
 import io.lettuce.core.json.{ JsonPath, JsonType, JsonValue }
 
 trait JsonCommands[F[_], K, V]
@@ -26,34 +27,47 @@ trait JsonCommands[F[_], K, V]
     with JsonNumber[F, K, V]
     with JsonString[F, K, V]
     with JsonBoolean[F, K, V] {
+
+  /**
+    * Clear container values (arrays/objects) and set numeric values to 0
+    * @return Long the number of values removed plus all the matching JSON numerical values that are zeroed.
+    */
   def clear(key: K, path: JsonPath): F[Long]
-  // def debug(key: K, path: JsonPath): F[String]
+  def clear(key: K): F[Long]
+
+  /**
+    * Deletes a value inside the JSON document at a given  JsonPath
+    * @return Long the number of values removed (0 or more).
+    */
   def del(key: K, path: JsonPath): F[Long]
-//  def forget(key: K, path: JsonPath): F[Long]
+  def del(key: K): F[Long]
+
   def jsonType(key: K, path: JsonPath): F[List[JsonType]]
+  def jsonType(key: K): F[List[JsonType]]
 }
 trait JsonGet[F[_], K, V] {
-  def get(key: K, path: JsonPath): F[List[JsonValue]]
-  def mget(key: K, paths: JsonPath*): F[List[JsonValue]]
-  def objKeys(key: K, path: JsonPath): F[List[K]]
+  def get(key: K, path: JsonPath, paths: JsonPath*): F[List[JsonValue]]
+  def get(key: K, arg: JsonGetArgs, path: JsonPath, paths: JsonPath*): F[List[JsonValue]]
+  def mget(path: JsonPath, key: K, keys: K*): F[List[JsonValue]]
+  def objKeys(key: K, path: JsonPath): F[List[V]]
   def objLen(key: K, path: JsonPath): F[Long]
 }
 trait JsonSet[F[_], K, V] {
-  def mset(key: K, values: (JsonPath, JsonValue)*): F[Unit]
-  def set(key: K, path: JsonPath, value: JsonValue): F[Unit]
+  def mset(key: K, values: (JsonPath, JsonValue)*): F[Boolean]
+  def set(key: K, path: JsonPath, value: JsonValue): F[Boolean]
   def setnx(key: K, path: JsonPath, value: JsonValue): F[Boolean]
   def setxx(key: K, path: JsonPath, value: JsonValue): F[Boolean]
-  def jsonMerge(key: K, jsonPath: JsonPath, value: JsonValue): F[Boolean];
+  def jsonMerge(key: K, jsonPath: JsonPath, value: JsonValue): F[String];
 }
 trait JsonNumber[F[_], K, V] {
   def numIncrBy(key: K, path: JsonPath, number: Number): F[List[Number]]
 }
 trait JsonString[F[_], K, V] {
-  def strAppend(key: K, path: JsonPath, value: JsonValue): F[Long]
+  def strAppend(key: K, path: JsonPath, value: JsonValue): F[List[Long]]
   def strLen(key: K, path: JsonPath): F[Long]
 }
 trait JsonBoolean[F[_], K, V] {
-  def toggle(key: K, path: JsonPath): F[Boolean]
+  def toggle(key: K, path: JsonPath): F[List[Long]]
 }
 
 trait JsonArray[F[_], K, V] {
@@ -64,4 +78,22 @@ trait JsonArray[F[_], K, V] {
   def arrPop(key: K, path: JsonPath, index: Int): F[List[JsonValue]]
   def arrTrim(key: K, path: JsonPath, range: JsonRangeArgs): F[List[Long]]
 
+}
+
+object json {
+  final case class JsonGetArgs(
+      indent: Option[String],
+      newline: Option[String],
+      space: Option[String]
+  ) {
+    def underlying: LJsonGetArgs = {
+      val args = new LJsonGetArgs()
+      indent.foreach(args.indent)
+      newline.foreach(args.newline)
+      space.foreach(args.space)
+      args
+    }
+  }
+
+  object JsonGetArgs
 }
