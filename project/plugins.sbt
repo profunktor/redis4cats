@@ -9,3 +9,5 @@ addSbtPlugin("com.47deg"                 % "sbt-microsites"  % "1.4.4")
 addSbtPlugin("org.scalameta"             % "sbt-mdoc"        % "2.6.2")
 addSbtPlugin("com.github.sbt"            % "sbt-site"        % "1.7.0")
 addSbtPlugin("com.github.sbt"            % "sbt-unidoc"      % "0.5.0")
+
+addDependencyTreePlugin
