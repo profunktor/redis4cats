@@ -44,7 +44,6 @@ val commonSettings = Seq(
   libraryDependencies ++= Seq(
         Libraries.catsEffectKernel,
         Libraries.redisClient,
-        Libraries.keyPool         % Optional,
         Libraries.catsEffect      % Test,
         Libraries.catsLaws        % Test,
         Libraries.catsTestKit     % Test,
@@ -127,6 +126,9 @@ lazy val `redis4cats-log4cats` = project
 lazy val `redis4cats-effects` = project
   .in(file("modules/effects"))
   .settings(commonSettings: _*)
+  .settings(
+    libraryDependencies += Libraries.keyPool
+  )
   .settings(isMimaEnabled := true)
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
