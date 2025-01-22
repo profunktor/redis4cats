@@ -30,6 +30,8 @@ import munit.{ Compare, Location }
 
 import scala.concurrent.duration.{ Duration, DurationInt, FiniteDuration }
 import scala.concurrent.{ Await, Future }
+import dev.profunktor.redis4cats.pubsub.{ PubSub, PubSubCommands }
+import dev.profunktor.redis4cats.Redis4CatsFunSuite.Fs2PubSub
 
 abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
