@@ -26,7 +26,7 @@ import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, Future }
-import dev.profunktor.redis4cats.pubsub.{PubSub, PubSubCommands}
+import dev.profunktor.redis4cats.pubsub.{ PubSub, PubSubCommands }
 import dev.profunktor.redis4cats.Redis4CatsFunSuite.Fs2PubSub
 
 abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
