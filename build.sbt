@@ -110,14 +110,24 @@ lazy val `redis4cats-core` = project
     libraryDependencies ++=
         pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(Libraries.reflect(scalaVersion.value)))
   )
-  .settings(isMimaEnabled := true)
+  .settings(
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { prev =>
+      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.7.1")))
+    }
+  )
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `redis4cats-log4cats` = project
   .in(file("modules/log4cats"))
   .settings(commonSettings: _*)
-  .settings(isMimaEnabled := true)
+  .settings(
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { prev =>
+      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.4.3")))
+    }
+  )
   .settings(libraryDependencies += Libraries.log4CatsCore)
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -129,7 +139,12 @@ lazy val `redis4cats-effects` = project
   .settings(
     libraryDependencies += Libraries.keyPool
   )
-  .settings(isMimaEnabled := true)
+  .settings(
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { prev =>
+      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.7.2")))
+    }
+  )
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
@@ -137,7 +152,12 @@ lazy val `redis4cats-effects` = project
 lazy val `redis4cats-streams` = project
   .in(file("modules/streams"))
   .settings(commonSettings: _*)
-  .settings(isMimaEnabled := true)
+  .settings(
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { prev =>
+      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.7.2")))
+    }
+  )
   .settings(libraryDependencies += Libraries.fs2Core)
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
