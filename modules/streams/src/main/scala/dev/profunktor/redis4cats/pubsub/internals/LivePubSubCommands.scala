@@ -32,51 +32,51 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V],
     pubConnection: StatefulRedisPubSubConnection[K, V]
-) extends PubSubCommands[Stream[F, *], K, V] {
+) extends PubSubCommands[F, Stream[F, *], K, V] {
 
-  private[redis4cats] val subCommands: SubscribeCommands[Stream[F, *], K, V] =
+  private[redis4cats] val subCommands: SubscribeCommands[F, Stream[F, *], K, V] =
     new Subscriber[F, K, V](state, subConnection)
-  private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection)
+  private[redis4cats] val pubSubStats: PubSubStats[F, K] = new LivePubSubStats(pubConnection)
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     subCommands.subscribe(channel)
 
-  override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
+  override def unsubscribe(channel: RedisChannel[K]): F[Unit] =
     subCommands.unsubscribe(channel)
 
   override def psubscribe(pattern: RedisPattern[K]): Stream[F, RedisPatternEvent[K, V]] =
     subCommands.psubscribe(pattern)
 
-  override def punsubscribe(pattern: RedisPattern[K]): Stream[F, Unit] =
+  override def punsubscribe(pattern: RedisPattern[K]): F[Unit] =
     subCommands.punsubscribe(pattern)
 
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
-    _.flatMap { message =>
-      Stream.resource(
-        Resource.eval(state.get) >>= PubSubInternals.channel[F, K, V](state, subConnection).apply(channel)
-      ) >>
-        Stream.eval(FutureLift[F].lift(pubConnection.async().publish(channel.underlying, message)).void)
-    }
+    _.evalMap(publish(channel, _))
 
-  override def numPat: Stream[F, Long] =
+  override def publish(channel: RedisChannel[K], message: V): F[Unit] = {
+    val resource = Resource.eval(state.get) >>= PubSubInternals.channel[F, K, V](state, subConnection).apply(channel)
+    resource.use(_ => FutureLift[F].lift(pubConnection.async().publish(channel.underlying, message)).void)
+  }
+
+  override def numPat: F[Long] =
     pubSubStats.numPat
 
-  override def numSub: Stream[F, List[Subscription[K]]] =
+  override def numSub: F[List[Subscription[K]]] =
     pubSubStats.numSub
 
-  override def pubSubChannels: Stream[F, List[RedisChannel[K]]] =
+  override def pubSubChannels: F[List[RedisChannel[K]]] =
     pubSubStats.pubSubChannels
 
-  override def pubSubShardChannels: Stream[F, List[RedisChannel[K]]] =
+  override def pubSubShardChannels: F[List[RedisChannel[K]]] =
     pubSubStats.pubSubShardChannels
 
-  override def pubSubSubscriptions(channel: RedisChannel[K]): Stream[F, Subscription[K]] =
+  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]] =
     pubSubStats.pubSubSubscriptions(channel)
 
-  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
+  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.pubSubSubscriptions(channels)
 
-  override def shardNumSub(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
+  override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.shardNumSub(channels)
 
 }

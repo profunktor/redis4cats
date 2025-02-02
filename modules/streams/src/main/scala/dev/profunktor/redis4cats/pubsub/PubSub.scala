@@ -54,7 +54,7 @@ object PubSub {
   def mkPubSubConnection[F[_]: Async: FutureLift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, PubSubCommands[Stream[F, *], K, V]] = {
+  ): Resource[F, PubSubCommands[F, Stream[F, *], K, V]] = {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
     // One exclusive connection for subscriptions and another connection for publishing / stats
     for {
@@ -72,7 +72,7 @@ object PubSub {
   def mkPublisherConnection[F[_]: FlatMap: FutureLift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, PublishCommands[Stream[F, *], K, V]] = {
+  ): Resource[F, PublishCommands[F, Stream[F, *], K, V]] = {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
     Resource.make(acquire)(release).map(new Publisher[F, K, V](_))
   }
@@ -85,7 +85,7 @@ object PubSub {
   def mkSubscriberConnection[F[_]: Async: FutureLift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
-  ): Resource[F, SubscribeCommands[Stream[F, *], K, V]] = {
+  ): Resource[F, SubscribeCommands[F, Stream[F, *], K, V]] = {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
     for {
       state <- Resource.eval(Ref.of[F, PubSubState[F, K, V]](PubSubState(Map.empty, Map.empty)))
