@@ -73,7 +73,7 @@ class RedisStream[F[_]: Sync, K, V](rawStreaming: RedisRawStreaming[F, K, V]) ex
   private[streams] def nextOffset(key: K, msg: XReadMessage[K, V]): StreamingOffset[K] =
     StreamingOffset.Custom(key, msg.id.value)
 
-  private[streams] def offsetsByKey(iter: IterableOnce[XReadMessage[K, V]]): Iterator[(K, StreamingOffset[K])] = {
+  private[streams] def offsetsByKey(iter: Iterable[XReadMessage[K, V]]): Iterator[(K, StreamingOffset[K])] = {
     val map = collection.mutable.Map.empty[K, XReadMessage[K, V]]
     iter.iterator.foreach(msg => map += msg.key -> msg)
     map.iterator.map { case (key, msg) => key -> nextOffset(key, msg) }

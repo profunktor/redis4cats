@@ -27,7 +27,7 @@ import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, Future }
 import io.lettuce.core.ClientOptions
-import dev.profunktor.redis4cats.pubsub.{PubSub, PubSubCommands}
+import dev.profunktor.redis4cats.pubsub.{ PubSub, PubSubCommands }
 import dev.profunktor.redis4cats.Redis4CatsFunSuite.Fs2PubSub
 
 abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
@@ -60,7 +60,7 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
       pubSub <- fs2.Stream.resource(PubSub.mkPubSubConnection[IO, String, String](client, stringCodec))
       _ <- fs2.Stream.eval(f(pubSub))
     } yield ()).compile.drain.void.unsafeToFuture()
-  
+
   def withRedisStream(f: (Fs2Streaming[String, String], Fs2Streaming[String, String]) => IO[Unit]): Future[Unit] =
     withRedisStreamOptions(ClientOptions.create())(f)
 
