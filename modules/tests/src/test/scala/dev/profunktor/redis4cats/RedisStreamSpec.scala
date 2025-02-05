@@ -47,7 +47,11 @@ class RedisStreamSpec extends Redis4CatsFunSuite(false) {
       val _ = writeStream
 
       // This stream has no data and previously reading from such stream would fail with an exception
-      readStream.read(Set("test-stream-expiration"), 1).interruptAfter(500.millis).compile.drain
+      readStream
+        .read(Set("test-stream-expiration"), 1, restartOnTimeout = Some(_ => true))
+        .interruptAfter(500.millis)
+        .compile
+        .drain
     }
   }
 

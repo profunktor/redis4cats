@@ -18,7 +18,7 @@ package dev.profunktor.redis4cats.streams
 
 import dev.profunktor.redis4cats.streams.data._
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 trait RawStreaming[F[_], K, V] {
 
@@ -43,11 +43,26 @@ trait RawStreaming[F[_], K, V] {
 trait Streaming[F[_], K, V] {
   def append: F[XAddMessage[K, V]] => F[MessageId]
 
+  /**
+    * Read data from one or multiple streams, only returning entries with an ID greater than the last
+    * received ID reported by the caller.
+    *
+    * Note that if you block indefinitely or longer than the configured timeout for the underlying Lettuce client,
+    * Lettuce will terminate the stream with [[io.lettuce.core.RedisCommandTimeoutException]]. To avoid this set
+    * `restartOnTimeout` to [[Some]], but then your stream will not be aware of any connection issues that silently
+    * stop sending data.
+    *
+    * @see https://redis.io/commands/xread
+    *
+    * @param restartOnTimeout if [[Some]], receives elapsed time since the stream started and determines whether to
+    *                         restart the stream based on the returned boolean (true to restart).
+    */
   def read(
       keys: Set[K],
       chunkSize: Int,
       initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K],
       block: Option[Duration] = Some(Duration.Zero),
-      count: Option[Long] = None
+      count: Option[Long] = None,
+      restartOnTimeout: Option[FiniteDuration => Boolean] = None
   ): F[XReadMessage[K, V]]
 }
