@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats
 
-import dev.profunktor.redis4cats.data.{RedisChannel, RedisPattern, RedisPatternEvent}
+import dev.profunktor.redis4cats.data.{ RedisChannel, RedisPattern, RedisPatternEvent }
 import cats.effect.IO
 import cats.effect.kernel.Deferred
 import scala.concurrent.duration._
@@ -30,8 +30,8 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
     val pattern = RedisPattern("pubsub-spec-channel-and-pattern:*")
 
     case class Results(
-      channel: Vector[String],
-      pattern: Vector[RedisPatternEvent[String, String]]
+        channel: Vector[String],
+        pattern: Vector[RedisPatternEvent[String, String]]
     )
 
     withRedisPubSub { pubSub =>
@@ -48,7 +48,7 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
       } yield Results(channelResults, patternResults)
 
       val expected = Results(
-        channel = Vector("hello"), 
+        channel = Vector("hello"),
         pattern = Vector(RedisPatternEvent(pattern.underlying, channel.underlying, "hello"))
       )
 
