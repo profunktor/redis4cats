@@ -22,6 +22,7 @@ import cats.effect.kernel._
 import cats.syntax.option._
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.JavaConversions._
+import dev.profunktor.redis4cats.StreamsInstances._
 import dev.profunktor.redis4cats.effect.FutureLift
 import dev.profunktor.redis4cats.streams.data._
 import dev.profunktor.redis4cats.streams.data.StreamingOffset.{ All, Custom, Latest }
@@ -53,21 +54,22 @@ private[streams] class RedisRawStreaming[F[_]: FutureLift: Sync, K, V](
         }
         client.async().xadd(key, args.orNull, body.asJava)
       }
+      .enhanceTimeoutException(s"xadd(key=$key, body=$body, approxMaxlen=$approxMaxlen, minId=$minId)")
       .map(MessageId.apply)
 
   override def xRead(
       streams: Set[StreamingOffset[K]],
       block: Option[Duration] = Some(Duration.Zero),
       count: Option[Long] = None
-  ): F[List[XReadMessage[K, V]]] =
+  ): F[List[XReadMessage[K, V]]] = {
+    val offsets = streams.map {
+      case All(key)            => StreamOffset.from(key, "0")
+      case Latest(key)         => StreamOffset.latest(key)
+      case Custom(key, offset) => StreamOffset.from(key, offset)
+    }.toSeq
+
     FutureLift[F]
       .lift {
-        val offsets = streams.map {
-          case All(key)            => StreamOffset.from(key, "0")
-          case Latest(key)         => StreamOffset.latest(key)
-          case Custom(key, offset) => StreamOffset.from(key, offset)
-        }.toSeq
-
         (block, count) match {
           case (None, None)        => client.async().xread(offsets: _*)
           case (None, Some(count)) => client.async().xread(XReadArgs.Builder.count(count), offsets: _*)
@@ -76,10 +78,12 @@ private[streams] class RedisRawStreaming[F[_]: FutureLift: Sync, K, V](
             client.async().xread(XReadArgs.Builder.block(block.toMillis).count(count), offsets: _*)
         }
       }
+      .enhanceTimeoutException(s"xread(offsets=$offsets, block=$block, count=$count)")
       .map { list =>
         list.asScala.toList.map { msg =>
           XReadMessage[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap)
         }
       }
+  }
 
 }

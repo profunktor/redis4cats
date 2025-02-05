@@ -17,7 +17,6 @@
 package dev.profunktor.redis4cats
 package streams
 
-import scala.concurrent.duration.{ Duration, FiniteDuration }
 import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
@@ -26,7 +25,9 @@ import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
 import io.lettuce.core.{ ReadFrom => JReadFrom }
-import io.lettuce.core.RedisCommandTimeoutException
+import dev.profunktor.redis4cats.StreamsInstances._
+
+import scala.concurrent.duration.Duration
 
 object RedisStream {
 
@@ -86,13 +87,13 @@ class RedisStream[F[_]: Sync, K, V](rawStreaming: RedisRawStreaming[F, K, V]) ex
       keys: Set[K],
       chunkSize: Int,
       initialOffset: K => StreamingOffset[K],
-      block: Option[Duration] = Some(Duration.Zero),
-      count: Option[Long] = None,
-      restartOnTimeout: Option[FiniteDuration => Boolean] = None
+      block: Option[Duration],
+      count: Option[Long],
+      restartOnTimeout: RestartOnTimeout
   ): Stream[F, XReadMessage[K, V]] = {
     val initial = keys.map(k => k -> initialOffset(k)).toMap
     Stream.eval(Ref.of[F, Map[K, StreamingOffset[K]]](initial)).flatMap { ref =>
-      def streamWithoutRestarts =
+      def withoutRestarts =
         (for {
           offsets <- Stream.eval(ref.get)
           list <- Stream.eval(rawStreaming.xRead(offsets.values.toSet, block, count))
@@ -101,27 +102,7 @@ class RedisStream[F[_]: Sync, K, V](rawStreaming: RedisRawStreaming[F, K, V]) ex
           result <- Stream.fromIterator[F](list.iterator, chunkSize)
         } yield result).repeat
 
-      restartOnTimeout match {
-        case None => streamWithoutRestarts
-        case Some(restartOnTimeout) =>
-          val currentTime = Stream.eval(Sync[F].monotonic)
-
-          def onTimeout(startedAt: FiniteDuration): Stream[F, XReadMessage[K, V]] =
-            for {
-              now <- currentTime
-              elapsed = now - startedAt
-              restart = restartOnTimeout(elapsed)
-              msg <- if (restart) doStream else Stream.empty
-            } yield msg
-
-          def doStream: Stream[F, XReadMessage[K, V]] =
-            for {
-              startedAt <- currentTime
-              msg <- streamWithoutRestarts.recoverWith { case _: RedisCommandTimeoutException => onTimeout(startedAt) }
-            } yield msg
-
-          doStream
-      }
+      restartOnTimeout.wrap(withoutRestarts)
     }
   }
 

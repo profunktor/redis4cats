@@ -35,9 +35,19 @@ trait PublishCommands[F[_], K, V] extends PubSubStats[F, K] {
 }
 
 trait SubscribeCommands[F[_], K, V] {
+
+  /**
+    * Subscribes to a channel.
+    */
   def subscribe(channel: RedisChannel[K]): F[V]
+
   def unsubscribe(channel: RedisChannel[K]): F[Unit]
+
+  /**
+    * Subscribes to a pattern.
+    */
   def psubscribe(channel: RedisPattern[K]): F[RedisPatternEvent[K, V]]
+
   def punsubscribe(channel: RedisPattern[K]): F[Unit]
 }
 

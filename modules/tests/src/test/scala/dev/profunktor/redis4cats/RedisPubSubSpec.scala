@@ -55,4 +55,20 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
       actualIO.map(assertEquals(_, expected))
     }
   }
+
+  test("subscribing to a silent channel should not fail with RedisCommandTimeoutException") {
+    timeoutingOperationTest { (options, _) =>
+      fs2.Stream.resource(withRedisPubSubOptionsResource(options)).flatMap { pubSub =>
+        pubSub.subscribe(RedisChannel("test-sub-expiration"))
+      }
+    }
+  }
+
+  test("subscribing to a silent pattern should not fail with RedisCommandTimeoutException") {
+    timeoutingOperationTest { (options, _) =>
+      fs2.Stream.resource(withRedisPubSubOptionsResource(options)).flatMap { pubSub =>
+        pubSub.psubscribe(RedisPattern("test-sub-expiration"))
+      }
+    }
+  }
 }

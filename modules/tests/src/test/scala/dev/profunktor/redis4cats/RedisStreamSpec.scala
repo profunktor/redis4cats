@@ -21,9 +21,6 @@ import cats.implicits.toTraverseOps
 import dev.profunktor.redis4cats.streams.data.XAddMessage
 
 import scala.concurrent.duration.DurationInt
-import io.lettuce.core.ClientOptions
-import io.lettuce.core.TimeoutOptions
-import java.time.Duration
 
 class RedisStreamSpec extends Redis4CatsFunSuite(false) {
 
@@ -39,19 +36,12 @@ class RedisStreamSpec extends Redis4CatsFunSuite(false) {
   }
 
   test("reading from a silent stream should not fail with RedisCommandTimeoutException") {
-    val options = ClientOptions
-      .builder()
-      .timeoutOptions(TimeoutOptions.builder().fixedTimeout(Duration.ofMillis(250)).build())
-      .build()
-    withRedisStreamOptions(options) { (readStream, writeStream) =>
-      val _ = writeStream
-
-      // This stream has no data and previously reading from such stream would fail with an exception
-      readStream
-        .read(Set("test-stream-expiration"), 1, restartOnTimeout = Some(_ => true))
-        .interruptAfter(500.millis)
-        .compile
-        .drain
+    timeoutingOperationTest { (options, restartOnTimeout) =>
+      fs2.Stream.resource(withRedisStreamOptionsResource(options)).flatMap {
+        case (readStream, _) =>
+          // This stream has no data and previously reading from such stream would fail with an exception
+          readStream.read(Set("test-stream-expiration"), 1, restartOnTimeout = restartOnTimeout)
+      }
     }
   }
 
