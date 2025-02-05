@@ -37,6 +37,7 @@ TAGS
 lib_managed
 logs
 project/boot/*
+project/**/metals.sbt
 project/plugins/project
 src_managed
 target

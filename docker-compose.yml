@@ -1,8 +1,7 @@
-version: "3.0"
 services:
   SingleNode:
     restart: always
-    image: valkey/valkey:7.2.6
+    image: valkey/valkey:8.0.2
     ports:
       - "6379:6379"
     environment:
@@ -11,7 +10,7 @@ services:
 
   ReplicaNode:
     restart: always
-    image: valkey/valkey:7.2.6
+    image: valkey/valkey:8.0.2
     ports:
       - "6380:6379"
     command: valkey-server --replicaof SingleNode 6379
@@ -22,7 +21,7 @@ services:
 
   RedisCluster:
     restart: always
-    image: yisraelu/valkey-cluster:7.2.6
+    image: yisraelu/valkey-cluster:8.0.2
     ports:
       - "30001:30001"
       - "30002:30002"

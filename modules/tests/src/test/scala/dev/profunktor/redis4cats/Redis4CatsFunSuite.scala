@@ -27,6 +27,8 @@ import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, Future }
 import io.lettuce.core.ClientOptions
+import dev.profunktor.redis4cats.pubsub.{PubSub, PubSubCommands}
+import dev.profunktor.redis4cats.Redis4CatsFunSuite.Fs2PubSub
 
 abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
@@ -52,6 +54,13 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
   def withRedisClient[A](f: RedisClient => IO[A]): Future[Unit] =
     RedisClient[IO].from("redis://localhost").use(f).as(assert(true)).unsafeToFuture()
 
+  def withRedisPubSub(f: Fs2PubSub[String, String] => IO[Unit]): Future[Unit] =
+    (for {
+      client <- fs2.Stream.resource(RedisClient[IO].from("redis://localhost"))
+      pubSub <- fs2.Stream.resource(PubSub.mkPubSubConnection[IO, String, String](client, stringCodec))
+      _ <- fs2.Stream.eval(f(pubSub))
+    } yield ()).compile.drain.void.unsafeToFuture()
+  
   def withRedisStream(f: (Fs2Streaming[String, String], Fs2Streaming[String, String]) => IO[Unit]): Future[Unit] =
     withRedisStreamOptions(ClientOptions.create())(f)
 
@@ -62,8 +71,8 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
       client <- fs2.Stream.resource(RedisClient[IO].withOptions("redis://localhost", options))
       readStream <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
       writeStream <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
-      results <- fs2.Stream.eval(f(readStream, writeStream))
-    } yield results).compile.drain.void.unsafeToFuture()
+      _ <- fs2.Stream.eval(f(readStream, writeStream))
+    } yield ()).compile.drain.void.unsafeToFuture()
 
   private def flushAll(): Future[Unit] =
     if (isCluster) withRedisCluster(_.flushAll)
@@ -94,6 +103,7 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
 }
 object Redis4CatsFunSuite {
+  type Fs2PubSub[K, V] = PubSubCommands[fs2.Stream[IO, *], K, V]
 
   type Fs2Streaming[K, V] = Streaming[fs2.Stream[IO, *], K, V]
 }
