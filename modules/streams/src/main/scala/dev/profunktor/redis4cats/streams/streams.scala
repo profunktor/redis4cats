@@ -48,11 +48,6 @@ trait Streaming[F[_], K, V] {
     * Read data from one or multiple streams, only returning entries with an ID greater than the last
     * received ID reported by the caller.
     *
-    * Note that if you block indefinitely or longer than the configured timeout for the underlying Lettuce client,
-    * Lettuce will terminate the stream with `io.lettuce.core.RedisCommandTimeoutException`. To avoid this set
-    * `restartOnTimeout` to `RestartOnTimeout.always`, but then your stream will not be aware of any connection
-    * issues that silently stop sending data.
-    *
     * @see https://redis.io/commands/xread
     */
   def read(
@@ -61,6 +56,6 @@ trait Streaming[F[_], K, V] {
       initialOffset: K => StreamingOffset[K] = StreamingOffset.All[K],
       block: Option[Duration] = Some(Duration.Zero),
       count: Option[Long] = None,
-      restartOnTimeout: RestartOnTimeout = RestartOnTimeout.never
+      restartOnTimeout: RestartOnTimeout = RestartOnTimeout.always
   ): F[XReadMessage[K, V]]
 }

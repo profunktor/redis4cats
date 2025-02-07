@@ -26,6 +26,9 @@ import scala.concurrent.duration.FiniteDuration
 
 /**
   * Configures restarting operations in case they time out.
+  *
+  * This is useful because Lettuce (the underlying Java client) does time out some operations if they do not send
+  * any data, like reading from a stream.
   */
 trait RestartOnTimeout {
 
@@ -64,6 +67,9 @@ object RestartOnTimeout {
   /** Never restart. */
   def never: RestartOnTimeout = _ => false
 
+  /** Restart if the elapsed time is less than the given duration. */
+  def ifBefore(duration: FiniteDuration): RestartOnTimeout = elapsed => elapsed < duration
+
   /** Restart if the elapsed time is greater than the given duration. */
-  def after(duration: FiniteDuration): RestartOnTimeout = elapsed => elapsed > duration
+  def ifAfter(duration: FiniteDuration): RestartOnTimeout = elapsed => elapsed > duration
 }
