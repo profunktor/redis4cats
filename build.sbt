@@ -1,3 +1,5 @@
+import com.scalapenos.sbt.prompt.SbtPrompt.autoImport._
+import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
@@ -7,13 +9,12 @@ ThisBuild / evictionErrorLevel := Level.Info
 ThisBuild / mimaBaseVersion := "1.7.0"
 Test / parallelExecution := false
 
-val blue  = "\u001b[34m"
-val reset = "\u001b[0m"
-
-def coloredPrompt(state: String, color: String): String =
-  s"$color$state$reset"
-
-ThisBuild / shellPrompt := { state => s"${coloredPrompt("[sbt]", blue)} redis4cats  λ " }
+promptTheme := PromptTheme(
+  List(
+    text("[sbt] ", fg(105)),
+    text(_ => "redis4cats", fg(15)).padRight(" λ ")
+  )
+)
 
 // publishing
 ThisBuild / organization := "dev.profunktor"
@@ -38,7 +39,7 @@ def getVersion(strVersion: String): Option[(Long, Long)] = CrossVersion.partialV
 val commonSettings = Seq(
   organizationName := "Redis client for Cats Effect & Fs2",
   startYear := Some(2018),
-  licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
+  licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2021", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
