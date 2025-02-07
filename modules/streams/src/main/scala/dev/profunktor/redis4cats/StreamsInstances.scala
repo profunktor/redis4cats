@@ -16,11 +16,9 @@
 
 package dev.profunktor.redis4cats
 
-import cats.{ Applicative, ApplicativeThrow }
+import cats.{ Applicative }
 import cats.effect.kernel.Clock
-import cats.syntax.all._
 import fs2.Stream
-import io.lettuce.core.RedisCommandTimeoutException
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -29,17 +27,5 @@ object StreamsInstances {
     override def applicative: Applicative[Stream[F, *]] = Applicative[Stream[F, *]]
     override def monotonic: Stream[F, FiniteDuration]   = Stream.eval(Clock[F].monotonic)
     override def realTime: Stream[F, FiniteDuration]    = Stream.eval(Clock[F].realTime)
-  }
-
-  implicit class FAOps[F[_], A](fa: F[A]) {
-
-    /** Enhances the [[RedisCommandTimeoutException]] with the name of the operation. */
-    def enhanceTimeoutException(name: => String)(implicit applicativeThrow: ApplicativeThrow[F]): F[A] =
-      fa.recoverWith {
-        case exception: RedisCommandTimeoutException =>
-          throw new RedisCommandTimeoutException(
-            new Exception(s"Redis command timed out while executing $name", exception)
-          )
-      }
   }
 }
