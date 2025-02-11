@@ -4,7 +4,7 @@ import microsites.ExtraMdFileConfig
 ThisBuild / scalaVersion := "2.13.15"
 ThisBuild / crossScalaVersions := Seq("2.12.20", "2.13.15", "3.3.4")
 ThisBuild / evictionErrorLevel := Level.Info
-ThisBuild / mimaBaseVersion := "1.7.0"
+ThisBuild / mimaBaseVersion := "1.8.0"
 Test / parallelExecution := false
 
 val blue  = "\u001b[34m"
