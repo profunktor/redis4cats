@@ -64,6 +64,12 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
 
   override def punsubscribe(pattern: RedisPattern[K]): F[Unit] =
     Subscriber.unsubscribeFrom(pattern, state.patternSubs)
+
+  override def internalChannelSubscriptions: F[Map[RedisChannel[K], Long]] =
+    state.channelSubs.get.map(_.iterator.map { case (k, v) => k -> v.subscribers }.toMap)
+
+  override def internalPatternSubscriptions: F[Map[RedisPattern[K], Long]] =
+    state.patternSubs.get.map(_.iterator.map { case (k, v) => k -> v.subscribers }.toMap)
 }
 object Subscriber {
 

@@ -76,6 +76,19 @@ trait SubscribeCommands[F[_], S[_], K, V] {
 
   /** Terminates all streams that are subscribed to the pattern. */
   def punsubscribe(channel: RedisPattern[K]): F[Unit]
+
+  /** Returns the channel subscriptions that the library keeps of.
+    *
+    * @return how many streams are subscribed to each channel.
+    * @see [[SubscribeCommands.subscribe]] for more information.
+    * */
+  def internalChannelSubscriptions: F[Map[RedisChannel[K], Long]]
+
+  /** Returns the pattern subscriptions that the library keeps of.
+    *
+    * @return how many streams are subscribed to each pattern.
+    * @see [[SubscribeCommands.psubscribe]] for more information. */
+  def internalPatternSubscriptions: F[Map[RedisPattern[K], Long]]
 }
 
 /**

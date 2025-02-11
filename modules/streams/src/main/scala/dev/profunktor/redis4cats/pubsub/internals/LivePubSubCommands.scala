@@ -50,6 +50,12 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
   override def punsubscribe(pattern: RedisPattern[K]): F[Unit] =
     subCommands.punsubscribe(pattern)
 
+  override def internalChannelSubscriptions: F[Map[RedisChannel[K], Long]] =
+    subCommands.internalChannelSubscriptions
+
+  override def internalPatternSubscriptions: F[Map[RedisPattern[K], Long]] =
+    subCommands.internalPatternSubscriptions
+
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Long] =
     _.evalMap(publish(channel, _))
 
@@ -76,5 +82,4 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
 
   override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.shardNumSub(channels)
-
 }

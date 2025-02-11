@@ -63,7 +63,6 @@ private[pubsub] class LivePubSubStats[F[_]: FlatMap: FutureLift, K, V](
     FutureLift[F]
       .lift(pubConnection.async().pubsubShardNumsub(channels.map(_.underlying): _*))
       .map(toSubscription[K])
-
 }
 object LivePubSubStats {
   private def toSubscription[K](map: ju.Map[K, JLong]): List[Subscription[K]] =

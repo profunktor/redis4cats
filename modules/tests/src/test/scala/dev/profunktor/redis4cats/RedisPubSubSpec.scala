@@ -35,7 +35,7 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
         pattern: Vector[RedisPatternEvent[String, String]]
     )
 
-    withRedisPubSub { implicit pubSub =>
+    withRedisPubSub { pubSub =>
       val actualIO = for {
         finished <- Deferred[IO, Either[Throwable, Unit]]
         s1 <- pubSub.subscribe(channel).interruptWhen(finished).compile.to(Vector).start
@@ -58,36 +58,23 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
   }
 
   test("subscribe: to same channel should share an underlying subscription") {
-    withRedisPubSub { implicit pubSub =>
-      val channel = RedisChannel("test-pubsub-shared")
-
-      for {
-        sub1 <- pubSub.subscribe(channel).compile.toVector.start
-        _ <- pubSub.shouldHaveNSubs(channel, 1, 200.millis)
-        sub2 <- pubSub.subscribe(channel).compile.toVector.start
-        _ <- IO.sleep(200.millis) // Wait to make sure the fiber started.
-        _ <- pubSub.shouldHaveNSubs(channel, 1)
-        _ <- sub1.cancel
-        _ <- pubSub.shouldHaveNSubs(channel, 1)
-        _ <- sub2.cancel
-        _ <- pubSub.shouldHaveNSubs(channel, 0)
-      } yield ()
-    }
-  }
-
-  test("subscribe: to same channel should share an underlying subscription") {
     withRedisPubSub { pubSub =>
       val channel = RedisChannel("test-pubsub-shared")
 
       for {
         sub1 <- pubSub.subscribe(channel).compile.toVector.start
-        _ <- pubSub.shouldHaveNSubs(channel, 1, 200.millis)
-        sub2 <- pubSub.subscribe(channel).compile.toVector.start
         _ <- IO.sleep(200.millis) // Wait to make sure the fiber started.
         _ <- pubSub.shouldHaveNSubs(channel, 1)
+        _ <- pubSub.internalChannelSubscriptions.map(assertEquals(_, Map(channel -> 1L)))
+        sub2 <- pubSub.subscribe(channel).compile.toVector.start
+        _ <- IO.sleep(200.millis) // Wait to make sure the fiber started.
+        _ <- pubSub.internalChannelSubscriptions.map(assertEquals(_, Map(channel -> 2L)))
+        _ <- pubSub.shouldHaveNSubs(channel, 1)
         _ <- sub1.cancel
+        _ <- pubSub.internalChannelSubscriptions.map(assertEquals(_, Map(channel -> 1L)))
         _ <- pubSub.shouldHaveNSubs(channel, 1)
         _ <- sub2.cancel
+        _ <- pubSub.internalChannelSubscriptions.map(assertEquals(_, Map.empty[RedisChannel[String], Long]))
         _ <- pubSub.shouldHaveNSubs(channel, 0)
       } yield ()
     }
@@ -120,24 +107,52 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
         sub1 <- pubSub.subscribe(channel).compile.toVector.start
         sub2 <- pubSub.subscribe(channel).compile.toVector.start
         _ <- IO.sleep(200.millis) // Wait to make sure the fibers have started ands streams started processing.
+        _ <- pubSub.internalChannelSubscriptions.map(assertEquals(_, Map(channel -> 2L)))
         _ <- pubSub.shouldHaveNSubs(channel, 1)
         _ <- pubSub.unsubscribe(channel)
-        _ <- pubSub.shouldHaveNSubs(channel, 0, 200.millis)
         _ <- sub1.joinWith(IO.raiseError(new Exception("sub1 should not have been cancelled")))
         _ <- sub2.joinWith(IO.raiseError(new Exception("sub2 should not have been cancelled")))
+        _ <- pubSub.shouldHaveNSubs(channel, 0)
+        _ <- pubSub.internalChannelSubscriptions.map(assertEquals(_, Map.empty[RedisChannel[String], Long]))
       } yield ()
     }
   }
 
-  test(
-    "subscribing to same pattern should share an underlying subscription"
-      .pending("No idea how to test this, as we can't get number of subscribers for a pattern")
-  ) {}
+  test("psubscribe: to same pattern should share an underlying subscription") {
+    withRedisPubSub { pubSub =>
+      val pattern = RedisPattern("test-pubsub-shared:pattern:*")
 
-  test(
-    "punsubscribe should terminate all streams"
-      .pending("No idea how to test this, as we can't get number of subscribers for a pattern")
-  ) {}
+      for {
+        sub1 <- pubSub.psubscribe(pattern).compile.toVector.start
+        _ <- IO.sleep(200.millis) // Wait to make sure the fiber started.
+        _ <- pubSub.internalPatternSubscriptions.map(assertEquals(_, Map(pattern -> 1L)))
+        sub2 <- pubSub.psubscribe(pattern).compile.toVector.start
+        _ <- IO.sleep(200.millis) // Wait to make sure the fiber started.
+        _ <- pubSub.internalPatternSubscriptions.map(assertEquals(_, Map(pattern -> 2L)))
+        _ <- sub1.cancel
+        _ <- pubSub.internalPatternSubscriptions.map(assertEquals(_, Map(pattern -> 1L)))
+        _ <- sub2.cancel
+        _ <- pubSub.internalPatternSubscriptions.map(assertEquals(_, Map.empty[RedisPattern[String], Long]))
+      } yield ()
+    }
+  }
+
+  test("punsubscribe: should terminate all streams") {
+    withRedisPubSub { pubSub =>
+      val pattern = RedisPattern("test-pubsub-shared:pattern:*")
+
+      for {
+        sub1 <- pubSub.psubscribe(pattern).compile.toVector.start
+        sub2 <- pubSub.psubscribe(pattern).compile.toVector.start
+        _ <- IO.sleep(200.millis) // Wait to make sure the fibers have started ands streams started processing.
+        _ <- pubSub.internalPatternSubscriptions.map(assertEquals(_, Map(pattern -> 2L)))
+        _ <- pubSub.punsubscribe(pattern)
+        _ <- sub1.joinWith(IO.raiseError(new Exception("sub1 should not have been cancelled")))
+        _ <- sub2.joinWith(IO.raiseError(new Exception("sub2 should not have been cancelled")))
+        _ <- pubSub.internalPatternSubscriptions.map(assertEquals(_, Map.empty[RedisPattern[String], Long]))
+      } yield ()
+    }
+  }
 
   test("subscribing to a silent channel should not fail with RedisCommandTimeoutException") {
     timeoutingOperationTest { (options, _) =>
