@@ -16,10 +16,21 @@
 
 package dev.profunktor.redis4cats.pubsub.internals
 
-import dev.profunktor.redis4cats.data.RedisPatternEvent
-import fs2.concurrent.Topic
+import cats.syntax.all._
+import cats.effect.kernel.Concurrent
+import cats.effect.std.AtomicCell
+import dev.profunktor.redis4cats.data.{ RedisChannel, RedisPattern, RedisPatternEvent }
 
-final case class PubSubState[F[_], K, V](
-    channels: Map[K, Topic[F, Option[V]]],
-    patterns: Map[K, Topic[F, Option[RedisPatternEvent[K, V]]]]
+/** We use `AtomicCell` instead of `Ref` because we need locking while side-effecting. */
+case class PubSubState[F[_], K, V](
+    channelSubs: AtomicCell[F, Map[RedisChannel[K], Redis4CatsSubscription[F, V]]],
+    patternSubs: AtomicCell[F, Map[RedisPattern[K], Redis4CatsSubscription[F, RedisPatternEvent[K, V]]]]
 )
+object PubSubState {
+  def make[F[_]: Concurrent, K, V]: F[PubSubState[F, K, V]] =
+    for {
+      channelSubs <- AtomicCell[F].of(Map.empty[RedisChannel[K], Redis4CatsSubscription[F, V]])
+      patternSubs <- AtomicCell[F].of(Map.empty[RedisPattern[K], Redis4CatsSubscription[F, RedisPatternEvent[K, V]]])
+    } yield apply(channelSubs, patternSubs)
+
+}

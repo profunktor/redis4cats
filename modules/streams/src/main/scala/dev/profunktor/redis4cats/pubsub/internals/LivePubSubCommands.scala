@@ -29,7 +29,7 @@ import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
-    state: Ref[F, PubSubState[F, K, V]],
+    state: PubSubState[F, K, V],
     subConnection: StatefulRedisPubSubConnection[K, V],
     pubConnection: StatefulRedisPubSubConnection[K, V]
 ) extends PubSubCommands[F, Stream[F, *], K, V] {
@@ -50,13 +50,11 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
   override def punsubscribe(pattern: RedisPattern[K]): F[Unit] =
     subCommands.punsubscribe(pattern)
 
-  override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
+  override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Long] =
     _.evalMap(publish(channel, _))
 
-  override def publish(channel: RedisChannel[K], message: V): F[Unit] = {
-    val resource = Resource.eval(state.get) >>= PubSubInternals.channel[F, K, V](state, subConnection).apply(channel)
-    resource.use(_ => FutureLift[F].lift(pubConnection.async().publish(channel.underlying, message)).void)
-  }
+  override def publish(channel: RedisChannel[K], message: V): F[Long] =
+    FutureLift[F].lift(pubConnection.async().publish(channel.underlying, message)).map(l => l: Long)
 
   override def numPat: F[Long] =
     pubSubStats.numPat

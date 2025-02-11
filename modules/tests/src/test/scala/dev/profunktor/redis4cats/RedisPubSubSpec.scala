@@ -19,6 +19,7 @@ package dev.profunktor.redis4cats
 import dev.profunktor.redis4cats.data.{ RedisChannel, RedisPattern, RedisPatternEvent }
 import cats.effect.IO
 import cats.effect.kernel.Deferred
+
 import scala.concurrent.duration._
 
 class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
@@ -34,7 +35,7 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
         pattern: Vector[RedisPatternEvent[String, String]]
     )
 
-    withRedisPubSub { pubSub =>
+    withRedisPubSub { implicit pubSub =>
       val actualIO = for {
         finished <- Deferred[IO, Either[Throwable, Unit]]
         s1 <- pubSub.subscribe(channel).interruptWhen(finished).compile.to(Vector).start
@@ -55,4 +56,86 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
       actualIO.map(assertEquals(_, expected))
     }
   }
+
+  test("subscribe: to same channel should share an underlying subscription") {
+    withRedisPubSub { implicit pubSub =>
+      val channel = RedisChannel("test-pubsub-shared")
+
+      for {
+        sub1 <- pubSub.subscribe(channel).compile.toVector.start
+        _ <- pubSub.shouldHaveNSubs(channel, 1, 200.millis)
+        sub2 <- pubSub.subscribe(channel).compile.toVector.start
+        _ <- IO.sleep(200.millis) // Wait to make sure the fiber started.
+        _ <- pubSub.shouldHaveNSubs(channel, 1)
+        _ <- sub1.cancel
+        _ <- pubSub.shouldHaveNSubs(channel, 1)
+        _ <- sub2.cancel
+        _ <- pubSub.shouldHaveNSubs(channel, 0)
+      } yield ()
+    }
+  }
+
+  test("subscribe: to same channel should share an underlying subscription") {
+    withRedisPubSub { pubSub =>
+      val channel = RedisChannel("test-pubsub-shared")
+
+      for {
+        sub1 <- pubSub.subscribe(channel).compile.toVector.start
+        _ <- pubSub.shouldHaveNSubs(channel, 1, 200.millis)
+        sub2 <- pubSub.subscribe(channel).compile.toVector.start
+        _ <- IO.sleep(200.millis) // Wait to make sure the fiber started.
+        _ <- pubSub.shouldHaveNSubs(channel, 1)
+        _ <- sub1.cancel
+        _ <- pubSub.shouldHaveNSubs(channel, 1)
+        _ <- sub2.cancel
+        _ <- pubSub.shouldHaveNSubs(channel, 0)
+      } yield ()
+    }
+  }
+
+  test("subscribe: messages should be delivered to all subscribers") {
+    withRedisPubSub { pubSub =>
+      val channel = RedisChannel("test-pubsub-shared")
+
+      for {
+        sub1 <- pubSub.subscribe(channel).compile.toVector.start
+        sub2 <- pubSub.subscribe(channel).compile.toVector.start
+        _ <- IO.sleep(200.millis) // Wait to make sure the fiber started.
+        _ <- pubSub.publish(channel, "hello")
+        _ <- IO.sleep(200.millis) // Wait to make sure the message is delivered.
+        _ <- pubSub.unsubscribe(channel)
+        sub1Result <- sub1.joinWith(IO.raiseError(new Exception(s"sub1 should not have been cancelled")))
+        _ <- IO(assertEquals(sub1Result, Vector("hello")))
+        sub2Result <- sub2.joinWith(IO.raiseError(new Exception(s"sub2 should not have been cancelled")))
+        _ <- IO(assertEquals(sub2Result, Vector("hello")))
+      } yield ()
+    }
+  }
+
+  test("unsubscribe: should terminate all listening streams") {
+    withRedisPubSub { pubSub =>
+      val channel = RedisChannel("test-pubsub-shared")
+
+      for {
+        sub1 <- pubSub.subscribe(channel).compile.toVector.start
+        sub2 <- pubSub.subscribe(channel).compile.toVector.start
+        _ <- IO.sleep(200.millis) // Wait to make sure the fibers have started ands streams started processing.
+        _ <- pubSub.shouldHaveNSubs(channel, 1)
+        _ <- pubSub.unsubscribe(channel)
+        _ <- pubSub.shouldHaveNSubs(channel, 0, 200.millis)
+        _ <- sub1.joinWith(IO.raiseError(new Exception("sub1 should not have been cancelled")))
+        _ <- sub2.joinWith(IO.raiseError(new Exception("sub2 should not have been cancelled")))
+      } yield ()
+    }
+  }
+
+  test(
+    "subscribing to same pattern should share an underlying subscription"
+      .pending("No idea how to test this, as we can't get number of subscribers for a pattern")
+  ) {}
+
+  test(
+    "punsubscribe should terminate all streams"
+      .pending("No idea how to test this, as we can't get number of subscribers for a pattern")
+  ) {}
 }

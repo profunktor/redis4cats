@@ -789,7 +789,7 @@ trait TestScenarios { self: FunSuite =>
           .awakeEvery[IO](100.milli)
           .as(message)
           .through(pubsub.publish(RedisChannel(channel)))
-          .recover { case _: RedisException => () }
+          .recover { case _: RedisException => 0L }
           .interruptWhen(i)
         _ <- Resource.eval(Stream(s1, s2).parJoin(2).compile.drain)
         fe <- Resource.eval(gate.get)
