@@ -138,4 +138,20 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
     "punsubscribe should terminate all streams"
       .pending("No idea how to test this, as we can't get number of subscribers for a pattern")
   ) {}
+
+  test("subscribing to a silent channel should not fail with RedisCommandTimeoutException") {
+    timeoutingOperationTest { (options, _) =>
+      fs2.Stream.resource(withRedisPubSubOptionsResource(options)).flatMap { pubSub =>
+        pubSub.subscribe(RedisChannel("test-sub-expiration"))
+      }
+    }
+  }
+
+  test("subscribing to a silent pattern should not fail with RedisCommandTimeoutException") {
+    timeoutingOperationTest { (options, _) =>
+      fs2.Stream.resource(withRedisPubSubOptionsResource(options)).flatMap { pubSub =>
+        pubSub.psubscribe(RedisPattern("test-sub-expiration"))
+      }
+    }
+  }
 }

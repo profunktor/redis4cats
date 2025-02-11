@@ -23,9 +23,7 @@ import cats.effect.kernel._
 import cats.effect.kernel.implicits._
 import cats.effect.std.{ AtomicCell, Dispatcher }
 import cats.syntax.all._
-import dev.profunktor.redis4cats.data.RedisChannel
-import dev.profunktor.redis4cats.data.RedisPattern
-import dev.profunktor.redis4cats.data.RedisPatternEvent
+import dev.profunktor.redis4cats.data.{ RedisChannel, RedisPattern, RedisPatternEvent }
 import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import fs2.Stream
 import fs2.concurrent.Topic

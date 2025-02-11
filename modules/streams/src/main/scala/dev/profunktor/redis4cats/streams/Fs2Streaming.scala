@@ -17,8 +17,6 @@
 package dev.profunktor.redis4cats
 package streams
 
-import scala.concurrent.duration.Duration
-
 import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection._
@@ -27,6 +25,9 @@ import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
 import io.lettuce.core.{ ReadFrom => JReadFrom }
+import dev.profunktor.redis4cats.StreamsInstances._
+
+import scala.concurrent.duration.Duration
 
 object RedisStream {
 
@@ -70,11 +71,14 @@ object RedisStream {
 
 class RedisStream[F[_]: Sync, K, V](rawStreaming: RedisRawStreaming[F, K, V]) extends Streaming[F, Stream[F, *], K, V] {
 
-  private[streams] val nextOffset: K => XReadMessage[K, V] => StreamingOffset[K] =
-    key => msg => StreamingOffset.Custom(key, msg.id.value)
+  private[streams] def nextOffset(key: K, msg: XReadMessage[K, V]): StreamingOffset[K] =
+    StreamingOffset.Custom(key, msg.id.value)
 
-  private[streams] val offsetsByKey: List[XReadMessage[K, V]] => Map[K, Option[StreamingOffset[K]]] =
-    list => list.groupBy(_.key).map { case (k, values) => k -> values.lastOption.map(nextOffset(k)) }
+  private[streams] def offsetsByKey(iter: Iterable[XReadMessage[K, V]]): Iterator[(K, StreamingOffset[K])] = {
+    val map = collection.mutable.Map.empty[K, XReadMessage[K, V]]
+    iter.iterator.foreach(msg => map += msg.key -> msg)
+    map.iterator.map { case (key, msg) => key -> nextOffset(key, msg) }
+  }
 
   override def append: Stream[F, XAddMessage[K, V]] => Stream[F, MessageId] =
     _.evalMap(append)
@@ -86,18 +90,22 @@ class RedisStream[F[_]: Sync, K, V](rawStreaming: RedisRawStreaming[F, K, V]) ex
       keys: Set[K],
       chunkSize: Int,
       initialOffset: K => StreamingOffset[K],
-      block: Option[Duration] = Some(Duration.Zero),
-      count: Option[Long] = None
+      block: Option[Duration],
+      count: Option[Long],
+      restartOnTimeout: RestartOnTimeout
   ): Stream[F, XReadMessage[K, V]] = {
     val initial = keys.map(k => k -> initialOffset(k)).toMap
     Stream.eval(Ref.of[F, Map[K, StreamingOffset[K]]](initial)).flatMap { ref =>
-      (for {
-        offsets <- Stream.eval(ref.get)
-        list <- Stream.eval(rawStreaming.xRead(offsets.values.toSet, block, count))
-        newOffsets = offsetsByKey(list).collect { case (key, Some(value)) => key -> value }.toList
-        _ <- Stream.eval(newOffsets.map { case (k, v) => ref.update(_.updated(k, v)) }.sequence)
-        result <- Stream.fromIterator[F](list.iterator, chunkSize)
-      } yield result).repeat
+      def withoutRestarts =
+        (for {
+          offsets <- Stream.eval(ref.get)
+          list <- Stream.eval(rawStreaming.xRead(offsets.values.toSet, block, count))
+          offsetUpdates = offsetsByKey(list)
+          _ <- Stream.eval(ref.update(map => offsetUpdates.foldLeft(map) { case (acc, (k, v)) => acc.updated(k, v) }))
+          result <- Stream.fromIterator[F](list.iterator, chunkSize)
+        } yield result).repeat
+
+      restartOnTimeout.wrap(withoutRestarts)
     }
   }
 
