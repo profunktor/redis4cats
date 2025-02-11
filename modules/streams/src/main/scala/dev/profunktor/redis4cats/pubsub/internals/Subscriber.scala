@@ -86,7 +86,7 @@ object Subscriber {
           .as(subscribers)
       case Some(sub) =>
         if (!sub.isLastSubscriber) subscribers.updated(key, sub.removeSubscriber).pure
-        else sub.cleanup.as(subscribers.removed(key))
+        else sub.cleanup.as(subscribers - key)
     }
   }
 
