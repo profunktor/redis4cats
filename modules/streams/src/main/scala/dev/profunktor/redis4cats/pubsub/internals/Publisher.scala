@@ -28,31 +28,34 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
 private[pubsub] class Publisher[F[_]: FlatMap: FutureLift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
-) extends PublishCommands[Stream[F, *], K, V] {
+) extends PublishCommands[F, Stream[F, *], K, V] {
 
-  private[redis4cats] val pubSubStats: PubSubStats[Stream[F, *], K] = new LivePubSubStats(pubConnection)
+  private[redis4cats] val pubSubStats: PubSubStats[F, K] = new LivePubSubStats(pubConnection)
 
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Unit] =
-    _.evalMap(message => FutureLift[F].lift(pubConnection.async().publish(channel.underlying, message)).void)
+    _.evalMap(publish(channel, _))
 
-  override def pubSubChannels: Stream[F, List[RedisChannel[K]]] =
+  override def publish(channel: RedisChannel[K], message: V): F[Unit] =
+    FutureLift[F].lift(pubConnection.async().publish(channel.underlying, message)).void
+
+  override def pubSubChannels: F[List[RedisChannel[K]]] =
     pubSubStats.pubSubChannels
 
-  override def pubSubSubscriptions(channel: RedisChannel[K]): Stream[F, Subscription[K]] =
+  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]] =
     pubSubStats.pubSubSubscriptions(channel)
 
-  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
+  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.pubSubSubscriptions(channels)
 
-  override def numPat: Stream[F, Long] =
+  override def numPat: F[Long] =
     pubSubStats.numPat
 
-  override def numSub: Stream[F, List[Subscription[K]]] =
+  override def numSub: F[List[Subscription[K]]] =
     pubSubStats.numSub
 
-  override def pubSubShardChannels: Stream[F, List[RedisChannel[K]]] =
+  override def pubSubShardChannels: F[List[RedisChannel[K]]] =
     pubSubStats.pubSubShardChannels
 
-  override def shardNumSub(channels: List[RedisChannel[K]]): Stream[F, List[Subscription[K]]] =
+  override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.shardNumSub(channels)
 }

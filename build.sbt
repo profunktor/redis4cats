@@ -6,7 +6,7 @@ import microsites.ExtraMdFileConfig
 ThisBuild / scalaVersion := "2.13.15"
 ThisBuild / crossScalaVersions := Seq("2.12.20", "2.13.15", "3.3.4")
 ThisBuild / evictionErrorLevel := Level.Info
-ThisBuild / mimaBaseVersion := "1.7.0"
+ThisBuild / mimaBaseVersion := "1.8.0"
 Test / parallelExecution := false
 
 promptTheme := PromptTheme(
@@ -156,7 +156,7 @@ lazy val `redis4cats-streams` = project
   .settings(
     isMimaEnabled := true,
     mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.7.2")))
+      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
     }
   )
   .settings(libraryDependencies += Libraries.fs2Core)

@@ -41,8 +41,16 @@ trait RawStreaming[F[_], K, V] {
   ): F[List[XReadMessage[K, V]]]
 }
 
-trait Streaming[F[_], K, V] {
-  def append: F[XAddMessage[K, V]] => F[MessageId]
+/**
+  * @tparam F  the effect type
+  * @tparam S  the stream type
+  * @tparam K  the key type
+  * @tparam V  the value type
+  */
+trait Streaming[F[_], S[_], K, V] {
+  def append: S[XAddMessage[K, V]] => S[MessageId]
+
+  def append(msg: XAddMessage[K, V]): F[MessageId]
 
   /**
     * Read data from one or multiple streams, only returning entries with an ID greater than the last
@@ -57,5 +65,5 @@ trait Streaming[F[_], K, V] {
       block: Option[Duration] = Some(Duration.Zero),
       count: Option[Long] = None,
       restartOnTimeout: RestartOnTimeout = RestartOnTimeout.always
-  ): F[XReadMessage[K, V]]
+  ): S[XReadMessage[K, V]]
 }

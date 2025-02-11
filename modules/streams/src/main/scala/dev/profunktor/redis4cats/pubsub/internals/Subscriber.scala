@@ -30,7 +30,7 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
     state: Ref[F, PubSubState[F, K, V]],
     subConnection: StatefulRedisPubSubConnection[K, V]
-) extends SubscribeCommands[Stream[F, *], K, V] {
+) extends SubscribeCommands[F, Stream[F, *], K, V] {
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     Stream
@@ -41,16 +41,14 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
       )
       .flatMap(_.subscribe(500).unNone)
 
-  override def unsubscribe(channel: RedisChannel[K]): Stream[F, Unit] =
-    Stream.eval {
-      FutureLift[F]
-        .lift(subConnection.async().unsubscribe(channel.underlying))
-        .void
-        .guarantee(state.get.flatMap { st =>
-          st.channels.get(channel.underlying).fold(Applicative[F].unit)(_.publish1(none[V]).void) *> state
-            .update(s => s.copy(channels = s.channels - channel.underlying))
-        })
-    }
+  override def unsubscribe(channel: RedisChannel[K]): F[Unit] =
+    FutureLift[F]
+      .lift(subConnection.async().unsubscribe(channel.underlying))
+      .void
+      .guarantee(state.get.flatMap { st =>
+        st.channels.get(channel.underlying).fold(Applicative[F].unit)(_.publish1(none[V]).void) *> state
+          .update(s => s.copy(channels = s.channels - channel.underlying))
+      })
 
   override def psubscribe(
       pattern: RedisPattern[K]
@@ -63,16 +61,14 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
       )
       .flatMap(_.subscribe(500).unNone)
 
-  override def punsubscribe(pattern: RedisPattern[K]): Stream[F, Unit] =
-    Stream.eval {
-      FutureLift[F]
-        .lift(subConnection.async().punsubscribe(pattern.underlying))
-        .void
-        .guarantee(state.get.flatMap { st =>
-          st.patterns
-            .get(pattern.underlying)
-            .fold(Applicative[F].unit)(_.publish1(none[RedisPatternEvent[K, V]]).void) *> state
-            .update(s => s.copy(patterns = s.patterns - pattern.underlying))
-        })
-    }
+  override def punsubscribe(pattern: RedisPattern[K]): F[Unit] =
+    FutureLift[F]
+      .lift(subConnection.async().punsubscribe(pattern.underlying))
+      .void
+      .guarantee(state.get.flatMap { st =>
+        st.patterns
+          .get(pattern.underlying)
+          .fold(Applicative[F].unit)(_.publish1(none[RedisPatternEvent[K, V]]).void) *> state
+          .update(s => s.copy(patterns = s.patterns - pattern.underlying))
+      })
 }

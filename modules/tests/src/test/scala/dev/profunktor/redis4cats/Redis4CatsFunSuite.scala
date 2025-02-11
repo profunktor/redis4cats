@@ -116,7 +116,7 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
 }
 object Redis4CatsFunSuite {
-  type Fs2PubSub[K, V] = PubSubCommands[fs2.Stream[IO, *], K, V]
+  type Fs2PubSub[K, V] = PubSubCommands[IO, fs2.Stream[IO, *], K, V]
 
-  type Fs2Streaming[K, V] = Streaming[fs2.Stream[IO, *], K, V]
+  type Fs2Streaming[K, V] = Streaming[IO, fs2.Stream[IO, *], K, V]
 }
