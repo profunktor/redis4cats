@@ -157,20 +157,8 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
       expected: B,
       waitFor: FiniteDuration,
       clue: => Any = "values are not the same"
-  )(implicit loc: Location, compare: Compare[A, B]): IO[Unit] = {
-    def rec(startAt: FiniteDuration): IO[Unit] =
-      for {
-        actual <- io
-        now <- IO.monotonic
-        timePassed = now - startAt
-        isEqual    = compare.isEqual(actual, expected)
-        _ <- if (isEqual) IO.unit
-            else if (timePassed <= waitFor) rec(startAt)
-            else IO(assertEquals(actual, expected, clue))
-      } yield ()
-
-    IO.monotonic.flatMap(rec)
-  }
+  )(implicit loc: Location, compare: Compare[A, B]): IO[Unit] =
+    io.iterateUntil(compare.isEqual(_, expected)).void.timeoutTo(waitFor, io.map(assertEquals(_, expected, clue)))
 }
 object Redis4CatsFunSuite {
   type Fs2PubSub[K, V] = PubSubCommands[IO, fs2.Stream[IO, *], K, V]
