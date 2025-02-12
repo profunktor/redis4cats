@@ -157,8 +157,12 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
       expected: B,
       waitFor: FiniteDuration,
       clue: => Any = "values are not the same"
-  )(implicit loc: Location, compare: Compare[A, B]): IO[Unit] =
-    io.iterateUntil(compare.isEqual(_, expected)).void.timeoutTo(waitFor, io.map(assertEquals(_, expected, clue)))
+  )(implicit loc: Location, compare: Compare[A, B]): IO[Unit] = {
+    val checker = false.iterateUntilM(_ =>
+      io.map(compare.isEqual(_, expected)).flatTap(if (_) IO.unit else IO.sleep(50.millis))
+    )(identity)
+    checker.void.timeoutTo(waitFor, io.map(assertEquals(_, expected, clue)))
+  }
 }
 object Redis4CatsFunSuite {
   type Fs2PubSub[K, V] = PubSubCommands[IO, fs2.Stream[IO, *], K, V]
