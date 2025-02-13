@@ -24,8 +24,8 @@ trait GeoCommands[F[_], K, V] extends GeoGetter[F, K, V] with GeoSetter[F, K, V]
 
 trait GeoGetter[F[_], K, V] {
   def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double]
-  def geoHash(key: K,value:V, values: V*): F[List[Option[String]]]
-  def geoPos(key: K,value:V,  values: V*): F[List[GeoCoordinate]]
+  def geoHash(key: K, value:V, values: V*): F[List[Option[String]]]
+  def geoPos(key: K, value:V,  values: V*): F[List[GeoCoordinate]]
   def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit): F[Set[V]]
   def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, args: GeoArgs): F[List[GeoRadiusResult[V]]]
   def geoRadiusByMember(key: K, value: V, dist: Distance, unit: GeoArgs.Unit): F[Set[V]]
