@@ -46,7 +46,9 @@ object PubSubInternals {
             case _: IllegalStateException => throw DispatcherAlreadyShutdown()
           }
         }
-      override def message(pattern: K, channel: K, message: V): Unit = this.message(channel, message)
+
+      // Do not uncomment this, as if you will do this the channel listener will get a message twice
+      // override def message(pattern: K, channel: K, message: V): Unit = {}
     }
   private[redis4cats] def patternListener[F[_]: Async, K, V](
       redisPattern: RedisPattern[K],

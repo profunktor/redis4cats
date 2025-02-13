@@ -1,6 +1,6 @@
 ---
 layout: docs
-title:  "PubSub"
+title: "PubSub"
 number: 1
 ---
 
@@ -90,10 +90,10 @@ object PubSubDemo extends IOApp.Simple {
              sub2.through(sink("#games")),
              Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
              Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
-             Stream.awakeDelay[IO](11.seconds) >> pubSub.unsubscribe(gamesChannel),
-             Stream.awakeEvery[IO](6.seconds) >> pubSub
-               .pubSubSubscriptions(List(eventsChannel, gamesChannel))
-               .evalMap(x => IO(println(x)))
+             Stream.awakeDelay[IO](11.seconds) >> Stream.eval(pubSub.unsubscribe(gamesChannel)),
+             Stream.awakeEvery[IO](6.seconds) >> 
+               Stream.eval(pubSub.pubSubSubscriptions(List(eventsChannel, gamesChannel)))
+                 .evalMap(x => IO(println(x)))
            ).parJoin(6).void
     } yield ()
 

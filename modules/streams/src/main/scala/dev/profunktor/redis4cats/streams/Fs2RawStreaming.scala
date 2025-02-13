@@ -59,15 +59,15 @@ private[streams] class RedisRawStreaming[F[_]: FutureLift: Sync, K, V](
       streams: Set[StreamingOffset[K]],
       block: Option[Duration] = Some(Duration.Zero),
       count: Option[Long] = None
-  ): F[List[XReadMessage[K, V]]] =
+  ): F[List[XReadMessage[K, V]]] = {
+    val offsets = streams.map {
+      case All(key)            => StreamOffset.from(key, "0")
+      case Latest(key)         => StreamOffset.latest(key)
+      case Custom(key, offset) => StreamOffset.from(key, offset)
+    }.toSeq
+
     FutureLift[F]
       .lift {
-        val offsets = streams.map {
-          case All(key)            => StreamOffset.from(key, "0")
-          case Latest(key)         => StreamOffset.latest(key)
-          case Custom(key, offset) => StreamOffset.from(key, offset)
-        }.toSeq
-
         (block, count) match {
           case (None, None)        => client.async().xread(offsets: _*)
           case (None, Some(count)) => client.async().xread(XReadArgs.Builder.count(count), offsets: _*)
@@ -81,5 +81,6 @@ private[streams] class RedisRawStreaming[F[_]: FutureLift: Sync, K, V](
           XReadMessage[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap)
         }
       }
+  }
 
 }

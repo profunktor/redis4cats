@@ -35,6 +35,7 @@ trait KeyCommands[F[_], K] {
   def objectIdletime(key: K): F[Option[FiniteDuration]]
   def persist(key: K): F[Boolean]
   def pttl(key: K): F[Option[FiniteDuration]]
+  def randomKey: F[Option[K]]
   // restores a key with the given serialized value, previously obtained using DUMP without a ttl
   def restore(key: K, value: Array[Byte]): F[Unit]
   def restore(key: K, value: Array[Byte], restoreArgs: RestoreArgs): F[Unit]
@@ -52,5 +53,7 @@ trait KeyCommands[F[_], K] {
   def scan(cursor: KeyScanCursor[K], keyScanArgs: KeyScanArgs): F[KeyScanCursor[K]]
   def typeOf(key: K): F[Option[RedisType]]
   def ttl(key: K): F[Option[FiniteDuration]]
+  //This command is very similar to DEL: it removes the specified keys. Just like DEL a key is ignored if it does not exist. However the command performs the actual memory reclaiming in a different thread, so it is not blocking, while DEL is. This is where the command name comes from: the command just unlinks the keys from the keyspace. The actual removal will happen later asynchronously.
+  def unlink(key: K*): F[Long]
 
 }

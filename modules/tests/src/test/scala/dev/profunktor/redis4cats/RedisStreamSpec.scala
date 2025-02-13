@@ -35,10 +35,20 @@ class RedisStreamSpec extends Redis4CatsFunSuite(false) {
       .unsafeToFuture()
   }
 
+  test("reading from a silent stream should not fail with RedisCommandTimeoutException") {
+    timeoutingOperationTest { (options, restartOnTimeout) =>
+      fs2.Stream.resource(withRedisStreamOptionsResource(options)).flatMap {
+        case (readStream, _) =>
+          // This stream has no data and previously reading from such stream would fail with an exception
+          readStream.read(Set("test-stream-expiration"), 1, restartOnTimeout = restartOnTimeout)
+      }
+    }
+  }
+
   private def readWriteTest(streamKey: String, length: Long): IO[Unit] =
     IO.fromFuture {
       IO {
-        withRedisStream[Unit] { (readStream, writeStream) =>
+        withRedisStream { (readStream, writeStream) =>
           val read = readStream.read(Set(streamKey), 1)
           val write =
             writeStream.append(fs2.Stream(XAddMessage(streamKey, Map("hello" -> "world"))).repeatN(length))

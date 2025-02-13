@@ -38,9 +38,7 @@ object PublisherDemo extends LoggerIOApp {
       pub1 = pubSub.publish(eventsChannel)
     } yield Stream(
       Stream.awakeEvery[IO](3.seconds) >> Stream.eval(IO(Random.nextInt(100).toString)).through(pub1),
-      Stream.awakeEvery[IO](6.seconds) >> pubSub
-            .pubSubSubscriptions(eventsChannel)
-            .evalMap(IO.println)
+      Stream.awakeEvery[IO](6.seconds) >> Stream.eval(pubSub.pubSubSubscriptions(eventsChannel)).evalMap(IO.println)
     ).parJoin(2).drain).flatten
 
   val program: IO[Unit] =
