@@ -143,7 +143,7 @@ lazy val `redis4cats-effects` = project
   .settings(
     isMimaEnabled := true,
     mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.7.2")))
+      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
     }
   )
   .settings(Test / parallelExecution := false)
