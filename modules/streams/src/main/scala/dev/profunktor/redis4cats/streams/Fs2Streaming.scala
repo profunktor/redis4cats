@@ -63,9 +63,14 @@ object RedisStream {
       codec: RedisCodec[K, V],
       uris: RedisURI*
   )(readFrom: Option[JReadFrom] = None): Resource[F, Streaming[F, Stream[F, *], K, V]] =
-    RedisMasterReplica[F].make(codec, uris: _*)(readFrom).map { conn =>
-      new RedisStream(new RedisRawStreaming(conn.underlying))
-    }
+    RedisMasterReplica[F]
+      .make(codec, uris: _*)(readFrom)
+      .map(fromMasterReplica[F, K, V](_))
+
+  def fromMasterReplica[F[_]: Async, K, V](
+      connection: RedisMasterReplica[K, V]
+  ): Streaming[F, Stream[F, *], K, V] =
+    new RedisStream(new RedisRawStreaming(connection.underlying))
 
 }
 
