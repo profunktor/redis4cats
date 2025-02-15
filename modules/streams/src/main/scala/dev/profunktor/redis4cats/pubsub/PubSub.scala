@@ -40,16 +40,15 @@ object PubSub {
 
     val release: StatefulRedisPubSubConnection[K, V] => F[Unit] = c =>
       FutureLift[F].lift(c.closeAsync()) *>
-          Log[F].info(s"Releasing PubSub connection: ${client.uri.underlying}")
+        Log[F].info(s"Releasing PubSub connection: ${client.uri.underlying}")
 
     (acquire, release)
   }
 
-  /**
-    * Creates a PubSub Connection.
+  /** Creates a PubSub Connection.
     *
     * Use this option whenever you need one or more subscribers or subscribers and publishers / stats.
-    * */
+    */
   def mkPubSubConnection[F[_]: Async: FutureLift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
@@ -63,11 +62,10 @@ object PubSub {
     } yield new LivePubSubCommands[F, K, V](state, sConn, pConn)
   }
 
-  /**
-    * Creates a PubSub connection.
+  /** Creates a PubSub connection.
     *
     * Use this option when you only need to publish and/or get stats such as number of subscriptions.
-    * */
+    */
   def mkPublisherConnection[F[_]: FlatMap: FutureLift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]
@@ -76,11 +74,10 @@ object PubSub {
     Resource.make(acquire)(release).map(new Publisher[F, K, V](_))
   }
 
-  /**
-    * Creates a PubSub connection.
+  /** Creates a PubSub connection.
     *
     * Use this option when you only need to one or more subscribers but no publishing and / or stats.
-    * */
+    */
   def mkSubscriberConnection[F[_]: Async: FutureLift: Log, K, V](
       client: RedisClient,
       codec: RedisCodec[K, V]

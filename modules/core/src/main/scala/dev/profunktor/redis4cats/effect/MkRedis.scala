@@ -24,8 +24,7 @@ import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.tx.TxRunner
 import io.lettuce.core.ClientOptions
 
-/**
-  * MkRedis is a capability trait that abstracts over the creation of RedisClient,
+/** MkRedis is a capability trait that abstracts over the creation of RedisClient,
   * RedisClusterClient, among other things.
   *
   * It serves the internal purpose to orchastrate creation of such instances while

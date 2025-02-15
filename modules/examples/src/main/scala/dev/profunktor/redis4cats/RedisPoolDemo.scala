@@ -62,11 +62,11 @@ object RedisPoolDemo extends LoggerIOApp {
           y <- redis.get(numericKey)
           _ <- showResult(y)
           _ <- redisN.incr(numericKey).attempt.flatMap {
-                case Left(e: RedisCommandExecutionException) =>
-                  IO(assert(e.getMessage == "ERR value is not an integer or out of range"))
-                case _ =>
-                  IO.raiseError(new Exception("Expected error"))
-              }
+                 case Left(e: RedisCommandExecutionException) =>
+                   IO(assert(e.getMessage == "ERR value is not an integer or out of range"))
+                 case _ =>
+                   IO.raiseError(new Exception("Expected error"))
+               }
           w <- redis.get(numericKey)
           _ <- showResult(w)
         } yield ()

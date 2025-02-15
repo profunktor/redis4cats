@@ -52,8 +52,8 @@ object FutureLift {
 
   implicit final class FutureLiftOps[F[_]: ApplicativeThrow: FutureLift: Log, A](fa: => RedisFuture[A]) {
     def futureLift: F[A] =
-      FutureLift[F].lift(fa).onError {
-        case e: ExecutionException => Log[F].error(s"${e.getMessage()} - ${Option(e.getCause())}")
+      FutureLift[F].lift(fa).onError { case e: ExecutionException =>
+        Log[F].error(s"${e.getMessage()} - ${Option(e.getCause())}")
       }
   }
 

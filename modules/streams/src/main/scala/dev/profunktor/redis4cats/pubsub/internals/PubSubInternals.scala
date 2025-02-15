@@ -34,13 +34,11 @@ object PubSubInternals {
   ): RedisPubSubListener[K, V] =
     new RedisPubSubAdapter[K, V] {
       override def message(ch: K, msg: V): Unit =
-        if (ch == channel.underlying) {
-          try {
-            dispatcher.unsafeRunSync(publish(msg))
-          } catch {
+        if (ch == channel.underlying)
+          try dispatcher.unsafeRunSync(publish(msg))
+          catch {
             case _: IllegalStateException => throw DispatcherAlreadyShutdown()
           }
-        }
 
       // Do not uncomment this, as if you will do this the channel listener will get a message twice
       // override def message(pattern: K, channel: K, message: V): Unit = {}
@@ -52,12 +50,10 @@ object PubSubInternals {
   ): RedisPubSubListener[K, V] =
     new RedisPubSubAdapter[K, V] {
       override def message(pattern: K, channel: K, message: V): Unit =
-        if (pattern == redisPattern.underlying) {
-          try {
-            dispatcher.unsafeRunSync(publish(RedisPatternEvent(pattern, channel, message)))
-          } catch {
+        if (pattern == redisPattern.underlying)
+          try dispatcher.unsafeRunSync(publish(RedisPatternEvent(pattern, channel, message)))
+          catch {
             case _: IllegalStateException => throw DispatcherAlreadyShutdown()
           }
-        }
     }
 }

@@ -23,9 +23,10 @@ import fs2.Stream
 import scala.concurrent.duration.FiniteDuration
 
 object StreamsInstances {
-  implicit def fs2Clock[F[_]: Clock]: Clock[Stream[F, *]] = new Clock[Stream[F, *]] {
-    override def applicative: Applicative[Stream[F, *]] = Applicative[Stream[F, *]]
-    override def monotonic: Stream[F, FiniteDuration]   = Stream.eval(Clock[F].monotonic)
-    override def realTime: Stream[F, FiniteDuration]    = Stream.eval(Clock[F].realTime)
-  }
+  implicit def fs2Clock[F[_]: Clock]: Clock[Stream[F, *]] =
+    new Clock[Stream[F, *]] {
+      override def applicative: Applicative[Stream[F, *]] = Applicative[Stream[F, *]]
+      override def monotonic: Stream[F, FiniteDuration]   = Stream.eval(Clock[F].monotonic)
+      override def realTime: Stream[F, FiniteDuration]    = Stream.eval(Clock[F].realTime)
+    }
 }

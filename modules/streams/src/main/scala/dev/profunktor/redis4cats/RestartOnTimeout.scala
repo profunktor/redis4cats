@@ -24,16 +24,14 @@ import io.lettuce.core.RedisCommandTimeoutException
 
 import scala.concurrent.duration.FiniteDuration
 
-/**
-  * Configures restarting operations in case they time out.
+/** Configures restarting operations in case they time out.
   *
   * This is useful because Lettuce (the underlying Java client) does time out some operations if they do not send
   * any data, like reading from a stream.
   */
 trait RestartOnTimeout {
 
-  /**
-    * @param elapsed amount of time elapsed from the start of operation
+  /** @param elapsed amount of time elapsed from the start of operation
     * @return `true` if the operation should be restarted
     */
   def apply(elapsed: FiniteDuration): Boolean

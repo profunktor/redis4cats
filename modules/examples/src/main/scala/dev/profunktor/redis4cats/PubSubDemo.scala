@@ -48,9 +48,9 @@ object PubSubDemo extends LoggerIOApp {
       pub1 = pubSub.publish(eventsChannel)
       pub2 = pubSub.publish(gamesChannel)
       ops = List(
-        redis.set("ps", "x"),
-        redis.unsafe(_.publish(txChannel.underlying, "hey")).void
-      )
+              redis.set("ps", "x"),
+              redis.unsafe(_.publish(txChannel.underlying, "hey")).void
+            )
     } yield Stream(
       sub1.through(sink("#events")),
       sub2.through(sink("#games")),
@@ -59,8 +59,8 @@ object PubSubDemo extends LoggerIOApp {
       Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
       Stream.awakeDelay[IO](11.seconds) >> Stream.eval(pubSub.unsubscribe(gamesChannel)),
       Stream.awakeEvery[IO](6.seconds) >> Stream
-            .eval(pubSub.pubSubSubscriptions(List(eventsChannel, gamesChannel, txChannel)))
-            .evalMap(IO.println),
+        .eval(pubSub.pubSubSubscriptions(List(eventsChannel, gamesChannel, txChannel)))
+        .evalMap(IO.println),
       Stream.sleep[IO](1.second) ++ Stream.exec(redis.transact_(ops))
     ).parJoinUnbounded.drain
 

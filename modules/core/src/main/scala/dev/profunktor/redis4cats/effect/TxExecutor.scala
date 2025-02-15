@@ -53,9 +53,8 @@ private[redis4cats] object TxExecutor {
   private def exitOnFatal(ec: ExecutionContext): ExecutionContext = new ExecutionContext {
     def execute(r: Runnable): Unit =
       ec.execute(() =>
-        try {
-          r.run()
-        } catch {
+        try r.run()
+        catch {
           case NonFatal(t) =>
             reportFailure(t)
 

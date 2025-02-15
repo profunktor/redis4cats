@@ -43,15 +43,15 @@ object RedisClient {
 
     val release: RedisClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis connection: $uri") *>
-          FutureLift[F]
-            .lift(
-              client.underlying.shutdownAsync(
-                config.shutdown.quietPeriod.toNanos,
-                config.shutdown.timeout.toNanos,
-                TimeUnit.NANOSECONDS
-              )
+        FutureLift[F]
+          .lift(
+            client.underlying.shutdownAsync(
+              config.shutdown.quietPeriod.toNanos,
+              config.shutdown.timeout.toNanos,
+              TimeUnit.NANOSECONDS
             )
-            .void
+          )
+          .void
 
     (acquire, release)
   }
@@ -68,8 +68,7 @@ object RedisClient {
     implicit val fl: FutureLift[F] = MkRedis[F].futureLift
     implicit val log: Log[F]       = MkRedis[F].log
 
-    /**
-      * Creates a [[RedisClient]] with default options.
+    /** Creates a [[RedisClient]] with default options.
       *
       * Example:
       *
@@ -80,8 +79,7 @@ object RedisClient {
     def from(strUri: => String)(implicit F: Sync[F]): Resource[F, RedisClient] =
       Resource.eval(RedisURI.make[F](strUri)).flatMap(this.fromUri(_))
 
-    /**
-      * Creates a [[RedisClient]] with default options from a validated URI.
+    /** Creates a [[RedisClient]] with default options from a validated URI.
       *
       * Example:
       *
@@ -97,8 +95,7 @@ object RedisClient {
     def fromUri(uri: => RedisURI)(implicit F: Sync[F]): Resource[F, RedisClient] =
       Resource.eval(Sync[F].delay(ClientOptions.create())).flatMap(this.custom(uri, _))
 
-    /**
-      * Creates a [[RedisClient]] with the supplied options.
+    /** Creates a [[RedisClient]] with the supplied options.
       *
       * Example:
       *
@@ -115,8 +112,7 @@ object RedisClient {
     ): Resource[F, RedisClient] =
       Resource.eval(RedisURI.make[F](strUri)).flatMap(this.custom(_, opts))
 
-    /**
-      * Creates a [[RedisClient]] with the supplied options from a validated URI.
+    /** Creates a [[RedisClient]] with the supplied options from a validated URI.
       *
       * Example:
       *

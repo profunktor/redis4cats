@@ -150,8 +150,7 @@ object Redis {
     implicit val fl: FutureLift[F] = MkRedis[F].futureLift
     implicit val log: Log[F]       = MkRedis[F].log
 
-    /**
-      * Creates a [[RedisCommands]] for a single-node connection.
+    /** Creates a [[RedisCommands]] for a single-node connection.
       *
       * It will create an underlying RedisClient with default options to establish
       * connection with Redis.
@@ -168,8 +167,7 @@ object Redis {
     def simple[K, V](uri: String, codec: RedisCodec[K, V]): Resource[F, RedisCommands[F, K, V]] =
       MkRedis[F].clientFrom(uri).flatMap(this.fromClient(_, codec))
 
-    /**
-      * Creates a [[RedisCommands]] for a single-node connection.
+    /** Creates a [[RedisCommands]] for a single-node connection.
       *
       * It will create an underlying RedisClient using the supplied client options
       * to establish connection with Redis.
@@ -193,8 +191,7 @@ object Redis {
     ): Resource[F, RedisCommands[F, K, V]] =
       MkRedis[F].clientWithOptions(uri, opts).flatMap(this.fromClient(_, codec))
 
-    /**
-      * Creates a [[RedisCommands]] for a single-node connection.
+    /** Creates a [[RedisCommands]] for a single-node connection.
       *
       * It will create an underlying RedisClient using the supplied client options and config
       * to establish connection with Redis. Can be used to customise advanced features like
@@ -224,8 +221,7 @@ object Redis {
         .flatMap(MkRedis[F].clientCustom(_, opts, config))
         .flatMap(this.fromClient(_, codec))
 
-    /**
-      * Creates a [[RedisCommands]] for a single-node connection to deal
+    /** Creates a [[RedisCommands]] for a single-node connection to deal
       * with UTF-8 encoded keys and values.
       *
       * It will create an underlying RedisClient with default options to establish
@@ -243,8 +239,7 @@ object Redis {
     def utf8(uri: String): Resource[F, RedisCommands[F, String, String]] =
       simple(uri, RedisCodec.Utf8)
 
-    /**
-      * Creates a [[RedisCommands]] for a single-node connection.
+    /** Creates a [[RedisCommands]] for a single-node connection.
       *
       * Example:
       *
@@ -269,8 +264,7 @@ object Redis {
         Resource.make(acquire)(release).widen
       }
 
-    /**
-      * Creates a pool of [[RedisCommands]] for a single-node connection.
+    /** Creates a pool of [[RedisCommands]] for a single-node connection.
       *
       * Example:
       *
@@ -284,7 +278,6 @@ object Redis {
       *
       *  pool.use(_.withRedisCommands(redis => redis.set(usernameKey, "some value")))
       * }}}
-      *
       */
     def pooled[K, V](
         client: RedisClient,
@@ -294,8 +287,7 @@ object Redis {
         .eval(Redis.Pool.Settings.default[F])
         .flatMap(poolSettings => customPooled[K, V](client, codec, poolSettings))
 
-    /**
-      * Creates a pool of [[RedisCommands]] for a single-node connection.
+    /** Creates a pool of [[RedisCommands]] for a single-node connection.
       * Similar to [[pooled]] but allows custom [[Redis.Pool.Settings]]
       */
     def customPooled[K, V](
@@ -313,8 +305,7 @@ object Redis {
         .build
     }
 
-    /**
-      * Creates a [[RedisCommands]] for a cluster connection.
+    /** Creates a [[RedisCommands]] for a cluster connection.
       *
       * It will also create an underlying RedisClusterClient to establish
       * connection with Redis.
@@ -342,8 +333,7 @@ object Redis {
         redis <- this.fromClusterClient[K, V](client, codec)(readFrom)
       } yield redis
 
-    /**
-      * Creates a [[RedisCommands]] for a cluster connection to deal
+    /** Creates a [[RedisCommands]] for a cluster connection to deal
       * with UTF-8 encoded keys and values.
       *
       * It will also create an underlying RedisClusterClient to establish
@@ -366,8 +356,7 @@ object Redis {
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, String, String]] =
       cluster(RedisCodec.Utf8, uris: _*)(readFrom)
 
-    /**
-      * Creates a [[RedisCommands]] for a cluster connection
+    /** Creates a [[RedisCommands]] for a cluster connection
       *
       * Example:
       *
@@ -395,8 +384,7 @@ object Redis {
         Resource.make(acquire)(release).widen
       }
 
-    /**
-      * Creates a [[RedisCommands]] by trying to establish a cluster
+    /** Creates a [[RedisCommands]] by trying to establish a cluster
       * connection to the specified node.
       *
       * Example:
@@ -426,8 +414,7 @@ object Redis {
         Resource.make(acquire)(release).widen
       }
 
-    /**
-      * Creates a [[RedisCommands]] from a MasterReplica connection
+    /** Creates a [[RedisCommands]] from a MasterReplica connection
       *
       * Example:
       *
@@ -469,7 +456,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   def sync: F[RedisClusterSyncCommands[K, V]] =
     if (cluster) conn.clusterSync else conn.sync.widen
 
-  /** ***************************** Keys API ************************************ */
+  /** ***************************** Keys API ************************************
+    */
   override def copy(source: K, destination: K): F[Boolean] =
     async.flatMap(_.copy(source, destination).futureLift.map(x => Boolean.box(x)))
 
@@ -487,8 +475,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.exists(all: _*).futureLift.map(_ == all.size.toLong))
   }
 
-  /**
-    * Expires a key with the given duration. If specified either in MILLISECONDS, MICROSECONDS or NANOSECONDS,
+  /** Expires a key with the given duration. If specified either in MILLISECONDS, MICROSECONDS or NANOSECONDS,
     * the value will be converted to MILLISECONDS. Otherwise, it will be converted to SECONDS.
     *
     * As expected by Redis' PEXPIRE and EXPIRE commands, respectively.
@@ -517,8 +504,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       }
       .map(x => Boolean.box(x))
 
-  /**
-    * Expires a key at the given date.
+  /** Expires a key at the given date.
     *
     * It calls Redis' PEXPIREAT under the hood, which has milliseconds precision.
     */
@@ -588,7 +574,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def unlink(key: K*): F[Long] =
     async.flatMap(_.unlink(key: _*).futureLift.map(x => Long.box(x)))
 
-  /******************************* Transactions API **********************************/
+  /** ***************************** Transactions API *********************************
+    */
   // When in a cluster, transactions should run against a single node.
 
   // Leaving this here for debugging purposes when working on the lib
@@ -650,21 +637,24 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def pipeline_(fs: List[F[Unit]]): F[Unit] =
     pipeline[Nothing](_ => fs).void
 
-  /******************************* AutoFlush API **********************************/
+  /** ***************************** AutoFlush API *********************************
+    */
   override def enableAutoFlush: F[Unit] = conn.setAutoFlushCommands(true)
 
   override def disableAutoFlush: F[Unit] = conn.setAutoFlushCommands(false)
 
   override def flushCommands: F[Unit] = conn.flushCommands
 
-  /******************************* Unsafe API **********************************/
+  /** ***************************** Unsafe API *********************************
+    */
   override def unsafe[A](f: RedisClusterAsyncCommands[K, V] => RedisFuture[A]): F[A] =
     async.flatMap(f(_).futureLift)
 
   override def unsafeSync[A](f: RedisClusterAsyncCommands[K, V] => A): F[A] =
     async.flatMap(cmd => FutureLift[F].delay(f(cmd)))
 
-  /******************************* Strings API **********************************/
+  /** ***************************** Strings API *********************************
+    */
   override def append(key: K, value: V): F[Unit] =
     async.flatMap(_.append(key, value).futureLift.void)
 
@@ -754,7 +744,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def mSetNx(keyValues: Map[K, V]): F[Boolean] =
     async.flatMap(_.msetnx(keyValues.asJava).futureLift.map(x => Boolean.box(x)))
 
-  /******************************* Hashes API **********************************/
+  /** ***************************** Hashes API *********************************
+    */
   override def hDel(key: K, field: K, fields: K*): F[Long] =
     async.flatMap(_.hdel(key, (field +: fields): _*).futureLift.map(x => Long.box(x)))
 
@@ -802,7 +793,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def hIncrByFloat(key: K, field: K, amount: Double): F[Double] =
     async.flatMap(_.hincrbyfloat(key, field, amount).futureLift.map(x => Double.box(x)))
 
-  /******************************* Sets API **********************************/
+  /** ***************************** Sets API *********************************
+    */
   override def sIsMember(key: K, value: V): F[Boolean] =
     async.flatMap(_.sismember(key, value).futureLift.map(x => Boolean.box(x)))
 
@@ -854,7 +846,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def sUnionStore(destination: K, keys: K*): F[Unit] =
     async.flatMap(_.sunionstore(destination, keys: _*).futureLift.void)
 
-  /******************************* Lists API **********************************/
+  /** ***************************** Lists API *********************************
+    */
   override def lIndex(key: K, index: Long): F[Option[V]] =
     async.flatMap(_.lindex(key, index).futureLift.map(Option.apply))
 
@@ -913,7 +906,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def lTrim(key: K, start: Long, stop: Long): F[Unit] =
     async.flatMap(_.ltrim(key, start, stop).futureLift.void)
 
-  /******************************* Bitmaps API **********************************/
+  /** ***************************** Bitmaps API *********************************
+    */
   override def bitCount(key: K): F[Long] =
     async.flatMap(_.bitcount(key).futureLift.map(x => Long.box(x)))
 
@@ -974,7 +968,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def setBit(key: K, offset: Long, value: Int): F[Long] =
     async.flatMap(_.setbit(key, offset, value).futureLift.map(x => Long.box(x)))
 
-  /******************************* Geo API **********************************/
+  /** ***************************** Geo API *********************************
+    */
   override def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double] =
     async.flatMap(_.geodist(key, from, to, unit).futureLift.map(x => Double.box(x)))
 
@@ -1059,7 +1054,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   ): F[Unit] =
     async.flatMap(_.georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs).futureLift.void)
 
-  /******************************* Sorted Sets API **********************************/
+  /** ***************************** Sorted Sets API *********************************
+    */
   override def zAdd(key: K, args: Option[ZAddArgs], values: ScoreWithValue[V]*): F[Long] = {
     val res = args match {
       case Some(x) =>
@@ -1276,7 +1272,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       .flatMap(_.zdiffWithScores(keys: _*).futureLift)
       .map(_.asScala.toList.map(_.asScoreWithValues))
 
-  /******************************* Connection API **********************************/
+  /** ***************************** Connection API *********************************
+    */
   override val ping: F[String] =
     async.flatMap(_.ping().futureLift)
 
@@ -1321,7 +1318,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
         .toMap
     )
 
-  /******************************* Server API **********************************/
+  /** ***************************** Server API *********************************
+    */
   override val flushAll: F[Unit] =
     async.flatMap(_.flushall().futureLift.void)
 
@@ -1592,7 +1590,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       .flatMap(_.functionList(libraryName).futureLift)
       .map(_.asScala.map(_.asScala.toMap).toList)
 
-  /** ***************************** HyperLoglog API **********************************/
+  /** ***************************** HyperLoglog API *********************************
+    */
   override def pfAdd(key: K, values: V*): F[Long] =
     async.flatMap(_.pfadd(key, values: _*).futureLift.map(Long.box(_)))
 
@@ -1635,14 +1634,15 @@ private[redis4cats] trait RedisConversionOps {
 
   private[redis4cats] implicit class ZRangeOps[T: Numeric](range: ZRange[T]) {
     def asJavaRange: JRange[Number] = {
-      def toJavaNumber(t: T): java.lang.Number = t match {
-        case b: Byte  => b
-        case s: Short => s
-        case i: Int   => i
-        case l: Long  => l
-        case f: Float => f
-        case _        => implicitly[Numeric[T]].toDouble(t)
-      }
+      def toJavaNumber(t: T): java.lang.Number =
+        t match {
+          case b: Byte  => b
+          case s: Short => s
+          case i: Int   => i
+          case l: Long  => l
+          case f: Float => f
+          case _        => implicitly[Numeric[T]].toDouble(t)
+        }
       val start: Number = toJavaNumber(range.start)
       val end: Number   = toJavaNumber(range.end)
       JRange.create(start, end)
@@ -1690,10 +1690,11 @@ private[redis4cats] trait RedisConversionOps {
   }
 
   private[redis4cats] implicit class DurationOps(d: Duration) {
-    def toSecondsOrZero: Long = d match {
-      case _: Duration.Infinite     => 0
-      case duration: FiniteDuration => duration.toSeconds
-    }
+    def toSecondsOrZero: Long =
+      d match {
+        case _: Duration.Infinite     => 0
+        case duration: FiniteDuration => duration.toSeconds
+      }
   }
 
 }

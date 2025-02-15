@@ -33,14 +33,14 @@ object StreamingDemo extends LoggerIOApp {
   private val streamKey1 = "demo"
   private val streamKey2 = "users"
 
-  def randomMessage: Stream[IO, XAddMessage[String, String]] = Stream.eval {
-    val rndKey   = IO(Random.nextInt(1000).toString)
-    val rndValue = IO(Random.nextString(10))
-    (rndKey, rndValue).parMapN {
-      case (k, v) =>
+  def randomMessage: Stream[IO, XAddMessage[String, String]] =
+    Stream.eval {
+      val rndKey   = IO(Random.nextInt(1000).toString)
+      val rndValue = IO(Random.nextString(10))
+      (rndKey, rndValue).parMapN { case (k, v) =>
         XAddMessage(streamKey1, Map(k -> v))
+      }
     }
-  }
 
   val stream: Stream[IO, Unit] =
     (for {

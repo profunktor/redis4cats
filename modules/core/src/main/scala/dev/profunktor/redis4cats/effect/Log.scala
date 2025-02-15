@@ -19,8 +19,7 @@ package dev.profunktor.redis4cats.effect
 import cats.Applicative
 import cats.effect.kernel.Sync
 
-/**
-  * Typeclass used for internal logging such as acquiring and releasing connections.
+/** Typeclass used for internal logging such as acquiring and releasing connections.
   *
   * It is recommended to use `log4cats` for production usage but if you do not want
   * the extra dependency, you can opt to use either of the simple instances provided.
@@ -36,7 +35,7 @@ import cats.effect.kernel.Sync
   * {{{
   * import dev.profunktor.redis4cats.effect.Log.Stdout._
   * }}}
-  * */
+  */
 trait Log[F[_]] {
   def debug(msg: => String): F[Unit]
   def error(msg: => String): F[Unit]
