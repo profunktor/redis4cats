@@ -37,7 +37,7 @@ object RedisPipelineDemo extends LoggerIOApp {
     commandsApi.use { redis =>
       val getters =
         redis.get(key1).flatTap(showResult(key1)) *>
-            redis.get(key2).flatTap(showResult(key2))
+          redis.get(key2).flatTap(showResult(key2))
 
       val ops = (store: TxStore[IO, String, Option[String]]) =>
         List(
@@ -53,9 +53,8 @@ object RedisPipelineDemo extends LoggerIOApp {
         redis
           .pipeline(ops)
           .flatMap(kv => IO.println(s"KV: $kv"))
-          .recoverWith {
-            case e =>
-              IO.println(s"[Error] - ${e.getMessage}")
+          .recoverWith { case e =>
+            IO.println(s"[Error] - ${e.getMessage}")
           }
 
       getters >> prog >> getters >> IO.println("keep doing stuff...")

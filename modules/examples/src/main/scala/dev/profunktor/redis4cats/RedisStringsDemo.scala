@@ -56,11 +56,11 @@ object RedisStringsDemo extends LoggerIOApp {
       y <- redis.get(numericKey)
       _ <- showResult(y)
       _ <- redisN.incr(numericKey).attempt.flatMap {
-            case Left(e: RedisCommandExecutionException) =>
-              IO(assert(e.getMessage == "ERR value is not an integer or out of range"))
-            case _ =>
-              IO.raiseError(new Exception("Expected error"))
-          }
+             case Left(e: RedisCommandExecutionException) =>
+               IO(assert(e.getMessage == "ERR value is not an integer or out of range"))
+             case _ =>
+               IO.raiseError(new Exception("Expected error"))
+           }
       w <- redis.get(numericKey)
       _ <- showResult(w)
     } yield ()
@@ -73,9 +73,8 @@ object RedisStringsDemo extends LoggerIOApp {
         rd2 <- Redis[IO].fromClient(cli, longCodec)
       } yield rd1 -> rd2
 
-    res.use {
-      case (rd1, rd2) =>
-        p1(rd1) *> p2(rd1, rd2)
+    res.use { case (rd1, rd2) =>
+      p1(rd1) *> p2(rd1, rd2)
     }
   }
 

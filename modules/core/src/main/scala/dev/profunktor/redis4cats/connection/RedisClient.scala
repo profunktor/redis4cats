@@ -43,15 +43,15 @@ object RedisClient {
 
     val release: RedisClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis connection: $uri") *>
-          FutureLift[F]
-            .lift(
-              client.underlying.shutdownAsync(
-                config.shutdown.quietPeriod.toNanos,
-                config.shutdown.timeout.toNanos,
-                TimeUnit.NANOSECONDS
-              )
+        FutureLift[F]
+          .lift(
+            client.underlying.shutdownAsync(
+              config.shutdown.quietPeriod.toNanos,
+              config.shutdown.timeout.toNanos,
+              TimeUnit.NANOSECONDS
             )
-            .void
+          )
+          .void
 
     (acquire, release)
   }
@@ -68,8 +68,7 @@ object RedisClient {
     implicit val fl: FutureLift[F] = MkRedis[F].futureLift
     implicit val log: Log[F]       = MkRedis[F].log
 
-    /**
-      * Creates a [[RedisClient]] with default options.
+    /** Creates a [[RedisClient]] with default options.
       *
       * Example:
       *
@@ -77,11 +76,12 @@ object RedisClient {
       * RedisClient[IO].from("redis://localhost")
       * }}}
       */
-    def from(strUri: => String)(implicit F: Sync[F]): Resource[F, RedisClient] =
+    def from(strUri: => String)(
+        implicit F: Sync[F]
+    ): Resource[F, RedisClient] =
       Resource.eval(RedisURI.make[F](strUri)).flatMap(this.fromUri(_))
 
-    /**
-      * Creates a [[RedisClient]] with default options from a validated URI.
+    /** Creates a [[RedisClient]] with default options from a validated URI.
       *
       * Example:
       *
@@ -94,11 +94,12 @@ object RedisClient {
       *
       * You may prefer to use [[from]] instead, which takes a raw string.
       */
-    def fromUri(uri: => RedisURI)(implicit F: Sync[F]): Resource[F, RedisClient] =
+    def fromUri(uri: => RedisURI)(
+        implicit F: Sync[F]
+    ): Resource[F, RedisClient] =
       Resource.eval(Sync[F].delay(ClientOptions.create())).flatMap(this.custom(uri, _))
 
-    /**
-      * Creates a [[RedisClient]] with the supplied options.
+    /** Creates a [[RedisClient]] with the supplied options.
       *
       * Example:
       *
@@ -115,8 +116,7 @@ object RedisClient {
     ): Resource[F, RedisClient] =
       Resource.eval(RedisURI.make[F](strUri)).flatMap(this.custom(_, opts))
 
-    /**
-      * Creates a [[RedisClient]] with the supplied options from a validated URI.
+    /** Creates a [[RedisClient]] with the supplied options from a validated URI.
       *
       * Example:
       *
@@ -128,8 +128,8 @@ object RedisClient {
       * } yield cli
       * }}}
       *
-      * Additionally, it can take a [[dev.profunktor.redis4cats.config.Redis4CatsConfig]] to configure the shutdown timeouts,
-      * for example. However, you don't need to worry about this in most cases.
+      * Additionally, it can take a [[dev.profunktor.redis4cats.config.Redis4CatsConfig]] to configure the shutdown
+      * timeouts, for example. However, you don't need to worry about this in most cases.
       *
       * {{{
       * RedisClient[IO].custom(uri, ops, Redis4CatsConfig())

@@ -59,7 +59,7 @@ object RedisTxDemo extends LoggerIOApp {
       val p1 = mkRedis(cli).use { redis =>
         val getters =
           redis.get(key1).flatTap(showResult(key1)) *>
-              redis.get(key2).flatTap(showResult(key2))
+            redis.get(key2).flatTap(showResult(key2))
 
         // it is not possible to mix different stores. In case of needing to preserve values
         // of other types, you'd need to use a local Ref or so.

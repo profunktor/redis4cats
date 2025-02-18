@@ -36,11 +36,11 @@ object RedisScriptsDemo extends LoggerIOApp {
         fortyTwo <- redis.eval("return 42", ScriptOutputType.Integer)
         _ <- IO.println(s"Answer to the Ultimate Question of Life, the Universe, and Everything: $fortyTwo")
         list <- redis.eval(
-                 "return {'Let', 'us', ARGV[1], ARGV[2]}",
-                 ScriptOutputType.Multi,
-                 Nil,
-                 List("have", "fun")
-               )
+                  "return {'Let', 'us', ARGV[1], ARGV[2]}",
+                  ScriptOutputType.Multi,
+                  Nil,
+                  List("have", "fun")
+                )
         _ <- IO.println(s"We can even return lists: $list")
         randomScript = "math.randomseed(tonumber(ARGV[1])); return math.random() * 1000"
         shaRandom <- redis.scriptLoad(randomScript)

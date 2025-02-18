@@ -73,8 +73,7 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
 }
 object Subscriber {
 
-  /**
-    * Check if we have a subscriber for this channel and remove it if we do.
+  /** Check if we have a subscriber for this channel and remove it if we do.
     *
     * If it is the last subscriber, perform the subscription cleanup.
     */
@@ -87,7 +86,7 @@ object Subscriber {
         Log[F]
           .error(
             s"We were notified about stream termination for $key but we don't have a subscription, " +
-                s"this is a bug in redis4cats!"
+              s"this is a bug in redis4cats!"
           )
           .as(subscribers)
       case Some(sub) =>
@@ -136,7 +135,7 @@ object Subscriber {
             Log[F]
               .debug(
                 s"Returning existing subscription for $key, " +
-                    s"subscribers: ${subscription.subscribers} -> ${newSubscription.subscribers}"
+                  s"subscribers: ${subscription.subscribers} -> ${newSubscription.subscribers}"
               )
               .as((newSubscribers, stream(newSubscription)))
 
@@ -151,10 +150,10 @@ object Subscriber {
               listener        = makeListener(dispatcher, topic)
               cleanupListener = Sync[F].delay(subConnection.removeListener(listener))
               cleanup = (
-                Log[F].debug(s"Cleaning up resources for $key subscription") *>
-                    unsubscribeFromRedis *> cleanupListener *> cleanupDispatcher *>
-                    Log[F].debug(s"Cleaned up resources for $key subscription")
-              ).uncancelable
+                          Log[F].debug(s"Cleaning up resources for $key subscription") *>
+                            unsubscribeFromRedis *> cleanupListener *> cleanupDispatcher *>
+                            Log[F].debug(s"Cleaned up resources for $key subscription")
+                        ).uncancelable
               _ <- Sync[F].delay(subConnection.addListener(listener))
               _ <- subscribeToRedis
               sub            = Redis4CatsSubscription(topic, subscribers = 1, cleanup)

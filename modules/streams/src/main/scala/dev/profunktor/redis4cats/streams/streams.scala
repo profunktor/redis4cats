@@ -23,9 +23,11 @@ import scala.concurrent.duration.Duration
 
 trait RawStreaming[F[_], K, V] {
 
-  /**
-    * @param approxMaxlen does XTRIM ~ maxlen if defined
-    * @param minId  the oldest ID in the stream will be exactly the minimum between its original oldest ID and the specified threshold.
+  /** @param approxMaxlen
+    *   does XTRIM ~ maxlen if defined
+    * @param minId
+    *   the oldest ID in the stream will be exactly the minimum between its original oldest ID and the specified
+    *   threshold.
     */
   def xAdd(
       key: K,
@@ -41,22 +43,25 @@ trait RawStreaming[F[_], K, V] {
   ): F[List[XReadMessage[K, V]]]
 }
 
-/**
-  * @tparam F  the effect type
-  * @tparam S  the stream type
-  * @tparam K  the key type
-  * @tparam V  the value type
+/** @tparam F
+  *   the effect type
+  * @tparam S
+  *   the stream type
+  * @tparam K
+  *   the key type
+  * @tparam V
+  *   the value type
   */
 trait Streaming[F[_], S[_], K, V] {
   def append: S[XAddMessage[K, V]] => S[MessageId]
 
   def append(msg: XAddMessage[K, V]): F[MessageId]
 
-  /**
-    * Read data from one or multiple streams, only returning entries with an ID greater than the last
-    * received ID reported by the caller.
+  /** Read data from one or multiple streams, only returning entries with an ID greater than the last received ID
+    * reported by the caller.
     *
-    * @see https://redis.io/commands/xread
+    * @see
+    *   https://redis.io/commands/xread
     */
   def read(
       keys: Set[K],

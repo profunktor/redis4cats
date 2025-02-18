@@ -17,11 +17,11 @@
 package dev.profunktor.redis4cats.pubsub.internals
 
 import scala.util.control.NoStackTrace
-import cats.effect.std.{ Dispatcher }
+import cats.effect.std.Dispatcher
 import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.data.RedisPattern
 import dev.profunktor.redis4cats.data.RedisPatternEvent
-import io.lettuce.core.pubsub.{ RedisPubSubListener }
+import io.lettuce.core.pubsub.RedisPubSubListener
 import io.lettuce.core.pubsub.RedisPubSubAdapter
 
 object PubSubInternals {
@@ -35,9 +35,9 @@ object PubSubInternals {
     new RedisPubSubAdapter[K, V] {
       override def message(ch: K, msg: V): Unit =
         if (ch == channel.underlying) {
-          try {
+          try
             dispatcher.unsafeRunSync(publish(msg))
-          } catch {
+          catch {
             case _: IllegalStateException => throw DispatcherAlreadyShutdown()
           }
         }
@@ -53,9 +53,9 @@ object PubSubInternals {
     new RedisPubSubAdapter[K, V] {
       override def message(pattern: K, channel: K, message: V): Unit =
         if (pattern == redisPattern.underlying) {
-          try {
+          try
             dispatcher.unsafeRunSync(publish(RedisPatternEvent(pattern, channel, message)))
-          } catch {
+          catch {
             case _: IllegalStateException => throw DispatcherAlreadyShutdown()
           }
         }

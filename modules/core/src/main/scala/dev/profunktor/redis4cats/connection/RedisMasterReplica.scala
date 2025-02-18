@@ -25,8 +25,7 @@ import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
 import io.lettuce.core.masterreplica.{ MasterReplica, StatefulRedisMasterReplicaConnection }
 import io.lettuce.core.{ ClientOptions, ReadFrom => JReadFrom }
 
-/**
-  * It encapsulates an underlying `MasterReplica` connection
+/** It encapsulates an underlying `MasterReplica` connection
   */
 sealed abstract case class RedisMasterReplica[K, V] private (underlying: StatefulRedisMasterReplicaConnection[K, V])
 
@@ -50,18 +49,17 @@ object RedisMasterReplica {
 
     val release: RedisMasterReplica[K, V] => F[Unit] = connection =>
       Log[F].info(s"Releasing Redis Master/Replica connection: ${connection.underlying}") *>
-          FutureLift[F].lift(connection.underlying.closeAsync()).void
+        FutureLift[F].lift(connection.underlying.closeAsync()).void
 
     (acquire, release)
   }
 
   class MasterReplicaPartiallyApplied[F[_]: Async: Log] {
 
-    /**
-      * Creates a [[RedisMasterReplica]]
+    /** Creates a [[RedisMasterReplica]]
       *
-      * It will also create an underlying [[RedisClient]] with default client options to
-      * establish connection with Redis.
+      * It will also create an underlying [[RedisClient]] with default client options to establish connection with
+      * Redis.
       *
       * Example:
       *
@@ -80,11 +78,10 @@ object RedisMasterReplica {
         .eval(Sync[F].delay(ClientOptions.create()))
         .flatMap(withOptions(codec, _, Redis4CatsConfig(), uris: _*)(readFrom))
 
-    /**
-      * Creates a [[RedisMasterReplica]] using the supplied client options
+    /** Creates a [[RedisMasterReplica]] using the supplied client options
       *
-      * It will also create an underlying [[RedisClient]] using the supplied client options
-      * to establish connection with Redis.
+      * It will also create an underlying [[RedisClient]] using the supplied client options to establish connection with
+      * Redis.
       *
       * Example:
       *

@@ -51,23 +51,20 @@ object data {
     val Utf8: RedisCodec[String, String]            = RedisCodec(StringCodec.UTF8)
     val Bytes: RedisCodec[Array[Byte], Array[Byte]] = RedisCodec(ByteArrayCodec.INSTANCE)
 
-    /**
-      * It compresses every value sent to Redis and it decompresses every value read
-      * from Redis using the DEFLATE compression algorithm.
+    /** It compresses every value sent to Redis and it decompresses every value read from Redis using the DEFLATE
+      * compression algorithm.
       */
     def deflate[K, V](codec: RedisCodec[K, V]): RedisCodec[K, V] =
       RedisCodec(CompressionCodec.valueCompressor(codec.underlying, CompressionCodec.CompressionType.DEFLATE))
 
-    /**
-      * It compresses every value sent to Redis and it decompresses every value read
-      * from Redis using the GZIP compression algorithm.
+    /** It compresses every value sent to Redis and it decompresses every value read from Redis using the GZIP
+      * compression algorithm.
       */
     def gzip[K, V](codec: RedisCodec[K, V]): RedisCodec[K, V] =
       RedisCodec(CompressionCodec.valueCompressor(codec.underlying, CompressionCodec.CompressionType.GZIP))
 
-    /**
-      * It encrypts every value sent to Redis and it decrypts every value read from
-      * Redis using the supplied CipherSuppliers.
+    /** It encrypts every value sent to Redis and it decrypts every value read from Redis using the supplied
+      * CipherSuppliers.
       */
     def secure[K, V](
         codec: RedisCodec[K, V],
@@ -76,16 +73,14 @@ object data {
     ): RedisCodec[K, V] =
       RedisCodec(CipherCodec.forValues(codec.underlying, encrypt, decrypt))
 
-    /**
-      * It creates a CipherSupplier given a secret key for encryption.
+    /** It creates a CipherSupplier given a secret key for encryption.
       *
       * A CipherSupplier is needed for [[RedisCodec.secure]]
       */
     def encryptSupplier[F[_]: Sync](key: SecretKeySpec): F[CipherCodec.CipherSupplier] =
       cipherSupplier[F](key, Cipher.ENCRYPT_MODE)
 
-    /**
-      * It creates a CipherSupplier given a secret key for decryption.
+    /** It creates a CipherSupplier given a secret key for decryption.
       *
       * A CipherSupplier is needed for [[RedisCodec.secure]]
       */

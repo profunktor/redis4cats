@@ -204,12 +204,12 @@ trait TestScenarios { self: FunSuite =>
       aggregateArgs = ZAggregateArgs.Builder.sum().weights(10L, 20L)
       zUnionWithScoreAndArgs <- redis.zUnionWithScores(Some(aggregateArgs), testKey, otherTestKey)
       _ <- IO(
-            assertEquals(
-              zUnionWithScoreAndArgs,
-              // scores for each element: 1 -> 10*1 + 20*1; 2 -> 10*3; 3 -> 20*5
-              List(ScoreWithValue(Score(30), 1L), ScoreWithValue(Score(30), 2L), ScoreWithValue(Score(100), 3L))
-            )
-          )
+             assertEquals(
+               zUnionWithScoreAndArgs,
+               // scores for each element: 1 -> 10*1 + 20*1; 2 -> 10*3; 3 -> 20*5
+               List(ScoreWithValue(Score(30), 1L), ScoreWithValue(Score(30), 2L), ScoreWithValue(Score(100), 3L))
+             )
+           )
       zInter <- redis.zInter(args = None, testKey, otherTestKey)
       _ <- IO(assertEquals(zInter, List(1L)))
       zDiff <- redis.zDiff(testKey, otherTestKey)
@@ -268,7 +268,7 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(persisted))
       noTTL <- redis.ttl("f1")
       _ <- IO(assert(noTTL.isEmpty))
-      //reset
+      // reset
       _ <- redis.expire("f1", 10.seconds)
       d <- redis.pttl("f1")
       _ <- IO(assert(d.nonEmpty))
@@ -361,8 +361,7 @@ trait TestScenarios { self: FunSuite =>
 
   type Iterations = Int
 
-  /**
-    * Does scan on all cluster nodes until all keys collected since order of scanned nodes can't be guaranteed
+  /** Does scan on all cluster nodes until all keys collected since order of scanned nodes can't be guaranteed
     */
   private def clusterScan(
       redis: RedisCommands[IO, String, String],
@@ -403,24 +402,24 @@ trait TestScenarios { self: FunSuite =>
       r3 <- redis.getBit(thirdKey, 0)
       _ <- IO(assertEquals(r3, Some(1.toLong)))
       _ <- for {
-            s1 <- redis.setBit(key, 2, 1)
-            s2 <- redis.setBit(key, 3, 1)
-            s3 <- redis.setBit(key, 5, 1)
-            s4 <- redis.setBit(key, 10, 1)
-            s5 <- redis.setBit(key, 11, 1)
-            s6 <- redis.setBit(key, 14, 1)
-          } yield s1 + s2 + s3 + s4 + s5 + s6
+             s1 <- redis.setBit(key, 2, 1)
+             s2 <- redis.setBit(key, 3, 1)
+             s3 <- redis.setBit(key, 5, 1)
+             s4 <- redis.setBit(key, 10, 1)
+             s5 <- redis.setBit(key, 11, 1)
+             s6 <- redis.setBit(key, 14, 1)
+           } yield s1 + s2 + s3 + s4 + s5 + s6
       k <- redis.getBit(key, 2)
       _ <- IO(assertEquals(k, Some(1.toLong)))
       _ <- redis.bitField(
-            secondKey,
-            SetUnsigned(2, 1),
-            SetUnsigned(3, 1),
-            SetUnsigned(5, 1),
-            SetUnsigned(10, 1),
-            SetUnsigned(11, 1),
-            IncrUnsignedBy(14, 1)
-          )
+             secondKey,
+             SetUnsigned(2, 1),
+             SetUnsigned(3, 1),
+             SetUnsigned(5, 1),
+             SetUnsigned(10, 1),
+             SetUnsigned(11, 1),
+             IncrUnsignedBy(14, 1)
+           )
       bits <- 0.to(14).toList.traverse(offset => redis.getBit(secondKey, offset.toLong))
       number <- IO.pure(Integer.parseInt(bits.map(_.getOrElse(0L).toString).foldLeft("")(_ + _), 2))
       _ <- IO(assertEquals(number, 23065))
@@ -566,8 +565,8 @@ trait TestScenarios { self: FunSuite =>
       redis
         .pipeline(ops)
         .map(kv => assertEquals(kv.get(key3).flatten, Some("3")))
-        .recoverWith {
-          case e => fail(s"[Error] - ${e.getMessage}")
+        .recoverWith { case e =>
+          fail(s"[Error] - ${e.getMessage}")
         }
 
     for {
@@ -606,10 +605,9 @@ trait TestScenarios { self: FunSuite =>
           assertEquals(kv.get(s"$key1-v2").flatten, Some(1L.toString))
         }
         .flatMap { _ =>
-          (redis.get(key2), redis.get(key3)).mapN {
-            case (x, y) =>
-              assertEquals(x, Some(val2))
-              assertEquals(y, Some(val3))
+          (redis.get(key2), redis.get(key3)).mapN { case (x, y) =>
+            assertEquals(x, Some(val2))
+            assertEquals(y, Some(val3))
           }
         }
   }
@@ -628,27 +626,27 @@ trait TestScenarios { self: FunSuite =>
       bool <- redis.eval("return true", ScriptOutputType.Boolean, List("Foo"))
       _ <- IO(assert(bool))
       list <- redis.eval(
-               "return {'Let', 'us', ARGV[1], ARGV[2]}",
-               ScriptOutputType.Multi,
-               Nil,
-               List(
-                 "have",
-                 "fun"
-               )
-             )
+                "return {'Let', 'us', ARGV[1], ARGV[2]}",
+                ScriptOutputType.Multi,
+                Nil,
+                List(
+                  "have",
+                  "fun"
+                )
+              )
       _ <- IO(assertEquals(list, List("Let", "us", "have", "fun")))
       boolReadOnly <- redis.evalReadOnly("return true", ScriptOutputType.Boolean, List("Foo"))
       _ <- IO(assert(boolReadOnly))
       _ <- redis.eval(statusScript, ScriptOutputType.Status, List("test"), List("foo"))
       either <- redis.evalReadOnly(statusScript, ScriptOutputType.Status, List("test"), List("foo")).attempt
       _ <- IO(
-            assert(
-              either.left.exists { ex =>
-                ex.isInstanceOf[RedisCommandExecutionException] &&
-                ex.getMessage.startsWith("ERR Write commands are not allowed from read-only scripts")
-              }
-            )
-          )
+             assert(
+               either.left.exists { ex =>
+                 ex.isInstanceOf[RedisCommandExecutionException] &&
+                 ex.getMessage.startsWith("ERR Write commands are not allowed from read-only scripts")
+               }
+             )
+           )
       sha42 <- redis.scriptLoad("return 42")
       fortyTwoSha <- redis.evalSha(sha42, ScriptOutputType.Integer)
       _ <- IO(assertEquals(fortyTwoSha, 42L))
@@ -683,7 +681,7 @@ trait TestScenarios { self: FunSuite =>
     for {
       _ <- redis.functionFlush(FlushMode.Sync)
       _ <- redis.functionLoad(myFunc)
-      _ <- redis.functionLoad(myFunc).recover({ case _: RedisCommandExecutionException => "" })
+      _ <- redis.functionLoad(myFunc).recover { case _: RedisCommandExecutionException => "" }
       _ <- redis.functionLoad(myFunc, replace = true)
       fcallResult <- redis.fcall("myfunc", ScriptOutputType.Status, List("key"), List("Hello"))
       _ <- IO(assertEquals(fcallResult, "Hello"))
@@ -741,16 +739,16 @@ trait TestScenarios { self: FunSuite =>
         gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
         i = Stream.eval(gate.get.as(true))
         sub <- PubSub
-                .mkSubscriberConnection[IO, String, String](client, RedisCodec.Utf8)
-                .withFinalizer(finalizer.combine(i))
+                 .mkSubscriberConnection[IO, String, String](client, RedisCodec.Utf8)
+                 .withFinalizer(finalizer.combine(i))
         stream <- Resource.pure(sub.psubscribe(RedisPattern(pattern)))
         s1 = stream
-          .evalMap(gate.complete(_).void)
-          .interruptWhen(i)
+               .evalMap(gate.complete(_).void)
+               .interruptWhen(i)
         s2 = Stream
-          .eval(commands.setEx(key, "", 1.second))
-          .meteredStartImmediately(2.seconds)
-          .interruptWhen(i)
+               .eval(commands.setEx(key, "", 1.second))
+               .meteredStartImmediately(2.seconds)
+               .interruptWhen(i)
         _ <- Resource.eval(Stream(s1, s2).parJoin(2).compile.drain)
         fe <- Resource.eval(gate.get)
       } yield fe
@@ -781,16 +779,16 @@ trait TestScenarios { self: FunSuite =>
         gate <- Resource.eval(IO.deferred[RedisPatternEvent[String, String]])
         i = Stream.eval(gate.get.as(true))
         pubsub <- PubSub
-                   .mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
-                   .withFinalizer(finalizer.combine(i))
+                    .mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
+                    .withFinalizer(finalizer.combine(i))
         stream <- Resource.pure(pubsub.psubscribe(RedisPattern(pattern)))
         s1 = stream.evalMap(gate.complete(_)).interruptWhen(i)
         s2 = Stream
-          .awakeEvery[IO](100.milli)
-          .as(message)
-          .through(pubsub.publish(RedisChannel(channel)))
-          .recover { case _: RedisException => 0L }
-          .interruptWhen(i)
+               .awakeEvery[IO](100.milli)
+               .as(message)
+               .through(pubsub.publish(RedisChannel(channel)))
+               .recover { case _: RedisException => 0L }
+               .interruptWhen(i)
         _ <- Resource.eval(Stream(s1, s2).parJoin(2).compile.drain)
         fe <- Resource.eval(gate.get)
       } yield fe

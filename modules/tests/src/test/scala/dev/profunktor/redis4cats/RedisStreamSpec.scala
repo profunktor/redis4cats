@@ -37,10 +37,9 @@ class RedisStreamSpec extends Redis4CatsFunSuite(false) {
 
   test("reading from a silent stream should not fail with RedisCommandTimeoutException") {
     timeoutingOperationTest { (options, restartOnTimeout) =>
-      fs2.Stream.resource(withRedisStreamOptionsResource(options)).flatMap {
-        case (readStream, _) =>
-          // This stream has no data and previously reading from such stream would fail with an exception
-          readStream.read(Set("test-stream-expiration"), 1, restartOnTimeout = restartOnTimeout)
+      fs2.Stream.resource(withRedisStreamOptionsResource(options)).flatMap { case (readStream, _) =>
+        // This stream has no data and previously reading from such stream would fail with an exception
+        readStream.read(Set("test-stream-expiration"), 1, restartOnTimeout = restartOnTimeout)
       }
     }
   }

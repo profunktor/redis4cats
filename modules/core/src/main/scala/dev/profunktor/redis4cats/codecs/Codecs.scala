@@ -23,10 +23,8 @@ import java.nio.ByteBuffer
 
 object Codecs {
 
-  /**
-    * Given a base RedisCodec[K, V1] and a split epimorphism between V1 and V2,
-    * a new RedisCodec[K, V2] can be derived.
-    * */
+  /** Given a base RedisCodec[K, V1] and a split epimorphism between V1 and V2, a new RedisCodec[K, V2] can be derived.
+    */
   def derive[K, V1, V2](
       baseCodec: RedisCodec[K, V1],
       epi: SplitEpi[V1, V2]
@@ -42,10 +40,9 @@ object Codecs {
     )
   }
 
-  /**
-    * Given a base RedisCodec[K1, V1], a split epimorphism between K1 and K2, and
-    * a split epimorphism between V1 and V2, a new RedisCodec[K2, V2] can be derived.
-    * */
+  /** Given a base RedisCodec[K1, V1], a split epimorphism between K1 and K2, and a split epimorphism between V1 and V2,
+    * a new RedisCodec[K2, V2] can be derived.
+    */
   def derive[K1, K2, V1, V2](
       baseCodec: RedisCodec[K1, V1],
       epiKeys: SplitEpi[K1, K2],

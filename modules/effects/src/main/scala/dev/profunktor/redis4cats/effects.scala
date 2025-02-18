@@ -20,9 +20,9 @@ import java.time.Instant
 
 import io.lettuce.core.{
   GeoArgs,
-  ScriptOutputType => JScriptOutputType,
+  KeyScanArgs => JKeyScanArgs,
   ScanArgs => JScanArgs,
-  KeyScanArgs => JKeyScanArgs
+  ScriptOutputType => JScriptOutputType
 }
 
 import scala.concurrent.duration.FiniteDuration

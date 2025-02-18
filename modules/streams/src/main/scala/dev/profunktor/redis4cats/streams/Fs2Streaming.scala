@@ -48,7 +48,7 @@ object RedisStream {
 
     val release: RedisRawStreaming[F, K, V] => F[Unit] = c =>
       FutureLift[F].lift(c.client.closeAsync()) *>
-          Log[F].info(s"Releasing Streaming connection: ${client.uri.underlying}")
+        Log[F].info(s"Releasing Streaming connection: ${client.uri.underlying}")
 
     Resource.make(acquire)(release).map(rs => new RedisStream(rs))
   }

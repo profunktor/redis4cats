@@ -48,13 +48,12 @@ class OptimisticLockSuite extends IOSuite {
     commands(client).use(cmds => cmds.flushAll >> cmds.set(testKey, InitialValue))
 
   private def concurrentUpdates(client: RedisClient): IO[List[Either[String, Unit]]] =
-    (Deferred[IO, Unit], Ref.of[IO, Int](0)).parTupled.flatMap {
-      case (promise, counter) =>
-        // A promise to make sure all the connections call WATCH before running the transaction
-        def attemptComplete = counter.get.flatMap { count =>
-          promise.complete(()).attempt.void.whenA(count === Parallelism)
-        }
-        List.range(0, Parallelism).as(exclusiveUpdate(client, promise, counter, attemptComplete)).parSequence
+    (Deferred[IO, Unit], Ref.of[IO, Int](0)).parTupled.flatMap { case (promise, counter) =>
+      // A promise to make sure all the connections call WATCH before running the transaction
+      def attemptComplete = counter.get.flatMap { count =>
+        promise.complete(()).attempt.void.whenA(count === Parallelism)
+      }
+      List.range(0, Parallelism).as(exclusiveUpdate(client, promise, counter, attemptComplete)).parSequence
     }
 
   private def exclusiveUpdate(
@@ -71,8 +70,8 @@ class OptimisticLockSuite extends IOSuite {
           redis
             .transact_(redis.set(testKey, UpdatedValue) :: Nil)
             .as(Either.right[String, Unit](()))
-            .recover {
-              case TransactionDiscarded => Left("Discarded")
+            .recover { case TransactionDiscarded =>
+              Left("Discarded")
             }
             .uncancelable
         )

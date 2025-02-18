@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats
 
-import cats.{ Applicative }
+import cats.Applicative
 import cats.effect.kernel.Clock
 import fs2.Stream
 

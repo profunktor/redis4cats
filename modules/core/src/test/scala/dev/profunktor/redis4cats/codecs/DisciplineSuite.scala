@@ -28,9 +28,8 @@ trait DisciplineSuite extends ScalaCheckSuite {
   def checkAll(options: TestOptions, ruleSet: Laws#RuleSet)(
       implicit loc: Location
   ): Unit =
-    ruleSet.all.properties.toList.foreach {
-      case (id, prop) =>
-        property(options.withName(s"${options.name}: $id"))(prop)
+    ruleSet.all.properties.toList.foreach { case (id, prop) =>
+      property(options.withName(s"${options.name}: $id"))(prop)
     }
 
 }

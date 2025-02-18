@@ -19,13 +19,13 @@ package dev.profunktor.redis4cats.pubsub.internals
 import cats.Applicative
 import fs2.concurrent.Topic
 
-/**
-  * Stores an ongoing subscription.
+/** Stores an ongoing subscription.
   *
-  * @param topic single-publisher, multiple-subscribers. The same topic is reused if `subscribe` is invoked more than
-  *              once. The subscribers' streams are terminated when `None` is published.
-  * @param subscribers subscriber count, when `subscribers` reaches 0 `cleanup` is called and `None` is published
-  *                    to the topic.
+  * @param topic
+  *   single-publisher, multiple-subscribers. The same topic is reused if `subscribe` is invoked more than once. The
+  *   subscribers' streams are terminated when `None` is published.
+  * @param subscribers
+  *   subscriber count, when `subscribers` reaches 0 `cleanup` is called and `None` is published to the topic.
   */
 final private[redis4cats] case class Redis4CatsSubscription[F[_], V](
     topic: Topic[F, Option[V]],
@@ -38,6 +38,8 @@ final private[redis4cats] case class Redis4CatsSubscription[F[_], V](
   def removeSubscriber: Redis4CatsSubscription[F, V] = copy(subscribers = subscribers - 1)
   def isLastSubscriber: Boolean                      = subscribers == 1
 
-  def stream(onTermination: F[Unit])(implicit F: Applicative[F]): fs2.Stream[F, V] =
+  def stream(onTermination: F[Unit])(
+      implicit F: Applicative[F]
+  ): fs2.Stream[F, V] =
     topic.subscribe(500).unNoneTerminate.onFinalize(onTermination)
 }

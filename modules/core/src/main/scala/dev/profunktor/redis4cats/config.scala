@@ -53,13 +53,14 @@ object config {
     def apply(): Redis4CatsConfig = Redis4CatsConfigImpl(ShutdownConfig())
   }
 
-  /**
-    * Configure the shutdown of the lettuce redis client,
-    * controlling the time spent on shutting down Netty's thread pools.
+  /** Configure the shutdown of the lettuce redis client, controlling the time spent on shutting down Netty's thread
+    * pools.
     *
-    * @param quietPeriod the quiet period to allow the executor to gracefully shut down.
-    * @param timeout     timeout the maximum amount of time to wait until the backing executor is shutdown regardless if a task was
-    *                    submitted during the quiet period.
+    * @param quietPeriod
+    *   the quiet period to allow the executor to gracefully shut down.
+    * @param timeout
+    *   timeout the maximum amount of time to wait until the backing executor is shutdown regardless if a task was
+    *   submitted during the quiet period.
     */
   // Shutdown values from new Lettuce defaults coming in version 6 (#974dd70), defaults in 5.3 are causing long waiting time.
   case class ShutdownConfig(quietPeriod: FiniteDuration = 0.seconds, timeout: FiniteDuration = 2.seconds)

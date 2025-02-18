@@ -30,11 +30,14 @@ trait PubSubStats[F[_], K] {
   def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
 }
 
-/**
-  * @tparam F  the effect type
-  * @tparam S  the stream type
-  * @tparam K  the channel key type
-  * @tparam V  the value type
+/** @tparam F
+  *   the effect type
+  * @tparam S
+  *   the stream type
+  * @tparam K
+  *   the channel key type
+  * @tparam V
+  *   the value type
   */
 trait PublishCommands[F[_], S[_], K, V] extends PubSubStats[F, K] {
 
@@ -45,32 +48,35 @@ trait PublishCommands[F[_], S[_], K, V] extends PubSubStats[F, K] {
   def publish(channel: RedisChannel[K], value: V): F[Long]
 }
 
-/**
-  * @tparam F  the effect type
-  * @tparam S  the stream type
-  * @tparam K  the channel key type
-  * @tparam V  the value type
+/** @tparam F
+  *   the effect type
+  * @tparam S
+  *   the stream type
+  * @tparam K
+  *   the channel key type
+  * @tparam V
+  *   the value type
   */
 trait SubscribeCommands[F[_], S[_], K, V] {
 
-  /**
-    * Subscribes to a channel.
+  /** Subscribes to a channel.
     *
-    * @note If you invoke `subscribe` multiple times for the same channel, we will not call 'SUBSCRIBE' in Redis multiple
-    * times but instead will return a stream that will use the existing subscription to that channel. The underlying
-    * subscription is cleaned up when all the streams terminate or when `unsubscribe` is invoked.
+    * @note
+    *   If you invoke `subscribe` multiple times for the same channel, we will not call 'SUBSCRIBE' in Redis multiple
+    *   times but instead will return a stream that will use the existing subscription to that channel. The underlying
+    *   subscription is cleaned up when all the streams terminate or when `unsubscribe` is invoked.
     */
   def subscribe(channel: RedisChannel[K]): S[V]
 
   /** Terminates all streams that are subscribed to the channel. */
   def unsubscribe(channel: RedisChannel[K]): F[Unit]
 
-  /**
-    * Subscribes to a pattern.
+  /** Subscribes to a pattern.
     *
-    * @note If you invoke `subscribe` multiple times for the same pattern, we will not call 'SUBSCRIBE' in Redis multiple
-    * times but instead will return a stream that will use the existing subscription to that pattern. The underlying
-    * subscription is cleaned up when all the streams terminate or when `unsubscribe` is invoked.
+    * @note
+    *   If you invoke `subscribe` multiple times for the same pattern, we will not call 'SUBSCRIBE' in Redis multiple
+    *   times but instead will return a stream that will use the existing subscription to that pattern. The underlying
+    *   subscription is cleaned up when all the streams terminate or when `unsubscribe` is invoked.
     */
   def psubscribe(channel: RedisPattern[K]): S[RedisPatternEvent[K, V]]
 
@@ -79,22 +85,30 @@ trait SubscribeCommands[F[_], S[_], K, V] {
 
   /** Returns the channel subscriptions that the library keeps of.
     *
-    * @return how many streams are subscribed to each channel.
-    * @see [[SubscribeCommands.subscribe]] for more information.
-    * */
+    * @return
+    *   how many streams are subscribed to each channel.
+    * @see
+    *   [[SubscribeCommands.subscribe]] for more information.
+    */
   def internalChannelSubscriptions: F[Map[RedisChannel[K], Long]]
 
   /** Returns the pattern subscriptions that the library keeps of.
     *
-    * @return how many streams are subscribed to each pattern.
-    * @see [[SubscribeCommands.psubscribe]] for more information. */
+    * @return
+    *   how many streams are subscribed to each pattern.
+    * @see
+    *   [[SubscribeCommands.psubscribe]] for more information.
+    */
   def internalPatternSubscriptions: F[Map[RedisPattern[K], Long]]
 }
 
-/**
-  * @tparam F  the effect type
-  * @tparam S  the stream type
-  * @tparam K  the channel key type
-  * @tparam V  the value type
+/** @tparam F
+  *   the effect type
+  * @tparam S
+  *   the stream type
+  * @tparam K
+  *   the channel key type
+  * @tparam V
+  *   the value type
   */
 trait PubSubCommands[F[_], S[_], K, V] extends PublishCommands[F, S, K, V] with SubscribeCommands[F, S, K, V]

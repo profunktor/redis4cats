@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats
 
 import dev.profunktor.redis4cats.data.RedisCodec
-import io.lettuce.core.codec.{ ToByteBufEncoder, RedisCodec => JRedisCodec, StringCodec => JStringCodec }
+import io.lettuce.core.codec.{ RedisCodec => JRedisCodec, StringCodec => JStringCodec, ToByteBufEncoder }
 import io.netty.buffer.ByteBuf
 
 class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {

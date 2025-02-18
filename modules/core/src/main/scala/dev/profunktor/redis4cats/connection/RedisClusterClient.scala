@@ -26,12 +26,12 @@ import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config._
 import dev.profunktor.redis4cats.data.NodeId
 import dev.profunktor.redis4cats.effect._
-import io.lettuce.core.cluster.models.partitions.{ RedisClusterNode, Partitions => JPartitions }
+import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions, RedisClusterNode }
 import io.lettuce.core.cluster.{
   ClusterClientOptions,
   ClusterTopologyRefreshOptions,
-  SlotHash,
-  RedisClusterClient => JClusterClient
+  RedisClusterClient => JClusterClient,
+  SlotHash
 }
 
 sealed abstract case class RedisClusterClient private (underlying: JClusterClient)
@@ -45,25 +45,25 @@ object RedisClusterClient {
 
     val acquire: F[RedisClusterClient] =
       Log[F].info(s"Acquire Redis Cluster client") *>
-          FutureLift[F]
-            .delay {
-              val javaUris = uri.map(_.underlying).asJava
-              config.clientResources.fold(JClusterClient.create(javaUris))(JClusterClient.create(_, javaUris))
-            }
-            .flatTap(initializeClusterTopology[F](_, config.topologyViewRefreshStrategy, config.nodeFilter))
-            .map(new RedisClusterClient(_) {})
+        FutureLift[F]
+          .delay {
+            val javaUris = uri.map(_.underlying).asJava
+            config.clientResources.fold(JClusterClient.create(javaUris))(JClusterClient.create(_, javaUris))
+          }
+          .flatTap(initializeClusterTopology[F](_, config.topologyViewRefreshStrategy, config.nodeFilter))
+          .map(new RedisClusterClient(_) {})
 
     val release: RedisClusterClient => F[Unit] = client =>
       Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *>
-          FutureLift[F]
-            .lift(
-              client.underlying.shutdownAsync(
-                config.shutdown.quietPeriod.toNanos,
-                config.shutdown.timeout.toNanos,
-                TimeUnit.NANOSECONDS
-              )
+        FutureLift[F]
+          .lift(
+            client.underlying.shutdownAsync(
+              config.shutdown.quietPeriod.toNanos,
+              config.shutdown.timeout.toNanos,
+              TimeUnit.NANOSECONDS
             )
-            .void
+          )
+          .void
 
     (acquire, release)
   }

@@ -67,15 +67,13 @@ trait Increment[F[_], K, V] {
 
 trait Unsafe[F[_], K, V] {
 
-  /**
-    * USE WITH CAUTION! It gives you access to the underlying Java API.
+  /** USE WITH CAUTION! It gives you access to the underlying Java API.
     *
     * Useful whenever Redis4cats does not yet support the operation you're looking for.
     */
   def unsafe[A](f: RedisClusterAsyncCommands[K, V] => RedisFuture[A]): F[A]
 
-  /**
-    * USE WITH CAUTION! It gives you access to the underlying Java API.
+  /** USE WITH CAUTION! It gives you access to the underlying Java API.
     *
     * Useful whenever Redis4cats does not yet support the operation you're looking for.
     */

@@ -120,13 +120,16 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
     /** Assert that a given channel has the given number of subscriptions.
       *
-      * @param waitFor max time to wait for the expected number of subscriptions to be present
-      * */
+      * @param waitFor
+      *   max time to wait for the expected number of subscriptions to be present
+      */
     def shouldHaveNSubs(
         channel: RedisChannel[String],
         count: Long,
         waitFor: FiniteDuration = 0.nanos
-    )(implicit loc: Location): IO[Unit] =
+    )(
+        implicit loc: Location
+    ): IO[Unit] =
       waitUntilEquals(
         pubSub.pubSubSubscriptions(List(channel)),
         List(Subscription(channel, count)),
@@ -157,7 +160,10 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
       expected: B,
       waitFor: FiniteDuration,
       clue: => Any = "values are not the same"
-  )(implicit loc: Location, compare: Compare[A, B]): IO[Unit] = {
+  )(
+      implicit loc: Location,
+      compare: Compare[A, B]
+  ): IO[Unit] = {
     val checker = false.iterateUntilM(_ =>
       io.map(compare.isEqual(_, expected)).flatTap(if (_) IO.unit else IO.sleep(50.millis))
     )(identity)

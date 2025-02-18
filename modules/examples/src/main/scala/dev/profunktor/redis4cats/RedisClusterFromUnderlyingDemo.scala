@@ -20,7 +20,7 @@ import java.time.Duration
 
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.connection.{ RedisClusterClient, RedisURI }
-import dev.profunktor.redis4cats.effect.{ FutureLift }
+import dev.profunktor.redis4cats.effect.FutureLift
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import io.lettuce.core.TimeoutOptions
 import io.lettuce.core.cluster.{ ClusterClientOptions, RedisClusterClient => JRedisClusterClient }

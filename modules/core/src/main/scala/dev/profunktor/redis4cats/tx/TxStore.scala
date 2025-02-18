@@ -19,8 +19,7 @@ package dev.profunktor.redis4cats.tx
 import cats.effect.kernel.{ Async, Ref }
 import cats.syntax.functor._
 
-/**
-  * Provides a way to store transactional results for later retrieval.
+/** Provides a way to store transactional results for later retrieval.
   */
 trait TxStore[F[_], K, V] {
   def get: F[Map[K, V]]

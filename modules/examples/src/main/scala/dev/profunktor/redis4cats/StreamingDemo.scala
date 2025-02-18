@@ -36,9 +36,8 @@ object StreamingDemo extends LoggerIOApp {
   def randomMessage: Stream[IO, XAddMessage[String, String]] = Stream.eval {
     val rndKey   = IO(Random.nextInt(1000).toString)
     val rndValue = IO(Random.nextString(10))
-    (rndKey, rndValue).parMapN {
-      case (k, v) =>
-        XAddMessage(streamKey1, Map(k -> v))
+    (rndKey, rndValue).parMapN { case (k, v) =>
+      XAddMessage(streamKey1, Map(k -> v))
     }
   }
 

@@ -28,7 +28,12 @@ import org.typelevel.discipline.Laws
 trait SplitEpiTests[A, B] extends Laws {
   def laws: SplitEpiLaws[A, B]
 
-  def splitEpi(implicit a: Arbitrary[A], b: Arbitrary[B], eqA: Eq[A], eqB: Eq[B]): RuleSet =
+  def splitEpi(
+      implicit a: Arbitrary[A],
+      b: Arbitrary[B],
+      eqA: Eq[A],
+      eqB: Eq[B]
+  ): RuleSet =
     new DefaultRuleSet(
       name = "splitEpimorphism",
       parent = None,

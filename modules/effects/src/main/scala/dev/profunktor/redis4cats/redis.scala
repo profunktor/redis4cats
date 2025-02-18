@@ -35,25 +35,25 @@ import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSy
 import io.lettuce.core.{
   BitFieldArgs,
   ClientOptions,
-  GeoArgs,
-  GeoRadiusStoreArgs,
-  GeoWithin,
-  RedisFuture,
-  ScoredValue,
-  ZAddArgs,
-  ZAggregateArgs,
-  ZStoreArgs,
+  CopyArgs => JCopyArgs,
   ExpireArgs => JExpireArgs,
   FlushMode => JFlushMode,
   FunctionRestoreMode => JFunctionRestoreMode,
+  GeoArgs,
+  GeoRadiusStoreArgs,
+  GeoWithin,
   GetExArgs => JGetExArgs,
-  CopyArgs => JCopyArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
+  RedisFuture,
   RestoreArgs => JRestoreArgs,
   ScanCursor => JScanCursor,
-  SetArgs => JSetArgs
+  ScoredValue,
+  SetArgs => JSetArgs,
+  ZAddArgs,
+  ZAggregateArgs,
+  ZStoreArgs
 }
 import org.typelevel.keypool.KeyPool
 
@@ -85,7 +85,9 @@ object Redis {
     implicit class PoolOps[F[_], K, V](val pool: KeyPool[F, Unit, RedisCommands[F, K, V]]) extends AnyVal {
       @inline def withRedisCommands[A](
           fn: RedisCommands[F, K, V] => F[A]
-      )(implicit M: MonadCancel[F, Throwable]): F[A] =
+      )(
+          implicit M: MonadCancel[F, Throwable]
+      ): F[A] =
         pool.take(()).use(managed => fn(managed.value))
     }
   }
@@ -150,11 +152,9 @@ object Redis {
     implicit val fl: FutureLift[F] = MkRedis[F].futureLift
     implicit val log: Log[F]       = MkRedis[F].log
 
-    /**
-      * Creates a [[RedisCommands]] for a single-node connection.
+    /** Creates a [[RedisCommands]] for a single-node connection.
       *
-      * It will create an underlying RedisClient with default options to establish
-      * connection with Redis.
+      * It will create an underlying RedisClient with default options to establish connection with Redis.
       *
       * Example:
       *
@@ -162,17 +162,15 @@ object Redis {
       * Redis[IO].simple("redis://localhost", RedisCodec.Ascii)
       * }}}
       *
-      * Note: if you need to create multiple connections, use `fromClient`
-      * instead, which allows you to re-use the same client.
+      * Note: if you need to create multiple connections, use `fromClient` instead, which allows you to re-use the same
+      * client.
       */
     def simple[K, V](uri: String, codec: RedisCodec[K, V]): Resource[F, RedisCommands[F, K, V]] =
       MkRedis[F].clientFrom(uri).flatMap(this.fromClient(_, codec))
 
-    /**
-      * Creates a [[RedisCommands]] for a single-node connection.
+    /** Creates a [[RedisCommands]] for a single-node connection.
       *
-      * It will create an underlying RedisClient using the supplied client options
-      * to establish connection with Redis.
+      * It will create an underlying RedisClient using the supplied client options to establish connection with Redis.
       *
       * Example:
       *
@@ -183,8 +181,8 @@ object Redis {
       * } yield cmds
       * }}}
       *
-      * Note: if you need to create multiple connections, use `fromClient`
-      * instead, which allows you to re-use the same client.
+      * Note: if you need to create multiple connections, use `fromClient` instead, which allows you to re-use the same
+      * client.
       */
     def withOptions[K, V](
         uri: String,
@@ -193,12 +191,10 @@ object Redis {
     ): Resource[F, RedisCommands[F, K, V]] =
       MkRedis[F].clientWithOptions(uri, opts).flatMap(this.fromClient(_, codec))
 
-    /**
-      * Creates a [[RedisCommands]] for a single-node connection.
+    /** Creates a [[RedisCommands]] for a single-node connection.
       *
-      * It will create an underlying RedisClient using the supplied client options and config
-      * to establish connection with Redis. Can be used to customise advanced features like
-      * metric recording or shutdown delays.
+      * It will create an underlying RedisClient using the supplied client options and config to establish connection
+      * with Redis. Can be used to customise advanced features like metric recording or shutdown delays.
       *
       * Example:
       *
@@ -210,8 +206,8 @@ object Redis {
       * } yield cmds
       * }}}
       *
-      * Note: if you need to create multiple connections, use `fromClient`
-      * instead, which allows you to re-use the same client.
+      * Note: if you need to create multiple connections, use `fromClient` instead, which allows you to re-use the same
+      * client.
       */
     def custom[K, V](
         uri: String,
@@ -224,12 +220,9 @@ object Redis {
         .flatMap(MkRedis[F].clientCustom(_, opts, config))
         .flatMap(this.fromClient(_, codec))
 
-    /**
-      * Creates a [[RedisCommands]] for a single-node connection to deal
-      * with UTF-8 encoded keys and values.
+    /** Creates a [[RedisCommands]] for a single-node connection to deal with UTF-8 encoded keys and values.
       *
-      * It will create an underlying RedisClient with default options to establish
-      * connection with Redis.
+      * It will create an underlying RedisClient with default options to establish connection with Redis.
       *
       * Example:
       *
@@ -237,14 +230,13 @@ object Redis {
       * Redis[IO].utf8("redis://localhost")
       * }}}
       *
-      * Note: if you need to create multiple connections, use `fromClient`
-      * instead, which allows you to re-use the same client.
+      * Note: if you need to create multiple connections, use `fromClient` instead, which allows you to re-use the same
+      * client.
       */
     def utf8(uri: String): Resource[F, RedisCommands[F, String, String]] =
       simple(uri, RedisCodec.Utf8)
 
-    /**
-      * Creates a [[RedisCommands]] for a single-node connection.
+    /** Creates a [[RedisCommands]] for a single-node connection.
       *
       * Example:
       *
@@ -257,8 +249,8 @@ object Redis {
       *   } yield cmd
       * }}}
       *
-      * Note: if you don't need to create multiple connections, you might
-      * prefer to use either [[utf8]] or `simple` instead.
+      * Note: if you don't need to create multiple connections, you might prefer to use either [[utf8]] or `simple`
+      * instead.
       */
     def fromClient[K, V](
         client: RedisClient,
@@ -269,8 +261,7 @@ object Redis {
         Resource.make(acquire)(release).widen
       }
 
-    /**
-      * Creates a pool of [[RedisCommands]] for a single-node connection.
+    /** Creates a pool of [[RedisCommands]] for a single-node connection.
       *
       * Example:
       *
@@ -284,25 +275,27 @@ object Redis {
       *
       *  pool.use(_.withRedisCommands(redis => redis.set(usernameKey, "some value")))
       * }}}
-      *
       */
     def pooled[K, V](
         client: RedisClient,
         codec: RedisCodec[K, V]
-    )(implicit T: Temporal[F]): Resource[F, KeyPool[F, Unit, RedisCommands[F, K, V]]] =
+    )(
+        implicit T: Temporal[F]
+    ): Resource[F, KeyPool[F, Unit, RedisCommands[F, K, V]]] =
       Resource
         .eval(Redis.Pool.Settings.default[F])
         .flatMap(poolSettings => customPooled[K, V](client, codec, poolSettings))
 
-    /**
-      * Creates a pool of [[RedisCommands]] for a single-node connection.
-      * Similar to [[pooled]] but allows custom [[Redis.Pool.Settings]]
+    /** Creates a pool of [[RedisCommands]] for a single-node connection. Similar to [[pooled]] but allows custom
+      * [[Redis.Pool.Settings]]
       */
     def customPooled[K, V](
         client: RedisClient,
         codec: RedisCodec[K, V],
         poolSettings: Redis.Pool.Settings
-    )(implicit T: Temporal[F]): Resource[F, KeyPool[F, Unit, RedisCommands[F, K, V]]] = {
+    )(
+        implicit T: Temporal[F]
+    ): Resource[F, KeyPool[F, Unit, RedisCommands[F, K, V]]] = {
       val cmdsResource: Resource[F, RedisCommands[F, K, V]] = fromClient(client, codec)
       KeyPool
         .Builder[F, Unit, RedisCommands[F, K, V]]((_: Unit) => cmdsResource)
@@ -313,11 +306,9 @@ object Redis {
         .build
     }
 
-    /**
-      * Creates a [[RedisCommands]] for a cluster connection.
+    /** Creates a [[RedisCommands]] for a cluster connection.
       *
-      * It will also create an underlying RedisClusterClient to establish
-      * connection with Redis.
+      * It will also create an underlying RedisClusterClient to establish connection with Redis.
       *
       * Example:
       *
@@ -329,8 +320,8 @@ object Redis {
       * )
       * }}}
       *
-      * Note: if you need to create multiple connections, use either [[fromClusterClient]]
-      * or [[fromClusterClientByNode]] instead, which allows you to re-use the same client.
+      * Note: if you need to create multiple connections, use either [[fromClusterClient]] or
+      * [[fromClusterClientByNode]] instead, which allows you to re-use the same client.
       */
     def cluster[K, V](
         codec: RedisCodec[K, V],
@@ -342,12 +333,9 @@ object Redis {
         redis <- this.fromClusterClient[K, V](client, codec)(readFrom)
       } yield redis
 
-    /**
-      * Creates a [[RedisCommands]] for a cluster connection to deal
-      * with UTF-8 encoded keys and values.
+    /** Creates a [[RedisCommands]] for a cluster connection to deal with UTF-8 encoded keys and values.
       *
-      * It will also create an underlying RedisClusterClient to establish
-      * connection with Redis.
+      * It will also create an underlying RedisClusterClient to establish connection with Redis.
       *
       * Example:
       *
@@ -358,16 +346,15 @@ object Redis {
       * )
       * }}}
       *
-      * Note: if you need to create multiple connections, use either [[fromClusterClient]]
-      * or [[fromClusterClientByNode]] instead, which allows you to re-use the same client.
+      * Note: if you need to create multiple connections, use either [[fromClusterClient]] or
+      * [[fromClusterClientByNode]] instead, which allows you to re-use the same client.
       */
     def clusterUtf8(
         uris: String*
     )(readFrom: Option[JReadFrom] = None): Resource[F, RedisCommands[F, String, String]] =
       cluster(RedisCodec.Utf8, uris: _*)(readFrom)
 
-    /**
-      * Creates a [[RedisCommands]] for a cluster connection
+    /** Creates a [[RedisCommands]] for a cluster connection
       *
       * Example:
       *
@@ -383,8 +370,8 @@ object Redis {
       *   } yield cmd
       * }}}
       *
-      * Note: if you don't need to create multiple connections, you might
-      * prefer to use either [[clusterUtf8]] or [[cluster]] instead.
+      * Note: if you don't need to create multiple connections, you might prefer to use either [[clusterUtf8]] or
+      * [[cluster]] instead.
       */
     def fromClusterClient[K, V](
         clusterClient: RedisClusterClient,
@@ -395,9 +382,7 @@ object Redis {
         Resource.make(acquire)(release).widen
       }
 
-    /**
-      * Creates a [[RedisCommands]] by trying to establish a cluster
-      * connection to the specified node.
+    /** Creates a [[RedisCommands]] by trying to establish a cluster connection to the specified node.
       *
       * Example:
       *
@@ -413,8 +398,8 @@ object Redis {
       *   } yield cmd
       * }}}
       *
-      * Note: if you don't need to create multiple connections, you might
-      * prefer to use either [[clusterUtf8]] or [[cluster]] instead.
+      * Note: if you don't need to create multiple connections, you might prefer to use either [[clusterUtf8]] or
+      * [[cluster]] instead.
       */
     def fromClusterClientByNode[K, V](
         clusterClient: RedisClusterClient,
@@ -426,8 +411,7 @@ object Redis {
         Resource.make(acquire)(release).widen
       }
 
-    /**
-      * Creates a [[RedisCommands]] from a MasterReplica connection
+    /** Creates a [[RedisCommands]] from a MasterReplica connection
       *
       * Example:
       *
@@ -469,7 +453,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   def sync: F[RedisClusterSyncCommands[K, V]] =
     if (cluster) conn.clusterSync else conn.sync.widen
 
-  /** ***************************** Keys API ************************************ */
+  /** ***************************** Keys API ************************************
+    */
   override def copy(source: K, destination: K): F[Boolean] =
     async.flatMap(_.copy(source, destination).futureLift.map(x => Boolean.box(x)))
 
@@ -487,9 +472,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.exists(all: _*).futureLift.map(_ == all.size.toLong))
   }
 
-  /**
-    * Expires a key with the given duration. If specified either in MILLISECONDS, MICROSECONDS or NANOSECONDS,
-    * the value will be converted to MILLISECONDS. Otherwise, it will be converted to SECONDS.
+  /** Expires a key with the given duration. If specified either in MILLISECONDS, MICROSECONDS or NANOSECONDS, the value
+    * will be converted to MILLISECONDS. Otherwise, it will be converted to SECONDS.
     *
     * As expected by Redis' PEXPIRE and EXPIRE commands, respectively.
     */
@@ -517,8 +501,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       }
       .map(x => Boolean.box(x))
 
-  /**
-    * Expires a key at the given date.
+  /** Expires a key at the given date.
     *
     * It calls Redis' PEXPIREAT under the hood, which has milliseconds precision.
     */
@@ -588,7 +571,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def unlink(key: K*): F[Long] =
     async.flatMap(_.unlink(key: _*).futureLift.map(x => Long.box(x)))
 
+  // format: off
   /******************************* Transactions API **********************************/
+  // format: on
   // When in a cluster, transactions should run against a single node.
 
   // Leaving this here for debugging purposes when working on the lib
@@ -650,21 +635,27 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def pipeline_(fs: List[F[Unit]]): F[Unit] =
     pipeline[Nothing](_ => fs).void
 
+  // format: off
   /******************************* AutoFlush API **********************************/
+  // format: on
   override def enableAutoFlush: F[Unit] = conn.setAutoFlushCommands(true)
 
   override def disableAutoFlush: F[Unit] = conn.setAutoFlushCommands(false)
 
   override def flushCommands: F[Unit] = conn.flushCommands
 
+  // format: off
   /******************************* Unsafe API **********************************/
+  // format: on
   override def unsafe[A](f: RedisClusterAsyncCommands[K, V] => RedisFuture[A]): F[A] =
     async.flatMap(f(_).futureLift)
 
   override def unsafeSync[A](f: RedisClusterAsyncCommands[K, V] => A): F[A] =
     async.flatMap(cmd => FutureLift[F].delay(f(cmd)))
 
+  // format: off
   /******************************* Strings API **********************************/
+  // format: on
   override def append(key: K, value: V): F[Unit] =
     async.flatMap(_.append(key, value).futureLift.void)
 
@@ -754,7 +745,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def mSetNx(keyValues: Map[K, V]): F[Boolean] =
     async.flatMap(_.msetnx(keyValues.asJava).futureLift.map(x => Boolean.box(x)))
 
+  // format: off
   /******************************* Hashes API **********************************/
+  // format: on
   override def hDel(key: K, field: K, fields: K*): F[Long] =
     async.flatMap(_.hdel(key, (field +: fields): _*).futureLift.map(x => Long.box(x)))
 
@@ -802,7 +795,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def hIncrByFloat(key: K, field: K, amount: Double): F[Double] =
     async.flatMap(_.hincrbyfloat(key, field, amount).futureLift.map(x => Double.box(x)))
 
+  // format: off
   /******************************* Sets API **********************************/
+  // format: on
   override def sIsMember(key: K, value: V): F[Boolean] =
     async.flatMap(_.sismember(key, value).futureLift.map(x => Boolean.box(x)))
 
@@ -854,7 +849,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def sUnionStore(destination: K, keys: K*): F[Unit] =
     async.flatMap(_.sunionstore(destination, keys: _*).futureLift.void)
 
+  // format: off
   /******************************* Lists API **********************************/
+  // format: on
   override def lIndex(key: K, index: Long): F[Option[V]] =
     async.flatMap(_.lindex(key, index).futureLift.map(Option.apply))
 
@@ -913,7 +910,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def lTrim(key: K, start: Long, stop: Long): F[Unit] =
     async.flatMap(_.ltrim(key, start, stop).futureLift.void)
 
+  // format: off
   /******************************* Bitmaps API **********************************/
+  // format: on
   override def bitCount(key: K): F[Long] =
     async.flatMap(_.bitcount(key).futureLift.map(x => Long.box(x)))
 
@@ -974,7 +973,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def setBit(key: K, offset: Long, value: Int): F[Long] =
     async.flatMap(_.setbit(key, offset, value).futureLift.map(x => Long.box(x)))
 
+  // format: off
   /******************************* Geo API **********************************/
+  // format: on
   override def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double] =
     async.flatMap(_.geodist(key, from, to, unit).futureLift.map(x => Double.box(x)))
 
@@ -1059,7 +1060,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   ): F[Unit] =
     async.flatMap(_.georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs).futureLift.void)
 
+  // format: off
   /******************************* Sorted Sets API **********************************/
+  // format: on
   override def zAdd(key: K, args: Option[ZAddArgs], values: ScoreWithValue[V]*): F[Long] = {
     val res = args match {
       case Some(x) =>
@@ -1276,7 +1279,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       .flatMap(_.zdiffWithScores(keys: _*).futureLift)
       .map(_.asScala.toList.map(_.asScoreWithValues))
 
+  // format: off
   /******************************* Connection API **********************************/
+  // format: on
   override val ping: F[String] =
     async.flatMap(_.ping().futureLift)
 
@@ -1321,7 +1326,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
         .toMap
     )
 
+  // format: off
   /******************************* Server API **********************************/
+  // format: on
   override val flushAll: F[Unit] =
     async.flatMap(_.flushall().futureLift.void)
 
@@ -1592,7 +1599,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       .flatMap(_.functionList(libraryName).futureLift)
       .map(_.asScala.map(_.asScala.toMap).toList)
 
+  // format: off
   /** ***************************** HyperLoglog API **********************************/
+  // format: on
   override def pfAdd(key: K, values: V*): F[Long] =
     async.flatMap(_.pfadd(key, values: _*).futureLift.map(Long.box(_)))
 

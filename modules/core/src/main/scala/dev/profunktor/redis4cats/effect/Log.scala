@@ -19,11 +19,10 @@ package dev.profunktor.redis4cats.effect
 import cats.Applicative
 import cats.effect.kernel.Sync
 
-/**
-  * Typeclass used for internal logging such as acquiring and releasing connections.
+/** Typeclass used for internal logging such as acquiring and releasing connections.
   *
-  * It is recommended to use `log4cats` for production usage but if you do not want
-  * the extra dependency, you can opt to use either of the simple instances provided.
+  * It is recommended to use `log4cats` for production usage but if you do not want the extra dependency, you can opt to
+  * use either of the simple instances provided.
   *
   * If you don't need logging at all, you can use [[Log.NoOp]]
   *
@@ -36,7 +35,7 @@ import cats.effect.kernel.Sync
   * {{{
   * import dev.profunktor.redis4cats.effect.Log.Stdout._
   * }}}
-  * */
+  */
 trait Log[F[_]] {
   def debug(msg: => String): F[Unit]
   def error(msg: => String): F[Unit]
@@ -44,7 +43,9 @@ trait Log[F[_]] {
 }
 
 object Log {
-  def apply[F[_]](implicit ev: Log[F]): Log[F] = ev
+  def apply[F[_]](
+      implicit ev: Log[F]
+  ): Log[F] = ev
 
   object NoOp {
     implicit def instance[F[_]: Applicative]: Log[F] =
