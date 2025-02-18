@@ -121,7 +121,7 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
     /** Assert that a given channel has the given number of subscriptions.
       *
       * @param waitFor max time to wait for the expected number of subscriptions to be present
-      */
+      * */
     def shouldHaveNSubs(
         channel: RedisChannel[String],
         count: Long,

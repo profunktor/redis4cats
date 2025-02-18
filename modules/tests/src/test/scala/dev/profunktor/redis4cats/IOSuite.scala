@@ -24,10 +24,7 @@ trait IOSuite extends FunSuite {
   implicit val runtime: IORuntime = cats.effect.unsafe.IORuntime.global
 
   override def munitValueTransforms: List[ValueTransform] =
-    super.munitValueTransforms :+ new ValueTransform(
-      "IO",
-      { case ioa: IO[_] =>
-        IO.defer(ioa).unsafeToFuture()
-      }
-    )
+    super.munitValueTransforms :+ new ValueTransform("IO", {
+          case ioa: IO[_] => IO.defer(ioa).unsafeToFuture()
+        })
 }

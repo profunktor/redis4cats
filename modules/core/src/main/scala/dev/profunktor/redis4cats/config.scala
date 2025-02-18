@@ -53,7 +53,8 @@ object config {
     def apply(): Redis4CatsConfig = Redis4CatsConfigImpl(ShutdownConfig())
   }
 
-  /** Configure the shutdown of the lettuce redis client,
+  /**
+    * Configure the shutdown of the lettuce redis client,
     * controlling the time spent on shutting down Netty's thread pools.
     *
     * @param quietPeriod the quiet period to allow the executor to gracefully shut down.

@@ -59,45 +59,40 @@ object effects {
 
     type Aux[A0, R0] = ScriptOutputType[A0] { type R = R0 }
 
-    def Boolean[V]: ScriptOutputType.Aux[V, Boolean] =
-      new ScriptOutputType[V] {
-        type R                              = Boolean
-        private[redis4cats] type Underlying = java.lang.Boolean
-        override private[redis4cats] val outputType                              = JScriptOutputType.BOOLEAN
-        override private[redis4cats] def convert(in: java.lang.Boolean): Boolean = scala.Boolean.box(in)
-      }
+    def Boolean[V]: ScriptOutputType.Aux[V, Boolean] = new ScriptOutputType[V] {
+      type R                              = Boolean
+      private[redis4cats] type Underlying = java.lang.Boolean
+      override private[redis4cats] val outputType                              = JScriptOutputType.BOOLEAN
+      override private[redis4cats] def convert(in: java.lang.Boolean): Boolean = scala.Boolean.box(in)
+    }
 
-    def Integer[V]: ScriptOutputType.Aux[V, Long] =
-      new ScriptOutputType[V] {
-        type R                              = Long
-        private[redis4cats] type Underlying = java.lang.Long
-        override private[redis4cats] val outputType                        = JScriptOutputType.INTEGER
-        override private[redis4cats] def convert(in: java.lang.Long): Long = Long.box(in)
-      }
+    def Integer[V]: ScriptOutputType.Aux[V, Long] = new ScriptOutputType[V] {
+      type R                              = Long
+      private[redis4cats] type Underlying = java.lang.Long
+      override private[redis4cats] val outputType                        = JScriptOutputType.INTEGER
+      override private[redis4cats] def convert(in: java.lang.Long): Long = Long.box(in)
+    }
 
-    def Value[V]: ScriptOutputType.Aux[V, V] =
-      new ScriptOutputType[V] {
-        type R                              = V
-        private[redis4cats] type Underlying = V
-        override private[redis4cats] val outputType        = JScriptOutputType.VALUE
-        override private[redis4cats] def convert(in: V): V = in
-      }
+    def Value[V]: ScriptOutputType.Aux[V, V] = new ScriptOutputType[V] {
+      type R                              = V
+      private[redis4cats] type Underlying = V
+      override private[redis4cats] val outputType        = JScriptOutputType.VALUE
+      override private[redis4cats] def convert(in: V): V = in
+    }
 
-    def Multi[V]: ScriptOutputType.Aux[V, List[V]] =
-      new ScriptOutputType[V] {
-        type R                              = List[V]
-        private[redis4cats] type Underlying = java.util.List[V]
-        override private[redis4cats] val outputType                              = JScriptOutputType.MULTI
-        override private[redis4cats] def convert(in: java.util.List[V]): List[V] = in.asScala.toList
-      }
+    def Multi[V]: ScriptOutputType.Aux[V, List[V]] = new ScriptOutputType[V] {
+      type R                              = List[V]
+      private[redis4cats] type Underlying = java.util.List[V]
+      override private[redis4cats] val outputType                              = JScriptOutputType.MULTI
+      override private[redis4cats] def convert(in: java.util.List[V]): List[V] = in.asScala.toList
+    }
 
-    def Status[V]: ScriptOutputType.Aux[V, String] =
-      new ScriptOutputType[V] {
-        type R                              = String
-        private[redis4cats] type Underlying = String
-        override private[redis4cats] val outputType                  = JScriptOutputType.STATUS
-        override private[redis4cats] def convert(in: String): String = in
-      }
+    def Status[V]: ScriptOutputType.Aux[V, String] = new ScriptOutputType[V] {
+      type R                              = String
+      private[redis4cats] type Underlying = String
+      override private[redis4cats] val outputType                  = JScriptOutputType.STATUS
+      override private[redis4cats] def convert(in: String): String = in
+    }
   }
 
   final case class CopyArgs(destinationDb: Option[Long], replace: Option[Boolean])

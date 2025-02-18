@@ -19,7 +19,8 @@ package dev.profunktor.redis4cats.pubsub.internals
 import cats.Applicative
 import fs2.concurrent.Topic
 
-/** Stores an ongoing subscription.
+/**
+  * Stores an ongoing subscription.
   *
   * @param topic single-publisher, multiple-subscribers. The same topic is reused if `subscribe` is invoked more than
   *              once. The subscribers' streams are terminated when `None` is published.

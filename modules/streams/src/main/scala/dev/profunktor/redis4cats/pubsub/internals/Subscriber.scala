@@ -73,28 +73,28 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
 }
 object Subscriber {
 
-  /** Check if we have a subscriber for this channel and remove it if we do.
+  /**
+    * Check if we have a subscriber for this channel and remove it if we do.
     *
     * If it is the last subscriber, perform the subscription cleanup.
     */
   private def onStreamTermination[F[_]: Applicative: Log, K, V](
       subs: AtomicCell[F, Map[K, Redis4CatsSubscription[F, V]]],
       key: K
-  ): F[Unit] =
-    subs.evalUpdate { subscribers =>
-      subscribers.get(key) match {
-        case None =>
-          Log[F]
-            .error(
-              s"We were notified about stream termination for $key but we don't have a subscription, " +
+  ): F[Unit] = subs.evalUpdate { subscribers =>
+    subscribers.get(key) match {
+      case None =>
+        Log[F]
+          .error(
+            s"We were notified about stream termination for $key but we don't have a subscription, " +
                 s"this is a bug in redis4cats!"
-            )
-            .as(subscribers)
-        case Some(sub) =>
-          if (!sub.isLastSubscriber) subscribers.updated(key, sub.removeSubscriber).pure
-          else sub.cleanup.as(subscribers - key)
-      }
+          )
+          .as(subscribers)
+      case Some(sub) =>
+        if (!sub.isLastSubscriber) subscribers.updated(key, sub.removeSubscriber).pure
+        else sub.cleanup.as(subscribers - key)
     }
+  }
 
   private def unsubscribeFrom[F[_]: MonadCancelThrow: Log, K, V](
       key: K,
@@ -136,7 +136,7 @@ object Subscriber {
             Log[F]
               .debug(
                 s"Returning existing subscription for $key, " +
-                  s"subscribers: ${subscription.subscribers} -> ${newSubscription.subscribers}"
+                    s"subscribers: ${subscription.subscribers} -> ${newSubscription.subscribers}"
               )
               .as((newSubscribers, stream(newSubscription)))
 
@@ -151,10 +151,10 @@ object Subscriber {
               listener        = makeListener(dispatcher, topic)
               cleanupListener = Sync[F].delay(subConnection.removeListener(listener))
               cleanup = (
-                          Log[F].debug(s"Cleaning up resources for $key subscription") *>
-                            unsubscribeFromRedis *> cleanupListener *> cleanupDispatcher *>
-                            Log[F].debug(s"Cleaned up resources for $key subscription")
-                        ).uncancelable
+                Log[F].debug(s"Cleaning up resources for $key subscription") *>
+                    unsubscribeFromRedis *> cleanupListener *> cleanupDispatcher *>
+                    Log[F].debug(s"Cleaned up resources for $key subscription")
+              ).uncancelable
               _ <- Sync[F].delay(subConnection.addListener(listener))
               _ <- subscribeToRedis
               sub            = Redis4CatsSubscription(topic, subscribers = 1, cleanup)
