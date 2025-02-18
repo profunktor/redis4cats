@@ -84,6 +84,10 @@ The environment section should look like this:
 
 See the [Code of Conduct](https://redis4cats.profunktor.dev/CODE_OF_CONDUCT)
 
+## Contribution Guidelines
+
+Going forward , features must be compatible with the [Valkey OSS project](https://valkey.io/). 
+
 ## LICENSE
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this project except in compliance with
