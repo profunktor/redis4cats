@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.pubsub.internals
 
-import cats.Applicative
+import cats.{ Applicative, Monad }
 import cats.syntax.all._
 import cats.effect.kernel.{ Concurrent, MonadCancelThrow, Resource }
 import cats.effect.std.AtomicCell
@@ -91,9 +91,31 @@ private[pubsub] object PubSubState {
             case Some(sub) => sub.topic.publish1(None).void
           }
       }
+
+    def fromShards[F[_]: Monad, K, V](shards: Vector[SubscriptionMap[F, K, V]]): SubscriptionMap[F, K, V] =
+      new SubscriptionMap[F, K, V] {
+        override def counts: F[Map[K, Long]] = shards.foldMapM(_.counts)
+
+        override def subscribe(key: K)(create: Resource[F, Topic[F, Option[V]]]): Stream[F, V] =
+          getKeyShard(key).subscribe(key)(create)
+
+        override def unsubscribe(key: K): F[Unit] =
+          getKeyShard(key).unsubscribe(key)
+
+        private def getKeyShard(key: K): SubscriptionMap[F, K, V] = {
+          val location = Math.abs(key.## % shards.size)
+          shards(location)
+        }
+      }
   }
 
-  def make[F[_]: Concurrent, K, V]: F[PubSubState[F, K, V]] =
+  def make[F[_]: Concurrent, K, V](shards: Option[Int]): F[PubSubState[F, K, V]] =
+    shards.filter(_ > 1) match {
+      case None    => single[F, K, V]
+      case Some(n) => sharded[F, K, V](n)
+    }
+
+  private def single[F[_]: Concurrent, K, V]: F[PubSubState[F, K, V]] =
     for {
       channelSubs0 <- AtomicCell[F].of(Map.empty[RedisChannel[K], Redis4CatsSubscription[F, V]])
       patternSubs0 <- AtomicCell[F].of(Map.empty[RedisPattern[K], Redis4CatsSubscription[F, RedisPatternEvent[K, V]]])
@@ -103,5 +125,24 @@ private[pubsub] object PubSubState {
       override val patternSubs: PubSubState.SubscriptionMap[F, RedisPattern[K], RedisPatternEvent[K, V]] =
         SubscriptionMap.fromCell(patternSubs0)
     }
+
+  private def sharded[F[_]: Concurrent, K, V](number: Int): F[PubSubState[F, K, V]] = {
+    assert(number > 1)
+    for {
+      channelShards <- AtomicCell[F]
+                         .of(Map.empty[RedisChannel[K], Redis4CatsSubscription[F, V]])
+                         .map(SubscriptionMap.fromCell[F, RedisChannel[K], V])
+                         .replicateA(number)
+      patternShards <- AtomicCell[F]
+                         .of(Map.empty[RedisPattern[K], Redis4CatsSubscription[F, RedisPatternEvent[K, V]]])
+                         .map(SubscriptionMap.fromCell[F, RedisPattern[K], RedisPatternEvent[K, V]])
+                         .replicateA(number)
+    } yield new PubSubState[F, K, V] {
+      override val channelSubs: PubSubState.SubscriptionMap[F, RedisChannel[K], V] =
+        SubscriptionMap.fromShards(channelShards.toVector)
+      override val patternSubs: PubSubState.SubscriptionMap[F, RedisPattern[K], RedisPatternEvent[K, V]] =
+        SubscriptionMap.fromShards(patternShards.toVector)
+    }
+  }
 
 }
