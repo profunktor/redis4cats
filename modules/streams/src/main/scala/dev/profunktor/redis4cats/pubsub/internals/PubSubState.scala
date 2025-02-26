@@ -20,7 +20,6 @@ import cats.{ Applicative, Monad }
 import cats.syntax.all._
 import cats.effect.kernel.{ Concurrent, MonadCancelThrow, Resource }
 import cats.effect.std.AtomicCell
-import cats.effect.kernel.syntax.monadCancel._
 import dev.profunktor.redis4cats.data.{ RedisChannel, RedisPattern, RedisPatternEvent }
 import fs2.Stream
 import fs2.concurrent.Topic
@@ -68,19 +67,16 @@ private[pubsub] object PubSubState {
           }
 
         private def remove(key: K): F[Unit] =
-          cell
-            .modify { subscribers =>
-              subscribers.get(key) match {
-                case Some(sub) =>
-                  if (sub.isLastSubscriber) (subscribers - key, sub.cleanup)
-                  else (subscribers.updated(key, sub.removeSubscriber), Applicative[F].unit)
-                case None =>
-                  // We were notified about stream termination but we don't have a subscription, this would be a bug
-                  (subscribers, Applicative[F].unit)
-              }
+          cell.evalUpdate { subscribers =>
+            subscribers.get(key) match {
+              case Some(sub) =>
+                if (sub.isLastSubscriber) sub.cleanup.as(subscribers - key)
+                else subscribers.updated(key, sub.removeSubscriber).pure
+              case None =>
+                // We were notified about stream termination but we don't have a subscription, this would be a bug
+                subscribers.pure
             }
-            .flatten
-            .uncancelable
+          }
 
         override def unsubscribe(key: K): F[Unit] =
           cell.get.map(_.get(key)).flatMap {
