@@ -18,8 +18,8 @@ package dev.profunktor.redis4cats.pubsub.internals
 
 import cats.{ Applicative, Monad }
 import cats.syntax.all._
-import cats.effect.kernel.{ Concurrent, MonadCancelThrow, Resource }
-import cats.effect.std.AtomicCell
+import cats.effect.kernel.{ Concurrent, Deferred, MonadCancelThrow, Ref, Resource }
+import cats.effect.std.{ AtomicCell, MapRef }
 import dev.profunktor.redis4cats.data.{ RedisChannel, RedisPattern, RedisPatternEvent }
 import fs2.Stream
 import fs2.concurrent.Topic
@@ -41,6 +41,9 @@ private[pubsub] object PubSubState {
   }
 
   private object SubscriptionMap {
+    def makeCell[F[_]: Concurrent, K, V]: F[SubscriptionMap[F, K, V]] =
+      AtomicCell[F].of(Map.empty[K, Redis4CatsSubscription[F, V]]).map(fromCell[F, K, V])
+
     def fromCell[F[_]: MonadCancelThrow, K, V](
         cell: AtomicCell[F, Map[K, Redis4CatsSubscription[F, V]]]
     ): SubscriptionMap[F, K, V] =
@@ -103,42 +106,124 @@ private[pubsub] object PubSubState {
           shards(location)
         }
       }
+
+    sealed trait SubscriptionState[F[_], V]
+    object SubscriptionState {
+      final case class Active[F[_], V](subscription: Redis4CatsSubscription[F, V]) extends SubscriptionState[F, V]
+      final case class Starting[F[_], V](done: F[Unit]) extends SubscriptionState[F, V]
+      final case class ShuttingDown[F[_], V](done: F[Unit]) extends SubscriptionState[F, V]
+    }
+
+    def makeRef[F[_]: Concurrent, K, V]: F[SubscriptionMap[F, K, V]] =
+      Ref[F].of(Map.empty[K, SubscriptionState[F, V]]).map(fromRef[F, K, V])
+
+    def fromRef[F[_]: Concurrent, K, V](
+        ref: Ref[F, Map[K, SubscriptionState[F, V]]]
+    ): SubscriptionMap[F, K, V] =
+      new SubscriptionMap[F, K, V] {
+        import SubscriptionState._
+
+        private val mapRef = MapRef.fromSingleImmutableMapRef(ref)
+
+        override def counts: F[Map[K, Long]] =
+          ref.get.map(_.iterator.collect { case (k, Active(v)) => k -> v.subscribers }.toMap)
+
+        override def subscribe(key: K)(create: Resource[F, Topic[F, Option[V]]]): Stream[F, V] =
+          Stream.eval(addSubscription(key)(create)).flatMap(_.stream(remove(key)))
+
+        private def addSubscription(key: K)(create: Resource[F, Topic[F, Option[V]]]): F[Redis4CatsSubscription[F, V]] =
+          Deferred[F, Unit].flatMap { d =>
+            ref.flatModify[Redis4CatsSubscription[F, V]] { subscribers =>
+              subscribers.get(key) match {
+                case Some(Active(subscription)) =>
+                  // We have an existing subscription, mark that it has one more subscriber.
+                  val newSubscription = subscription.addSubscriber
+                  (subscribers.updated(key, Active(newSubscription)), newSubscription.pure[F])
+                case Some(ShuttingDown(wait)) =>
+                  // an existing subscription is getting shut down, wait and try again
+                  (subscribers, wait >> addSubscription(key)(create))
+                case Some(Starting(wait)) =>
+                  // an existing subscription is getting created, wait and try again
+                  (subscribers, wait >> addSubscription(key)(create))
+                case None =>
+                  // No existing subscription, create a new one.
+                  val start = create.allocated.flatMap { case (topic, cleanup) =>
+                    val subscription = Redis4CatsSubscription(topic, subscribers = 1, cleanup)
+                    mapRef(key).flatModify {
+                      case Some(Starting(_)) => (Some(Active(subscription)), d.complete(()).as(subscription))
+                      case _                 =>
+                        // this would be a bug, we only expect a starting subscription
+                        // TODO should we error?
+                        (None, cleanup >> d.complete(()) >> addSubscription(key)(create))
+                    }
+                  }
+                  (subscribers.updated(key, Starting(d.get)), start)
+              }
+            }
+          }
+
+        private def remove(key: K): F[Unit] =
+          Deferred[F, Unit].flatMap { d =>
+            mapRef(key).flatModify {
+              case Some(Active(sub)) =>
+                if (sub.isLastSubscriber) {
+                  val cleanup = sub.cleanup >> mapRef(key).flatModify {
+                    case Some(ShuttingDown(_)) => (None, d.complete(()).void)
+                    case _                     => (None, Applicative[F].unit) // TODO bug
+                  }
+                  (Some(ShuttingDown(d.get)), cleanup)
+                } else (Some(Active(sub.removeSubscriber)), Applicative[F].unit)
+              case other => // bug
+                (other, Applicative[F].unit)
+            }
+          }
+
+        override def unsubscribe(key: K): F[Unit] =
+          ref.get.map(_.get(key)).flatMap {
+            // No subscription = nothing to do
+            case None => Applicative[F].unit
+            // Subscription already shutting down = nothing to do
+            case Some(ShuttingDown(_)) => Applicative[F].unit
+            // Publish `None` which will terminate all streams, which will perform cleanup once the last stream
+            // terminates.
+            case Some(Active(sub)) => sub.topic.publish1(None).void
+            // wait until the subscription has started and unsubscribe
+            case Some(Starting(wait)) => wait >> unsubscribe(key)
+          }
+      }
   }
 
   def make[F[_]: Concurrent, K, V](shards: Option[Int]): F[PubSubState[F, K, V]] =
     shards.filter(_ > 1) match {
-      case None    => single[F, K, V]
+      case None    => singleRef[F, K, V]
       case Some(n) => sharded[F, K, V](n)
     }
 
-  private def single[F[_]: Concurrent, K, V]: F[PubSubState[F, K, V]] =
+  def single[F[_]: Concurrent, K, V]: F[PubSubState[F, K, V]] =
     for {
-      channelSubs0 <- AtomicCell[F].of(Map.empty[RedisChannel[K], Redis4CatsSubscription[F, V]])
-      patternSubs0 <- AtomicCell[F].of(Map.empty[RedisPattern[K], Redis4CatsSubscription[F, RedisPatternEvent[K, V]]])
-    } yield new PubSubState[F, K, V] {
-      override val channelSubs: PubSubState.SubscriptionMap[F, RedisChannel[K], V] =
-        SubscriptionMap.fromCell(channelSubs0)
-      override val patternSubs: PubSubState.SubscriptionMap[F, RedisPattern[K], RedisPatternEvent[K, V]] =
-        SubscriptionMap.fromCell(patternSubs0)
-    }
+      channelSubs0 <- SubscriptionMap.makeCell[F, RedisChannel[K], V]
+      patternSubs0 <- SubscriptionMap.makeCell[F, RedisPattern[K], RedisPatternEvent[K, V]]
+    } yield new PubSubStateImpl[F, K, V](channelSubs0, patternSubs0)
 
   private def sharded[F[_]: Concurrent, K, V](number: Int): F[PubSubState[F, K, V]] = {
     assert(number > 1)
     for {
-      channelShards <- AtomicCell[F]
-                         .of(Map.empty[RedisChannel[K], Redis4CatsSubscription[F, V]])
-                         .map(SubscriptionMap.fromCell[F, RedisChannel[K], V])
-                         .replicateA(number)
-      patternShards <- AtomicCell[F]
-                         .of(Map.empty[RedisPattern[K], Redis4CatsSubscription[F, RedisPatternEvent[K, V]]])
-                         .map(SubscriptionMap.fromCell[F, RedisPattern[K], RedisPatternEvent[K, V]])
-                         .replicateA(number)
-    } yield new PubSubState[F, K, V] {
-      override val channelSubs: PubSubState.SubscriptionMap[F, RedisChannel[K], V] =
-        SubscriptionMap.fromShards(channelShards.toVector)
-      override val patternSubs: PubSubState.SubscriptionMap[F, RedisPattern[K], RedisPatternEvent[K, V]] =
-        SubscriptionMap.fromShards(patternShards.toVector)
-    }
+      channelShards <- SubscriptionMap.makeCell[F, RedisChannel[K], V].replicateA(number)
+      patternShards <- SubscriptionMap.makeCell[F, RedisPattern[K], RedisPatternEvent[K, V]].replicateA(number)
+    } yield new PubSubStateImpl[F, K, V](
+      SubscriptionMap.fromShards(channelShards.toVector),
+      SubscriptionMap.fromShards(patternShards.toVector)
+    )
   }
 
+  private def singleRef[F[_]: Concurrent, K, V]: F[PubSubState[F, K, V]] =
+    for {
+      channelSubs0 <- SubscriptionMap.makeRef[F, RedisChannel[K], V]
+      patternSubs0 <- SubscriptionMap.makeRef[F, RedisPattern[K], RedisPatternEvent[K, V]]
+    } yield new PubSubStateImpl[F, K, V](channelSubs0, patternSubs0)
+
+  private class PubSubStateImpl[F[_], K, V](
+      override val channelSubs: PubSubState.SubscriptionMap[F, RedisChannel[K], V],
+      override val patternSubs: PubSubState.SubscriptionMap[F, RedisPattern[K], RedisPatternEvent[K, V]]
+  ) extends PubSubState[F, K, V]
 }
