@@ -35,6 +35,7 @@ trait RedisCommands[F[_], K, V]
     with KeyCommands[F, K]
     with HyperLogLogCommands[F, K, V]
     with BitCommands[F, K, V]
+    with StreamCommands[F, K, V]
 
 object RedisCommands {
   implicit class LiftKOps[F[_], K, V](val cmd: RedisCommands[F, K, V]) extends AnyVal {

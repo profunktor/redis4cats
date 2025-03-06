@@ -16,8 +16,9 @@
 
 package dev.profunktor.redis4cats
 
-import java.time.Instant
+import cats.Eq
 
+import java.time.Instant
 import io.lettuce.core.{
   GeoArgs,
   KeyScanArgs => JKeyScanArgs,
@@ -256,4 +257,70 @@ object effects {
     case object Stream extends RedisType("stream")
   }
 
+  /*
+  Streams
+   */
+
+  final case class XTrimArgs(
+      strategy: XTrimArgs.Strategy,
+      precision: XTrimArgs.Precision = XTrimArgs.Precision.Exact
+  )
+
+  object XTrimArgs {
+    sealed trait Strategy extends Product with Serializable
+    object Strategy {
+      final case class MAXLEN(threshold: Long) extends Strategy
+      final case class MINID(id: String) extends Strategy
+    }
+
+    sealed trait Precision extends Product with Serializable
+    object Precision {
+      case object Exact extends Precision
+      final case class Approximate(limit: Option[Long] = None) extends Precision
+    }
+  }
+
+  final case class XAddArgs(
+      nomkstream: Boolean = false,
+      id: Option[String] = None,
+      xTrimArgs: Option[XTrimArgs] = None
+  )
+
+  final case class MessageId(value: String) extends AnyVal
+
+  object MessageId {
+    implicit val eq: Eq[MessageId] = Eq.by(_.value)
+  }
+
+  sealed trait XReadOffsets[K] extends Product with Serializable {
+    def key: K
+    def offset: String
+  }
+
+  object XReadOffsets {
+    case class All[K](key: K) extends XReadOffsets[K] {
+      override def offset: String = "0"
+    }
+    case class Latest[K](key: K) extends XReadOffsets[K] {
+      override def offset: String = "$"
+    }
+    case class Custom[K](key: K, offset: String) extends XReadOffsets[K]
+  }
+
+  final case class StreamMessage[K, V](id: MessageId, key: K, body: Map[K, V])
+
+  object StreamMessage {
+    implicit def eq[K: Eq, V: Eq]: Eq[StreamMessage[K, V]] = Eq.and(Eq.by(_.id), Eq.and(Eq.by(_.key), Eq.by(_.body)))
+  }
+
+  sealed abstract class XRangePoint extends Product with Serializable
+
+  object XRangePoint {
+
+    implicit val eq: Eq[XRangePoint] = Eq.fromUniversalEquals
+
+    case object Unbounded extends XRangePoint
+    final case class Inclusive(id: String) extends XRangePoint
+    final case class Exclusive(id: String) extends XRangePoint
+  }
 }
