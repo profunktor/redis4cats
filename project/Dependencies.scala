@@ -3,7 +3,7 @@ import sbt._
 object Dependencies {
 
   object V {
-    val cats       = "2.12.0"
+    val cats       = "2.13.0"
     val catsEffect = "3.5.7"
     val circe      = "0.14.10"
     val fs2        = "3.11.0"
@@ -11,12 +11,13 @@ object Dependencies {
     val keyPool    = "0.4.10"
 
     val lettuce = "6.5.4.RELEASE"
-    val logback = "1.5.15"
+    
+    val logback = "1.5.17"
 
     val kindProjector = "0.13.3"
 
-    val munit           = "1.0.3"
-    val munitScalacheck = "1.0.0"
+    val munit           = "1.0.4"
+    val munitScalacheck = "1.1.0"
 
   }
 

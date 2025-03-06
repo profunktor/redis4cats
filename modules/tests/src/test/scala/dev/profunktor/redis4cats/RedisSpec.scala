@@ -56,6 +56,7 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("pattern channel sub")(withRedisClient(channelPatternSubScenario))
 
+  test("streams api")(withRedis(streamsScenario))
 }
 
 object LongCodec extends JRedisCodec[String, Long] with ToByteBufEncoder[String, Long] {
