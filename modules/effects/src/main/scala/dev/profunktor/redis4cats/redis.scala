@@ -29,6 +29,8 @@ import dev.profunktor.redis4cats.effect.FutureLift._
 import dev.profunktor.redis4cats.effect._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.tx.{ TransactionDiscarded, TxRunner, TxStore }
+import io.lettuce.core
+import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSyncCommands }
@@ -51,6 +53,9 @@ import io.lettuce.core.{
   ScanCursor => JScanCursor,
   ScoredValue,
   SetArgs => JSetArgs,
+  XAddArgs => JXAddArgs,
+  XReadArgs,
+  XTrimArgs => JXTrimArgs,
   ZAddArgs,
   ZAggregateArgs,
   ZStoreArgs
@@ -58,6 +63,7 @@ import io.lettuce.core.{
 import org.typelevel.keypool.KeyPool
 
 import java.time.Instant
+import java.util
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 
@@ -453,8 +459,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   def sync: F[RedisClusterSyncCommands[K, V]] =
     if (cluster) conn.clusterSync else conn.sync.widen
 
-  /** ***************************** Keys API ************************************
-    */
+  // format: off
+  /******************************* Keys API *************************************/
+  // format: on
   override def copy(source: K, destination: K): F[Boolean] =
     async.flatMap(_.copy(source, destination).futureLift.map(x => Boolean.box(x)))
 
@@ -1600,7 +1607,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       .map(_.asScala.map(_.asScala.toMap).toList)
 
   // format: off
-  /** ***************************** HyperLoglog API **********************************/
+  /******************************* HyperLoglog API **********************************/
   // format: on
   override def pfAdd(key: K, values: V*): F[Long] =
     async.flatMap(_.pfadd(key, values: _*).futureLift.map(Long.box(_)))
@@ -1610,9 +1617,85 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def pfMerge(outputKey: K, inputKeys: K*): F[Unit] =
     async.flatMap(_.pfmerge(outputKey, inputKeys: _*).futureLift.void)
+
+  // format: off
+  /******************************* Streams API **********************************/
+  // format: on
+  override def xRead(
+      streams: Set[XReadOffsets[K]],
+      block: Option[Duration],
+      count: Option[Long]
+  ): F[List[StreamMessage[K, V]]] = {
+    val offsets = streams.map {
+      case XReadOffsets.All(key)            => StreamOffset.from(key, "0")
+      case XReadOffsets.Latest(key)         => StreamOffset.latest(key)
+      case XReadOffsets.Custom(key, offset) => StreamOffset.from(key, offset)
+    }.toSeq
+
+    async
+      .flatMap { redis =>
+        ((block, count) match {
+          case (None, None)        => redis.xread(offsets: _*)
+          case (None, Some(count)) => redis.xread(XReadArgs.Builder.count(count), offsets: _*)
+          case (Some(block), None) => redis.xread(XReadArgs.Builder.block(block.toMillis), offsets: _*)
+          case (Some(block), Some(count)) =>
+            redis.xread(XReadArgs.Builder.block(block.toMillis).count(count), offsets: _*)
+        }).futureLift
+      }
+      .map(_.toScala)
+  }
+
+  override def xRange(key: K, start: XRangePoint, end: XRangePoint, count: Option[Long]): F[List[StreamMessage[K, V]]] =
+    async
+      .flatMap(_.xrange(key, (start, end).asJavaRange, count.fold(JLimit.unlimited())(JLimit.from)).futureLift)
+      .map(_.toScala)
+
+  override def xRevRange(
+      key: K,
+      start: XRangePoint,
+      end: XRangePoint,
+      count: Option[Long]
+  ): F[List[StreamMessage[K, V]]] =
+    async
+      .flatMap(_.xrevrange(key, (start, end).asJavaRange, count.fold(JLimit.unlimited())(JLimit.from)).futureLift)
+      .map(_.toScala)
+
+  override def xLen(key: K): F[Long] =
+    async.flatMap(_.xlen(key).futureLift.map(Long.box(_)))
+
+  override def xAdd(key: K, body: Map[K, V], args: XAddArgs): F[MessageId] = {
+    val jArgs = JXAddArgs.Builder.nomkstream()
+    jArgs.nomkstream(args.nomkstream)
+    args.id.foreach(jArgs.id)
+    args.xTrimArgs.foreach { xTrimArgs =>
+      xTrimArgs.strategy match {
+        case XTrimArgs.Strategy.MAXLEN(threshold) =>
+          jArgs.maxlen(threshold)
+        case XTrimArgs.Strategy.MINID(id) =>
+          jArgs.minId(id)
+      }
+      xTrimArgs.precision match {
+        case XTrimArgs.Precision.Exact =>
+          jArgs.exactTrimming()
+        case XTrimArgs.Precision.Approximate(limit) =>
+          jArgs.approximateTrimming()
+          limit.foreach(jArgs.limit)
+      }
+    }
+
+    async.flatMap(_.xadd(key, jArgs, body.asJava).futureLift.map(MessageId.apply))
+  }
+
+  override def xTrim(key: K, args: XTrimArgs): F[Long] =
+    async.flatMap(_.xtrim(key, args.asJava).futureLift.map(Long.box(_)))
+
+  override def xDel(key: K, ids: String*): F[Long] =
+    async.flatMap(_.xdel(key, ids: _*).futureLift.map(Long.box(_)))
 }
 
 private[redis4cats] trait RedisConversionOps {
+
+  import dev.profunktor.redis4cats.JavaConversions._
 
   private[redis4cats] implicit class GeoRadiusResultOps[V](v: GeoWithin[V]) {
     def asGeoRadiusResult: GeoRadiusResult[V] =
@@ -1656,6 +1739,49 @@ private[redis4cats] trait RedisConversionOps {
       val end: Number   = toJavaNumber(range.end)
       JRange.create(start, end)
     }
+  }
+
+  private[redis4cats] implicit class XTrimArgsOps(args: XTrimArgs) {
+    def asJava: JXTrimArgs = {
+      val jArgs = args.strategy match {
+        case XTrimArgs.Strategy.MAXLEN(threshold) =>
+          JXTrimArgs.Builder.maxlen(threshold)
+        case XTrimArgs.Strategy.MINID(id) =>
+          JXTrimArgs.Builder.minId(id)
+      }
+      args.precision match {
+        case XTrimArgs.Precision.Exact =>
+          jArgs.exactTrimming()
+        case XTrimArgs.Precision.Approximate(limit) =>
+          jArgs.approximateTrimming()
+          limit.foreach(jArgs.limit)
+      }
+      jArgs
+    }
+  }
+
+  private[redis4cats] implicit class XRangeOps(range: (XRangePoint, XRangePoint)) {
+    def asJavaRange: JRange[String] =
+      JRange.from(range._1.asJavaBoundary, range._2.asJavaBoundary)
+  }
+
+  private[redis4cats] implicit class XRangePointOps(point: XRangePoint) {
+    def asJavaBoundary: JRange.Boundary[String] =
+      point match {
+        case XRangePoint.Unbounded =>
+          JRange.Boundary.unbounded()
+        case XRangePoint.Inclusive(id) =>
+          JRange.Boundary.including(id)
+        case XRangePoint.Exclusive(id) =>
+          JRange.Boundary.excluding(id)
+      }
+  }
+
+  private[redis4cats] implicit class StreamMessagesOps[K, V](list: util.List[core.StreamMessage[K, V]]) {
+    def toScala: List[StreamMessage[K, V]] =
+      list.asScala
+        .map(msg => StreamMessage[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap))
+        .toList
   }
 
   private[redis4cats] implicit class CopyArgOps(underlying: CopyArgs) {

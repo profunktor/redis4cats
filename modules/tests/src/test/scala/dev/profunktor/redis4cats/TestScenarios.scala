@@ -807,4 +807,59 @@ trait TestScenarios { self: FunSuite =>
     }
   }
 
+  def streamsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] =
+    for {
+      // Empty stream
+      len <- redis.xLen("testStream")
+      _ <- IO(assert(len == 0, "empty stream should have no length"))
+      messages <- redis.xRange("testStream", start = XRangePoint.Unbounded, end = XRangePoint.Unbounded)
+      _ <- IO(assert(messages.isEmpty, "empty stream should have no messages"))
+      messages <- redis.xRevRange("testStream", start = XRangePoint.Unbounded, end = XRangePoint.Unbounded)
+      _ <- IO(assert(messages.isEmpty, "empty stream should have no messages"))
+      messages <- redis.xRead(Set(XReadOffsets.All("testStream")))
+      _ <- IO(assert(messages.isEmpty, "empty stream should have no messages"))
+
+      // Write to stream
+      messageId1 <- redis.xAdd("testStream", body = Map("1" -> "a"))
+      messageId2 <- redis.xAdd("testStream", body = Map("2" -> "b"))
+      messageId3 <- redis.xAdd("testStream", body = Map("3" -> "c"))
+      messageId4 <- redis.xAdd("testStream", body = Map("4" -> "d"))
+      message4 = StreamMessage(messageId4, "testStream", Map("4" -> "d"))
+      allMessages = List(
+                      StreamMessage(messageId1, "testStream", Map("1" -> "a")),
+                      StreamMessage(messageId2, "testStream", Map("2" -> "b")),
+                      StreamMessage(messageId3, "testStream", Map("3" -> "c")),
+                      message4
+                    )
+      _ = allMessages
+
+      // Read from stream
+      len <- redis.xLen("testStream")
+      _ <- IO(assert(len == 4, "stream should have 4 entries"))
+      messages <- redis.xRange("testStream", start = XRangePoint.Unbounded, end = XRangePoint.Unbounded)
+      _ <- IO(assert(messages === allMessages))
+      messages <- redis.xRevRange("testStream", start = XRangePoint.Unbounded, end = XRangePoint.Unbounded)
+      _ <- IO(assert(messages === allMessages.reverse))
+      messages <- redis.xRead(Set(XReadOffsets.All("testStream")))
+      _ <- IO(assert(messages === allMessages))
+      messages <- redis.xRange(
+                    key = "testStream",
+                    start = XRangePoint.Exclusive(messageId3.value),
+                    end = XRangePoint.Unbounded
+                  )
+      _ <- IO(assert(messages === List(message4), "Only message 4 should be visible when reading after message 3"))
+      messages <- redis.xRead(Set(XReadOffsets.Custom("testStream", messageId3.value)))
+      _ <- IO(assert(messages === List(message4), "Only message 4 should be visible when reading after message 3"))
+      messages <- redis.xRead(Set(XReadOffsets.Latest("testStream")))
+      _ <- IO(assert(messages.isEmpty, "no messages when reading after the last message"))
+
+      // Delete from stream
+      _ <- redis.xTrim("testStream", XTrimArgs(XTrimArgs.Strategy.MAXLEN(2)))
+      len <- redis.xLen("testStream")
+      _ <- IO(assert(len == 2, "stream should have 3 entries after xtrim"))
+      _ <- redis.xDel("testStream", messageId3.value, messageId4.value)
+      len <- redis.xLen("testStream")
+      _ <- IO(assert(len == 0, "stream should have no entries after xdel remaining "))
+    } yield ()
+
 }

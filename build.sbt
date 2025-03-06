@@ -3,8 +3,8 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / scalaVersion := "2.13.15"
-ThisBuild / crossScalaVersions := Seq("2.12.20", "2.13.15", "3.3.4")
+ThisBuild / scalaVersion := "2.13.16"
+ThisBuild / crossScalaVersions := Seq("2.12.20", "2.13.16", "3.3.4")
 ThisBuild / evictionErrorLevel := Level.Info
 ThisBuild / mimaBaseVersion := "1.8.0"
 Test / parallelExecution := false
@@ -43,39 +43,39 @@ val commonSettings = Seq(
   headerLicense := Some(HeaderLicense.ALv2("2018-2021", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
-        Libraries.catsEffectKernel,
-        Libraries.redisClient,
-        Libraries.catsEffect      % Test,
-        Libraries.catsLaws        % Test,
-        Libraries.catsTestKit     % Test,
-        Libraries.munitCore       % Test,
-        Libraries.munitScalacheck % Test
-      ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
+    Libraries.catsEffectKernel,
+    Libraries.redisClient,
+    Libraries.catsEffect      % Test,
+    Libraries.catsLaws        % Test,
+    Libraries.catsTestKit     % Test,
+    Libraries.munitCore       % Test,
+    Libraries.munitScalacheck % Test
+  ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
-        getVersion(scalaVersion.value) == Some(2, 12),
-        t = Seq("-Xmax-classfile-name", "80"),
-        f = Seq.empty
-      ),
+    getVersion(scalaVersion.value) == Some(2, 12),
+    t = Seq("-Xmax-classfile-name", "80"),
+    f = Seq.empty
+  ),
   scalacOptions ++= pred(
-        scalaVersion.value.startsWith("3"),
-        t = Seq("-source:3.0-migration"),
-        f = Seq("-Wconf:any:wv")
-      ),
+    scalaVersion.value.startsWith("3"),
+    t = Seq("-source:3.0-migration"),
+    f = Seq("-Wconf:any:wv")
+  ),
   Compile / doc / sources := (Compile / doc / sources).value,
   Compile / unmanagedSourceDirectories ++= {
-      getVersion(scalaVersion.value) match {
-        case Some((2, 12)) => Seq("scala-2.12", "scala-2")
-        case Some((2, 13)) => Seq("scala-2.13+", "scala-2")
-        case _             => Seq("scala-2.13+", "scala-3")
-      }
-    }.map(baseDirectory.value / "src" / "main" / _),
+    getVersion(scalaVersion.value) match {
+      case Some((2, 12)) => Seq("scala-2.12", "scala-2")
+      case Some((2, 13)) => Seq("scala-2.13+", "scala-2")
+      case _             => Seq("scala-2.13+", "scala-3")
+    }
+  }.map(baseDirectory.value / "src" / "main" / _),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits"),
   autoAPIMappings := true,
   scalafmtOnCompile := true,
   scmInfo := Some(
-        ScmInfo(url("https://github.com/profunktor/redis4cats"), "scm:git:git@github.com:profunktor/redis4cats.git")
-      )
+    ScmInfo(url("https://github.com/profunktor/redis4cats"), "scm:git:git@github.com:profunktor/redis4cats.git")
+  )
 )
 
 lazy val noPublish = Seq(
@@ -109,7 +109,7 @@ lazy val `redis4cats-core` = project
   .settings(libraryDependencies += Libraries.literally)
   .settings(
     libraryDependencies ++=
-        pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(Libraries.reflect(scalaVersion.value)))
+      pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(Libraries.reflect(scalaVersion.value)))
   )
   .settings(
     isMimaEnabled := true,
@@ -170,13 +170,13 @@ lazy val examples = project
   .settings(noPublish)
   .settings(
     libraryDependencies ++= Seq(
-          Libraries.catsEffect,
-          Libraries.circeCore,
-          Libraries.circeGeneric,
-          Libraries.circeParser,
-          Libraries.log4CatsSlf4j,
-          Libraries.logback % "runtime"
-        )
+      Libraries.catsEffect,
+      Libraries.circeCore,
+      Libraries.circeGeneric,
+      Libraries.circeParser,
+      Libraries.log4CatsSlf4j,
+      Libraries.logback % "runtime"
+    )
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-log4cats`)
@@ -207,41 +207,41 @@ lazy val microsite = project
     micrositeDocumentationUrl := "/api",
     micrositeBaseUrl := "",
     micrositeExtraMdFiles := Map(
-          file("README.md") -> ExtraMdFileConfig(
-                "index.md",
-                "home",
-                Map("title" -> "Home", "position" -> "0")
-              ),
-          file("CODE_OF_CONDUCT.md") -> ExtraMdFileConfig(
-                "CODE_OF_CONDUCT.md",
-                "page",
-                Map("title" -> "Code of Conduct")
-              )
-        ),
+      file("README.md") -> ExtraMdFileConfig(
+        "index.md",
+        "home",
+        Map("title" -> "Home", "position" -> "0")
+      ),
+      file("CODE_OF_CONDUCT.md") -> ExtraMdFileConfig(
+        "CODE_OF_CONDUCT.md",
+        "page",
+        Map("title" -> "Code of Conduct")
+      )
+    ),
     micrositeExtraMdFilesOutput := (Compile / resourceManaged).value / "jekyll",
     micrositeGitterChannel := true,
     micrositeGitterChannelUrl := "profunktor-dev/redis4cats",
     micrositePushSiteWith := GitHub4s,
     micrositeGithubToken := sys.env.get("GITHUB_TOKEN"),
     scalacOptions --= Seq(
-          "-Werror",
-          "-Xfatal-warnings",
-          "-Ywarn-unused-import",
-          "-Ywarn-numeric-widen",
-          "-Ywarn-dead-code",
-          "-deprecation",
-          "-Xlint:-missing-interpolator,_",
-          "-Wconf:any:wv"
-        ),
+      "-Werror",
+      "-Xfatal-warnings",
+      "-Ywarn-unused-import",
+      "-Ywarn-numeric-widen",
+      "-Ywarn-dead-code",
+      "-deprecation",
+      "-Xlint:-missing-interpolator,_",
+      "-Wconf:any:wv"
+    ),
     addMappingsToSiteDir(ScalaUnidoc / packageDoc / mappings, micrositeDocumentationUrl),
     ScalaUnidoc / unidoc / scalacOptions ++= Seq(
-          "-doc-source-url",
-          scmInfo.value.get.browseUrl + "/tree/master€{FILE_PATH}.scala",
-          "-sourcepath",
-          (LocalRootProject / baseDirectory).value.getAbsolutePath,
-          "-doc-root-content",
-          ((Compile / resourceDirectory).value / "rootdoc.txt").getAbsolutePath
-        ),
+      "-doc-source-url",
+      scmInfo.value.get.browseUrl + "/tree/master€{FILE_PATH}.scala",
+      "-sourcepath",
+      (LocalRootProject / baseDirectory).value.getAbsolutePath,
+      "-doc-root-content",
+      ((Compile / resourceDirectory).value / "rootdoc.txt").getAbsolutePath
+    ),
     ScalaUnidoc / unidoc / unidocProjectFilter := inAnyProject -- inProjects(examples)
   )
   .dependsOn(`redis4cats-effects`, `redis4cats-streams`, examples)
