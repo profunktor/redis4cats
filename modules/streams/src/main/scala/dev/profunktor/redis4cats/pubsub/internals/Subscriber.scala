@@ -118,43 +118,39 @@ private[pubsub] object Subscriber {
       }
   }
 
-  private[internals] trait SubscriptionCommands[F[_], K] {
-    def subscribe(key: K): F[Unit]
-    def unsubscribe(key: K): F[Unit]
-  }
+  // scala 3 doesn't like value classes in generic trait implementations:
+  // https://github.com/scala/scala3/issues/11264
+  // private[internals] trait SubscriptionCommands[F[_], K] {
+  //   def subscribe(key: K): F[Unit]
+  //   def unsubscribe(key: K): F[Unit]
+  // }
+  private[internals] final case class SubscriptionCommands[F[_], K](
+      subscribe: K => F[Unit],
+      unsubscribe: K => F[Unit]
+  )
 
   private[internals] object SubscriptionCommands {
-    // scala 3 doesn't like value classes in these implementations:
-    // https://github.com/scala/scala3/issues/11264
-
     def channel[F[_]: FutureLift: Functor, K, V](
         subConnection: StatefulRedisPubSubConnection[K, V]
     ): SubscriptionCommands[F, RedisChannel[K]] =
-      new SubscriptionCommands[F, RedisChannel[K]] {
-        override def subscribe(key: RedisChannel[K]): F[Unit] =
-          FutureLift[F].lift(subConnection.async().subscribe(key.underlying)).void
-        override def unsubscribe(key: RedisChannel[K]): F[Unit] =
-          FutureLift[F].lift(subConnection.async().unsubscribe(key.underlying)).void
-      }
+      SubscriptionCommands[F, RedisChannel[K]](
+        subscribe = key => FutureLift[F].lift(subConnection.async().subscribe(key.underlying)).void,
+        unsubscribe = key => FutureLift[F].lift(subConnection.async().unsubscribe(key.underlying)).void
+      )
 
     def pattern[F[_]: FutureLift: Functor, K, V](
         subConnection: StatefulRedisPubSubConnection[K, V]
     ): SubscriptionCommands[F, RedisPattern[K]] =
-      new SubscriptionCommands[F, RedisPattern[K]] {
-        override def subscribe(key: RedisPattern[K]): F[Unit] =
-          FutureLift[F].lift(subConnection.async().psubscribe(key.underlying)).void
-        override def unsubscribe(key: RedisPattern[K]): F[Unit] =
-          FutureLift[F].lift(subConnection.async().punsubscribe(key.underlying)).void
-      }
+      SubscriptionCommands[F, RedisPattern[K]](
+        subscribe = key => FutureLift[F].lift(subConnection.async().psubscribe(key.underlying)).void,
+        unsubscribe = key => FutureLift[F].lift(subConnection.async().punsubscribe(key.underlying)).void
+      )
 
     def withLogs[F[_]: FlatMap: Log, K](base: SubscriptionCommands[F, K]): SubscriptionCommands[F, K] =
-      new SubscriptionCommands[F, K] {
-        override def subscribe(key: K): F[Unit] =
-          base.subscribe(key) >> Log[F].debug(s"Subscribed to $key")
-
-        override def unsubscribe(key: K): F[Unit] =
-          base.unsubscribe(key) >> Log[F].debug(s"Unsubscribed from $key")
-      }
+      SubscriptionCommands[F, K](
+        subscribe = key => base.subscribe(key) >> Log[F].debug(s"Subscribed to $key"),
+        unsubscribe = key => base.unsubscribe(key) >> Log[F].debug(s"Unsubscribed from $key")
+      )
   }
 
   private[internals] trait SubscriptionMap[F[_], K, V] {

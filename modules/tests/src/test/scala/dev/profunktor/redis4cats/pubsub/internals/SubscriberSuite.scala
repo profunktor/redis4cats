@@ -168,10 +168,7 @@ class SubscriberSuite extends IOSuite {
     import effect.Log.NoOp._
     Subscriber.SubscriptionMap.singleRef[IO, RedisChannel[String], String](
       Subscriber.SubscriptionCommands.withLogs(
-        new Subscriber.SubscriptionCommands[IO, RedisChannel[String]] {
-          override def subscribe(key: RedisChannel[String]): IO[Unit]   = sub(key)
-          override def unsubscribe(key: RedisChannel[String]): IO[Unit] = unsub(key)
-        }
+        Subscriber.SubscriptionCommands[IO, RedisChannel[String]](sub, unsub)
       )
     )
   }
