@@ -159,7 +159,7 @@ lazy val `redis4cats-streams` = project
       prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
     }
   )
-  .settings(libraryDependencies += Libraries.fs2Core)
+  .settings(libraryDependencies ++= List(Libraries.fs2Core, Libraries.collectionCompat))
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)

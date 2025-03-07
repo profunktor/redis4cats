@@ -124,6 +124,9 @@ private[pubsub] object Subscriber {
   }
 
   private[internals] object SubscriptionCommands {
+    // scala 3 doesn't like value classes in these implementations:
+    // https://github.com/scala/scala3/issues/11264
+
     def channel[F[_]: FutureLift: Functor, K, V](
         subConnection: StatefulRedisPubSubConnection[K, V]
     ): SubscriptionCommands[F, RedisChannel[K]] =
@@ -273,7 +276,7 @@ private[pubsub] object Subscriber {
             // - in the second `fa` will be uncancelable
             keyRef
               .flatModify[F[SubscriptionState.Active[F, V]]] {
-                case Some(subscription: Active[_, _]) =>
+                case Some(subscription @ Active(_, _)) =>
                   // We have an existing subscription, mark that it has one more subscriber.
                   val newSubscription = subscription.addSubscriber
                   val log = Log[F].debug(
@@ -340,7 +343,7 @@ private[pubsub] object Subscriber {
           Deferred[F, Unit].flatMap { d =>
             val keyRef = mapRef(key)
             keyRef.flatModify {
-              case Some(sub: Active[_, _]) =>
+              case Some(sub @ Active(_, _)) =>
                 if (sub.isLastSubscriber) unsubscribeStateChange(key, keyRef, d)
                 else (Some(sub.removeSubscriber), Applicative[F].unit)
               case other =>
