@@ -28,12 +28,12 @@ import fs2.Stream
 import fs2.concurrent.Topic
 import io.lettuce.core.pubsub.{ RedisPubSubAdapter, RedisPubSubListener, StatefulRedisPubSubConnection }
 
-private[internals] class Subscriber[F[_], K, V] private (
+private[internals] class Subscriber[F[_]: MonadCancelThrow, K, V] private (
     private val state: Subscriber.State[F, K, V]
 ) extends SubscribeCommands[F, Stream[F, *], K, V] {
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
-    state.channelSubs.subscribe(channel)
+    Stream.resource(state.channelSubs.subscribeAwait(channel)).flatten
 
   override def unsubscribe(channel: RedisChannel[K]): F[Unit] =
     state.channelSubs.unsubscribe(channel)
@@ -41,7 +41,7 @@ private[internals] class Subscriber[F[_], K, V] private (
   override def psubscribe(
       pattern: RedisPattern[K]
   ): Stream[F, RedisPatternEvent[K, V]] =
-    state.patternSubs.subscribe(pattern)
+    Stream.resource(state.patternSubs.subscribeAwait(pattern)).flatten
 
   override def punsubscribe(pattern: RedisPattern[K]): F[Unit] =
     state.patternSubs.unsubscribe(pattern)
@@ -156,7 +156,7 @@ private[pubsub] object Subscriber {
   private[internals] trait SubscriptionMap[F[_], K, V] {
     def counts: F[Map[K, Long]]
 
-    def subscribe(key: K): Stream[F, V]
+    def subscribeAwait(key: K): Resource[F, Stream[F, V]]
 
     def unsubscribe(key: K): F[Unit]
 
@@ -189,11 +189,6 @@ private[pubsub] object Subscriber {
         def addSubscriber: Active[F, V]    = copy(subscribers = subscribers + 1)
         def removeSubscriber: Active[F, V] = copy(subscribers = subscribers - 1)
         def isLastSubscriber: Boolean      = subscribers == 1
-
-        def stream(onTermination: F[Unit])(
-            implicit F: Applicative[F]
-        ): fs2.Stream[F, V] =
-          topic.subscribe(500).onFinalize(onTermination)
       }
       final case class Subscribing[F[_], V](done: F[Unit]) extends SubscriptionState[F, V]
       final case class Unsubscribing[F[_], V](done: F[Unit]) extends SubscriptionState[F, V]
@@ -257,8 +252,10 @@ private[pubsub] object Subscriber {
             case (k, FailedToUnsubscribe())  => (k, 0L)
           })
 
-        override def subscribe(key: K): Stream[F, V] =
-          Stream.eval(addSubscription(key)).flatMap(_.stream(remove(key)))
+        override def subscribeAwait(key: K): Resource[F, Stream[F, V]] =
+          Resource
+            .make(addSubscription(key))(_ => remove(key))
+            .flatMap(_.topic.subscribeAwait(500))
 
         private def addSubscription(key: K): F[SubscriptionState.Active[F, V]] =
           Deferred[F, Unit].flatMap { d =>
@@ -342,6 +339,8 @@ private[pubsub] object Subscriber {
               case Some(sub @ Active(_, _)) =>
                 if (sub.isLastSubscriber) unsubscribeStateChange(key, keyRef, d)
                 else (Some(sub.removeSubscriber), Applicative[F].unit)
+              case Some(FailedToUnsubscribe()) =>
+                unsubscribeStateChange(key, keyRef, d)
               case other =>
                 // `remove` is only called from `subscribe` after we have an active subscription,
                 // so we shouldn't get a `remove` for `None` or `Subscribing`.
@@ -427,7 +426,6 @@ private[pubsub] object Subscriber {
               // block other messages:
               // wait >> onMessage(key, message)
               Log[F].debug(s"Received message for $key before the subscription stream has started")
-
             case Some(Unsubscribing(_))      => Applicative[F].unit
             case Some(FailedToUnsubscribe()) =>
               // TODO should we spawn an unsubscribe here?

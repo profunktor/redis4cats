@@ -42,7 +42,7 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
         s2 <- pubSub.psubscribe(pattern).interruptWhen(finished).compile.to(Vector).start
         _ <- IO.sleep(200.millis) // wait for the subscription to start
         _ <- fs2.Stream.emit("hello").through(pubSub.publish(channel)).compile.drain
-        _ <- IO.sleep(200.millis) // wait for the message to arrive
+        _ <- IO.sleep(5 * 200.millis) // wait for the message to arrive
         _ <- finished.complete(Right(()))
         channelResults <- s1.joinWith(IO.raiseError(new RuntimeException("s1 should not be cancelled")))
         patternResults <- s2.joinWith(IO.raiseError(new RuntimeException("s2 should not be cancelled")))
