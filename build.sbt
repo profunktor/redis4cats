@@ -44,6 +44,7 @@ val commonSettings = Seq(
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
     Libraries.catsEffectKernel,
+    Libraries.catsEffectStd,
     Libraries.redisClient,
     Libraries.catsEffect      % Test,
     Libraries.catsLaws        % Test,

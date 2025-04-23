@@ -29,26 +29,30 @@ import scala.util.control.NonFatal
 
 import cats.effect.kernel._
 import cats.syntax.all._
+import cats.effect.std.Dispatcher
 
 private[redis4cats] trait TxExecutor[F[_]] {
   def delay[A](thunk: => A): F[A]
   def eval[A](fa: F[A]): F[A]
   def start[A](fa: F[A]): F[Fiber[F, Throwable, A]]
-  def liftK[G[_]: Async]: TxExecutor[G]
+  def liftK[G[_]: Async: Dispatcher]: TxExecutor[G]
+  def unsafeRun[A](fa: F[A]): A
 }
 
 private[redis4cats] object TxExecutor {
   def make[F[_]: Async]: Resource[F, TxExecutor[F]] =
-    Resource
-      .make(Sync[F].delay(Executors.newFixedThreadPool(1, TxThreadFactory))) { ec =>
-        Sync[F]
-          .delay(ec.shutdownNow())
-          .ensure(new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread"))(
-            _.isEmpty
-          )
-          .void
-      }
-      .map(es => fromEC(exitOnFatal(ExecutionContext.fromExecutorService(es))))
+    Dispatcher.parallel[F].flatMap { dispatcher =>
+      Resource
+        .make(Sync[F].delay(Executors.newFixedThreadPool(1, TxThreadFactory))) { ec =>
+          Sync[F]
+            .delay(ec.shutdownNow())
+            .ensure(new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread"))(
+              _.isEmpty
+            )
+            .void
+        }
+        .map(es => fromEC(exitOnFatal(ExecutionContext.fromExecutorService(es)))(dispatcher))
+    }
 
   private def exitOnFatal(ec: ExecutionContext): ExecutionContext = new ExecutionContext {
     def execute(r: Runnable): Unit =
@@ -70,11 +74,12 @@ private[redis4cats] object TxExecutor {
       ec.reportFailure(t)
   }
 
-  private def fromEC[F[_]: Async](ec: ExecutionContext): TxExecutor[F] =
+  private def fromEC[F[_]: Async](ec: ExecutionContext)(dispatcher: Dispatcher[F]): TxExecutor[F] =
     new TxExecutor[F] {
       def delay[A](thunk: => A): F[A]                   = eval(Sync[F].delay(thunk))
       def eval[A](fa: F[A]): F[A]                       = Async[F].evalOn(fa, ec)
       def start[A](fa: F[A]): F[Fiber[F, Throwable, A]] = Async[F].startOn(fa, ec)
-      def liftK[G[_]: Async]: TxExecutor[G]             = fromEC[G](ec)
+      def liftK[G[_]: Async: Dispatcher]: TxExecutor[G] = fromEC[G](ec)(implicitly)
+      def unsafeRun[A](fa: F[A]): A                     = dispatcher.unsafeRunSync(fa)
     }
 }

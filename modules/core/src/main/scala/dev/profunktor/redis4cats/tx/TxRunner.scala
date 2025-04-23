@@ -18,8 +18,8 @@ package dev.profunktor.redis4cats.tx
 
 import cats.effect.kernel._
 import cats.effect.kernel.syntax.all._
+import cats.effect.std.Dispatcher
 import cats.syntax.all._
-
 import dev.profunktor.redis4cats.effect.TxExecutor
 
 private[redis4cats] trait TxRunner[F[_]] {
@@ -30,7 +30,7 @@ private[redis4cats] trait TxRunner[F[_]] {
   )(
       fs: TxStore[F, String, A] => List[F[Unit]]
   ): F[Map[String, A]]
-  def liftK[G[_]: Async]: TxRunner[G]
+  def liftK[G[_]: Async: Dispatcher]: TxRunner[G]
 }
 
 private[redis4cats] object TxRunner {
@@ -60,6 +60,6 @@ private[redis4cats] object TxRunner {
           } *> store.get
         }
 
-      def liftK[G[_]: Async]: TxRunner[G] = make[G](t.liftK[G])
+      def liftK[G[_]: Async: Dispatcher]: TxRunner[G] = make[G](t.liftK[G])
     }
 }

@@ -19,6 +19,7 @@ package dev.profunktor.redis4cats
 import cats._
 import cats.data.NonEmptyList
 import cats.effect.kernel._
+import cats.effect.std.Dispatcher
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.BitCommandOperation
 import dev.profunktor.redis4cats.algebra.BitCommandOperation.Overflows
@@ -448,7 +449,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 ) extends RedisCommands[F, K, V]
     with RedisConversionOps {
 
-  def liftK[G[_]: Async: Log]: RedisCommands[G, K, V] =
+  def liftK[G[_]: Async: Dispatcher: Log]: RedisCommands[G, K, V] =
     new BaseRedis[G, K, V](conn.liftK[G], tx.liftK[G], cluster)
 
   import dev.profunktor.redis4cats.JavaConversions._

@@ -26,6 +26,7 @@ object Dependencies {
     def log4cats(artifact: String): ModuleID = "org.typelevel" %% s"log4cats-$artifact" % V.log4cats
 
     val catsEffectKernel = "org.typelevel" %% "cats-effect-kernel" % V.catsEffect
+    val catsEffectStd    = "org.typelevel" %% "cats-effect-std"    % V.catsEffect
     val fs2Core          = "co.fs2"        %% "fs2-core"           % V.fs2
     val keyPool          = "org.typelevel" %% "keypool"            % V.keyPool
 
