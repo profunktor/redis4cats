@@ -20,11 +20,12 @@ promptTheme := PromptTheme(
 ThisBuild / organization := "dev.profunktor"
 ThisBuild / homepage := Some(url("https://redis4cats.profunktor.dev/"))
 ThisBuild / licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
+ThisBuild / sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeCentralHost
 ThisBuild / developers := List(
   Developer(
     "gvolpe",
     "Gabriel Volpe",
-    "volpegabriel@gmail.com",
+    "profunktor@gvolpe.addy.io",
     url("https://gvolpe.com")
   )
 )
@@ -40,7 +41,7 @@ val commonSettings = Seq(
   organizationName := "Redis client for Cats Effect & Fs2",
   startYear := Some(2018),
   licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
-  headerLicense := Some(HeaderLicense.ALv2("2018-2021", "ProfunKtor")),
+  headerLicense := Some(HeaderLicense.ALv2("2018-2025", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
     Libraries.catsEffectKernel,

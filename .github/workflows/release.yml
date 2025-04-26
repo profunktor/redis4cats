@@ -18,12 +18,12 @@ jobs:
           fetch-depth: 0 # fetch all branches & tags
 
       - name: "Install Nix ❄️"
-        uses: cachix/install-nix-action@v22
+        uses: cachix/install-nix-action@v31.2.0
 
       - name: "Install Cachix ❄️"
-        uses: cachix/cachix-action@v12
+        uses: cachix/cachix-action@v16
         with:
-          name: redis4cats
+          name: profunktor
           signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
 
       - name: "Publish ${{ github.ref }} 🚀"
@@ -32,4 +32,4 @@ jobs:
           PGP_SECRET: "${{ secrets.PGP_SECRET }}"
           SONATYPE_PASSWORD: "${{ secrets.SONATYPE_PASSWORD }}"
           SONATYPE_USERNAME: "${{ secrets.SONATYPE_USERNAME }}"
-        run: nix develop -c sbt 'ci-release'
+        run: nix run .#sbt -- ci-release
