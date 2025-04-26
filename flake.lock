@@ -1,5 +1,24 @@
 {
   "nodes": {
+    "dev-tools": {
+      "inputs": {
+        "flake-utils": "flake-utils",
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1745673579,
+        "narHash": "sha256-32GDvwSoCILq+4biRBxuW22dptRKbd5LBwL2lS68RjY=",
+        "owner": "profunktor",
+        "repo": "dev-tools",
+        "rev": "1fb6f8a1bc0ef1f506d5be7353f765837c9287f8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "profunktor",
+        "repo": "dev-tools",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -35,8 +54,7 @@
     },
     "root": {
       "inputs": {
-        "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "dev-tools": "dev-tools"
       }
     },
     "systems": {
