@@ -24,7 +24,7 @@ jobs:
         uses: cachix/cachix-action@v16
         with:
           name: profunktor
-          signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
 
       - name: "Publish ${{ github.ref }} 🚀"
         env:
