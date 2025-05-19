@@ -3,14 +3,15 @@
     "dev-tools": {
       "inputs": {
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "nixpkgs-jekyll": "nixpkgs-jekyll"
       },
       "locked": {
-        "lastModified": 1745673579,
-        "narHash": "sha256-32GDvwSoCILq+4biRBxuW22dptRKbd5LBwL2lS68RjY=",
+        "lastModified": 1747642662,
+        "narHash": "sha256-T4Vq7c4m9iTRY8qfWB3NmHFDDOx1wTdE2ljO2JydR08=",
         "owner": "profunktor",
         "repo": "dev-tools",
-        "rev": "1fb6f8a1bc0ef1f506d5be7353f765837c9287f8",
+        "rev": "7a2649ae2d2c1a25a9e116821a47304ac8e11715",
         "type": "github"
       },
       "original": {
@@ -50,6 +51,22 @@
         "id": "nixpkgs",
         "ref": "nixos-unstable",
         "type": "indirect"
+      }
+    },
+    "nixpkgs-jekyll": {
+      "locked": {
+        "lastModified": 1708815994,
+        "narHash": "sha256-hL7N/ut2Xu0NaDxDMsw2HagAjgDskToGiyZOWriiLYM=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "9a9dae8f6319600fa9aebde37f340975cab4b8c0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "9a9dae8f6319600fa9aebde37f340975cab4b8c0",
+        "type": "github"
       }
     },
     "root": {
