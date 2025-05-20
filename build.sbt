@@ -16,11 +16,9 @@ promptTheme := PromptTheme(
   )
 )
 
-// publishing
 ThisBuild / organization := "dev.profunktor"
 ThisBuild / homepage := Some(url("https://redis4cats.profunktor.dev/"))
 ThisBuild / licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
-ThisBuild / sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeCentralHost
 ThisBuild / developers := List(
   Developer(
     "gvolpe",
@@ -29,6 +27,12 @@ ThisBuild / developers := List(
     url("https://gvolpe.com")
   )
 )
+
+ThisBuild / publishTo := {
+  val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
+  if (isSnapshot.value) Some("central-snapshots" at centralSnapshots)
+  else localStaging.value
+}
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
