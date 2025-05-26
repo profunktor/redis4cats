@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 ProfunKtor
+ * Copyright 2018-2025 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,6 +84,28 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(v.contains("some value")))
       v <- redis.hGet(testKey, testField2)
       _ <- IO(assert(v.contains("another value")))
+      _ <- redis.hExpire(testKey, 1.seconds, testField, testField2)
+      time <- redis.hExpireTime(testKey, testField, testField2)
+      _ <- IO(assert(time.forall(_.exists(ts => ts.isAfter(Instant.now())))))
+      _ <- IO.sleep(1.seconds)
+      v1 <- redis.hGet(testKey, testField)
+      v2 <- redis.hGet(testKey, testField2)
+      _ <- IO(assert(v1.isEmpty))
+      _ <- IO(assert(v2.isEmpty))
+      _ <- redis.hSet(testKey, Map(testField -> "some value", testField2 -> "another value"))
+      _ <- redis.hExpireAt(testKey, Instant.now().plusSeconds(1), testField, testField2)
+      unixTimeStampList <- redis.hExpireTime(testKey, testField, testField2)
+      _ <- IO(assert(unixTimeStampList.forall(_.exists(x => x.isAfter(Instant.now())))))
+      _ <- IO.sleep(1.seconds)
+      v1 <- redis.hGet(testKey, testField)
+      v2 <- redis.hGet(testKey, testField2)
+      _ <- IO(assert(v1.isEmpty))
+      _ <- IO(assert(v2.isEmpty))
+      _ <- redis.hSet(testKey, Map(testField -> "some value", testField2 -> "another value"))
+      _ <- redis.hExpireAt(testKey, Instant.now().plusSeconds(10), testField, testField2)
+      _ <- redis.hPersist(testKey, testField, testField2)
+      time <- redis.hExpireTime(testKey, testField, testField2)
+      _ <- IO(assert(time.forall(_.isEmpty)))
     } yield ()
   }
 
