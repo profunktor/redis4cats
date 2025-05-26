@@ -1,19 +1,19 @@
 services:
   SingleNode:
     restart: always
-    image: valkey/valkey:8.0.2
+    image: redis:8.0.1
     ports:
       - "6379:6379"
     environment:
       - DEBUG=false
-    command: valkey-server --notify-keyspace-events KEA
+    command: redis-server --notify-keyspace-events KEA
 
   ReplicaNode:
     restart: always
-    image: valkey/valkey:8.0.2
+    image: redis:8.0.1
     ports:
       - "6380:6379"
-    command: valkey-server --replicaof SingleNode 6379
+    command: redis-server --replicaof SingleNode 6379
     links:
       - SingleNode:SingleNode
     environment:
@@ -21,7 +21,7 @@ services:
 
   RedisCluster:
     restart: always
-    image: yisraelu/valkey-cluster:8.0.2
+    image: yisraelu/redis-cluster:8.0.1
     ports:
       - "30001:30001"
       - "30002:30002"
