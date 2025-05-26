@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: "Starting up Valkey 🐳"
+      - name: "Starting up Redis 🐳"
         run: docker compose up -d
 
       - name: "Cache for sbt & coursier ♨️"
@@ -40,5 +40,5 @@ jobs:
       - name: "Test for Binary Compatibility 📦"
         run: nix run .#sbt mimaReportBinaryIssuesIfRelevant
 
-      - name: "Shutting down Valkey 🐳"
+      - name: "Shutting down Redis 🐳"
         run: docker compose down

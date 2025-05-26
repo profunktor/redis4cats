@@ -85,7 +85,8 @@ See the [Code of Conduct](https://redis4cats.profunktor.dev/CODE_OF_CONDUCT)
 
 ## Contribution Guidelines
 
-Going forward , features must be compatible with the [Valkey OSS project](https://valkey.io/). 
+This project tracks Redis 8
+For the Valkey fork please see [Valkey4Cats](https://github.com/profunktor/valkey4cats)
 
 ## LICENSE
 
