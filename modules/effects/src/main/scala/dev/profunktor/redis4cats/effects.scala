@@ -26,6 +26,7 @@ import io.lettuce.core.{
   ScriptOutputType => JScriptOutputType
 }
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 object effects {
