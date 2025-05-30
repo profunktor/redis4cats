@@ -1189,6 +1189,11 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def zCount[T: Numeric](key: K, range: ZRange[T]): F[Long] =
     async.flatMap(_.zcount(key, range.asJavaRange).futureLift.map(x => Long.unbox(x)))
 
+  override def zMScore(key: K, values: V*): F[List[Option[Double]]] =
+    async
+      .flatMap(_.zmscore(key, values: _*).futureLift)
+      .map(_.asScala.toList.map(x => Option(Double.unbox(x))))
+
   override def zLexCount(key: K, range: ZRange[V]): F[Long] =
     async.flatMap(_.zlexcount(key, JRange.create[V](range.start, range.end)).futureLift.map(x => Long.unbox(x)))
 

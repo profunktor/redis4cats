@@ -28,6 +28,7 @@ trait SortedSetGetter[F[_], K, V] {
   def zCard(key: K): F[Long]
   def zCount[T: Numeric](key: K, range: ZRange[T]): F[Long]
   def zLexCount(key: K, range: ZRange[V]): F[Long]
+  def zMScore(key: K, values: V*): F[List[Option[Double]]]
   def zRange(key: K, start: Long, stop: Long): F[List[V]]
   def zRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]]
   def zRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]]
