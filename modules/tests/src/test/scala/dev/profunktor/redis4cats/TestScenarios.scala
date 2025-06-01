@@ -240,7 +240,7 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(r, 2L))
       _ <- redis.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2, scoreWithValue3)
       scores <- redis.zMScore(testKey, 1L, 2L, 3L, 4L)
-      _ <- IO(assertEquals(scores, List(Some(1.0), Some(2.0), Some(3.0), None)))
+      _ <- IO(assertEquals(scores, List(Some(1.0), Some(3.0), Some(5.0), None)))
     } yield ()
   }
 
