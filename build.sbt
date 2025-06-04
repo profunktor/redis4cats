@@ -20,7 +20,6 @@ promptTheme := PromptTheme(
 ThisBuild / organization := "dev.profunktor"
 ThisBuild / homepage := Some(url("https://redis4cats.profunktor.dev/"))
 ThisBuild / licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
-ThisBuild / sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeCentralHost
 ThisBuild / developers := List(
   Developer(
     "gvolpe",
