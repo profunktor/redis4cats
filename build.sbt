@@ -6,7 +6,7 @@ import microsites.ExtraMdFileConfig
 ThisBuild / scalaVersion := "2.13.16"
 ThisBuild / crossScalaVersions := Seq("2.12.20", "2.13.16", "3.3.6")
 ThisBuild / evictionErrorLevel := Level.Info
-ThisBuild / mimaBaseVersion := "1.8.0"
+ThisBuild / mimaBaseVersion := "2.0.0"
 Test / parallelExecution := false
 
 promptTheme := PromptTheme(
