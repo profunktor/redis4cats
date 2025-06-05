@@ -5,7 +5,7 @@ on:
   workflow_dispatch: {}
   push:
     branches:
-      - series/1.x # CE3
+      - series/2.x
     paths:
       - "site/**"
       - "**/README.md"

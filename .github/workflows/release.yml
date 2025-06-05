@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - series/1.x # CE3
+      - series/2.x
     tags:
       - "v1.*"
       - "v2.*"
