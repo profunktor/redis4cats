@@ -41,8 +41,8 @@ jobs:
       - name: Check for untracked changes
         run: |
           git status
-          ./scripts/check-dirty.sh
-          
+          ./scripts/check_dirty.sh
+
       - name: "Test for Binary Compatibility 📦"
         run: nix run .#sbt mimaReportBinaryIssuesIfRelevant
 
