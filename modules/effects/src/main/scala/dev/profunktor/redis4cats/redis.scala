@@ -45,6 +45,7 @@ import io.lettuce.core.{
   GeoRadiusStoreArgs,
   GeoWithin,
   GetExArgs => JGetExArgs,
+  HGetExArgs => JHGetExArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
@@ -764,11 +765,36 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def hDel(key: K, field: K, fields: K*): F[Long] =
     async.flatMap(_.hdel(key, (field +: fields): _*).futureLift.map(x => Long.box(x)))
 
+  override def hGetDel(key: K, field: K, fields: K*): F[List[Option[V]]] =
+    async.flatMap(
+      _.hgetdel(key, (field +: fields): _*).futureLift.map(
+        _.asScala.toList
+          .map(kv => Option.apply(kv.getValue()))
+      )
+    )
+
   override def hExists(key: K, field: K): F[Boolean] =
     async.flatMap(_.hexists(key, field).futureLift.map(x => Boolean.box(x)))
 
   override def hGet(key: K, field: K): F[Option[V]] =
     async.flatMap(_.hget(key, field).futureLift.map(Option.apply))
+
+  override def hGetEx(key: K, getExArg: HGetExArgs, field: K, fields: K*): F[List[Option[V]]] = {
+    val jgetExArgs = new JHGetExArgs()
+
+    getExArg match {
+      case HGetExArgs.Ex(d)    => jgetExArgs.ex(java.time.Duration.ofMillis(d.toMillis))
+      case HGetExArgs.Px(d)    => jgetExArgs.px(java.time.Duration.ofMillis(d.toMillis))
+      case HGetExArgs.ExAt(at) => jgetExArgs.exAt(at)
+      case HGetExArgs.PxAt(at) => jgetExArgs.pxAt(at)
+      case HGetExArgs.Persist  => jgetExArgs.persist()
+    }
+
+    async.flatMap(
+      _.hgetex(key, jgetExArgs, (field +: fields): _*).futureLift
+        .map(_.asScala.toList.map(kv => Option.apply(kv.getValue())))
+    )
+  }
 
   override def hGetAll(key: K): F[Map[K, V]] =
     async.flatMap(_.hgetall(key).futureLift.map(_.asScala.toMap))

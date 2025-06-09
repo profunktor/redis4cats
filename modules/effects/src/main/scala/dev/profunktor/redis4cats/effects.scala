@@ -189,6 +189,25 @@ object effects {
     case object Persist extends GetExArg
   }
 
+  sealed trait HGetExArgs
+  object HGetExArgs {
+
+    /** Set Expiration in Millis */
+    case class Px(duration: FiniteDuration) extends HGetExArgs
+
+    /** Set Expiration in Seconds */
+    case class Ex(duration: FiniteDuration) extends HGetExArgs
+
+    /** Set Expiration time in Seconds */
+    case class ExAt(at: Instant) extends HGetExArgs
+
+    /** Set Expiration time in Millis */
+    case class PxAt(at: Instant) extends HGetExArgs
+
+    /** Set KeepTtl */
+    case object Persist extends HGetExArgs
+  }
+
   sealed trait SetArg
   object SetArg {
     sealed trait Existence extends SetArg
