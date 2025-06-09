@@ -42,8 +42,7 @@ jobs:
         run: |
           git status
           ./scripts/check-dirty.sh
-          echo "Built $(cat version)"
-
+          
       - name: "Test for Binary Compatibility 📦"
         run: nix run .#sbt mimaReportBinaryIssuesIfRelevant
 
