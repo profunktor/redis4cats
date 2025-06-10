@@ -10,6 +10,7 @@ import scala.sys.process.*
 import scala.util.Try
 import com.typesafe.tools.mima.core.ReversedMissingMethodProblem
 import com.typesafe.tools.mima.core.ProblemFilters
+import com.typesafe.tools.mima.core.InheritedNewAbstractMethodProblem
 
 // Adapted from https://github.com/djspiewak/sbt-spiewak  and https://github.com/disneystreaming/smithy4s/blob/series/0.18/project/MimaVersionPlugin.scala
 object MimaVersionPlugin extends AutoPlugin {
@@ -81,7 +82,10 @@ object MimaVersionPlugin extends AutoPlugin {
     isMimaEnabled := false,
     mimaBinaryIssueFilters ++= Seq(
       // Focusing on backward compat as opposed to forward, for now.
-      ProblemFilters.exclude[ReversedMissingMethodProblem]("dev.profunktor.redis4cats.*")
+      ProblemFilters.exclude[ReversedMissingMethodProblem]("dev.profunktor.redis4cats.*"),
+      ProblemFilters.exclude[InheritedNewAbstractMethodProblem](
+        "dev.profunktor.redis4cats.*"
+      ),
     ),
     mimaReportBinaryIssuesIfRelevant := filterTaskWhereRelevant(
       mimaReportBinaryIssues

@@ -20,19 +20,21 @@ import dev.profunktor.redis4cats.effects.ExpireExistenceArg
 
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
+import dev.profunktor.redis4cats.effects.HGetExArgs
 
 trait HashCommands[F[_], K, V]
     extends HashGetter[F, K, V]
     with HashSetter[F, K, V]
     with HashIncrement[F, K, V]
-    with HashExpire[F, K] {
-  def hDel(key: K, field: K, fields: K*): F[Long]
+    with HashExpire[F, K]
+    with HashDelete[F, K, V] {
   def hExists(key: K, field: K): F[Boolean]
 }
 
 trait HashGetter[F[_], K, V] {
   def hGet(key: K, field: K): F[Option[V]]
   def hGetAll(key: K): F[Map[K, V]]
+  def hGetEx(key: K, getExArg: HGetExArgs, field: K, fields: K*): F[List[Option[V]]]
   def hmGet(key: K, field: K, fields: K*): F[Map[K, V]]
   def hKeys(key: K): F[List[K]]
   def hVals(key: K): F[List[V]]
@@ -63,4 +65,9 @@ trait HashExpire[F[_], K] {
 trait HashIncrement[F[_], K, V] {
   def hIncrBy(key: K, field: K, amount: Long): F[Long]
   def hIncrByFloat(key: K, field: K, amount: Double): F[Double]
+}
+
+trait HashDelete[F[_], K, V] {
+  def hDel(key: K, field: K, fields: K*): F[Long]
+  def hGetDel(key: K, field: K, fields: K*): F[List[Option[V]]]
 }

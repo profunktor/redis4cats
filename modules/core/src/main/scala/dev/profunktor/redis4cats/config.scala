@@ -32,6 +32,8 @@ object config {
     def withShutdown(shutdown: ShutdownConfig): Redis4CatsConfig
     def withTopologyViewRefreshStrategy(strategy: TopologyViewRefreshStrategy): Redis4CatsConfig
     def withNodeFilter(nodeFilter: RedisClusterNode => Boolean): Redis4CatsConfig
+    def withClientResources(resources: ClientResources): Redis4CatsConfig =
+      withClientResources(Some(resources))
     def withClientResources(resources: Option[ClientResources]): Redis4CatsConfig
   }
 

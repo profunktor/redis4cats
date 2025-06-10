@@ -106,6 +106,18 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.hPersist(testKey, testField, testField2)
       time <- redis.hExpireTime(testKey, testField, testField2)
       _ <- IO(assert(time.forall(_.isEmpty)))
+      _ <- redis.hSet(testKey, Map(testField -> "Hello", testField2 -> "World"))
+      _ <- redis.hGetDel(testKey, testField, testField2)
+      res <- redis.hGet(testKey, testField)
+      _ <- IO(assert(res.isEmpty))
+      res2 <- redis.hGet(testKey, testField2)
+      _ <- IO(assert(res2.isEmpty))
+      _ <- redis.hSet(testKey, Map(testField -> "Hello", testField2 -> "World"))
+      res <- redis.hGetEx(testKey, HGetExArgs.ExAt(Instant.now().plusSeconds(10)), testField, testField2)
+      _ <- IO(assertEquals(res, List(Some("Hello"), Some("World"))))
+      _ <- redis
+             .httl(testKey, testField, testField2)
+             .flatMap(ttls => IO(assert(ttls.forall(_.exists(_ > 0.seconds)))))
     } yield ()
   }
 
