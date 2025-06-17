@@ -40,7 +40,6 @@ import io.lettuce.core.{
   BitFieldArgs,
   ClientOptions,
   CopyArgs => JCopyArgs,
-  CopyArgs => JCopyArgs,
   ExpireArgs => JExpireArgs,
   FlushMode => JFlushMode,
   FunctionRestoreMode => JFunctionRestoreMode,
@@ -67,7 +66,6 @@ import io.lettuce.core.{
 import org.typelevel.keypool.KeyPool
 
 import java.time.Instant
-import java.util
 import java.util
 import java.util.concurrent.TimeUnit
 import scala.annotation.nowarn
@@ -764,7 +762,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def mSetNx(keyValues: Map[K, V]): F[Boolean] =
     async.flatMap(_.msetnx(keyValues.asJava).futureLift.map(x => Boolean.box(x)))
 
-  /** ***************************** JSON API ********************************* */
+  /** ***************************** JSON API *********************************
+    */
   override def jsonType(key: K, path: JsonPath): F[List[JsonType]] =
     async.flatMap(_.jsonType(key, path).futureLift.map(_.asScala.toList))
 
@@ -781,7 +780,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def del(key: K): F[Long] = async.flatMap(_.jsonDel(key).futureLift.map(x => Long.box(x)))
 
-  /*** JSON GETTERS ***/
+  /** * JSON GETTERS **
+    */
   override def get(key: K, path: JsonPath, paths: JsonPath*): F[List[JsonValue]] = {
     val all = path +: paths
     async.flatMap(_.jsonGet(key, all: _*).futureLift.map(_.asScala.toList))
@@ -804,7 +804,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def objLen(key: K, path: JsonPath): F[Long] =
     async.flatMap(_.jsonObjlen(key, path).futureLift.map(x => Long.unbox(x)))
 
-  /*** JSON ARRAY ***/
+  /** * JSON ARRAY **
+    */
   override def arrAppend(key: K, path: JsonPath, value: JsonValue*): F[Unit] =
     async.flatMap(_.jsonArrappend(key, path, value: _*).futureLift.void)
 

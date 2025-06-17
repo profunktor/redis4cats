@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 ProfunKtor
+ * Copyright 2018-2025 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats.algebra
 
 import dev.profunktor.redis4cats.algebra.json.JsonGetArgs
-import io.lettuce.core.json.arguments.{ JsonRangeArgs, JsonGetArgs => LJsonGetArgs }
+import io.lettuce.core.json.arguments.{ JsonGetArgs => LJsonGetArgs, JsonRangeArgs }
 import io.lettuce.core.json.{ JsonPath, JsonType, JsonValue }
 
 trait JsonCommands[F[_], K, V]
@@ -28,16 +28,16 @@ trait JsonCommands[F[_], K, V]
     with JsonString[F, K, V]
     with JsonBoolean[F, K, V] {
 
-  /**
-    * Clear container values (arrays/objects) and set numeric values to 0
-    * @return Long the number of values removed plus all the matching JSON numerical values that are zeroed.
+  /** Clear container values (arrays/objects) and set numeric values to 0
+    * @return
+    *   Long the number of values removed plus all the matching JSON numerical values that are zeroed.
     */
   def clear(key: K, path: JsonPath): F[Long]
   def clear(key: K): F[Long]
 
-  /**
-    * Deletes a value inside the JSON document at a given  JsonPath
-    * @return Long the number of values removed (0 or more).
+  /** Deletes a value inside the JSON document at a given JsonPath
+    * @return
+    *   Long the number of values removed (0 or more).
     */
   def del(key: K, path: JsonPath): F[Long]
   def del(key: K): F[Long]
