@@ -32,31 +32,31 @@ trait JsonCommands[F[_], K, V]
     * @return
     *   Long the number of values removed plus all the matching JSON numerical values that are zeroed.
     */
-  def clear(key: K, path: JsonPath): F[Long]
-  def clear(key: K): F[Long]
+  def jClear(key: K, path: JsonPath): F[Long]
+  def jClear(key: K): F[Long]
 
   /** Deletes a value inside the JSON document at a given JsonPath
     * @return
     *   Long the number of values removed (0 or more).
     */
-  def del(key: K, path: JsonPath): F[Long]
-  def del(key: K): F[Long]
+  def jDel(key: K, path: JsonPath): F[Long]
+  def jDel(key: K): F[Long]
 
   def jsonType(key: K, path: JsonPath): F[List[JsonType]]
   def jsonType(key: K): F[List[JsonType]]
 }
 trait JsonGet[F[_], K, V] {
-  def get(key: K, path: JsonPath, paths: JsonPath*): F[List[JsonValue]]
-  def get(key: K, arg: JsonGetArgs, path: JsonPath, paths: JsonPath*): F[List[JsonValue]]
-  def mget(path: JsonPath, key: K, keys: K*): F[List[JsonValue]]
-  def objKeys(key: K, path: JsonPath): F[List[V]]
-  def objLen(key: K, path: JsonPath): F[Long]
+  def jGet(key: K, path: JsonPath, paths: JsonPath*): F[List[JsonValue]]
+  def jGet(key: K, arg: JsonGetArgs, path: JsonPath, paths: JsonPath*): F[List[JsonValue]]
+  def jMget(path: JsonPath, key: K, keys: K*): F[List[JsonValue]]
+  def jObjKeys(key: K, path: JsonPath): F[List[V]]
+  def jObjLen(key: K, path: JsonPath): F[Long]
 }
 trait JsonSet[F[_], K, V] {
-  def mset(key: K, values: (JsonPath, JsonValue)*): F[Boolean]
-  def set(key: K, path: JsonPath, value: JsonValue): F[Boolean]
-  def setnx(key: K, path: JsonPath, value: JsonValue): F[Boolean]
-  def setxx(key: K, path: JsonPath, value: JsonValue): F[Boolean]
+  def jMset(key: K, values: (JsonPath, JsonValue)*): F[Boolean]
+  def jSet(key: K, path: JsonPath, value: JsonValue): F[Boolean]
+  def jSetnx(key: K, path: JsonPath, value: JsonValue): F[Boolean]
+  def jSetxx(key: K, path: JsonPath, value: JsonValue): F[Boolean]
   def jsonMerge(key: K, jsonPath: JsonPath, value: JsonValue): F[String];
 }
 trait JsonNumber[F[_], K, V] {
