@@ -19,9 +19,14 @@ package dev.profunktor.redis4cats
 import cats.effect.kernel.Sync
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.JavaConversions._
-import io.lettuce.core.{ ReadFrom => JReadFrom }
 import io.lettuce.core.codec.{ ByteArrayCodec, CipherCodec, CompressionCodec, RedisCodec => JRedisCodec, StringCodec }
-import io.lettuce.core.{ KeyScanCursor => JKeyScanCursor, ScanCursor => JScanCursor }
+import io.lettuce.core.{
+  KeyScanCursor => JKeyScanCursor,
+  MapScanCursor => JMapScanCursor,
+  ReadFrom => JReadFrom,
+  ScanCursor => JScanCursor
+}
+
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
@@ -44,6 +49,10 @@ object data {
 
   final case class KeyScanCursor[K](underlying: JKeyScanCursor[K]) extends ScanCursor {
     def keys: List[K] = underlying.getKeys.asScala.toList
+  }
+
+  final case class MapScanCursor[K, V](underlying: JMapScanCursor[K, V]) extends ScanCursor {
+    def map: Map[K, V] = underlying.getMap.asScala.toMap
   }
 
   object RedisCodec {

@@ -16,11 +16,11 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.redis4cats.effects.ExpireExistenceArg
+import dev.profunktor.redis4cats.data.{ KeyScanCursor, MapScanCursor }
+import dev.profunktor.redis4cats.effects.{ ExpireExistenceArg, HGetExArgs, ScanArgs }
 
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
-import dev.profunktor.redis4cats.effects.HGetExArgs
 
 trait HashCommands[F[_], K, V]
     extends HashGetter[F, K, V]
@@ -40,6 +40,14 @@ trait HashGetter[F[_], K, V] {
   def hVals(key: K): F[List[V]]
   def hStrLen(key: K, field: K): F[Long]
   def hLen(key: K): F[Long]
+  def hScan(key: K): F[MapScanCursor[K, V]]
+  def hScan(key: K, cursor: MapScanCursor[K, V]): F[MapScanCursor[K, V]]
+  def hScan(key: K, scanArgs: ScanArgs): F[MapScanCursor[K, V]]
+  def hScan(key: K, cursor: MapScanCursor[K, V], scanArgs: ScanArgs): F[MapScanCursor[K, V]]
+  def hScanNoValues(key: K): F[KeyScanCursor[K]]
+  def hScanNoValues(key: K, cursor: KeyScanCursor[K]): F[KeyScanCursor[K]]
+  def hScanNoValues(key: K, scanArgs: ScanArgs): F[KeyScanCursor[K]]
+  def hScanNoValues(key: K, cursor: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]]
 }
 
 trait HashSetter[F[_], K, V] {
