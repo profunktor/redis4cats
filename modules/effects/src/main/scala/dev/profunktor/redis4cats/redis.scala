@@ -816,6 +816,30 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def hLen(key: K): F[Long] =
     async.flatMap(_.hlen(key).futureLift.map(x => Long.unbox(x)))
 
+  override def hScan(key: K): F[MapScanCursor[K, V]] =
+    async.flatMap(_.hscan(key).futureLift.map(MapScanCursor[K, V](_)))
+
+  override def hScan(key: K, cursor: MapScanCursor[K, V]): F[MapScanCursor[K, V]] =
+    async.flatMap(_.hscan(key, cursor.underlying).futureLift.map(MapScanCursor[K, V](_)))
+
+  override def hScan(key: K, scanArgs: ScanArgs): F[MapScanCursor[K, V]] =
+    async.flatMap(_.hscan(key, scanArgs.underlying).futureLift.map(MapScanCursor[K, V](_)))
+
+  override def hScan(key: K, cursor: MapScanCursor[K, V], scanArgs: ScanArgs): F[MapScanCursor[K, V]] =
+    async.flatMap(_.hscan(key, cursor.underlying, scanArgs.underlying).futureLift.map(MapScanCursor[K, V](_)))
+
+  override def hScanNoValues(key: K): F[KeyScanCursor[K]] =
+    async.flatMap(_.hscanNovalues(key).futureLift.map(KeyScanCursor[K](_)))
+
+  override def hScanNoValues(key: K, cursor: KeyScanCursor[K]): F[KeyScanCursor[K]] =
+    async.flatMap(_.hscanNovalues(key, cursor.underlying).futureLift.map(KeyScanCursor[K](_)))
+
+  override def hScanNoValues(key: K, scanArgs: ScanArgs): F[KeyScanCursor[K]] =
+    async.flatMap(_.hscanNovalues(key, scanArgs.underlying).futureLift.map(KeyScanCursor[K](_)))
+
+  override def hScanNoValues(key: K, cursor: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]] =
+    async.flatMap(_.hscanNovalues(key, cursor.underlying, scanArgs.underlying).futureLift.map(KeyScanCursor[K](_)))
+
   override def hSet(key: K, field: K, value: V): F[Boolean] =
     async.flatMap(_.hset(key, field, value).futureLift.map(x => Boolean.box(x)))
 

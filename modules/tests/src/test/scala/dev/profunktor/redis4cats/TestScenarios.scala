@@ -60,6 +60,16 @@ trait TestScenarios { self: FunSuite =>
     val testKey    = "foo"
     val testField  = "bar"
     val testField2 = "baz"
+    val hScanKey   = "hash-test-data"
+    val hScanMap =
+      (Seq("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten") ++
+        Seq("eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"))
+        // Keep this comment to avoid ugly formatting.
+        .iterator.zipWithIndex.map(_.map(String.valueOf(_: Int))).toMap
+    val hScanMapR =
+      // Scala cross-version compatibility trick (cannot use `.filterKeys` in v2.13+ or `.view.filterKeys` in v2.12)
+      hScanMap.iterator.filter(_._1.contains('r')).toMap
+
     for {
       x <- redis.hGet(testKey, testField)
       _ <- IO(assert(x.isEmpty))
@@ -118,6 +128,26 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis
              .httl(testKey, testField, testField2)
              .flatMap(ttls => IO(assert(ttls.forall(_.exists(_ > 0.seconds)))))
+      // Setup data for hScan* method tests
+      _ <- redis.hSet(hScanKey, hScanMap)
+      // Test hScan without ScanArgs
+      hScanMapRes <- genMapScan(hScanKey)(redis.hScan)(redis.hScan)
+      _ <- IO(assertEquals(hScanMapRes, hScanMap))
+      // Test hScanNoValues without ScanArgs
+      hScanNovRes <- genKeyScan(hScanKey)(redis.hScanNoValues)(redis.hScanNoValues)
+      _ <- IO(assertEquals(hScanNovRes.toSet, hScanMap.keySet))
+      // Test hScan with ScanArgs
+      hScanMapResR <-
+        genMapScan(
+          (hScanKey, ScanArgs("*r*", count = 3L))
+        ) { case (k, a) => redis.hScan(k, a) } { case ((k, a), c) => redis.hScan(k, c, a) }
+      _ <- IO(assertEquals(hScanMapResR, hScanMapR))
+      // Test hScanNoValues with ScanArgs
+      hScanNovResR <-
+        genKeyScan(
+          (hScanKey, ScanArgs("*r*", count = 5L))
+        ) { case (k, a) => redis.hScanNoValues(k, a) } { case ((k, a), c) => redis.hScanNoValues(k, c, a) }
+      _ <- IO(assertEquals(hScanNovResR.toSet, hScanMapR.keySet))
     } yield ()
   }
 
@@ -397,6 +427,39 @@ trait TestScenarios { self: FunSuite =>
   }
 
   type Iterations = Int
+
+  // Generic adapter for all scan commands where KeyScanCursor is used (scan, hScanNoValues).
+  private def genKeyScan[A, K](args: A)(
+      init: A => IO[KeyScanCursor[K]]
+  )(
+      next: (A, KeyScanCursor[K]) => IO[KeyScanCursor[K]]
+  ): IO[List[K]] = {
+    def loop(cur: KeyScanCursor[K]): IO[List[K]] =
+      if (cur.isFinished)
+        IO.pure(cur.keys)
+      else
+        next(args, cur).flatMap {
+          loop(_).map(cur.keys ::: _)
+        }
+
+    init(args).flatMap(loop)
+  }
+  // Generic adapter for all scan commands where MapScanCursor is used (hScan).
+  private def genMapScan[A, K, V](args: A)(
+      init: A => IO[MapScanCursor[K, V]]
+  )(
+      next: (A, MapScanCursor[K, V]) => IO[MapScanCursor[K, V]]
+  ): IO[Map[K, V]] = {
+    def loop(cur: MapScanCursor[K, V]): IO[Map[K, V]] =
+      if (cur.isFinished)
+        IO.pure(cur.map)
+      else
+        next(args, cur).flatMap {
+          loop(_).map(cur.map ++ _)
+        }
+
+    init(args).flatMap(loop)
+  }
 
   /** Does scan on all cluster nodes until all keys collected since order of scanned nodes can't be guaranteed
     */
