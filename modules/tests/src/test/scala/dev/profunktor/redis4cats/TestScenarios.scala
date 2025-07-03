@@ -196,7 +196,13 @@ trait TestScenarios { self: FunSuite =>
   }
 
   def setsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
-    val testKey = "foos"
+    val testKey  = "foos"
+    val sScanKey = "set-test-data"
+    val sScanSeq =
+      Seq("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten") ++
+        Seq("eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen")
+    val sScanSeqR =
+      sScanSeq.filter(_.contains('r'))
     for {
       x <- redis.sMembers(testKey)
       _ <- IO(assert(x.isEmpty))
@@ -221,6 +227,17 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.sAdd(testKey, "value 1", "value 2")
       r <- redis.sMisMember(testKey, "value 1", "random", "value 2")
       _ <- IO(assertEquals(r, List(true, false, true)))
+      // Setup data for sScan* method tests
+      _ <- redis.sAdd(sScanKey, sScanSeq: _*)
+      // Test sScan without ScanArgs
+      sScanSeqRes <- genValScan(sScanKey)(redis.sScan)(redis.sScan)
+      _ <- IO(assertEquals(sScanSeqRes, sScanSeq))
+      // Test sScan with ScanArgs
+      sScanSeqResR <-
+        genValScan(
+          (sScanKey, ScanArgs("*r*", count = 3L))
+        ) { case (k, a) => redis.sScan(k, a) } { case ((k, a), c) => redis.sScan(k, c, a) }
+      _ <- IO(assertEquals(sScanSeqResR, sScanSeqR))
     } yield ()
   }
 
@@ -456,6 +473,22 @@ trait TestScenarios { self: FunSuite =>
       else
         next(args, cur).flatMap {
           loop(_).map(cur.map ++ _)
+        }
+
+    init(args).flatMap(loop)
+  }
+  // Generic adapter for all scan commands where ValueScanCursor is used (sScan).
+  private def genValScan[A, V](args: A)(
+      init: A => IO[ValueScanCursor[V]]
+  )(
+      next: (A, ValueScanCursor[V]) => IO[ValueScanCursor[V]]
+  ): IO[List[V]] = {
+    def loop(cur: ValueScanCursor[V]): IO[List[V]] =
+      if (cur.isFinished)
+        IO.pure(cur.values)
+      else
+        next(args, cur).flatMap {
+          loop(_).map(cur.values ::: _)
         }
 
     init(args).flatMap(loop)
