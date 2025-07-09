@@ -24,7 +24,8 @@ import io.lettuce.core.{
   KeyScanCursor => JKeyScanCursor,
   MapScanCursor => JMapScanCursor,
   ReadFrom => JReadFrom,
-  ScanCursor => JScanCursor
+  ScanCursor => JScanCursor,
+  ValueScanCursor => JValueScanCursor
 }
 
 import javax.crypto.Cipher
@@ -53,6 +54,10 @@ object data {
 
   final case class MapScanCursor[K, V](underlying: JMapScanCursor[K, V]) extends ScanCursor {
     def map: Map[K, V] = underlying.getMap.asScala.toMap
+  }
+
+  final case class ValueScanCursor[V](underlying: JValueScanCursor[V]) extends ScanCursor {
+    def values: List[V] = underlying.getValues.asScala.toList
   }
 
   object RedisCodec {

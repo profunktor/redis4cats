@@ -968,6 +968,18 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def sUnionStore(destination: K, keys: K*): F[Unit] =
     async.flatMap(_.sunionstore(destination, keys: _*).futureLift.void)
 
+  override def sScan(key: K): F[ValueScanCursor[V]] =
+    async.flatMap(_.sscan(key).futureLift.map(ValueScanCursor[V]))
+
+  override def sScan(key: K, cursor: ValueScanCursor[V]): F[ValueScanCursor[V]] =
+    async.flatMap(_.sscan(key, cursor.underlying).futureLift.map(ValueScanCursor[V]))
+
+  override def sScan(key: K, scanArgs: ScanArgs): F[ValueScanCursor[V]] =
+    async.flatMap(_.sscan(key, scanArgs.underlying).futureLift.map(ValueScanCursor[V]))
+
+  override def sScan(key: K, cursor: ValueScanCursor[V], scanArgs: ScanArgs): F[ValueScanCursor[V]] =
+    async.flatMap(_.sscan(key, cursor.underlying, scanArgs.underlying).futureLift.map(ValueScanCursor[V]))
+
   // format: off
   /******************************* Lists API **********************************/
   // format: on
