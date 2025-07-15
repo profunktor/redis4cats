@@ -1259,6 +1259,22 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def zLexCount(key: K, range: ZRange[V]): F[Long] =
     async.flatMap(_.zlexcount(key, JRange.create[V](range.start, range.end)).futureLift.map(x => Long.unbox(x)))
 
+  override def zRandMember(key: K): F[Option[V]] =
+    async.flatMap(_.zrandmember(key).futureLift.map(Option.apply))
+
+  override def zRandMember(key: K, count: Long): F[List[V]] =
+    async.flatMap(_.zrandmember(key, count).futureLift.map(_.asScala.toList))
+
+  override def zRandMemberWithScores(key: K): F[Option[ScoreWithValue[V]]] =
+    async
+      .flatMap(_.zrandmemberWithScores(key).futureLift)
+      .map(Option(_).map(_.asScoreWithValues))
+
+  override def zRandMemberWithScores(key: K, count: Long): F[List[ScoreWithValue[V]]] =
+    async
+      .flatMap(_.zrandmemberWithScores(key, count).futureLift)
+      .map(_.asScala.toList.map(_.asScoreWithValues))
+
   override def zRange(key: K, start: Long, stop: Long): F[List[V]] =
     async.flatMap(_.zrange(key, start, stop).futureLift.map(_.asScala.toList))
 

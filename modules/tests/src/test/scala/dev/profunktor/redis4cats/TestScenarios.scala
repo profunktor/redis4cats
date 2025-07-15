@@ -300,6 +300,26 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2, scoreWithValue3)
       scores <- redis.zMScore(testKey, 1L, 2L, 3L, 4L)
       _ <- IO(assertEquals(scores, List(Some(1.0), Some(3.0), Some(5.0), None)))
+      valuesCandidates = Set(scoreWithValue1, scoreWithValue2, scoreWithValue3)
+      randomValue <- redis.zRandMember(testKey)
+      _ <- IO(assert(randomValue.exists(valuesCandidates.map(_.value).contains)))
+      randomValues <- redis.zRandMember(testKey, 2)
+      _ <- IO(
+             assert(
+               randomValues.size == 2 && randomValues.forall(
+                 valuesCandidates.map(_.value).contains
+               ) && randomValues.distinct.size == 2
+             )
+           )
+      randomValueWithScore <- redis.zRandMemberWithScores(testKey)
+      _ <- IO(assert(randomValueWithScore.exists(valuesCandidates.contains)))
+      randomValuesWithScore <- redis.zRandMemberWithScores(testKey, 2)
+      _ <- IO(
+             assert(
+               randomValuesWithScore.size == 2 && randomValuesWithScore.forall(valuesCandidates.contains) &&
+                 randomValuesWithScore.distinct.size == 2
+             )
+           )
     } yield ()
   }
 
