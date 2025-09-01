@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 ProfunKtor
+ * Copyright 2018-2025 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,11 @@ trait SortedSetGetter[F[_], K, V] {
   def zCard(key: K): F[Long]
   def zCount[T: Numeric](key: K, range: ZRange[T]): F[Long]
   def zLexCount(key: K, range: ZRange[V]): F[Long]
+  def zMScore(key: K, values: V*): F[List[Option[Double]]]
+  def zRandMember(key: K): F[Option[V]]
+  def zRandMember(key: K, count: Long): F[List[V]]
+  def zRandMemberWithScores(key: K): F[Option[ScoreWithValue[V]]]
+  def zRandMemberWithScores(key: K, count: Long): F[List[ScoreWithValue[V]]]
   def zRange(key: K, start: Long, stop: Long): F[List[V]]
   def zRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]]
   def zRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]]

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 ProfunKtor
+ * Copyright 2018-2025 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@ package dev.profunktor.redis4cats
 
 import cats.effect.IO
 import cats.syntax.parallel._
-import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.effect.Log.NoOp._
+import dev.profunktor.redis4cats.effects.XReadOffsets
 import dev.profunktor.redis4cats.streams.RedisStream
 import dev.profunktor.redis4cats.streams.data.XAddMessage
 import fs2.Stream
+
 import scala.concurrent.duration._
 import scala.util.Random
 
@@ -33,26 +34,38 @@ object StreamingDemo extends LoggerIOApp {
   private val streamKey1 = "demo"
   private val streamKey2 = "users"
 
-  def randomMessage: Stream[IO, XAddMessage[String, String]] = Stream.eval {
+  def randomMessage: Stream[IO, XAddMessage[String, String]] = Stream.evals {
     val rndKey   = IO(Random.nextInt(1000).toString)
     val rndValue = IO(Random.nextString(10))
     (rndKey, rndValue).parMapN { case (k, v) =>
-      XAddMessage(streamKey1, Map(k -> v))
+      List(
+        XAddMessage(streamKey1, Map(k -> v)),
+        XAddMessage(streamKey2, Map(k -> v))
+      )
     }
   }
 
-  val stream: Stream[IO, Unit] =
-    (for {
-      client <- Stream.resource(RedisClient[IO].from(redisURI))
-      streaming <- RedisStream.mkStreamingConnection[IO, String, String](client, stringCodec)
-      source   = streaming.read(Set(streamKey1, streamKey2), 1)
-      appender = streaming.append
-    } yield Stream(
-      source.evalMap(IO.println),
-      Stream.awakeEvery[IO](3.seconds) >> randomMessage.through(appender)
-    ).parJoin(2).drain).flatten
+  private val readStream: Stream[IO, Unit] =
+    for {
+      redis <- Stream.resource(Redis[IO].simple(redisURI, stringCodec))
+      streaming = RedisStream[IO, String, String](redis)
+      message <- streaming.read(XReadOffsets.all(streamKey1, streamKey2))
+      _ <- Stream.eval(IO.println(message))
+    } yield ()
+
+  private val writeStream: Stream[IO, Unit] =
+    for {
+      redis <- Stream.resource(Redis[IO].simple(redisURI, stringCodec))
+      streaming = RedisStream[IO, String, String](redis)
+      _ <- Stream.awakeEvery[IO](2.seconds)
+      _ <- randomMessage.through(streaming.append)
+    } yield ()
 
   val program: IO[Unit] =
-    stream.compile.drain
+    readStream
+      .concurrently(writeStream)
+      .interruptAfter(5.seconds)
+      .compile
+      .drain
 
 }

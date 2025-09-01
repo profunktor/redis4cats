@@ -5,7 +5,7 @@ on:
   workflow_dispatch: {}
   push:
     branches:
-      - series/1.x # CE3
+      - series/2.x
     paths:
       - "site/**"
       - "**/README.md"
@@ -21,13 +21,13 @@ jobs:
           fetch-depth: 0 # fetch all branches & tags
 
       - name: "Install Nix ❄️"
-        uses: cachix/install-nix-action@v22
+        uses: cachix/install-nix-action@v31.2.0
 
       - name: "Install Cachix ❄️"
-        uses: cachix/cachix-action@v12
+        uses: cachix/cachix-action@v16
         with:
-          name: redis4cats
-          signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
+          name: profunktor
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
 
       - name: "Building and publishing microsite 🚧"
-        run: nix develop -c sbt 'publishSite'
+        run: nix run .#sbt -- publishSite

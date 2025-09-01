@@ -5,26 +5,28 @@ on:
   push:
     branches:
       - series/1.x # CE3
+      - series/2.x
     tags:
       - "v1.*"
+      - "v2.*"
 
 jobs:
   build:
     name: Publish
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2.3.2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # fetch all branches & tags
 
       - name: "Install Nix ❄️"
-        uses: cachix/install-nix-action@v22
+        uses: cachix/install-nix-action@v31.2.0
 
       - name: "Install Cachix ❄️"
-        uses: cachix/cachix-action@v12
+        uses: cachix/cachix-action@v16
         with:
-          name: redis4cats
-          signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
+          name: profunktor
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
 
       - name: "Publish ${{ github.ref }} 🚀"
         env:
@@ -32,4 +34,4 @@ jobs:
           PGP_SECRET: "${{ secrets.PGP_SECRET }}"
           SONATYPE_PASSWORD: "${{ secrets.SONATYPE_PASSWORD }}"
           SONATYPE_USERNAME: "${{ secrets.SONATYPE_USERNAME }}"
-        run: nix develop -c sbt 'ci-release'
+        run: nix run .#sbt -- ci-release

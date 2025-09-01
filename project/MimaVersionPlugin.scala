@@ -8,6 +8,9 @@ import sbt.Keys.*
 
 import scala.sys.process.*
 import scala.util.Try
+import com.typesafe.tools.mima.core.ReversedMissingMethodProblem
+import com.typesafe.tools.mima.core.ProblemFilters
+import com.typesafe.tools.mima.core.InheritedNewAbstractMethodProblem
 
 // Adapted from https://github.com/djspiewak/sbt-spiewak  and https://github.com/disneystreaming/smithy4s/blob/series/0.18/project/MimaVersionPlugin.scala
 object MimaVersionPlugin extends AutoPlugin {
@@ -46,41 +49,47 @@ object MimaVersionPlugin extends AutoPlugin {
 
   override def buildSettings: Seq[Setting[_]] =
     GitPlugin.autoImport.versionWithGit ++ Seq(
-          git.gitTagToVersionNumber := {
-              case ReleaseTag(version) => Some(version)
-              case _                   => None
-            },
-          git.formattedShaVersion := {
-            val suffix = git.makeUncommittedSignifierSuffix(
-              git.gitUncommittedChanges.value || isSnapshot.value,
-              git.uncommittedSignifier.value
-            )
-
-            val description = Try("git describe --tags --match v*".!!.trim).toOption
-            val optDistance = description collect {
-                  case Description(distance) =>
-                    distance + "-"
-                }
-
-            val distance = optDistance.getOrElse("")
-
-            git.gitHeadCommit.value map { _.substring(0, 7) } map { sha =>
-              autoImport.mimaBaseVersion.value + "-" + distance + sha + suffix
-            }
-          },
-          git.gitUncommittedChanges := Try("git status -s".!!.trim.length > 0)
-                .getOrElse(true),
-          git.gitHeadCommit := Try("git rev-parse HEAD".!!.trim).toOption,
-          git.gitCurrentTags := Try(
-                "git tag --contains HEAD".!!.trim.split("\\s+").toList.filter(_ != "")
-              ).toOption.toList.flatten
+      git.gitTagToVersionNumber := {
+        case ReleaseTag(version) => Some(version)
+        case _                   => None
+      },
+      git.formattedShaVersion := {
+        val suffix = git.makeUncommittedSignifierSuffix(
+          git.gitUncommittedChanges.value || isSnapshot.value,
+          git.uncommittedSignifier.value
         )
+
+        val description = Try("git describe --tags --match v*".!!.trim).toOption
+        val optDistance = description collect { case Description(distance) =>
+          distance + "-"
+        }
+
+        val distance = optDistance.getOrElse("")
+
+        git.gitHeadCommit.value map { _.substring(0, 7) } map { sha =>
+          autoImport.mimaBaseVersion.value + "-" + distance + sha + suffix
+        }
+      },
+      git.gitUncommittedChanges := Try("git status -s".!!.trim.length > 0)
+        .getOrElse(true),
+      git.gitHeadCommit := Try("git rev-parse HEAD".!!.trim).toOption,
+      git.gitCurrentTags := Try(
+        "git tag --contains HEAD".!!.trim.split("\\s+").toList.filter(_ != "")
+      ).toOption.toList.flatten
+    )
 
   override def projectSettings: Seq[Setting[_]] = Seq(
     isMimaEnabled := false,
+    mimaBinaryIssueFilters ++= Seq(
+      // Focusing on backward compat as opposed to forward, for now.
+      ProblemFilters.exclude[ReversedMissingMethodProblem]("dev.profunktor.redis4cats.*"),
+      ProblemFilters.exclude[InheritedNewAbstractMethodProblem](
+        "dev.profunktor.redis4cats.*"
+      ),
+    ),
     mimaReportBinaryIssuesIfRelevant := filterTaskWhereRelevant(
-          mimaReportBinaryIssues
-        ).value,
+      mimaReportBinaryIssues
+    ).value,
     mimaPreviousArtifacts := {
       val current = version.value
       val org     = organization.value
@@ -109,10 +118,9 @@ object MimaVersionPlugin extends AutoPlugin {
           else
             s"^v($major\\.\\d+\\.\\d+)$$".r
 
-        val versions = tags collect {
-              case Pattern(version) =>
-                version
-            }
+        val versions = tags collect { case Pattern(version) =>
+          version
+        }
 
         def lessThanPatch(patch: String): String => Boolean = { tagVersion =>
           val FullTag(_, _, tagPatch) = tagVersion
@@ -124,7 +132,7 @@ object MimaVersionPlugin extends AutoPlugin {
           .filterNot {
             val patchPredicate =
               maybePatch
-              // if mimaBaseVersion has a patch version, exclude this version if the patch is smaller
+                // if mimaBaseVersion has a patch version, exclude this version if the patch is smaller
                 .map(lessThanPatch(_))
                 // else keep the version
                 .getOrElse((_: String) => false)

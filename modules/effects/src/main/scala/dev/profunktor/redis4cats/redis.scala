@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 ProfunKtor
+ * Copyright 2018-2025 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ import io.lettuce.core.{
   GeoRadiusStoreArgs,
   GeoWithin,
   GetExArgs => JGetExArgs,
+  HGetExArgs => JHGetExArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
@@ -530,6 +531,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case d          => FiniteDuration(d, units).some
     }
 
+  private def toEpoch(duration: java.lang.Long): Option[Instant] =
+    duration match {
+      case d if d < 0 => none[Instant]
+      case d          => Instant.ofEpochMilli(d).some
+    }
+
   override def persist(key: K): F[Boolean] =
     async.flatMap(_.persist(key).futureLift.map(x => Boolean.box(x)))
 
@@ -758,11 +765,36 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def hDel(key: K, field: K, fields: K*): F[Long] =
     async.flatMap(_.hdel(key, (field +: fields): _*).futureLift.map(x => Long.box(x)))
 
+  override def hGetDel(key: K, field: K, fields: K*): F[List[Option[V]]] =
+    async.flatMap(
+      _.hgetdel(key, (field +: fields): _*).futureLift.map(
+        _.asScala.toList
+          .map(kv => Option.apply(kv.getValue()))
+      )
+    )
+
   override def hExists(key: K, field: K): F[Boolean] =
     async.flatMap(_.hexists(key, field).futureLift.map(x => Boolean.box(x)))
 
   override def hGet(key: K, field: K): F[Option[V]] =
     async.flatMap(_.hget(key, field).futureLift.map(Option.apply))
+
+  override def hGetEx(key: K, getExArg: HGetExArgs, field: K, fields: K*): F[List[Option[V]]] = {
+    val jgetExArgs = new JHGetExArgs()
+
+    getExArg match {
+      case HGetExArgs.Ex(d)    => jgetExArgs.ex(java.time.Duration.ofMillis(d.toMillis))
+      case HGetExArgs.Px(d)    => jgetExArgs.px(java.time.Duration.ofMillis(d.toMillis))
+      case HGetExArgs.ExAt(at) => jgetExArgs.exAt(at)
+      case HGetExArgs.PxAt(at) => jgetExArgs.pxAt(at)
+      case HGetExArgs.Persist  => jgetExArgs.persist()
+    }
+
+    async.flatMap(
+      _.hgetex(key, jgetExArgs, (field +: fields): _*).futureLift
+        .map(_.asScala.toList.map(kv => Option.apply(kv.getValue())))
+    )
+  }
 
   override def hGetAll(key: K): F[Map[K, V]] =
     async.flatMap(_.hgetall(key).futureLift.map(_.asScala.toMap))
@@ -784,11 +816,91 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def hLen(key: K): F[Long] =
     async.flatMap(_.hlen(key).futureLift.map(x => Long.unbox(x)))
 
+  override def hScan(key: K): F[MapScanCursor[K, V]] =
+    async.flatMap(_.hscan(key).futureLift.map(MapScanCursor[K, V](_)))
+
+  override def hScan(key: K, cursor: MapScanCursor[K, V]): F[MapScanCursor[K, V]] =
+    async.flatMap(_.hscan(key, cursor.underlying).futureLift.map(MapScanCursor[K, V](_)))
+
+  override def hScan(key: K, scanArgs: ScanArgs): F[MapScanCursor[K, V]] =
+    async.flatMap(_.hscan(key, scanArgs.underlying).futureLift.map(MapScanCursor[K, V](_)))
+
+  override def hScan(key: K, cursor: MapScanCursor[K, V], scanArgs: ScanArgs): F[MapScanCursor[K, V]] =
+    async.flatMap(_.hscan(key, cursor.underlying, scanArgs.underlying).futureLift.map(MapScanCursor[K, V](_)))
+
+  override def hScanNoValues(key: K): F[KeyScanCursor[K]] =
+    async.flatMap(_.hscanNovalues(key).futureLift.map(KeyScanCursor[K](_)))
+
+  override def hScanNoValues(key: K, cursor: KeyScanCursor[K]): F[KeyScanCursor[K]] =
+    async.flatMap(_.hscanNovalues(key, cursor.underlying).futureLift.map(KeyScanCursor[K](_)))
+
+  override def hScanNoValues(key: K, scanArgs: ScanArgs): F[KeyScanCursor[K]] =
+    async.flatMap(_.hscanNovalues(key, scanArgs.underlying).futureLift.map(KeyScanCursor[K](_)))
+
+  override def hScanNoValues(key: K, cursor: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]] =
+    async.flatMap(_.hscanNovalues(key, cursor.underlying, scanArgs.underlying).futureLift.map(KeyScanCursor[K](_)))
+
   override def hSet(key: K, field: K, value: V): F[Boolean] =
     async.flatMap(_.hset(key, field, value).futureLift.map(x => Boolean.box(x)))
 
   override def hSet(key: K, fieldValues: Map[K, V]): F[Long] =
     async.flatMap(_.hset(key, fieldValues.asJava).futureLift.map(x => Long.box(x)))
+
+  override def hExpire(key: K, expiresIn: FiniteDuration, fields: K*): F[List[Long]] =
+    async
+      .flatMap { c =>
+        {
+          expiresIn.unit match {
+            case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS =>
+              c.hpexpire(key, expiresIn.toMillis, fields: _*)
+            case _ => c.hexpire(key, expiresIn.toSeconds, fields: _*)
+          }
+        }.futureLift.map(_.asScala.map(x => Long.unbox(x)).toList)
+      }
+
+  override def hExpire(key: K, expire: FiniteDuration, args: ExpireExistenceArg, fields: K*): F[List[Long]] =
+    async
+      .flatMap { c =>
+        {
+          expire.unit match {
+            case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS =>
+              c.hpexpire(key, expire.toMillis, args.asJava, fields: _*)
+            case _ => c.hexpire(key, expire.toSeconds, args.asJava, fields: _*)
+          }
+        }.futureLift.map(_.asScala.map(x => Long.unbox(x)).toList)
+      }
+
+  override def hExpireAt(key: K, expireAt: Instant, fields: K*): F[List[Long]] =
+    async.flatMap(
+      _.hpexpireat(key, expireAt.toEpochMilli(), fields: _*).futureLift.map(_.asScala.map(x => Long.unbox(x)).toList)
+    )
+  override def hExpireAt(key: K, expireAt: Instant, args: ExpireExistenceArg, fields: K*): F[List[Long]] =
+    async.flatMap(
+      _.hpexpireat(key, expireAt.toEpochMilli(), args.asJava, fields: _*).futureLift
+        .map(_.asScala.map(x => Long.unbox(x)).toList)
+    )
+
+  // milli precision command under hood
+  override def hExpireTime(key: K, fields: K*): F[List[Option[Instant]]] =
+    async.flatMap(
+      _.hpexpiretime(key, fields: _*).futureLift.map(_.asScala.map(toEpoch).toList)
+    )
+
+  override def hpExpireTime(key: K, fields: K*): F[List[Option[Instant]]] =
+    async.flatMap(
+      _.hpexpiretime(key, fields: _*).futureLift.map(_.asScala.map(toEpoch).toList)
+    )
+
+  override def hPersist(key: K, fields: K*): F[List[Boolean]] =
+    async.flatMap(_.hpersist(key, fields: _*).futureLift.map(_.asScala.map(l => l == 1).toList))
+
+  override def hpttl(key: K, fields: K*): F[List[Option[FiniteDuration]]] =
+    async.flatMap(
+      _.hpttl(key, fields: _*).futureLift.map(_.asScala.map(toFiniteDuration(TimeUnit.MILLISECONDS)).toList)
+    )
+
+  override def httl(key: K, fields: K*): F[List[Option[FiniteDuration]]] =
+    async.flatMap(_.httl(key, fields: _*).futureLift.map(_.asScala.map(toFiniteDuration(TimeUnit.SECONDS)).toList))
 
   override def hSetNx(key: K, field: K, value: V): F[Boolean] =
     async.flatMap(_.hsetnx(key, field, value).futureLift.map(x => Boolean.box(x)))
@@ -855,6 +967,18 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def sUnionStore(destination: K, keys: K*): F[Unit] =
     async.flatMap(_.sunionstore(destination, keys: _*).futureLift.void)
+
+  override def sScan(key: K): F[ValueScanCursor[V]] =
+    async.flatMap(_.sscan(key).futureLift.map(ValueScanCursor[V]))
+
+  override def sScan(key: K, cursor: ValueScanCursor[V]): F[ValueScanCursor[V]] =
+    async.flatMap(_.sscan(key, cursor.underlying).futureLift.map(ValueScanCursor[V]))
+
+  override def sScan(key: K, scanArgs: ScanArgs): F[ValueScanCursor[V]] =
+    async.flatMap(_.sscan(key, scanArgs.underlying).futureLift.map(ValueScanCursor[V]))
+
+  override def sScan(key: K, cursor: ValueScanCursor[V], scanArgs: ScanArgs): F[ValueScanCursor[V]] =
+    async.flatMap(_.sscan(key, cursor.underlying, scanArgs.underlying).futureLift.map(ValueScanCursor[V]))
 
   // format: off
   /******************************* Lists API **********************************/
@@ -1127,8 +1251,29 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def zCount[T: Numeric](key: K, range: ZRange[T]): F[Long] =
     async.flatMap(_.zcount(key, range.asJavaRange).futureLift.map(x => Long.unbox(x)))
 
+  override def zMScore(key: K, values: V*): F[List[Option[Double]]] =
+    async
+      .flatMap(_.zmscore(key, values: _*).futureLift)
+      .map(_.asScala.toList.map(x => Option(Double.unbox(x))))
+
   override def zLexCount(key: K, range: ZRange[V]): F[Long] =
     async.flatMap(_.zlexcount(key, JRange.create[V](range.start, range.end)).futureLift.map(x => Long.unbox(x)))
+
+  override def zRandMember(key: K): F[Option[V]] =
+    async.flatMap(_.zrandmember(key).futureLift.map(Option.apply))
+
+  override def zRandMember(key: K, count: Long): F[List[V]] =
+    async.flatMap(_.zrandmember(key, count).futureLift.map(_.asScala.toList))
+
+  override def zRandMemberWithScores(key: K): F[Option[ScoreWithValue[V]]] =
+    async
+      .flatMap(_.zrandmemberWithScores(key).futureLift)
+      .map(Option(_).map(_.asScoreWithValues))
+
+  override def zRandMemberWithScores(key: K, count: Long): F[List[ScoreWithValue[V]]] =
+    async
+      .flatMap(_.zrandmemberWithScores(key, count).futureLift)
+      .map(_.asScala.toList.map(_.asScoreWithValues))
 
   override def zRange(key: K, start: Long, stop: Long): F[List[V]] =
     async.flatMap(_.zrange(key, start, stop).futureLift.map(_.asScala.toList))

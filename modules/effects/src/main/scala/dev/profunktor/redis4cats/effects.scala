@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 ProfunKtor
+ * Copyright 2018-2025 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import io.lettuce.core.{
   ScriptOutputType => JScriptOutputType
 }
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 object effects {
@@ -188,6 +189,25 @@ object effects {
     case object Persist extends GetExArg
   }
 
+  sealed trait HGetExArgs
+  object HGetExArgs {
+
+    /** Set Expiration in Millis */
+    case class Px(duration: FiniteDuration) extends HGetExArgs
+
+    /** Set Expiration in Seconds */
+    case class Ex(duration: FiniteDuration) extends HGetExArgs
+
+    /** Set Expiration time in Seconds */
+    case class ExAt(at: Instant) extends HGetExArgs
+
+    /** Set Expiration time in Millis */
+    case class PxAt(at: Instant) extends HGetExArgs
+
+    /** Set KeepTtl */
+    case object Persist extends HGetExArgs
+  }
+
   sealed trait SetArg
   object SetArg {
     sealed trait Existence extends SetArg
@@ -298,13 +318,29 @@ object effects {
   }
 
   object XReadOffsets {
+
+    def all[K](keys: K*): Set[XReadOffsets[K]]                    = All.of(keys: _*).map(identity)
+    def latest[K](keys: K*): Set[XReadOffsets[K]]                 = Latest.of(keys: _*).map(identity)
+    def custom[K](offset: String, keys: K*): Set[XReadOffsets[K]] = Custom.of(offset, keys: _*).map(identity)
+
     case class All[K](key: K) extends XReadOffsets[K] {
       override def offset: String = "0"
     }
+    object All {
+      def of[K](keys: K*): Set[All[K]] = keys.toSet.map(k => new All[K](k))
+    }
+
     case class Latest[K](key: K) extends XReadOffsets[K] {
       override def offset: String = "$"
     }
+    object Latest {
+      def of[K](keys: K*): Set[Latest[K]] = keys.toSet.map(k => new Latest[K](k))
+    }
+
     case class Custom[K](key: K, offset: String) extends XReadOffsets[K]
+    object Custom {
+      def of[K](offset: String, keys: K*): Set[Custom[K]] = keys.toSet.map(k => new Custom[K](k, offset))
+    }
   }
 
   final case class StreamMessage[K, V](id: MessageId, key: K, body: Map[K, V])
@@ -322,5 +358,12 @@ object effects {
     case object Unbounded extends XRangePoint
     final case class Inclusive(id: String) extends XRangePoint
     final case class Exclusive(id: String) extends XRangePoint
+  }
+
+  implicit class TimePrecisionOps(val duration: FiniteDuration) extends AnyVal {
+    def refine: Long = duration.unit match {
+      case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS => duration.toMillis
+      case _                                                                    => duration.toSeconds
+    }
   }
 }

@@ -4,9 +4,9 @@ import Dependencies._
 import microsites.ExtraMdFileConfig
 
 ThisBuild / scalaVersion := "2.13.16"
-ThisBuild / crossScalaVersions := Seq("2.12.20", "2.13.16", "3.3.4")
+ThisBuild / crossScalaVersions := Seq("2.12.20", "2.13.16", "3.3.6")
 ThisBuild / evictionErrorLevel := Level.Info
-ThisBuild / mimaBaseVersion := "1.8.0"
+ThisBuild / mimaBaseVersion := "2.0.0"
 Test / parallelExecution := false
 
 promptTheme := PromptTheme(
@@ -24,10 +24,11 @@ ThisBuild / developers := List(
   Developer(
     "gvolpe",
     "Gabriel Volpe",
-    "volpegabriel@gmail.com",
+    "profunktor@gvolpe.addy.io",
     url("https://gvolpe.com")
   )
 )
+
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
@@ -40,7 +41,7 @@ val commonSettings = Seq(
   organizationName := "Redis client for Cats Effect & Fs2",
   startYear := Some(2018),
   licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
-  headerLicense := Some(HeaderLicense.ALv2("2018-2021", "ProfunKtor")),
+  headerLicense := Some(HeaderLicense.ALv2("2018-2025", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
   libraryDependencies ++= Seq(
     Libraries.catsEffectKernel,
@@ -159,6 +160,7 @@ lazy val `redis4cats-streams` = project
       prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
     }
   )
+  .dependsOn(`redis4cats-effects`)
   .settings(libraryDependencies ++= List(Libraries.fs2Core, Libraries.collectionCompat))
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)

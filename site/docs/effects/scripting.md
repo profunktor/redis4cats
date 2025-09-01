@@ -45,3 +45,46 @@ commandsApi.use { redis => // ScriptCommands[IO, String, String]
 ```
 
 The return type depends on the `ScriptOutputType` you pass and needs to suite the result of the Lua script itself. Possible values are `Integer`, `Value` (for decoding the result using the value codec), `Multi` (for many values) and `Status` (maps to `Unit` in Scala). Scripts can be cached for better performance using `scriptLoad` and then executed via `evalSha`, see the [redis docs]((https://redis.io/commands#scripting)) for details.
+
+### Lua Scripting Extensions
+
+Redis4cats provides useful extensions to the Lua scripting; methods for loading scripts and executing them by their SHA1 are provided.
+
+Suppose you have the following Lua script saved under the project's `resources` folder, `mymodule/src/main/resources/lua/hsetAndExpire.lua)`:
+
+```lua
+local key = KEYS[1]
+local field = ARGV[1]
+local value = ARGV[2]
+local ttl = tonumber(ARGV[3])
+
+local numFieldsSet = redis.call('hset', key, field, value)
+redis.call('expire', key, ttl)
+return numFieldsSet
+```
+
+Then you can load it into Redis and execute via:
+
+```scala mdoc:silent
+import dev.profunktor.redis4cats.extensions.luaScripting._
+
+commandsApi.use { redis => // ScriptCommands[IO, String, String]
+  for {
+    hsetAndExpire <- LuaScript.loadFromResources[IO](redis)("hsetAndExpire.lua")
+    value = "42"
+    ttl = "10"
+    _ <- redis.evalLua(
+      hsetAndExpire,
+      ScriptOutputType.Integer[String],
+      keys = List("mySetKey"),
+      values = List("myField", value, ttl)
+    )
+  } yield ()
+}
+```
+
+The extension api provides the following methods:
+- `LuaScript.make` to create a `LuaScript` instance from a string
+- `LuaScript.loadFromResources` to load a Lua script from resources, path is configurable and defaults to `lua/`
+- `evalLua` method as a shortcut for `evalSha` then falling back to `eval` if the script is not loaded yet
+

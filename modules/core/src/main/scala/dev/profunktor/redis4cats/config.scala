@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 ProfunKtor
+ * Copyright 2018-2025 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,8 @@ object config {
     def withShutdown(shutdown: ShutdownConfig): Redis4CatsConfig
     def withTopologyViewRefreshStrategy(strategy: TopologyViewRefreshStrategy): Redis4CatsConfig
     def withNodeFilter(nodeFilter: RedisClusterNode => Boolean): Redis4CatsConfig
+    def withClientResources(resources: ClientResources): Redis4CatsConfig =
+      withClientResources(Some(resources))
     def withClientResources(resources: Option[ClientResources]): Redis4CatsConfig
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 ProfunKtor
+ * Copyright 2018-2025 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,9 @@
 
 package dev.profunktor.redis4cats.algebra
 
+import dev.profunktor.redis4cats.data.ValueScanCursor
+import dev.profunktor.redis4cats.effects.ScanArgs
+
 trait SetCommands[F[_], K, V] extends SetGetter[F, K, V] with SetSetter[F, K, V] with SetDeletion[F, K, V] {
   def sIsMember(key: K, value: V): F[Boolean]
   def sMisMember(key: K, values: V*): F[List[Boolean]]
@@ -30,6 +33,10 @@ trait SetGetter[F[_], K, V] {
   def sRandMember(key: K, count: Long): F[List[V]]
   def sUnion(keys: K*): F[Set[V]]
   def sUnionStore(destination: K, keys: K*): F[Unit]
+  def sScan(key: K): F[ValueScanCursor[V]]
+  def sScan(key: K, cursor: ValueScanCursor[V]): F[ValueScanCursor[V]]
+  def sScan(key: K, scanArgs: ScanArgs): F[ValueScanCursor[V]]
+  def sScan(key: K, cursor: ValueScanCursor[V], scanArgs: ScanArgs): F[ValueScanCursor[V]]
 }
 
 trait SetSetter[F[_], K, V] {

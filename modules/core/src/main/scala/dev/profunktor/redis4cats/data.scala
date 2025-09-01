@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 ProfunKtor
+ * Copyright 2018-2025 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,15 @@ package dev.profunktor.redis4cats
 import cats.effect.kernel.Sync
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.JavaConversions._
-import io.lettuce.core.{ ReadFrom => JReadFrom }
 import io.lettuce.core.codec.{ ByteArrayCodec, CipherCodec, CompressionCodec, RedisCodec => JRedisCodec, StringCodec }
-import io.lettuce.core.{ KeyScanCursor => JKeyScanCursor, ScanCursor => JScanCursor }
+import io.lettuce.core.{
+  KeyScanCursor => JKeyScanCursor,
+  MapScanCursor => JMapScanCursor,
+  ReadFrom => JReadFrom,
+  ScanCursor => JScanCursor,
+  ValueScanCursor => JValueScanCursor
+}
+
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
@@ -44,6 +50,14 @@ object data {
 
   final case class KeyScanCursor[K](underlying: JKeyScanCursor[K]) extends ScanCursor {
     def keys: List[K] = underlying.getKeys.asScala.toList
+  }
+
+  final case class MapScanCursor[K, V](underlying: JMapScanCursor[K, V]) extends ScanCursor {
+    def map: Map[K, V] = underlying.getMap.asScala.toMap
+  }
+
+  final case class ValueScanCursor[V](underlying: JValueScanCursor[V]) extends ScanCursor {
+    def values: List[V] = underlying.getValues.asScala.toList
   }
 
   object RedisCodec {

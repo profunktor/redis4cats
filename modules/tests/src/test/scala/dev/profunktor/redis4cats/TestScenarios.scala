@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 ProfunKtor
+ * Copyright 2018-2025 ProfunKtor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,6 +60,16 @@ trait TestScenarios { self: FunSuite =>
     val testKey    = "foo"
     val testField  = "bar"
     val testField2 = "baz"
+    val hScanKey   = "hash-test-data"
+    val hScanMap =
+      (Seq("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten") ++
+        Seq("eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"))
+        // Keep this comment to avoid ugly formatting.
+        .iterator.zipWithIndex.map(_.map(String.valueOf(_: Int))).toMap
+    val hScanMapR =
+      // Scala cross-version compatibility trick (cannot use `.filterKeys` in v2.13+ or `.view.filterKeys` in v2.12)
+      hScanMap.iterator.filter(_._1.contains('r')).toMap
+
     for {
       x <- redis.hGet(testKey, testField)
       _ <- IO(assert(x.isEmpty))
@@ -84,6 +94,60 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(v.contains("some value")))
       v <- redis.hGet(testKey, testField2)
       _ <- IO(assert(v.contains("another value")))
+      _ <- redis.hExpire(testKey, 1.seconds, testField, testField2)
+      time <- redis.hExpireTime(testKey, testField, testField2)
+      _ <- IO(assert(time.forall(_.exists(ts => ts.isAfter(Instant.now())))))
+      _ <- IO.sleep(1.seconds)
+      v1 <- redis.hGet(testKey, testField)
+      v2 <- redis.hGet(testKey, testField2)
+      _ <- IO(assert(v1.isEmpty))
+      _ <- IO(assert(v2.isEmpty))
+      _ <- redis.hSet(testKey, Map(testField -> "some value", testField2 -> "another value"))
+      _ <- redis.hExpireAt(testKey, Instant.now().plusSeconds(1), testField, testField2)
+      unixTimeStampList <- redis.hExpireTime(testKey, testField, testField2)
+      _ <- IO(assert(unixTimeStampList.forall(_.exists(x => x.isAfter(Instant.now())))))
+      _ <- IO.sleep(1.seconds)
+      v1 <- redis.hGet(testKey, testField)
+      v2 <- redis.hGet(testKey, testField2)
+      _ <- IO(assert(v1.isEmpty))
+      _ <- IO(assert(v2.isEmpty))
+      _ <- redis.hSet(testKey, Map(testField -> "some value", testField2 -> "another value"))
+      _ <- redis.hExpireAt(testKey, Instant.now().plusSeconds(10), testField, testField2)
+      _ <- redis.hPersist(testKey, testField, testField2)
+      time <- redis.hExpireTime(testKey, testField, testField2)
+      _ <- IO(assert(time.forall(_.isEmpty)))
+      _ <- redis.hSet(testKey, Map(testField -> "Hello", testField2 -> "World"))
+      _ <- redis.hGetDel(testKey, testField, testField2)
+      res <- redis.hGet(testKey, testField)
+      _ <- IO(assert(res.isEmpty))
+      res2 <- redis.hGet(testKey, testField2)
+      _ <- IO(assert(res2.isEmpty))
+      _ <- redis.hSet(testKey, Map(testField -> "Hello", testField2 -> "World"))
+      res <- redis.hGetEx(testKey, HGetExArgs.ExAt(Instant.now().plusSeconds(10)), testField, testField2)
+      _ <- IO(assertEquals(res, List(Some("Hello"), Some("World"))))
+      _ <- redis
+             .httl(testKey, testField, testField2)
+             .flatMap(ttls => IO(assert(ttls.forall(_.exists(_ > 0.seconds)))))
+      // Setup data for hScan* method tests
+      _ <- redis.hSet(hScanKey, hScanMap)
+      // Test hScan without ScanArgs
+      hScanMapRes <- genMapScan(hScanKey)(redis.hScan)(redis.hScan)
+      _ <- IO(assertEquals(hScanMapRes, hScanMap))
+      // Test hScanNoValues without ScanArgs
+      hScanNovRes <- genKeyScan(hScanKey)(redis.hScanNoValues)(redis.hScanNoValues)
+      _ <- IO(assertEquals(hScanNovRes.toSet, hScanMap.keySet))
+      // Test hScan with ScanArgs
+      hScanMapResR <-
+        genMapScan(
+          (hScanKey, ScanArgs("*r*", count = 3L))
+        ) { case (k, a) => redis.hScan(k, a) } { case ((k, a), c) => redis.hScan(k, c, a) }
+      _ <- IO(assertEquals(hScanMapResR, hScanMapR))
+      // Test hScanNoValues with ScanArgs
+      hScanNovResR <-
+        genKeyScan(
+          (hScanKey, ScanArgs("*r*", count = 5L))
+        ) { case (k, a) => redis.hScanNoValues(k, a) } { case ((k, a), c) => redis.hScanNoValues(k, c, a) }
+      _ <- IO(assertEquals(hScanNovResR.toSet, hScanMapR.keySet))
     } yield ()
   }
 
@@ -132,7 +196,13 @@ trait TestScenarios { self: FunSuite =>
   }
 
   def setsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
-    val testKey = "foos"
+    val testKey  = "foos"
+    val sScanKey = "set-test-data"
+    val sScanSeq =
+      Seq("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten") ++
+        Seq("eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen")
+    val sScanSeqR =
+      sScanSeq.filter(_.contains('r'))
     for {
       x <- redis.sMembers(testKey)
       _ <- IO(assert(x.isEmpty))
@@ -157,6 +227,17 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.sAdd(testKey, "value 1", "value 2")
       r <- redis.sMisMember(testKey, "value 1", "random", "value 2")
       _ <- IO(assertEquals(r, List(true, false, true)))
+      // Setup data for sScan* method tests
+      _ <- redis.sAdd(sScanKey, sScanSeq: _*)
+      // Test sScan without ScanArgs
+      sScanSeqRes <- genValScan(sScanKey)(redis.sScan)(redis.sScan)
+      _ <- IO(assertEquals(sScanSeqRes, sScanSeq))
+      // Test sScan with ScanArgs
+      sScanSeqResR <-
+        genValScan(
+          (sScanKey, ScanArgs("*r*", count = 3L))
+        ) { case (k, a) => redis.sScan(k, a) } { case ((k, a), c) => redis.sScan(k, c, a) }
+      _ <- IO(assertEquals(sScanSeqResR, sScanSeqR))
     } yield ()
   }
 
@@ -216,6 +297,29 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(zDiff, List(2L)))
       r <- redis.zRemRangeByScore(testKey, ZRange(1, 3))
       _ <- IO(assertEquals(r, 2L))
+      _ <- redis.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2, scoreWithValue3)
+      scores <- redis.zMScore(testKey, 1L, 2L, 3L, 4L)
+      _ <- IO(assertEquals(scores, List(Some(1.0), Some(3.0), Some(5.0), None)))
+      valuesCandidates = Set(scoreWithValue1, scoreWithValue2, scoreWithValue3)
+      randomValue <- redis.zRandMember(testKey)
+      _ <- IO(assert(randomValue.exists(valuesCandidates.map(_.value).contains)))
+      randomValues <- redis.zRandMember(testKey, 2)
+      _ <- IO(
+             assert(
+               randomValues.size == 2 && randomValues.forall(
+                 valuesCandidates.map(_.value).contains
+               ) && randomValues.distinct.size == 2
+             )
+           )
+      randomValueWithScore <- redis.zRandMemberWithScores(testKey)
+      _ <- IO(assert(randomValueWithScore.exists(valuesCandidates.contains)))
+      randomValuesWithScore <- redis.zRandMemberWithScores(testKey, 2)
+      _ <- IO(
+             assert(
+               randomValuesWithScore.size == 2 && randomValuesWithScore.forall(valuesCandidates.contains) &&
+                 randomValuesWithScore.distinct.size == 2
+             )
+           )
     } yield ()
   }
 
@@ -360,6 +464,55 @@ trait TestScenarios { self: FunSuite =>
   }
 
   type Iterations = Int
+
+  // Generic adapter for all scan commands where KeyScanCursor is used (scan, hScanNoValues).
+  private def genKeyScan[A, K](args: A)(
+      init: A => IO[KeyScanCursor[K]]
+  )(
+      next: (A, KeyScanCursor[K]) => IO[KeyScanCursor[K]]
+  ): IO[List[K]] = {
+    def loop(cur: KeyScanCursor[K]): IO[List[K]] =
+      if (cur.isFinished)
+        IO.pure(cur.keys)
+      else
+        next(args, cur).flatMap {
+          loop(_).map(cur.keys ::: _)
+        }
+
+    init(args).flatMap(loop)
+  }
+  // Generic adapter for all scan commands where MapScanCursor is used (hScan).
+  private def genMapScan[A, K, V](args: A)(
+      init: A => IO[MapScanCursor[K, V]]
+  )(
+      next: (A, MapScanCursor[K, V]) => IO[MapScanCursor[K, V]]
+  ): IO[Map[K, V]] = {
+    def loop(cur: MapScanCursor[K, V]): IO[Map[K, V]] =
+      if (cur.isFinished)
+        IO.pure(cur.map)
+      else
+        next(args, cur).flatMap {
+          loop(_).map(cur.map ++ _)
+        }
+
+    init(args).flatMap(loop)
+  }
+  // Generic adapter for all scan commands where ValueScanCursor is used (sScan).
+  private def genValScan[A, V](args: A)(
+      init: A => IO[ValueScanCursor[V]]
+  )(
+      next: (A, ValueScanCursor[V]) => IO[ValueScanCursor[V]]
+  ): IO[List[V]] = {
+    def loop(cur: ValueScanCursor[V]): IO[List[V]] =
+      if (cur.isFinished)
+        IO.pure(cur.values)
+      else
+        next(args, cur).flatMap {
+          loop(_).map(cur.values ::: _)
+        }
+
+    init(args).flatMap(loop)
+  }
 
   /** Does scan on all cluster nodes until all keys collected since order of scanned nodes can't be guaranteed
     */
@@ -661,6 +814,41 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.scriptFlush
       exists2 <- redis.scriptExists(sha42)
       _ <- IO(assertEquals(exists2, List(false)))
+    } yield ()
+  }
+
+  def scriptingLuaExtensionsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
+    import dev.profunktor.redis4cats.extensions.luaScripting._
+
+    for {
+      // hsetAndExpire.lua is an example script
+      hsetAndExpire <- LuaScript.loadFromResources[IO](redis)("hsetAndExpire.lua")
+
+      _ <- redis.hGet(key = "luaExt", field = "x").map(assertEquals(_, None))
+      _ <- redis
+             .evalLua(
+               hsetAndExpire,
+               ScriptOutputType.Integer[String],
+               keys = List("luaExt"),
+               values = List("x", "42", "10")
+             )
+             .map(assertEquals(_, 1L, "1 field, 'x', should be set for key=luaExt"))
+      _ <- redis.hGet(key = "luaExt", field = "x").map(assertEquals(_, "42".some))
+      firstTtl <- redis.ttl("luaExt")
+      _ <- IO(assert(firstTtl.map(_.toSeconds).exists(ttl => ttl > 0 && ttl <= 10)))
+
+      _ <- redis
+             .evalLua(
+               hsetAndExpire,
+               ScriptOutputType.Integer[String],
+               keys = List("luaExt"),
+               values = List("y", "84", "20")
+             )
+             .map(assertEquals(_, 1L, "1 field, 'y', should be set for key=luaExt"))
+      _ <- redis.hGet(key = "luaExt", field = "y").map(assertEquals(_, "84".some))
+      secondTtl <- redis.ttl("luaExt")
+      _ <- IO(assert(secondTtl.map(_.toSeconds).exists(ttl => ttl > 0 && ttl <= 20)))
+      _ <- IO(assert(firstTtl < secondTtl))
     } yield ()
   }
 
