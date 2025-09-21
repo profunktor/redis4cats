@@ -16,7 +16,7 @@ object Dependencies {
 
     val kindProjector = "0.13.3"
 
-    val munit           = "1.1.1"
+    val munit           = "1.2.0"
     val munitScalacheck = "1.2.0"
 
   }
