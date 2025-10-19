@@ -4,7 +4,7 @@ import Dependencies._
 import microsites.ExtraMdFileConfig
 
 ThisBuild / scalaVersion := "2.13.16"
-ThisBuild / crossScalaVersions := Seq("2.12.20", "2.13.16", "3.3.6")
+ThisBuild / crossScalaVersions := Seq("2.12.20", "2.13.16", "3.3.7")
 ThisBuild / evictionErrorLevel := Level.Info
 ThisBuild / mimaBaseVersion := "2.0.0"
 Test / parallelExecution := false
@@ -28,7 +28,6 @@ ThisBuild / developers := List(
     url("https://gvolpe.com")
   )
 )
-
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
