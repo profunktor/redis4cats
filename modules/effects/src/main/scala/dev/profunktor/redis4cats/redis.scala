@@ -66,6 +66,7 @@ import org.typelevel.keypool.KeyPool
 import java.time.Instant
 import java.util
 import java.util.concurrent.TimeUnit
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 
 object Redis {
@@ -1493,8 +1494,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def flushDb(mode: FlushMode): F[Unit] =
     async.flatMap(_.flushdb(mode.asJava).futureLift.void)
 
+  @nowarn()
   override def keys(key: K): F[List[K]] =
-    async.flatMap(_.keys(key).futureLift.map(_.asScala.toList))
+    async.flatMap(_.keysLegacy(key).futureLift.map(_.asScala.toList))
 
   private def parseInfo(info: String): F[Map[String, String]] =
     FutureLift[F].delay(
