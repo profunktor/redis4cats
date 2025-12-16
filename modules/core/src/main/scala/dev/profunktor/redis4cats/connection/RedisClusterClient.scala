@@ -105,7 +105,6 @@ object RedisClusterClient {
               .topologyRefreshOptions(
                 ClusterTopologyRefreshOptions
                   .builder()
-                  .enableAllAdaptiveRefreshTriggers()
                   // Use implicit duration converters from scala 2.13 once 2.12 support is removed
                   .adaptiveRefreshTriggersTimeout(Duration.ofMillis(timeout.toMillis))
                   .build()
@@ -124,7 +123,6 @@ object RedisClusterClient {
                 ClusterTopologyRefreshOptions
                   .builder()
                   .enablePeriodicRefresh(Duration.ofMillis(interval.toMillis))
-                  .enableAllAdaptiveRefreshTriggers()
                   .adaptiveRefreshTriggersTimeout(Duration.ofMillis(timeout.toMillis))
                   .build()
               )
