@@ -3,8 +3,8 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / scalaVersion := "2.13.16"
-ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.16", "3.3.7")
+ThisBuild / scalaVersion := "2.13.18"
+ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.7")
 ThisBuild / evictionErrorLevel := Level.Info
 ThisBuild / mimaBaseVersion := "2.0.0"
 Test / parallelExecution := false
