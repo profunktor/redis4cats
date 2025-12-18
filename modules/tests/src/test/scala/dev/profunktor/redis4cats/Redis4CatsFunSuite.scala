@@ -151,7 +151,7 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
       } yield FiberWithStatus(fiber, status)
 
     def startAndWaitUntilRunning(timeout: FiniteDuration = 250.millis): IO[FiberIO[A]] =
-      io.startWithStatus.flatTap(_.waitUntilRunning(timeout)).map(_.fiber)
+      startWithStatus.flatTap(_.waitUntilRunning(timeout)).map(_.fiber)
   }
 
   /** Waits at most `waitFor` until the `io` starts returning `expected`, failing the assertion otherwise. */
