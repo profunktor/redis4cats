@@ -1989,6 +1989,48 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def xDel(key: K, ids: String*): F[Long] =
     async.flatMap(_.xdel(key, ids: _*).futureLift.map(Long.box(_)))
+
+  // format: off
+  /******************************* PubSub API ***********************************/
+  // format: on
+  override def publish(channel: RedisChannel[K], message: V): F[Long] =
+    async.flatMap(_.publish(channel.underlying, message).futureLift.map(Long.box(_)))
+
+  override def spublish(channel: RedisChannel[K], message: V): F[Long] =
+    async.flatMap(_.spublish(channel.underlying, message).futureLift.map(Long.box(_)))
+
+  override def numPat: F[Long] =
+    async.flatMap(_.pubsubNumpat().futureLift.map(Long.box(_)))
+
+  override def numSub: F[List[Subscription[K]]] =
+    async.flatMap { c =>
+      c.pubsubNumsub().futureLift.map { jMap =>
+        jMap.asScala.toList.map { case (k, v) => Subscription(RedisChannel(k), Long.box(v)) }
+      }
+    }
+
+  override def pubSubChannels: F[List[RedisChannel[K]]] =
+    async.flatMap(_.pubsubChannels().futureLift.map(_.asScala.toList.map(RedisChannel(_))))
+
+  override def pubSubShardChannels: F[List[RedisChannel[K]]] =
+    async.flatMap(_.pubsubShardChannels().futureLift.map(_.asScala.toList.map(RedisChannel(_))))
+
+  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]] =
+    pubSubSubscriptions(List(channel)).map(_.headOption)
+
+  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    async.flatMap { c =>
+      c.pubsubNumsub(channels.map(_.underlying): _*).futureLift.map { jMap =>
+        jMap.asScala.toList.map { case (k, v) => Subscription(RedisChannel(k), Long.box(v)) }
+      }
+    }
+
+  override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    async.flatMap { c =>
+      c.pubsubShardNumsub(channels.map(_.underlying): _*).futureLift.map { jMap =>
+        jMap.asScala.toList.map { case (k, v) => Subscription(RedisChannel(k), Long.box(v)) }
+      }
+    }
 }
 
 private[redis4cats] trait RedisConversionOps {

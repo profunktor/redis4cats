@@ -22,7 +22,7 @@ import cats.FlatMap
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.FutureLift
-import dev.profunktor.redis4cats.pubsub.data.Subscription
+import dev.profunktor.redis4cats.algebra.PubSubStats
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.pubsub.internals.LivePubSubStats.toSubscription

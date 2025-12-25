@@ -16,7 +16,6 @@
 
 package dev.profunktor.redis4cats.pubsub
 
-import dev.profunktor.redis4cats.data.RedisChannel
 import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands
 
 object data {
@@ -25,12 +24,5 @@ object data {
     def underlying: RedisPubSubAsyncCommands[K, V]
   }
   case class LivePubSubCommands[K, V](underlying: RedisPubSubAsyncCommands[K, V]) extends RedisPubSubCommands[K, V]
-
-  case class Subscription[K](channel: RedisChannel[K], number: Long)
-
-  object Subscription {
-    def empty[K](channel: RedisChannel[K]): Subscription[K] =
-      Subscription[K](channel, 0L)
-  }
 
 }

@@ -16,6 +16,7 @@ The API that operates at the effect level `F[_]` on top of `cats-effect`.
 - **[JSON API](./json.html)**
 - **[Keys API](./keys.html)**
 - **[Lists API](./lists.html)**
+- **[Publish API](./publish.html)**
 - **[Scripting API](./scripting.html)**
 - **[Server API](./server.html)**
 - **[Sets API](./sets.html)**

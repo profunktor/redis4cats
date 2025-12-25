@@ -1050,4 +1050,55 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(len == 0, "stream should have no entries after xdel remaining "))
     } yield ()
 
+  def publishScenario(client: RedisClient): IO[Unit] = {
+    import dev.profunktor.redis4cats.effect.Log.NoOp._
+
+    val channel = RedisChannel("test-publish-channel")
+    val message = "hello world"
+
+    Redis[IO].fromClient(client, RedisCodec.Utf8).use { redis =>
+      for {
+        // Publish to channel with no subscribers should return 0
+        count1 <- redis.publish(channel, message)
+        _ <- IO(assertEquals(count1, 0L, "publish to channel with no subscribers should return 0"))
+
+        // Test pub/sub stats methods
+        channels1 <- redis.pubSubChannels
+        _ <- IO(assert(!channels1.contains(channel), "channel should not be in active channels list"))
+
+        subs1 <- redis.pubSubSubscriptions(channel)
+        _ <- IO(assertEquals(subs1.map(_.number).getOrElse(0L), 0L, "channel should have 0 subscribers"))
+
+        numPat1 <- redis.numPat
+        _ <- IO(assert(numPat1 >= 0L, "number of pattern subscriptions should be non-negative"))
+
+        // Create a subscriber and test again
+        _ <- PubSub
+               .mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8)
+               .use { pubSub =>
+                 for {
+                   // Start subscriber in background
+                   fiber <- pubSub.subscribe(channel).compile.drain.start
+                   _ <- IO.sleep(200.millis) // Wait for subscription to be established
+
+                   // Publish using standard RedisCommands
+                   count2 <- redis.publish(channel, message)
+                   _ <- IO(assertEquals(count2, 1L, "publish to channel with 1 subscriber should return 1"))
+
+                   // Check pub/sub stats with active subscriber
+                   channels2 <- redis.pubSubChannels
+                   _ <- IO(assert(channels2.contains(channel), "channel should be in active channels list"))
+
+                   subs2 <- redis.pubSubSubscriptions(channel)
+                   _ <- IO(assertEquals(subs2.map(_.number).getOrElse(0L), 1L, "channel should have 1 subscriber"))
+
+                   // Clean up
+                   _ <- pubSub.unsubscribe(channel)
+                   _ <- fiber.cancel
+                 } yield ()
+               }
+      } yield ()
+    }
+  }
+
 }
