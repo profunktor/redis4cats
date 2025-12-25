@@ -12,7 +12,7 @@ Purely functional interface for the [Redis Publish commands](https://redis.io/co
 import cats.effect.{IO, Resource}
 import cats.implicits._
 import dev.profunktor.redis4cats.Redis
-import dev.profunktor.redis4cats.algebra.PublishCommands
+import dev.profunktor.redis4cats.algebra.PublishAndStats
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
 import org.typelevel.log4cats.Logger
@@ -20,8 +20,8 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-val commandsApi: Resource[IO, PublishCommands[IO, String, String]] = {
-  Redis[IO].fromClient[String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[PublishCommands[IO, String, String]]
+val commandsApi: Resource[IO, PublishAndStats[IO, String, String]] = {
+  Redis[IO].fromClient[String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[PublishAndStats[IO, String, String]]
 }
 ```
 
