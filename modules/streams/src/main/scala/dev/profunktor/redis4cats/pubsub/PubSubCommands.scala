@@ -37,12 +37,6 @@ trait PublishCommands[F[_], S[_], K, V] extends algebra.Publish[F, K, V] with al
     */
   def publish(channel: RedisChannel[K]): S[V] => S[Long]
 
-  /** Non-streaming publish: publishes a single message (inherited from [[dev.profunktor.redis4cats.algebra.Publish]]).
-    *
-    * @return
-    *   The number of clients that received the message.
-    */
-  // def publish(channel: RedisChannel[K], value: V): F[Long] // inherited from algebra.Publish
 }
 
 /** @tparam F
