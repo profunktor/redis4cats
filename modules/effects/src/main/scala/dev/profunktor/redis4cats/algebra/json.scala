@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats.algebra
 
 import dev.profunktor.redis4cats.algebra.json.JsonGetArgs
-import io.lettuce.core.json.arguments.{ JsonGetArgs => LJsonGetArgs, JsonRangeArgs }
+import io.lettuce.core.json.arguments.{ JsonGetArgs => LJsonGetArgs, JsonRangeArgs, JsonSetArgs }
 import io.lettuce.core.json.{ JsonPath, JsonType, JsonValue }
 
 trait JsonCommands[F[_], K, V]
@@ -48,34 +48,67 @@ trait JsonCommands[F[_], K, V]
 trait JsonGet[F[_], K, V] {
   def jGet(key: K, path: JsonPath, paths: JsonPath*): F[List[JsonValue]]
   def jGet(key: K, arg: JsonGetArgs, path: JsonPath, paths: JsonPath*): F[List[JsonValue]]
+  def jGetRaw(key: K, path: JsonPath, paths: JsonPath*): F[List[String]]
+  def jGetRaw(key: K, arg: JsonGetArgs, path: JsonPath, paths: JsonPath*): F[List[String]]
   def jMget(path: JsonPath, key: K, keys: K*): F[List[JsonValue]]
+  def jMgetRaw(path: JsonPath, key: K, keys: K*): F[List[String]]
   def jObjKeys(key: K, path: JsonPath): F[List[V]]
   def jObjLen(key: K, path: JsonPath): F[Long]
 }
 trait JsonSet[F[_], K, V] {
   def jMset(key: K, values: (JsonPath, JsonValue)*): F[Boolean]
   def jSet(key: K, path: JsonPath, value: JsonValue): F[Boolean]
+  def jSet(key: K, path: JsonPath, value: JsonValue, args: JsonSetArgs): F[Boolean]
+  def jSetStr(key: K, path: JsonPath, jsonString: String): F[Boolean]
+  def jSetStr(key: K, path: JsonPath, jsonString: String, args: JsonSetArgs): F[Boolean]
   def jSetnx(key: K, path: JsonPath, value: JsonValue): F[Boolean]
   def jSetxx(key: K, path: JsonPath, value: JsonValue): F[Boolean]
-  def jsonMerge(key: K, jsonPath: JsonPath, value: JsonValue): F[String];
+  def jsonMerge(key: K, jsonPath: JsonPath, value: JsonValue): F[String]
+  def jsonMergeStr(key: K, jsonPath: JsonPath, jsonString: String): F[String]
 }
 trait JsonNumber[F[_], K, V] {
   def numIncrBy(key: K, path: JsonPath, number: Number): F[List[Number]]
 }
 trait JsonString[F[_], K, V] {
   def strAppend(key: K, path: JsonPath, value: JsonValue): F[List[Long]]
-  def strLen(key: K, path: JsonPath): F[Long]
+  def strAppendStr(key: K, path: JsonPath, jsonString: String): F[List[Long]]
+  def strAppend(key: K, value: JsonValue): F[List[Long]]
+  def strAppendStr(key: K, jsonString: String): F[List[Long]]
+  def jsonStrLen(key: K, path: JsonPath): F[List[Long]]
+  def jsonStrLen(key: K): F[List[Long]]
 }
 trait JsonBoolean[F[_], K, V] {
   def toggle(key: K, path: JsonPath): F[List[Long]]
 }
 
 trait JsonArray[F[_], K, V] {
-  def arrAppend(key: K, path: JsonPath, value: JsonValue*): F[Unit]
+  // JsonValue variants
+  def arrAppend(key: K, path: JsonPath, value: JsonValue*): F[List[Long]]
+  def arrAppend(key: K, value: JsonValue*): F[List[Long]]
+  // String variants (for convenience)
+  def arrAppendStr(key: K, path: JsonPath, jsonStrings: String*): F[List[Long]]
+  def arrAppendStr(key: K, jsonStrings: String*): F[List[Long]]
+
   def arrIndex(key: K, path: JsonPath, value: JsonValue, range: JsonRangeArgs): F[List[Long]]
+  def arrIndex(key: K, path: JsonPath, value: JsonValue): F[List[Long]]
+  def arrIndexStr(key: K, path: JsonPath, jsonString: String): F[List[Long]]
+  def arrIndexStr(key: K, path: JsonPath, jsonString: String, range: JsonRangeArgs): F[List[Long]]
+
+  // JsonValue variants
   def arrInsert(key: K, path: JsonPath, index: Int, value: JsonValue*): F[List[Long]]
+  // String variants (for convenience)
+  def arrInsertStr(key: K, path: JsonPath, index: Int, jsonStrings: String*): F[List[Long]]
+
   def arrLen(key: K, path: JsonPath): F[List[Long]]
+  def arrLen(key: K): F[List[Long]]
+
   def arrPop(key: K, path: JsonPath, index: Int): F[List[JsonValue]]
+  def arrPop(key: K, path: JsonPath): F[List[JsonValue]]
+  def arrPop(key: K): F[List[JsonValue]]
+  def arrPopRaw(key: K, path: JsonPath, index: Int): F[List[String]]
+  def arrPopRaw(key: K, path: JsonPath): F[List[String]]
+  def arrPopRaw(key: K): F[List[String]]
+
   def arrTrim(key: K, path: JsonPath, range: JsonRangeArgs): F[List[Long]]
 
 }

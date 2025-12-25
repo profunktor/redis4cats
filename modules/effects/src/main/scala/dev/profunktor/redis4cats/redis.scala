@@ -793,9 +793,25 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.jsonGet(key, options, all: _*).futureLift.map(_.asScala.toList))
   }
 
+  override def jGetRaw(key: K, path: JsonPath, paths: JsonPath*): F[List[String]] = {
+    val all = path +: paths
+    async.flatMap(_.jsonGetRaw(key, all: _*).futureLift.map(_.asScala.toList))
+  }
+
+  override def jGetRaw(key: K, arg: json.JsonGetArgs, path: JsonPath, paths: JsonPath*): F[List[String]] = {
+    val all     = path +: paths
+    val options = arg.underlying
+    async.flatMap(_.jsonGetRaw(key, options, all: _*).futureLift.map(_.asScala.toList))
+  }
+
   override def jMget(path: JsonPath, key: K, keys: K*): F[List[JsonValue]] = {
     val all = key +: keys
     async.flatMap(_.jsonMGet(path, all: _*).futureLift.map(_.asScala.toList))
+  }
+
+  override def jMgetRaw(path: JsonPath, key: K, keys: K*): F[List[String]] = {
+    val all = key +: keys
+    async.flatMap(_.jsonMGetRaw(path, all: _*).futureLift.map(_.asScala.toList))
   }
 
   override def jObjKeys(key: K, path: JsonPath): F[List[V]] =
@@ -806,20 +822,61 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   /** * JSON ARRAY **
     */
-  override def arrAppend(key: K, path: JsonPath, value: JsonValue*): F[Unit] =
-    async.flatMap(_.jsonArrappend(key, path, value: _*).futureLift.void)
+  override def arrAppend(key: K, path: JsonPath, value: JsonValue*): F[List[Long]] =
+    async.flatMap(_.jsonArrappend(key, path, value: _*).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
+
+  override def arrAppend(key: K, value: JsonValue*): F[List[Long]] =
+    async.flatMap(_.jsonArrappend(key, value: _*).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
+
+  override def arrAppendStr(key: K, path: JsonPath, jsonStrings: String*): F[List[Long]] =
+    async.flatMap(_.jsonArrappend(key, path, jsonStrings: _*).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
+
+  override def arrAppendStr(key: K, jsonStrings: String*): F[List[Long]] =
+    async.flatMap(_.jsonArrappend(key, jsonStrings: _*).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
 
   override def arrIndex(key: K, path: JsonPath, value: JsonValue, range: JsonRangeArgs): F[List[Long]] =
     async.flatMap(_.jsonArrindex(key, path, value, range).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
 
+  override def arrIndex(key: K, path: JsonPath, value: JsonValue): F[List[Long]] =
+    async.flatMap(_.jsonArrindex(key, path, value).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
+
+  override def arrIndexStr(key: K, path: JsonPath, jsonString: String): F[List[Long]] =
+    async.flatMap(_.jsonArrindex(key, path, jsonString).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
+
+  override def arrIndexStr(key: K, path: JsonPath, jsonString: String, range: JsonRangeArgs): F[List[Long]] =
+    async.flatMap(_.jsonArrindex(key, path, jsonString, range).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
+
   override def arrInsert(key: K, path: JsonPath, index: Int, value: JsonValue*): F[List[Long]] =
     async.flatMap(_.jsonArrinsert(key, path, index, value: _*).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
+
+  override def arrInsertStr(key: K, path: JsonPath, index: Int, jsonStrings: String*): F[List[Long]] =
+    async.flatMap(
+      _.jsonArrinsert(key, path, index, jsonStrings: _*).futureLift.map(_.asScala.toList.map(Long.unbox(_)))
+    )
 
   override def arrLen(key: K, path: JsonPath): F[List[Long]] =
     async.flatMap(_.jsonArrlen(key, path).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
 
+  override def arrLen(key: K): F[List[Long]] =
+    async.flatMap(_.jsonArrlen(key).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
+
   override def arrPop(key: K, path: JsonPath, index: Int): F[List[JsonValue]] =
     async.flatMap(_.jsonArrpop(key, path, index).futureLift.map(_.asScala.toList))
+
+  override def arrPop(key: K, path: JsonPath): F[List[JsonValue]] =
+    async.flatMap(_.jsonArrpop(key, path).futureLift.map(_.asScala.toList))
+
+  override def arrPop(key: K): F[List[JsonValue]] =
+    async.flatMap(_.jsonArrpop(key).futureLift.map(_.asScala.toList))
+
+  override def arrPopRaw(key: K, path: JsonPath, index: Int): F[List[String]] =
+    async.flatMap(_.jsonArrpopRaw(key, path, index).futureLift.map(_.asScala.toList))
+
+  override def arrPopRaw(key: K, path: JsonPath): F[List[String]] =
+    async.flatMap(_.jsonArrpopRaw(key, path).futureLift.map(_.asScala.toList))
+
+  override def arrPopRaw(key: K): F[List[String]] =
+    async.flatMap(_.jsonArrpopRaw(key).futureLift.map(_.asScala.toList))
 
   override def arrTrim(key: K, path: JsonPath, range: JsonRangeArgs): F[List[Long]] =
     async.flatMap(_.jsonArrtrim(key, path, range).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
@@ -842,6 +899,15 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def jSet(key: K, path: JsonPath, value: JsonValue): F[Boolean] =
     async.flatMap(_.jsonSet(key, path, value).futureLift).map(Option(_).exists(_.isSuccess))
 
+  override def jSet(key: K, path: JsonPath, value: JsonValue, args: JsonSetArgs): F[Boolean] =
+    async.flatMap(_.jsonSet(key, path, value, args).futureLift.map(_.isSuccess))
+
+  override def jSetStr(key: K, path: JsonPath, jsonString: String): F[Boolean] =
+    async.flatMap(_.jsonSet(key, path, jsonString).futureLift.map(_.isSuccess))
+
+  override def jSetStr(key: K, path: JsonPath, jsonString: String, args: JsonSetArgs): F[Boolean] =
+    async.flatMap(_.jsonSet(key, path, jsonString, args).futureLift.map(_.isSuccess))
+
   override def jSetnx(key: K, path: JsonPath, value: JsonValue): F[Boolean] =
     async.flatMap(_.jsonSet(key, path, value, new JsonSetArgs().nx()).futureLift.map(_.isSuccess))
 
@@ -851,11 +917,26 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def jsonMerge(key: K, jsonPath: JsonPath, value: JsonValue): F[String] =
     async.flatMap(_.jsonMerge(key, jsonPath, value).futureLift)
 
+  override def jsonMergeStr(key: K, jsonPath: JsonPath, jsonString: String): F[String] =
+    async.flatMap(_.jsonMerge(key, jsonPath, jsonString).futureLift)
+
   override def strAppend(key: K, path: JsonPath, value: JsonValue): F[List[Long]] =
     async.flatMap(_.jsonStrappend(key, path, value).futureLift.map(_.asScala.toList.map(x => Long.unbox(x))))
 
-  override def strLen(key: K, path: JsonPath): F[Long] =
-    async.flatMap(_.jsonStrlen(key, path).futureLift.map(x => Long.unbox(x)))
+  override def strAppend(key: K, value: JsonValue): F[List[Long]] =
+    async.flatMap(_.jsonStrappend(key, value).futureLift.map(_.asScala.toList.map(x => Long.unbox(x))))
+
+  override def strAppendStr(key: K, path: JsonPath, jsonString: String): F[List[Long]] =
+    async.flatMap(_.jsonStrappend(key, path, jsonString).futureLift.map(_.asScala.toList.map(x => Long.unbox(x))))
+
+  override def strAppendStr(key: K, jsonString: String): F[List[Long]] =
+    async.flatMap(_.jsonStrappend(key, jsonString).futureLift.map(_.asScala.toList.map(x => Long.unbox(x))))
+
+  override def jsonStrLen(key: K, path: JsonPath): F[List[Long]] =
+    async.flatMap(_.jsonStrlen(key, path).futureLift.map(_.asScala.toList.map(x => Long.unbox(x))))
+
+  override def jsonStrLen(key: K): F[List[Long]] =
+    async.flatMap(_.jsonStrlen(key).futureLift.map(_.asScala.toList.map(x => Long.unbox(x))))
 
   // format: off
   /******************************* Hashes API **********************************/
