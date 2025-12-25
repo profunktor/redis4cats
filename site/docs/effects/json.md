@@ -26,7 +26,6 @@ import dev.profunktor.redis4cats.log4cats._
 import dev.profunktor.redis4cats.data._
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
-import io.lettuce.core.json.{JsonPath, JsonValue}
 
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
@@ -41,7 +40,7 @@ Once you have acquired a connection you can start using it:
 
 ```scala mdoc:silent
 import cats.effect.IO
-import io.lettuce.core.json.{JsonPath, JsonValue}
+import io.lettuce.core.json.JsonPath
 
 val userKey = "user:1"
 val rootPath = JsonPath.of("$")
@@ -50,25 +49,21 @@ def putStrLn(str: String): IO[Unit] = IO(println(str))
 
 commandsApi.use { redis => // JsonCommands[IO, String, String]
   for {
-    // Set a JSON document
-    _ <- redis.jSet(userKey, rootPath, JsonValue.of("""{"name":"Alice","age":30}"""))
+    // Set a JSON document using raw JSON string
+    _ <- redis.jSetStr(userKey, rootPath, """{"name":"Alice","age":30}""")
 
-    // Get the JSON document
-    result <- redis.jGet(userKey, rootPath)
-    _ <- putStrLn(s"User: $result")
-
-    // Get raw JSON string
+    // Get raw JSON string (most practical for typical use cases)
     raw <- redis.jGetRaw(userKey, rootPath)
-    _ <- putStrLn(s"Raw JSON: $raw")
+    _ <- putStrLn(s"User: $raw")
 
-    // Set using raw JSON string (convenient for simple cases)
+    // Set a nested field
     _ <- redis.jSetStr(userKey, JsonPath.of("$.city"), """"New York"""")
 
     // Increment a numeric field
     _ <- redis.numIncrBy(userKey, JsonPath.of("$.age"), 1)
 
     // Append to a JSON string
-    _ <- redis.strAppend(userKey, JsonPath.of("$.name"), JsonValue.of(""" Smith"""))
+    _ <- redis.strAppendStr(userKey, JsonPath.of("$.name"), """ Smith""")
 
     // Delete a field
     _ <- redis.jDel(userKey, JsonPath.of("$.city"))
@@ -93,13 +88,10 @@ commandsApi.use { redis =>
     // Initialize with an empty array
     _ <- redis.jSetStr(listKey, rootPath, """{"items":[]}""")
 
-    // Append items to array (using JsonValue)
-    _ <- redis.arrAppend(listKey, itemsPath,
-      JsonValue.of(""""milk""""),
-      JsonValue.of(""""bread"""")
-    )
+    // Append items to array using raw JSON strings
+    _ <- redis.arrAppendStr(listKey, itemsPath, """"milk"""", """"bread"""")
 
-    // Append using raw JSON strings (more convenient)
+    // Append more items
     _ <- redis.arrAppendStr(listKey, itemsPath, """"eggs"""", """"butter"""")
 
     // Get array length
@@ -113,8 +105,8 @@ commandsApi.use { redis =>
     // Insert at specific position
     _ <- redis.arrInsertStr(listKey, itemsPath, 0, """"coffee"""")
 
-    // Pop an item from the array
-    popped <- redis.arrPop(listKey, itemsPath)
+    // Pop an item from the array (returns raw JSON strings)
+    popped <- redis.arrPopRaw(listKey, itemsPath)
     _ <- putStrLn(s"Popped: $popped")
   } yield ()
 }
@@ -124,18 +116,10 @@ commandsApi.use { redis =>
 
 The RedisJSON API provides two variants for many methods:
 
-- **JsonValue variants**: Work with Lettuce's `JsonValue` wrapper (e.g., `jSet`, `arrAppend`)
-- **String variants** (with `Str` suffix): Accept raw JSON strings for convenience (e.g., `jSetStr`, `arrAppendStr`)
+- **JsonValue variants**: Work with Lettuce's `JsonValue` type (e.g., `jSet`, `jGet`, `arrAppend`)
+- **String variants** (with `Str` or `Raw` suffix): Accept/return raw JSON strings (e.g., `jSetStr`, `jGetRaw`, `arrAppendStr`)
 
-String variants are more convenient when working with literal JSON or serialized data:
-
-```scala mdoc:silent
-// Using JsonValue
-redis.jSet(userKey, rootPath, JsonValue.of("""{"name":"Bob"}"""))
-
-// Using raw string (more convenient)
-redis.jSetStr(userKey, rootPath, """{"name":"Bob"}""")
-```
+For most use cases, the string-based methods are more practical as they work directly with JSON text without requiring JSON parsing on the client side.
 
 ## Conditional Operations
 
@@ -147,14 +131,14 @@ import io.lettuce.core.json.arguments.JsonSetArgs
 commandsApi.use { redis =>
   for {
     // Set only if path does not exist (NX)
-    _ <- redis.jSet(userKey, JsonPath.of("$.email"),
-      JsonValue.of(""""alice@example.com""""),
+    _ <- redis.jSetStr(userKey, JsonPath.of("$.email"),
+      """"alice@example.com"""",
       JsonSetArgs.Builder.nx()
     )
 
     // Set only if path exists (XX)
-    _ <- redis.jSet(userKey, JsonPath.of("$.email"),
-      JsonValue.of(""""newemail@example.com""""),
+    _ <- redis.jSetStr(userKey, JsonPath.of("$.email"),
+      """"newemail@example.com"""",
       JsonSetArgs.Builder.xx()
     )
   } yield ()
