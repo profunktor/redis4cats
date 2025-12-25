@@ -21,7 +21,7 @@ package internals
 import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
+import dev.profunktor.redis4cats.effect.{ FutureLift, LivePubSubStats, Log }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
@@ -33,7 +33,7 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
 
   private[redis4cats] val subCommands: SubscribeCommands[F, Stream[F, *], K, V] =
     new Subscriber[F, K, V](state, subConnection)
-  private[redis4cats] val pubSubStats: algebra.PubSubStats[F, K] = new LivePubSubStats(pubConnection)
+  private[redis4cats] val pubSubStats: algebra.PubSubStats[F, K] = new LivePubSubStats(pubConnection.async())
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
     subCommands.subscribe(channel)

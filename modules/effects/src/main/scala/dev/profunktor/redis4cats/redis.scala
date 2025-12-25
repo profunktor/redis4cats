@@ -462,6 +462,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   def sync: F[RedisClusterSyncCommands[K, V]] =
     if (cluster) conn.clusterSync else conn.sync.widen
 
+  private[redis4cats] val pubSubStatsImpl: F[algebra.PubSubStats[F, K]] =
+    conn.async.map(c => new dev.profunktor.redis4cats.effect.LivePubSubStats[F, K, V](c))
+
   // format: off
   /******************************* Keys API *************************************/
   // format: on
@@ -1999,38 +2002,22 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def spublish(channel: RedisChannel[K], message: V): F[Long] =
     async.flatMap(_.spublish(channel.underlying, message).futureLift.map(Long.box(_)))
 
-  override def numPat: F[Long] =
-    async.flatMap(_.pubsubNumpat().futureLift.map(Long.box(_)))
+  override def numPat: F[Long] = pubSubStatsImpl.flatMap(_.numPat)
 
-  override def numSub: F[List[Subscription[K]]] =
-    async.flatMap { c =>
-      c.pubsubNumsub().futureLift.map { jMap =>
-        jMap.asScala.toList.map { case (k, v) => Subscription(RedisChannel(k), Long.box(v)) }
-      }
-    }
+  override def numSub: F[List[Subscription[K]]] = pubSubStatsImpl.flatMap(_.numSub)
 
-  override def pubSubChannels: F[List[RedisChannel[K]]] =
-    async.flatMap(_.pubsubChannels().futureLift.map(_.asScala.toList.map(RedisChannel(_))))
+  override def pubSubChannels: F[List[RedisChannel[K]]] = pubSubStatsImpl.flatMap(_.pubSubChannels)
 
-  override def pubSubShardChannels: F[List[RedisChannel[K]]] =
-    async.flatMap(_.pubsubShardChannels().futureLift.map(_.asScala.toList.map(RedisChannel(_))))
+  override def pubSubShardChannels: F[List[RedisChannel[K]]] = pubSubStatsImpl.flatMap(_.pubSubShardChannels)
 
   override def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]] =
-    pubSubSubscriptions(List(channel)).map(_.headOption)
+    pubSubStatsImpl.flatMap(_.pubSubSubscriptions(channel))
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
-    async.flatMap { c =>
-      c.pubsubNumsub(channels.map(_.underlying): _*).futureLift.map { jMap =>
-        jMap.asScala.toList.map { case (k, v) => Subscription(RedisChannel(k), Long.box(v)) }
-      }
-    }
+    pubSubStatsImpl.flatMap(_.pubSubSubscriptions(channels))
 
   override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
-    async.flatMap { c =>
-      c.pubsubShardNumsub(channels.map(_.underlying): _*).futureLift.map { jMap =>
-        jMap.asScala.toList.map { case (k, v) => Subscription(RedisChannel(k), Long.box(v)) }
-      }
-    }
+    pubSubStatsImpl.flatMap(_.shardNumSub(channels))
 }
 
 private[redis4cats] trait RedisConversionOps {
