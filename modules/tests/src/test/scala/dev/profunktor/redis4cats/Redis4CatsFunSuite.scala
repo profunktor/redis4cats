@@ -18,18 +18,19 @@ package dev.profunktor.redis4cats
 
 import cats.effect._
 import cats.syntax.all._
-import dev.profunktor.redis4cats.Redis4CatsFunSuite.{ Fs2PubSub, Fs2Streaming }
+import dev.profunktor.redis4cats.Redis4CatsFunSuite.Fs2Streaming
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.{ RedisChannel, RedisCodec }
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.pubsub.data.Subscription
-import dev.profunktor.redis4cats.pubsub.{ PubSub, PubSubCommands }
 import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
 import io.lettuce.core.{ ClientOptions, TimeoutOptions }
 import munit.{ Compare, Location }
 
 import scala.concurrent.duration.{ Duration, DurationInt, FiniteDuration }
 import scala.concurrent.{ Await, Future }
+import dev.profunktor.redis4cats.pubsub.{ PubSub, PubSubCommands }
+import dev.profunktor.redis4cats.Redis4CatsFunSuite.Fs2PubSub
 
 abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
 
