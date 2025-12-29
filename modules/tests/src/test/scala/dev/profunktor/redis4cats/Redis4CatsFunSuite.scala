@@ -23,7 +23,6 @@ import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.{ RedisChannel, RedisCodec }
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.data.Subscription
-import dev.profunktor.redis4cats.pubsub.{ PubSub, PubSubCommands }
 import dev.profunktor.redis4cats.streams.{ RedisStream, Streaming }
 import io.lettuce.core.{ ClientOptions, TimeoutOptions }
 import munit.{ Compare, Location }
