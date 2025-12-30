@@ -3,10 +3,10 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-sbt.ThisBuild / scalaVersion := "2.13.18"
-sbt.ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.7")
-sbt.ThisBuild / evictionErrorLevel := Level.Info
-sbt.ThisBuild / mimaBaseVersion := "2.0.0"
+ThisBuild / scalaVersion := "2.13.18"
+ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.7")
+ThisBuild / evictionErrorLevel := Level.Info
+ThisBuild / mimaBaseVersion := "2.0.0"
 Test / parallelExecution := false
 
 promptTheme := PromptTheme(
@@ -17,10 +17,10 @@ promptTheme := PromptTheme(
 )
 
 // publishing
-sbt.ThisBuild / organization := "dev.profunktor"
-sbt.ThisBuild / homepage := Some(url("https://redis4cats.profunktor.dev/"))
-sbt.ThisBuild / licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
-sbt.ThisBuild / developers := List(
+ThisBuild / organization := "dev.profunktor"
+ThisBuild / homepage := Some(url("https://redis4cats.profunktor.dev/"))
+ThisBuild / licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
+ThisBuild / developers := List(
   librarymanagement.Developer(
     "gvolpe",
     "Gabriel Volpe",
@@ -74,7 +74,10 @@ val commonSettings = Seq(
   autoAPIMappings := true,
   scalafmtOnCompile := true,
   scmInfo := Some(
-    librarymanagement.ScmInfo(url("https://github.com/profunktor/redis4cats"), "scm:git:git@github.com:profunktor/redis4cats.git")
+    librarymanagement.ScmInfo(
+      url("https://github.com/profunktor/redis4cats"),
+      "scm:git:git@github.com:profunktor/redis4cats.git"
+    )
   )
 )
 
