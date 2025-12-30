@@ -6,7 +6,7 @@ import microsites.ExtraMdFileConfig
 ThisBuild / scalaVersion := "2.13.18"
 ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.7")
 ThisBuild / evictionErrorLevel := Level.Info
-ThisBuild / mimaBaseVersion := "2.0.0"
+ThisBuild / mimaBaseVersion := "3.0.0"
 Test / parallelExecution := false
 
 promptTheme := PromptTheme(
@@ -47,15 +47,15 @@ val commonSettings = Seq(
       artifact.revision == "2.0.2"
     }
   },
-    libraryDependencies ++= Seq (
-      Libraries.catsEffectKernel,
-      Libraries.redisClient,
-      Libraries.catsEffect      % Test,
-      Libraries.catsLaws        % Test,
-      Libraries.catsTestKit     % Test,
-      Libraries.munitCore       % Test,
-      Libraries.munitScalacheck % Test
-    ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
+  libraryDependencies ++= Seq(
+    Libraries.catsEffectKernel,
+    Libraries.redisClient,
+    Libraries.catsEffect      % Test,
+    Libraries.catsLaws        % Test,
+    Libraries.catsTestKit     % Test,
+    Libraries.munitCore       % Test,
+    Libraries.munitScalacheck % Test
+  ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
     getVersion(scalaVersion.value) == Some(2, 12),
