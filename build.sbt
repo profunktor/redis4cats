@@ -8,6 +8,11 @@ ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.7")
 ThisBuild / evictionErrorLevel := Level.Info
 ThisBuild / mimaBaseVersion := "2.0.0"
 Test / parallelExecution := false
+ThisBuild / mimaPreviousArtifacts ~= { prev =>
+  prev.filterNot { artifact =>
+    artifact.revision == "2.0.2"
+  }
+}
 
 promptTheme := PromptTheme(
   List(
@@ -112,10 +117,7 @@ lazy val `redis4cats-core` = project
       pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(Libraries.reflect(scalaVersion.value)))
   )
   .settings(
-    isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.7.1")))
-    }
+    isMimaEnabled := true
   )
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -124,10 +126,7 @@ lazy val `redis4cats-log4cats` = project
   .in(file("modules/log4cats"))
   .settings(commonSettings: _*)
   .settings(
-    isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.4.3")))
-    }
+    isMimaEnabled := true
   )
   .settings(libraryDependencies += Libraries.log4CatsCore)
   .settings(Test / parallelExecution := false)
@@ -141,10 +140,7 @@ lazy val `redis4cats-effects` = project
     libraryDependencies += Libraries.keyPool
   )
   .settings(
-    isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
-    }
+    isMimaEnabled := true
   )
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -154,10 +150,7 @@ lazy val `redis4cats-streams` = project
   .in(file("modules/streams"))
   .settings(commonSettings: _*)
   .settings(
-    isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
-    }
+    isMimaEnabled := true
   )
   .dependsOn(`redis4cats-effects`)
   .settings(libraryDependencies += Libraries.fs2Core)
