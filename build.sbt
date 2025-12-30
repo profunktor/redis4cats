@@ -121,7 +121,7 @@ lazy val `redis4cats-core` = project
     }
   )
   .settings(Test / parallelExecution := false)
-  .enablePlugins(sbtheader.AutomateHeaderPlugin)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `redis4cats-log4cats` = project
   .in(file("modules/log4cats"))
@@ -150,7 +150,7 @@ lazy val `redis4cats-effects` = project
     }
   )
   .settings(Test / parallelExecution := false)
-  .enablePlugins(sbtheader.AutomateHeaderPlugin)
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
 
 lazy val `redis4cats-streams` = project
@@ -165,7 +165,7 @@ lazy val `redis4cats-streams` = project
   .dependsOn(`redis4cats-effects`)
   .settings(libraryDependencies += Libraries.fs2Core)
   .settings(Test / parallelExecution := false)
-  .enablePlugins(sbtheader.AutomateHeaderPlugin)
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
 
 lazy val examples = project
