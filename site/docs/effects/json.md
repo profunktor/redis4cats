@@ -52,10 +52,6 @@ commandsApi.use { redis => // JsonCommands[IO, String, String]
     // Set a JSON document using raw JSON string
     _ <- redis.jSetStr(userKey, rootPath, """{"name":"Alice","age":30}""")
 
-    // Get raw JSON string (most practical for typical use cases)
-    raw <- redis.jGetRaw(userKey, rootPath)
-    _ <- putStrLn(s"User: $raw")
-
     // Set a nested field
     _ <- redis.jSetStr(userKey, JsonPath.of("$.city"), """"New York"""")
 
@@ -105,8 +101,8 @@ commandsApi.use { redis =>
     // Insert at specific position
     _ <- redis.arrInsertStr(listKey, itemsPath, 0, """"coffee"""")
 
-    // Pop an item from the array (returns raw JSON strings)
-    popped <- redis.arrPopRaw(listKey, itemsPath)
+    // Pop an item from the array 
+    popped <- redis.arrPop(listKey, itemsPath)
     _ <- putStrLn(s"Popped: $popped")
   } yield ()
 }
@@ -149,8 +145,8 @@ commandsApi.use { redis =>
 
 The `JsonCommands` trait provides the following command groups:
 
-- **JSON Document Operations**: `jSet`, `jSetStr`, `jGet`, `jGetRaw`, `jMget`, `jDel`, `jClear`, `jsonType`
-- **JSON Array Operations**: `arrAppend`, `arrAppendStr`, `arrInsert`, `arrInsertStr`, `arrLen`, `arrPop`, `arrPopRaw`, `arrIndex`, `arrIndexStr`, `arrTrim`
+- **JSON Document Operations**: `jSet`, `jSetStr`, `jGet`,  `jMget`, `jDel`, `jClear`, `jsonType`
+- **JSON Array Operations**: `arrAppend`, `arrAppendStr`, `arrInsert`, `arrInsertStr`, `arrLen`, `arrPop`, `arrIndex`, `arrIndexStr`, `arrTrim`
 - **JSON Number Operations**: `numIncrBy`
 - **JSON String Operations**: `strAppend`, `strAppendStr`, `jsonStrLen`
 - **JSON Boolean Operations**: `toggle`
