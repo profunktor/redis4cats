@@ -116,9 +116,7 @@ lazy val `redis4cats-core` = project
   )
   .settings(
     isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.7.1")))
-    }
+    mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }
   )
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -128,9 +126,7 @@ lazy val `redis4cats-log4cats` = project
   .settings(commonSettings: _*)
   .settings(
     isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.4.3")))
-    }
+    mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }
   )
   .settings(libraryDependencies += Libraries.log4CatsCore)
   .settings(Test / parallelExecution := false)
@@ -145,9 +141,7 @@ lazy val `redis4cats-effects` = project
   )
   .settings(
     isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
-    }
+    mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }
   )
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -158,9 +152,7 @@ lazy val `redis4cats-streams` = project
   .settings(commonSettings: _*)
   .settings(
     isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
-    }
+    mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }
   )
   .dependsOn(`redis4cats-effects`)
   .settings(libraryDependencies += Libraries.fs2Core)
