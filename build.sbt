@@ -21,7 +21,7 @@ ThisBuild / organization := "dev.profunktor"
 ThisBuild / homepage := Some(url("https://redis4cats.profunktor.dev/"))
 ThisBuild / licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
 ThisBuild / developers := List(
-  librarymanagement.Developer(
+  Developer(
     "gvolpe",
     "Gabriel Volpe",
     "profunktor@gvolpe.addy.io",
@@ -74,7 +74,7 @@ val commonSettings = Seq(
   autoAPIMappings := true,
   scalafmtOnCompile := true,
   scmInfo := Some(
-    librarymanagement.ScmInfo(
+    ScmInfo(
       url("https://github.com/profunktor/redis4cats"),
       "scm:git:git@github.com:profunktor/redis4cats.git"
     )
