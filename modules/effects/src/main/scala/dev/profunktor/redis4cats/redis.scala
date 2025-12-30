@@ -68,7 +68,6 @@ import org.typelevel.keypool.KeyPool
 import java.time.Instant
 import java.util
 import java.util.concurrent.TimeUnit
-import scala.annotation.nowarn
 import scala.concurrent.duration._
 
 object Redis {
@@ -793,25 +792,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.jsonGet(key, options, all: _*).futureLift.map(_.asScala.toList))
   }
 
-  override def jGetRaw(key: K, path: JsonPath, paths: JsonPath*): F[List[String]] = {
-    val all = path +: paths
-    async.flatMap(_.jsonGetRaw(key, all: _*).futureLift.map(_.asScala.toList))
-  }
-
-  override def jGetRaw(key: K, arg: json.JsonGetArgs, path: JsonPath, paths: JsonPath*): F[List[String]] = {
-    val all     = path +: paths
-    val options = arg.underlying
-    async.flatMap(_.jsonGetRaw(key, options, all: _*).futureLift.map(_.asScala.toList))
-  }
-
   override def jMget(path: JsonPath, key: K, keys: K*): F[List[JsonValue]] = {
     val all = key +: keys
     async.flatMap(_.jsonMGet(path, all: _*).futureLift.map(_.asScala.toList))
-  }
-
-  override def jMgetRaw(path: JsonPath, key: K, keys: K*): F[List[String]] = {
-    val all = key +: keys
-    async.flatMap(_.jsonMGetRaw(path, all: _*).futureLift.map(_.asScala.toList))
   }
 
   override def jObjKeys(key: K, path: JsonPath): F[List[V]] =
@@ -868,15 +851,6 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def arrPop(key: K): F[List[JsonValue]] =
     async.flatMap(_.jsonArrpop(key).futureLift.map(_.asScala.toList))
-
-  override def arrPopRaw(key: K, path: JsonPath, index: Int): F[List[String]] =
-    async.flatMap(_.jsonArrpopRaw(key, path, index).futureLift.map(_.asScala.toList))
-
-  override def arrPopRaw(key: K, path: JsonPath): F[List[String]] =
-    async.flatMap(_.jsonArrpopRaw(key, path).futureLift.map(_.asScala.toList))
-
-  override def arrPopRaw(key: K): F[List[String]] =
-    async.flatMap(_.jsonArrpopRaw(key).futureLift.map(_.asScala.toList))
 
   override def arrTrim(key: K, path: JsonPath, range: JsonRangeArgs): F[List[Long]] =
     async.flatMap(_.jsonArrtrim(key, path, range).futureLift.map(_.asScala.toList.map(Long.unbox(_))))
@@ -1672,9 +1646,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def flushDb(mode: FlushMode): F[Unit] =
     async.flatMap(_.flushdb(mode.asJava).futureLift.void)
 
-  @nowarn()
   override def keys(key: K): F[List[K]] =
-    async.flatMap(_.keysLegacy(key).futureLift.map(_.asScala.toList))
+    async.flatMap(_.keys(key).futureLift.map(_.asScala.toList))
 
   private def parseInfo(info: String): F[Map[String, String]] =
     FutureLift[F].delay(

@@ -42,15 +42,20 @@ val commonSettings = Seq(
   licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2025", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
-  libraryDependencies ++= Seq(
-    Libraries.catsEffectKernel,
-    Libraries.redisClient,
-    Libraries.catsEffect      % Test,
-    Libraries.catsLaws        % Test,
-    Libraries.catsTestKit     % Test,
-    Libraries.munitCore       % Test,
-    Libraries.munitScalacheck % Test
-  ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
+  mimaPreviousArtifacts ~= { prev =>
+    prev.filterNot { artifact =>
+      artifact.revision == "2.0.2"
+    }
+  },
+    libraryDependencies ++= Seq (
+      Libraries.catsEffectKernel,
+      Libraries.redisClient,
+      Libraries.catsEffect      % Test,
+      Libraries.catsLaws        % Test,
+      Libraries.catsTestKit     % Test,
+      Libraries.munitCore       % Test,
+      Libraries.munitScalacheck % Test
+    ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
     getVersion(scalaVersion.value) == Some(2, 12),
@@ -112,10 +117,7 @@ lazy val `redis4cats-core` = project
       pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(Libraries.reflect(scalaVersion.value)))
   )
   .settings(
-    isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.7.1")))
-    }
+    isMimaEnabled := true
   )
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -124,10 +126,7 @@ lazy val `redis4cats-log4cats` = project
   .in(file("modules/log4cats"))
   .settings(commonSettings: _*)
   .settings(
-    isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.4.3")))
-    }
+    isMimaEnabled := true
   )
   .settings(libraryDependencies += Libraries.log4CatsCore)
   .settings(Test / parallelExecution := false)
@@ -141,10 +140,7 @@ lazy val `redis4cats-effects` = project
     libraryDependencies += Libraries.keyPool
   )
   .settings(
-    isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
-    }
+    isMimaEnabled := true
   )
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -154,10 +150,7 @@ lazy val `redis4cats-streams` = project
   .in(file("modules/streams"))
   .settings(commonSettings: _*)
   .settings(
-    isMimaEnabled := true,
-    mimaPreviousArtifacts ~= { prev =>
-      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
-    }
+    isMimaEnabled := true
   )
   .dependsOn(`redis4cats-effects`)
   .settings(libraryDependencies += Libraries.fs2Core)

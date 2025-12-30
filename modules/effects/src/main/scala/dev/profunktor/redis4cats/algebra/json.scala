@@ -48,10 +48,7 @@ trait JsonCommands[F[_], K, V]
 trait JsonGet[F[_], K, V] {
   def jGet(key: K, path: JsonPath, paths: JsonPath*): F[List[JsonValue]]
   def jGet(key: K, arg: JsonGetArgs, path: JsonPath, paths: JsonPath*): F[List[JsonValue]]
-  def jGetRaw(key: K, path: JsonPath, paths: JsonPath*): F[List[String]]
-  def jGetRaw(key: K, arg: JsonGetArgs, path: JsonPath, paths: JsonPath*): F[List[String]]
   def jMget(path: JsonPath, key: K, keys: K*): F[List[JsonValue]]
-  def jMgetRaw(path: JsonPath, key: K, keys: K*): F[List[String]]
   def jObjKeys(key: K, path: JsonPath): F[List[V]]
   def jObjLen(key: K, path: JsonPath): F[Long]
 }
@@ -105,9 +102,6 @@ trait JsonArray[F[_], K, V] {
   def arrPop(key: K, path: JsonPath, index: Int): F[List[JsonValue]]
   def arrPop(key: K, path: JsonPath): F[List[JsonValue]]
   def arrPop(key: K): F[List[JsonValue]]
-  def arrPopRaw(key: K, path: JsonPath, index: Int): F[List[String]]
-  def arrPopRaw(key: K, path: JsonPath): F[List[String]]
-  def arrPopRaw(key: K): F[List[String]]
 
   def arrTrim(key: K, path: JsonPath, range: JsonRangeArgs): F[List[Long]]
 
