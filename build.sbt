@@ -3,10 +3,10 @@ import com.scalapenos.sbt.prompt._
 import Dependencies._
 import microsites.ExtraMdFileConfig
 
-ThisBuild / scalaVersion := "2.13.18"
-ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.7")
-ThisBuild / evictionErrorLevel := Level.Info
-ThisBuild / mimaBaseVersion := "2.0.0"
+sbt.ThisBuild / scalaVersion := "2.13.18"
+sbt.ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.7")
+sbt.ThisBuild / evictionErrorLevel := Level.Info
+sbt.ThisBuild / mimaBaseVersion := "2.0.0"
 Test / parallelExecution := false
 
 promptTheme := PromptTheme(
@@ -17,11 +17,11 @@ promptTheme := PromptTheme(
 )
 
 // publishing
-ThisBuild / organization := "dev.profunktor"
-ThisBuild / homepage := Some(url("https://redis4cats.profunktor.dev/"))
-ThisBuild / licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
-ThisBuild / developers := List(
-  Developer(
+sbt.ThisBuild / organization := "dev.profunktor"
+sbt.ThisBuild / homepage := Some(url("https://redis4cats.profunktor.dev/"))
+sbt.ThisBuild / licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
+sbt.ThisBuild / developers := List(
+  librarymanagement.Developer(
     "gvolpe",
     "Gabriel Volpe",
     "profunktor@gvolpe.addy.io",
@@ -42,20 +42,15 @@ val commonSettings = Seq(
   licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2025", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
-  mimaPreviousArtifacts ~= { prev =>
-    prev.filterNot { artifact =>
-      artifact.revision == "2.0.2"
-    }
-  },
-    libraryDependencies ++= Seq (
-      Libraries.catsEffectKernel,
-      Libraries.redisClient,
-      Libraries.catsEffect      % Test,
-      Libraries.catsLaws        % Test,
-      Libraries.catsTestKit     % Test,
-      Libraries.munitCore       % Test,
-      Libraries.munitScalacheck % Test
-    ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
+  libraryDependencies ++= Seq(
+    Libraries.catsEffectKernel,
+    Libraries.redisClient,
+    Libraries.catsEffect      % Test,
+    Libraries.catsLaws        % Test,
+    Libraries.catsTestKit     % Test,
+    Libraries.munitCore       % Test,
+    Libraries.munitScalacheck % Test
+  ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
     getVersion(scalaVersion.value) == Some(2, 12),
@@ -79,7 +74,7 @@ val commonSettings = Seq(
   autoAPIMappings := true,
   scalafmtOnCompile := true,
   scmInfo := Some(
-    ScmInfo(url("https://github.com/profunktor/redis4cats"), "scm:git:git@github.com:profunktor/redis4cats.git")
+    librarymanagement.ScmInfo(url("https://github.com/profunktor/redis4cats"), "scm:git:git@github.com:profunktor/redis4cats.git")
   )
 )
 
@@ -117,16 +112,22 @@ lazy val `redis4cats-core` = project
       pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(Libraries.reflect(scalaVersion.value)))
   )
   .settings(
-    isMimaEnabled := true
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { prev =>
+      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.7.1")))
+    }
   )
   .settings(Test / parallelExecution := false)
-  .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(sbtheader.AutomateHeaderPlugin)
 
 lazy val `redis4cats-log4cats` = project
   .in(file("modules/log4cats"))
   .settings(commonSettings: _*)
   .settings(
-    isMimaEnabled := true
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { prev =>
+      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.4.3")))
+    }
   )
   .settings(libraryDependencies += Libraries.log4CatsCore)
   .settings(Test / parallelExecution := false)
@@ -140,22 +141,28 @@ lazy val `redis4cats-effects` = project
     libraryDependencies += Libraries.keyPool
   )
   .settings(
-    isMimaEnabled := true
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { prev =>
+      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
+    }
   )
   .settings(Test / parallelExecution := false)
-  .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(sbtheader.AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
 
 lazy val `redis4cats-streams` = project
   .in(file("modules/streams"))
   .settings(commonSettings: _*)
   .settings(
-    isMimaEnabled := true
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { prev =>
+      prev.filter(artifact => VersionNumber(artifact.revision).matchesSemVer(SemanticSelector(">=1.8.0")))
+    }
   )
   .dependsOn(`redis4cats-effects`)
   .settings(libraryDependencies += Libraries.fs2Core)
   .settings(Test / parallelExecution := false)
-  .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(sbtheader.AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)
 
 lazy val examples = project
