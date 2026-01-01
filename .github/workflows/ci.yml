@@ -6,6 +6,7 @@ on:
     branches:
       - series/1.x # CE3
       - series/2.x
+      - series/3.x
     paths:
       - "modules/**"
 
