@@ -14,41 +14,38 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats
-package pubsub
-package internals
+package dev.profunktor.redis4cats.effect
 
-import cats.FlatMap
+import cats.Functor
 import cats.syntax.all._
+import dev.profunktor.redis4cats.algebra.PubSubStats
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.effect.FutureLift
-import dev.profunktor.redis4cats.pubsub.data.Subscription
-import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 import dev.profunktor.redis4cats.JavaConversions._
-import dev.profunktor.redis4cats.pubsub.internals.LivePubSubStats.toSubscription
+import io.lettuce.core.api.async.RedisAsyncCommands
 
 import java.{ util => ju }
 import java.lang.{ Long => JLong }
-private[pubsub] class LivePubSubStats[F[_]: FlatMap: FutureLift, K, V](
-    pubConnection: StatefulRedisPubSubConnection[K, V]
+
+private[redis4cats] class LivePubSubStats[F[_]: Functor: FutureLift, K, V](
+    async: RedisAsyncCommands[K, V]
 ) extends PubSubStats[F, K] {
 
   override def numPat: F[Long] =
-    FutureLift[F].lift(pubConnection.async().pubsubNumpat()).map(Long.unbox)
+    FutureLift[F].lift(async.pubsubNumpat()).map(Long.unbox)
 
   override def numSub: F[List[Subscription[K]]] =
     FutureLift[F]
-      .lift(pubConnection.async().pubsubNumsub())
-      .map(toSubscription[K])
+      .lift(async.pubsubNumsub())
+      .map(LivePubSubStats.toSubscription[K])
 
   override def pubSubChannels: F[List[RedisChannel[K]]] =
     FutureLift[F]
-      .lift(pubConnection.async().pubsubChannels())
+      .lift(async.pubsubChannels())
       .map(_.asScala.toList.map(RedisChannel[K]))
 
   override def pubSubShardChannels: F[List[RedisChannel[K]]] =
     FutureLift[F]
-      .lift(pubConnection.async().pubsubShardChannels())
+      .lift(async.pubsubShardChannels())
       .map(_.asScala.toList.map(RedisChannel[K]))
 
   override def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]] =
@@ -56,15 +53,16 @@ private[pubsub] class LivePubSubStats[F[_]: FlatMap: FutureLift, K, V](
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     FutureLift[F]
-      .lift(pubConnection.async().pubsubNumsub(channels.map(_.underlying): _*))
-      .map(toSubscription[K])
+      .lift(async.pubsubNumsub(channels.map(_.underlying): _*))
+      .map(LivePubSubStats.toSubscription[K])
 
   override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     FutureLift[F]
-      .lift(pubConnection.async().pubsubShardNumsub(channels.map(_.underlying): _*))
-      .map(toSubscription[K])
+      .lift(async.pubsubShardNumsub(channels.map(_.underlying): _*))
+      .map(LivePubSubStats.toSubscription[K])
 }
-object LivePubSubStats {
+
+private[redis4cats] object LivePubSubStats {
   private def toSubscription[K](map: ju.Map[K, JLong]): List[Subscription[K]] =
     map.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), Long.unbox(n)) }
 }

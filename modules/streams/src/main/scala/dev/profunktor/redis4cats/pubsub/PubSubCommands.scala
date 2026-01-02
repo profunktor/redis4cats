@@ -18,17 +18,6 @@ package dev.profunktor.redis4cats
 package pubsub
 
 import dev.profunktor.redis4cats.data._
-import dev.profunktor.redis4cats.pubsub.data.Subscription
-
-trait PubSubStats[F[_], K] {
-  def numPat: F[Long]
-  def numSub: F[List[Subscription[K]]]
-  def pubSubChannels: F[List[RedisChannel[K]]]
-  def pubSubShardChannels: F[List[RedisChannel[K]]]
-  def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]]
-  def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
-  def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
-}
 
 /** @tparam F
   *   the effect type
@@ -39,13 +28,15 @@ trait PubSubStats[F[_], K] {
   * @tparam V
   *   the value type
   */
-trait PublishCommands[F[_], S[_], K, V] extends PubSubStats[F, K] {
+trait PublishCommands[F[_], S[_], K, V] extends algebra.Publish[F, K, V] with algebra.PubSubStats[F, K] {
 
-  /** @return The number of clients that received the message. */
+  /** Streaming publish: transforms a stream of values into a stream of subscriber counts.
+    *
+    * @return
+    *   The number of clients that received each message.
+    */
   def publish(channel: RedisChannel[K]): S[V] => S[Long]
 
-  /** @return The number of clients that received the message. */
-  def publish(channel: RedisChannel[K], value: V): F[Long]
 }
 
 /** @tparam F

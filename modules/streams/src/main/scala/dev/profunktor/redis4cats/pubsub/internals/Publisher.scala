@@ -20,9 +20,8 @@ package internals
 
 import cats.FlatMap
 import cats.syntax.functor._
-import dev.profunktor.redis4cats.data.RedisChannel
-import dev.profunktor.redis4cats.effect.FutureLift
-import dev.profunktor.redis4cats.pubsub.data.Subscription
+import dev.profunktor.redis4cats.data._
+import dev.profunktor.redis4cats.effect.{ FutureLift, LivePubSubStats }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
@@ -30,13 +29,16 @@ private[pubsub] class Publisher[F[_]: FlatMap: FutureLift, K, V](
     pubConnection: StatefulRedisPubSubConnection[K, V]
 ) extends PublishCommands[F, Stream[F, *], K, V] {
 
-  private[redis4cats] val pubSubStats: PubSubStats[F, K] = new LivePubSubStats(pubConnection)
+  private[redis4cats] val pubSubStats: algebra.PubSubStats[F, K] = new LivePubSubStats(pubConnection.async())
 
   override def publish(channel: RedisChannel[K]): Stream[F, V] => Stream[F, Long] =
     _.evalMap(publish(channel, _))
 
   override def publish(channel: RedisChannel[K], message: V): F[Long] =
     FutureLift[F].lift(pubConnection.async().publish(channel.underlying, message)).map(l => l: Long)
+
+  override def spublish(channel: RedisChannel[K], message: V): F[Long] =
+    FutureLift[F].lift(pubConnection.async().spublish(channel.underlying, message)).map(l => l: Long)
 
   override def pubSubChannels: F[List[RedisChannel[K]]] =
     pubSubStats.pubSubChannels

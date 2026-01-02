@@ -462,6 +462,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   def sync: F[RedisClusterSyncCommands[K, V]] =
     if (cluster) conn.clusterSync else conn.sync.widen
 
+  private[redis4cats] val pubSubStatsImpl: F[algebra.PubSubStats[F, K]] =
+    conn.async.map(c => new dev.profunktor.redis4cats.effect.LivePubSubStats[F, K, V](c))
+
   // format: off
   /******************************* Keys API *************************************/
   // format: on
@@ -1989,6 +1992,32 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def xDel(key: K, ids: String*): F[Long] =
     async.flatMap(_.xdel(key, ids: _*).futureLift.map(Long.box(_)))
+
+  // format: off
+  /******************************* PubSub API ***********************************/
+  // format: on
+  override def publish(channel: RedisChannel[K], message: V): F[Long] =
+    async.flatMap(_.publish(channel.underlying, message).futureLift.map(Long.box(_)))
+
+  override def spublish(channel: RedisChannel[K], message: V): F[Long] =
+    async.flatMap(_.spublish(channel.underlying, message).futureLift.map(Long.box(_)))
+
+  override def numPat: F[Long] = pubSubStatsImpl.flatMap(_.numPat)
+
+  override def numSub: F[List[Subscription[K]]] = pubSubStatsImpl.flatMap(_.numSub)
+
+  override def pubSubChannels: F[List[RedisChannel[K]]] = pubSubStatsImpl.flatMap(_.pubSubChannels)
+
+  override def pubSubShardChannels: F[List[RedisChannel[K]]] = pubSubStatsImpl.flatMap(_.pubSubShardChannels)
+
+  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]] =
+    pubSubStatsImpl.flatMap(_.pubSubSubscriptions(channel))
+
+  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    pubSubStatsImpl.flatMap(_.pubSubSubscriptions(channels))
+
+  override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    pubSubStatsImpl.flatMap(_.shardNumSub(channels))
 }
 
 private[redis4cats] trait RedisConversionOps {
