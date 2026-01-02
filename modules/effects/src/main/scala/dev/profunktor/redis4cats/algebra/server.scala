@@ -23,7 +23,7 @@ import java.time.Instant
 trait ServerCommands[F[_], K] extends Flush[F, K] with Diagnostic[F]
 
 trait Flush[F[_], K] {
-  def keys(key: K): F[List[K]]
+  def keys(key: String): F[List[K]]
   def flushAll: F[Unit]
   def flushAll(mode: FlushMode): F[Unit]
   def flushDb: F[Unit]
