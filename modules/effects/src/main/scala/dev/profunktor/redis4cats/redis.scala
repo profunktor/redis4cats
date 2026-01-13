@@ -2003,8 +2003,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def numPat: F[Long] =
     async.flatMap(_.pubsubNumpat.futureLift.map(Long.box(_)))
 
-  override def numSub: F[List[Subscription[K]]] =
-    async.flatMap(_.pubsubNumsub().futureLift.map(toSubscription[K]))
+  override def numSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
+    async.flatMap(_.pubsubNumsub(channels.toList.map(_.underlying): _*).futureLift.map(toSubscription[K]))
 
   override def pubSubChannels: F[List[RedisChannel[K]]] =
     async.flatMap(_.pubsubChannels().futureLift.map(_.asScala.toList.map(RedisChannel.apply)))

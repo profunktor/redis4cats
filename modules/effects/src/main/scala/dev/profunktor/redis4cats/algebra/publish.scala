@@ -16,6 +16,7 @@
 
 package dev.profunktor.redis4cats.algebra
 
+import cats.data.NonEmptyList
 import dev.profunktor.redis4cats.data.{ RedisChannel, Subscription }
 
 trait Publish[F[_], K, V] {
@@ -52,12 +53,14 @@ trait PubSubStats[F[_], K] {
     */
   def numPat: F[Long]
 
-  /** Returns the number of subscribers for all channels.
+  /** Returns the number of subscribers for the specified channels.
     *
+    * @param channels
+    *   non-empty list of channels to query
     * @return
-    *   list of subscriptions for all channels
+    *   list of subscriptions for the specified channels
     */
-  def numSub: F[List[Subscription[K]]]
+  def numSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
 
   /** Lists all currently active channels.
     *
