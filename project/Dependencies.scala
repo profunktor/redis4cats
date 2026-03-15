@@ -8,7 +8,7 @@ object Dependencies {
     val circe      = "0.14.15"
     val fs2        = "3.12.2"
     val log4cats   = "2.7.1"
-    val keyPool    = "0.4.10"
+    val keyPool    = "0.4.11"
 
     val lettuce = "6.8.2.RELEASE"
 
