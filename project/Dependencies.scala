@@ -4,19 +4,19 @@ object Dependencies {
 
   object V {
     val cats       = "2.13.0"
-    val catsEffect = "3.6.3"
+    val catsEffect = "3.7.0"
     val circe      = "0.14.15"
-    val fs2        = "3.12.2"
+    val fs2        = "3.13.0"
     val log4cats   = "2.8.0"
-    val keyPool    = "0.4.10"
+    val keyPool    = "0.4.11"
 
     val lettuce = "6.8.2.RELEASE"
 
-    val logback = "1.5.28"
+    val logback = "1.5.32"
 
     val kindProjector = "0.13.4"
 
-    val munit           = "1.2.3"
+    val munit           = "1.2.4"
     val munitScalacheck = "1.2.0"
 
   }

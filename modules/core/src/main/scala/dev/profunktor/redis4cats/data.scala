@@ -30,6 +30,8 @@ import io.lettuce.core.{
 
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
+import java.{ util => ju }
+import java.lang.{ Long => JLong }
 
 object data {
 
@@ -37,6 +39,22 @@ object data {
   final case class RedisPattern[K](underlying: K) extends AnyVal
   final case class RedisPatternEvent[K, V](pattern: K, channel: K, data: V)
 
+  /** Represents a pub/sub subscription with its subscriber count.
+    *
+    * @param channel
+    *   the subscribed channel
+    * @param number
+    *   the number of subscribers to this channel
+    */
+  final case class Subscription[K](channel: RedisChannel[K], number: Long)
+
+  object Subscription {
+    def empty[K](channel: RedisChannel[K]): Subscription[K] =
+      Subscription[K](channel, 0L)
+
+    def toSubscription[K](map: ju.Map[K, JLong]): List[Subscription[K]] =
+      map.asScala.toList.map { case (k, n) => Subscription(RedisChannel[K](k), Long.unbox(n)) }
+  }
   final case class RedisCodec[K, V](underlying: JRedisCodec[K, V]) extends AnyVal
   final case class NodeId(value: String) extends AnyVal
 
