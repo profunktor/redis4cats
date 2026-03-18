@@ -1050,4 +1050,141 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(len == 0, "stream should have no entries after xdel remaining "))
     } yield ()
 
+  def publishAndStatsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
+    import dev.profunktor.redis4cats.effect.Log.NoOp._
+
+    val channel1     = RedisChannel("test-publish-channel-1")
+    val channel2     = RedisChannel("test-publish-channel-2")
+    val shardChannel = RedisChannel("test-shard-channel")
+
+    RedisClient[IO].from("redis://localhost").use { client =>
+      PubSub.mkPubSubConnection[IO, String, String](client, RedisCodec.Utf8).use { pubSub =>
+        for {
+          // Test publish when no subscribers exist
+          count0 <- redis.publish(channel1, "hello")
+          _ <- IO(assertEquals(count0, 0L, "publish should return 0 when no subscribers exist"))
+
+          // Start subscription to channel1
+          subscription1 <- pubSub.subscribe(channel1).compile.drain.start
+          _ <- IO.sleep(200.millis) // Wait for subscription to be established
+
+          // Test publish with one subscriber
+          count1 <- redis.publish(channel1, "message1")
+          _ <- IO(assertEquals(count1, 1L, "publish should return 1 when one subscriber exists"))
+
+          // Test numPat - should be 0 since we have no pattern subscriptions
+          patCount <- redis.numPat
+          _ <- IO(assertEquals(patCount, 0L, "numPat should be 0 when no pattern subscriptions exist"))
+
+          // Test pubSubChannels - list all active channels
+          channels <- redis.pubSubChannels
+          _ <- IO(assert(channels.contains(channel1), "pubSubChannels should include channel1"))
+
+          // Test pubSubSubscriptions for a single channel
+          sub1Option <- redis.pubSubSubscriptions(channel1)
+          _ <- IO(assert(sub1Option.exists(_.number == 1L), "channel1 should have 1 subscriber"))
+
+          // Test pubSubSubscriptions for multiple channels
+          subs <- redis.pubSubSubscriptions(List(channel1, channel2))
+          _ <-
+            IO(assert(subs.exists(s => s.channel == channel1 && s.number == 1L), "channel1 should have 1 subscriber"))
+          _ <-
+            IO(assert(subs.exists(s => s.channel == channel2 && s.number == 0L), "channel2 should have 0 subscribers"))
+
+          // Test numSub - returns subscription info for specified channels (requires NonEmptyList)
+          numSubResult <- redis.numSub(NonEmptyList.of(channel1, channel2))
+          _ <- IO(
+                 assert(
+                   numSubResult.exists(s => s.channel == channel1 && s.number == 1L),
+                   "numSub should include channel1 with 1 subscriber"
+                 )
+               )
+          _ <- IO(
+                 assert(
+                   numSubResult.exists(s => s.channel == channel2 && s.number == 0L),
+                   "numSub should include channel2 with 0 subscribers"
+                 )
+               )
+
+          // Start another subscription to channel1
+          subscription2 <- pubSub.subscribe(channel1).compile.drain.start
+          _ <- IO.sleep(200.millis) // Wait for subscription to be established
+
+          // Test publish with two subscribers
+          count2 <- redis.publish(channel1, "message2")
+          _ <-
+            IO(
+              assertEquals(
+                count2,
+                1L,
+                "publish should still return 1 (Redis counts unique subscriptions, not consumers)"
+              )
+            )
+
+          // Subscribe to channel2
+          subscription3 <- pubSub.subscribe(channel2).compile.drain.start
+          _ <- IO.sleep(200.millis)
+
+          // Test pubSubChannels again
+          channels2 <- redis.pubSubChannels
+          _ <-
+            IO(assert(channels2.contains(channel1) && channels2.contains(channel2), "both channels should be active"))
+
+          // Test pubSubSubscriptions for both channels
+          subs2 <- redis.pubSubSubscriptions(List(channel1, channel2))
+          _ <-
+            IO(assert(subs2.exists(s => s.channel == channel1 && s.number == 1L), "channel1 should have 1 subscriber"))
+          _ <-
+            IO(assert(subs2.exists(s => s.channel == channel2 && s.number == 1L), "channel2 should have 1 subscriber"))
+
+          // Test spublish (shard publish)
+          // Note: In a non-cluster setup, spublish should behave similarly to publish
+          shardCount <- redis.spublish(shardChannel, "shard-message").attempt
+          _ <- IO(
+                 assert(
+                   shardCount.isRight || shardCount.left
+                     .exists(_.getMessage.contains("only supported in cluster mode")),
+                   "spublish should work or fail with cluster-only error"
+                 )
+               )
+
+          // Test pubSubShardChannels
+          shardChannels <- redis.pubSubShardChannels.attempt
+          _ <- IO(
+                 assert(
+                   shardChannels.isRight || shardChannels.left.exists(
+                     _.getMessage.contains("only supported in cluster mode")
+                   ),
+                   "pubSubShardChannels should work or fail with cluster-only error"
+                 )
+               )
+
+          // Test shardNumSub
+          shardSubs <- redis.shardNumSub(List(shardChannel)).attempt
+          _ <- IO(
+                 assert(
+                   shardSubs.isRight || shardSubs.left.exists(_.getMessage.contains("only supported in cluster mode")),
+                   "shardNumSub should work or fail with cluster-only error"
+                 )
+               )
+
+          // Clean up subscriptions
+          _ <- subscription1.cancel
+          _ <- subscription2.cancel
+          _ <- subscription3.cancel
+          _ <- IO.sleep(100.millis)
+
+          // Verify channels are no longer active after unsubscribe
+          channels3 <- redis.pubSubChannels
+          _ <- IO(
+                 assert(
+                   !channels3.contains(channel1) && !channels3.contains(channel2),
+                   "channels should not be active after canceling subscriptions"
+                 )
+               )
+        } yield ()
+      }
+    }
+  }
+
 }
