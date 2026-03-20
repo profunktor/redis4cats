@@ -47,7 +47,7 @@ object MimaVersionPlugin extends AutoPlugin {
     }
   }
 
-  override def buildSettings: Seq[Setting[_]] =
+  override def buildSettings: Seq[Setting[?]] =
     GitPlugin.autoImport.versionWithGit ++ Seq(
       git.gitTagToVersionNumber := {
         case ReleaseTag(version) => Some(version)
@@ -78,7 +78,7 @@ object MimaVersionPlugin extends AutoPlugin {
       ).toOption.toList.flatten
     )
 
-  override def projectSettings: Seq[Setting[_]] = Seq(
+  override def projectSettings: Seq[Setting[?]] = Seq(
     isMimaEnabled := false,
     mimaBinaryIssueFilters ++= Seq(
       // Focusing on backward compat as opposed to forward, for now.
