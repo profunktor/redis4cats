@@ -1353,9 +1353,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       from: effects.GeoSearch[V],
       area: GeoSearchArea,
       args: GeoArgs
-  ): F[List[GeoRadiusResult[V]]] =
+  ): F[List[GeoSearchResult[V]]] =
     async.flatMap(
-      _.geosearch(key, from.asJava, area.asJava, args).futureLift.map(_.asScala.toList.map(_.asGeoRadiusResult))
+      _.geosearch(key, from.asJava, area.asJava, args).futureLift.map(_.asScala.toList.map(_.asGeoSearchResult))
     )
 
   override def geoSearch(
@@ -2080,6 +2080,14 @@ private[redis4cats] trait RedisConversionOps {
         Distance(v.getDistance),
         GeoHash(v.getGeohash),
         GeoCoordinate(v.getCoordinates.getX.doubleValue(), v.getCoordinates.getY.doubleValue())
+      )
+
+    def asGeoSearchResult: GeoSearchResult[V] =
+      GeoSearchResult[V](
+        v.getMember,
+        Option(v.getDistance).map(Distance(_)),
+        Option(v.getGeohash).map(GeoHash(_)),
+        Option(v.getCoordinates).map(c => GeoCoordinate(c.getX.doubleValue(), c.getY.doubleValue()))
       )
   }
 

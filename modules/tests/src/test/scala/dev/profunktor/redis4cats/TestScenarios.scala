@@ -56,18 +56,22 @@ trait TestScenarios { self: FunSuite =>
       gs1 <- redis.geoSearch(
                testKey,
                GeoSearch.FromMember(_BuenosAires.value),
-               GeoSearchArea.ByRadius(Distance(500.0), GeoArgs.Unit.km)
+               GeoSearchArea.ByRadius(Distance(500.0), GeoArgs.Unit.km),
+               GeoArgs.Builder.distance()
              )
-      _ <- IO(assert(gs1.contains(_BuenosAires.value)))
-      _ <- IO(assert(gs1.contains(_Montevideo.value)))
-      _ <- IO(assert(!gs1.contains(_RioDeJaneiro.value)))
+      _ <- IO(assert(gs1.exists(_.value == _BuenosAires.value)))
+      _ <- IO(assert(gs1.exists(_.value == _Montevideo.value)))
+      _ <- IO(assert(!gs1.exists(_.value == _RioDeJaneiro.value)))
+      _ <- IO(assert(gs1.forall(_.dist.isDefined)))
       gs2 <- redis.geoSearch(
                testKey,
                GeoSearch.FromLonLat(_BuenosAires.lon, _BuenosAires.lat),
-               GeoSearchArea.ByBox(1000.0, 1000.0, GeoArgs.Unit.km)
+               GeoSearchArea.ByBox(1000.0, 1000.0, GeoArgs.Unit.km),
+               GeoArgs.Builder.count(2)
              )
-      _ <- IO(assert(gs2.contains(_BuenosAires.value)))
-      _ <- IO(assert(gs2.contains(_Montevideo.value)))
+      _ <- IO(assertEquals(gs2.size, 2))
+      _ <- IO(assert(gs2.exists(_.value == _BuenosAires.value)))
+      _ <- IO(assert(gs2.exists(_.value == _Montevideo.value)))
       _ <- redis.geoSearch(
              testKey,
              GeoSearch.FromMember(_BuenosAires.value),

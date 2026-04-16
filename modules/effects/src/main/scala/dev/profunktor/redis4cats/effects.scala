@@ -41,6 +41,12 @@ object effects {
 
   final case class GeoCoordinate(x: Double, y: Double)
   final case class GeoRadiusResult[V](value: V, dist: Distance, hash: GeoHash, coordinate: GeoCoordinate)
+  final case class GeoSearchResult[V](
+      value: V,
+      dist: Option[Distance],
+      hash: Option[GeoHash],
+      coordinate: Option[GeoCoordinate]
+  )
   final case class GeoRadiusKeyStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
   final case class GeoRadiusDistStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
 
