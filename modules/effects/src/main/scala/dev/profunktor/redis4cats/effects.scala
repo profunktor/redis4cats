@@ -44,6 +44,18 @@ object effects {
   final case class GeoRadiusKeyStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
   final case class GeoRadiusDistStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
 
+  sealed trait GeoSearch[V]
+  object GeoSearch {
+    final case class FromMember[V](member: V) extends GeoSearch[V]
+    final case class FromLonLat[V](longitude: Longitude, latitude: Latitude) extends GeoSearch[V]
+  }
+
+  sealed trait GeoSearchArea
+  object GeoSearchArea {
+    final case class ByRadius(radius: Distance, unit: GeoArgs.Unit) extends GeoSearchArea
+    final case class ByBox(width: Double, height: Double, unit: GeoArgs.Unit) extends GeoSearchArea
+  }
+
   final case class Score(value: Double) extends AnyVal
   final case class ScoreWithValue[V](score: Score, value: V)
   final case class ZRange[V](start: V, end: V)

@@ -30,6 +30,8 @@ trait GeoGetter[F[_], K, V] {
   def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, args: GeoArgs): F[List[GeoRadiusResult[V]]]
   def geoRadiusByMember(key: K, value: V, dist: Distance, unit: GeoArgs.Unit): F[Set[V]]
   def geoRadiusByMember(key: K, value: V, dist: Distance, unit: GeoArgs.Unit, args: GeoArgs): F[List[GeoRadiusResult[V]]]
+  def geoSearch(key: K, from: GeoSearch[V], area: GeoSearchArea): F[Set[V]]
+  def geoSearch(key: K, from: GeoSearch[V], area: GeoSearchArea, args: GeoArgs): F[List[GeoRadiusResult[V]]]
 }
 
 trait GeoSetter[F[_], K, V] {
@@ -38,4 +40,6 @@ trait GeoSetter[F[_], K, V] {
   def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, storage: GeoRadiusDistStorage[K]): F[Unit]
   def geoRadiusByMember(key: K, value: V, dist: Distance, unit: GeoArgs.Unit, storage: GeoRadiusKeyStorage[K]): F[Unit]
   def geoRadiusByMember(key: K, value: V, dist: Distance, unit: GeoArgs.Unit, storage: GeoRadiusDistStorage[K]): F[Unit]
+  def geoSearch(key: K, from: GeoSearch[V], area: GeoSearchArea, storage: GeoRadiusKeyStorage[K]): F[Unit]
+  def geoSearch(key: K, from: GeoSearch[V], area: GeoSearchArea, storage: GeoRadiusDistStorage[K]): F[Unit]
 }

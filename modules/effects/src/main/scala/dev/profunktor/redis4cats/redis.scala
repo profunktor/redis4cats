@@ -1345,6 +1345,53 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   ): F[Unit] =
     async.flatMap(_.georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs).futureLift.void)
 
+  override def geoSearch(key: K, from: effects.GeoSearch[V], area: GeoSearchArea): F[Set[V]] =
+    async.flatMap(_.geosearch(key, from.asJava, area.asJava).futureLift.map(_.asScala.toSet))
+
+  override def geoSearch(
+      key: K,
+      from: effects.GeoSearch[V],
+      area: GeoSearchArea,
+      args: GeoArgs
+  ): F[List[GeoRadiusResult[V]]] =
+    async.flatMap(
+      _.geosearch(key, from.asJava, area.asJava, args).futureLift.map(_.asScala.toList.map(_.asGeoRadiusResult))
+    )
+
+  override def geoSearch(
+      key: K,
+      from: effects.GeoSearch[V],
+      area: GeoSearchArea,
+      storage: GeoRadiusKeyStorage[K]
+  ): F[Unit] =
+    async.flatMap(
+      _.geosearchstore(
+        storage.key,
+        key,
+        from.asJava,
+        area.asJava,
+        GeoArgs.Builder.count(storage.count),
+        false
+      ).futureLift.void
+    )
+
+  override def geoSearch(
+      key: K,
+      from: effects.GeoSearch[V],
+      area: GeoSearchArea,
+      storage: GeoRadiusDistStorage[K]
+  ): F[Unit] =
+    async.flatMap(
+      _.geosearchstore(
+        storage.key,
+        key,
+        from.asJava,
+        area.asJava,
+        GeoArgs.Builder.count(storage.count),
+        true
+      ).futureLift.void
+    )
+
   // format: off
   /******************************* Sorted Sets API **********************************/
   // format: on
@@ -2051,6 +2098,21 @@ private[redis4cats] trait RedisConversionOps {
         .withStoreDist[K](v.key)
         .withCount(v.count)
       store.asInstanceOf[GeoRadiusStoreArgs[K]]
+    }
+  }
+
+  private[redis4cats] implicit class GeoSearchOps[V](v: effects.GeoSearch[V]) {
+    def asJava[K]: io.lettuce.core.GeoSearch.GeoRef[K] = v match {
+      case effects.GeoSearch.FromMember(member) => io.lettuce.core.GeoSearch.fromMember(member.asInstanceOf[K])
+      case effects.GeoSearch.FromLonLat(longitude, latitude) =>
+        io.lettuce.core.GeoSearch.fromCoordinates(longitude.value, latitude.value)
+    }
+  }
+
+  private[redis4cats] implicit class GeoSearchAreaOps(v: GeoSearchArea) {
+    def asJava: io.lettuce.core.GeoSearch.GeoPredicate = v match {
+      case GeoSearchArea.ByRadius(radius, unit)     => io.lettuce.core.GeoSearch.byRadius(radius.value, unit)
+      case GeoSearchArea.ByBox(width, height, unit) => io.lettuce.core.GeoSearch.byBox(width, height, unit)
     }
   }
 

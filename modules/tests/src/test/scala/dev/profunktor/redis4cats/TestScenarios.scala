@@ -53,6 +53,30 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(y.contains(GeoCoordinate(-43.17289799451828, -22.906801071586663))))
       z <- redis.geoRadius(testKey, GeoRadius(_Montevideo.lon, _Montevideo.lat, Distance(10000.0)), GeoArgs.Unit.km)
       _ <- IO(assert(z.toList.containsSlice(List(_BuenosAires.value, _Montevideo.value, _RioDeJaneiro.value))))
+      gs1 <- redis.geoSearch(
+               testKey,
+               GeoSearch.FromMember(_BuenosAires.value),
+               GeoSearchArea.ByRadius(Distance(500.0), GeoArgs.Unit.km)
+             )
+      _ <- IO(assert(gs1.contains(_BuenosAires.value)))
+      _ <- IO(assert(gs1.contains(_Montevideo.value)))
+      _ <- IO(assert(!gs1.contains(_RioDeJaneiro.value)))
+      gs2 <- redis.geoSearch(
+               testKey,
+               GeoSearch.FromLonLat(_BuenosAires.lon, _BuenosAires.lat),
+               GeoSearchArea.ByBox(1000.0, 1000.0, GeoArgs.Unit.km)
+             )
+      _ <- IO(assert(gs2.contains(_BuenosAires.value)))
+      _ <- IO(assert(gs2.contains(_Montevideo.value)))
+      _ <- redis.geoSearch(
+             testKey,
+             GeoSearch.FromMember(_BuenosAires.value),
+             GeoSearchArea.ByRadius(Distance(500.0), GeoArgs.Unit.km),
+             GeoRadiusKeyStorage("gs-store", 10, GeoArgs.Sort.asc)
+           )
+      gs3 <- redis.zRange("gs-store", 0, -1)
+      _ <- IO(assert(gs3.contains(_BuenosAires.value)))
+      _ <- IO(assert(gs3.contains(_Montevideo.value)))
     } yield ()
   }
 
