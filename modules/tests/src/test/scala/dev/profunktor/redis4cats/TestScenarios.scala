@@ -639,6 +639,13 @@ trait TestScenarios { self: FunSuite =>
       kttl4 <- redis.ttl("keyToExpire")
       _ <- IO(kttl4.nonEmpty)
       _ <- redis.del("keyToExpire")
+      getDelMissing <- redis.getDel("keyToGetDel")
+      _ <- IO(assert(getDelMissing.isEmpty))
+      _ <- redis.set("keyToGetDel", "valueToGetDel")
+      getDelExisting <- redis.getDel("keyToGetDel")
+      _ <- IO(assert(getDelExisting.contains("valueToGetDel")))
+      getDelAfter <- redis.get("keyToGetDel")
+      _ <- IO(assert(getDelAfter.isEmpty))
     } yield ()
   }
 

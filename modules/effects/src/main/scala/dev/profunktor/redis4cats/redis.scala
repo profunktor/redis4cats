@@ -731,6 +731,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def get(key: K): F[Option[V]] =
     async.flatMap(_.get(key).futureLift.map(Option.apply))
 
+  override def getDel(key: K): F[Option[V]] =
+    async.flatMap(_.getdel(key).futureLift.map(Option.apply))
+
   override def getEx(key: K, getExArg: GetExArg): F[Option[V]] = {
     val jgetExArgs = new JGetExArgs()
 
