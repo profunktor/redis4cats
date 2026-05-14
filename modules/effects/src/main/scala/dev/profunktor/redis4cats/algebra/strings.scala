@@ -33,6 +33,7 @@ trait StringCommands[F[_], K, V]
 
 trait Getter[F[_], K, V] {
   def get(key: K): F[Option[V]]
+  def getDel(key: K): F[Option[V]]
   def getEx(key: K, getExArg: GetExArg): F[Option[V]]
   def getRange(key: K, start: Long, end: Long): F[Option[V]]
   def strLen(key: K): F[Long]
