@@ -10,11 +10,11 @@ object Dependencies {
     val log4cats   = "2.8.0"
     val keyPool    = "0.4.11"
 
-    val lettuce = "6.8.2.RELEASE"
+    val lettuce = "7.5.2.RELEASE"
 
     val logback = "1.5.32"
 
-    val kindProjector = "0.13.4"
+    val kindProjector   = "0.13.4"
     val munit           = "1.3.0"
     val munitScalacheck = "1.3.0"
 
