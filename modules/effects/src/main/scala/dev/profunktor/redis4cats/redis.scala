@@ -2193,9 +2193,11 @@ private[redis4cats] trait RedisConversionOps {
 
   private[redis4cats] implicit class StreamMessagesOps[K, V](list: util.List[core.StreamMessage[K, V]]) {
     def toScala: List[StreamMessage[K, V]] =
-      list.asScala
-        .map(msg => StreamMessage[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap))
-        .toList
+      list.asScala.map { msg =>
+        // The body is null for id-only replies (e.g. XCLAIM/XAUTOCLAIM with JUSTID).
+        val body = Option(msg.getBody).map(_.asScala.toMap).getOrElse(Map.empty[K, V])
+        StreamMessage[K, V](MessageId(msg.getId), msg.getStream, body)
+      }.toList
   }
 
   private[redis4cats] implicit class StreamConsumerOps[K](consumer: StreamConsumer[K]) {
