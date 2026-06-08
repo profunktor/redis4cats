@@ -154,8 +154,11 @@ object Subscriber {
                             unsubscribeFromRedis *> cleanupListener *> cleanupDispatcher *>
                             Log[F].debug(s"Cleaned up resources for $key subscription")
                         ).uncancelable
-              _ <- Sync[F].delay(subConnection.addListener(listener))
-              _ <- subscribeToRedis
+              // If registering the listener or subscribing to Redis fails, release the resources we have
+              // already acquired (the dispatcher, and the listener if it was added). Otherwise they leak:
+              // `cleanup` is only reachable through `sub`, which is never created or stored on failure.
+              _ <- (Sync[F].delay(subConnection.addListener(listener)) *> subscribeToRedis)
+                     .onError(_ => cleanupListener *> cleanupDispatcher)
               sub            = Redis4CatsSubscription(topic, subscribers = 1, cleanup)
               newSubscribers = subscribers.updated(key, sub)
               _ <- Log[F].debug(s"Created subscription for $key")

@@ -27,7 +27,7 @@ import io.lettuce.core.{
 }
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 object effects {
 
@@ -359,6 +359,65 @@ object effects {
     final case class Inclusive(id: String) extends XRangePoint
     final case class Exclusive(id: String) extends XRangePoint
   }
+
+  /** Identifies a consumer within a consumer group (the `<group> <consumer>` pair shared by `XREADGROUP`, `XCLAIM`,
+    * `XAUTOCLAIM` and the `XGROUP *CONSUMER` commands).
+    */
+  final case class StreamConsumer[K](group: K, consumer: K)
+
+  /** Options for `XGROUP CREATE`. */
+  final case class XGroupCreateArgs(
+      mkStream: Boolean = false,
+      entriesRead: Option[Long] = None
+  )
+
+  /** Options for `XREADGROUP`. `noack` skips adding the messages to the Pending Entries List. */
+  final case class XReadGroupArgs(
+      count: Option[Long] = None,
+      block: Option[Duration] = None,
+      noack: Boolean = false
+  )
+
+  /** Options for `XCLAIM`. `time` is a Unix timestamp in milliseconds (mutually exclusive with `idle`). */
+  final case class XClaimArgs(
+      minIdleTime: FiniteDuration,
+      idle: Option[FiniteDuration] = None,
+      time: Option[Long] = None,
+      retryCount: Option[Long] = None,
+      force: Boolean = false,
+      justId: Boolean = false
+  )
+
+  /** Options for `XAUTOCLAIM`. `start` is the message id to start scanning the PEL from (defaults to `0`). */
+  final case class XAutoClaimArgs[K](
+      consumer: StreamConsumer[K],
+      minIdleTime: FiniteDuration,
+      start: String = "0",
+      count: Option[Long] = None,
+      justId: Boolean = false
+  )
+
+  /** Summary form of `XPENDING <key> <group>`. */
+  final case class XPendingSummary(
+      count: Long,
+      minId: Option[MessageId],
+      maxId: Option[MessageId],
+      consumers: Map[String, Long]
+  )
+
+  /** A single entry from the extended form of `XPENDING`. */
+  final case class XPendingMessage(
+      id: MessageId,
+      consumer: String,
+      sinceLastDelivery: FiniteDuration,
+      redeliveryCount: Long
+  )
+
+  /** Result of `XAUTOCLAIM`: the cursor to resume from plus the claimed messages. */
+  final case class XAutoClaimResult[K, V](
+      nextId: MessageId,
+      messages: List[StreamMessage[K, V]]
+  )
 
   implicit class TimePrecisionOps(val duration: FiniteDuration) extends AnyVal {
     def refine: Long = duration.unit match {

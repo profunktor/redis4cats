@@ -39,6 +39,7 @@ import io.lettuce.core.json.{ JsonPath, JsonType, JsonValue }
 import io.lettuce.core.{
   BitFieldArgs,
   ClientOptions,
+  Consumer => JConsumer,
   CopyArgs => JCopyArgs,
   ExpireArgs => JExpireArgs,
   FlushMode => JFlushMode,
@@ -57,12 +58,16 @@ import io.lettuce.core.{
   ScoredValue,
   SetArgs => JSetArgs,
   XAddArgs => JXAddArgs,
+  XAutoClaimArgs => JXAutoClaimArgs,
+  XClaimArgs => JXClaimArgs,
+  XGroupCreateArgs => JXGroupCreateArgs,
   XReadArgs,
   XTrimArgs => JXTrimArgs,
   ZAddArgs,
   ZAggregateArgs,
   ZStoreArgs
 }
+import io.lettuce.core.models.stream.{ ClaimedMessages, PendingMessage, PendingMessages }
 import org.typelevel.keypool.KeyPool
 
 import java.time.Instant
@@ -592,10 +597,6 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   /******************************* Transactions API **********************************/
   // format: on
   // When in a cluster, transactions should run against a single node.
-
-  // Leaving this here for debugging purposes when working on the lib
-  def showThread(op: String): F[Unit] =
-    FutureLift[F].delay(println(s"$op - ${Thread.currentThread().getName()}"))
 
   def multi: F[Unit] =
     async.flatMap {
@@ -1994,7 +1995,81 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def xDel(key: K, ids: String*): F[Long] =
     async.flatMap(_.xdel(key, ids: _*).futureLift.map(Long.box(_)))
 
-    // format: off
+  // format: off
+  /************************** Stream Consumer Groups API ************************/
+  // format: on
+  private def streamOffset(o: XReadOffsets[K]): StreamOffset[K] =
+    o match {
+      case XReadOffsets.All(key)            => StreamOffset.from(key, "0")
+      case XReadOffsets.Latest(key)         => StreamOffset.latest(key)
+      case XReadOffsets.Custom(key, offset) => StreamOffset.from(key, offset)
+    }
+
+  override def xGroupCreate(key: K, group: K, offset: String, args: XGroupCreateArgs): F[Unit] = {
+    val jArgs = new JXGroupCreateArgs().mkstream(args.mkStream)
+    args.entriesRead.foreach(jArgs.entriesRead)
+    async.flatMap(_.xgroupCreate(StreamOffset.from(key, offset), group, jArgs).futureLift.void)
+  }
+
+  override def xGroupSetId(key: K, group: K, offset: String): F[Unit] =
+    async.flatMap(_.xgroupSetid(StreamOffset.from(key, offset), group).futureLift.void)
+
+  override def xGroupDestroy(key: K, group: K): F[Boolean] =
+    async.flatMap(_.xgroupDestroy(key, group).futureLift.map(x => Boolean.box(x)))
+
+  override def xGroupCreateConsumer(key: K, consumer: StreamConsumer[K]): F[Boolean] =
+    async.flatMap(_.xgroupCreateconsumer(key, consumer.asJava).futureLift.map(x => Boolean.box(x)))
+
+  override def xGroupDelConsumer(key: K, consumer: StreamConsumer[K]): F[Long] =
+    async.flatMap(_.xgroupDelconsumer(key, consumer.asJava).futureLift.map(x => Long.box(x)))
+
+  override def xReadGroup(
+      consumer: StreamConsumer[K],
+      streams: Set[XReadOffsets[K]],
+      args: XReadGroupArgs
+  ): F[List[StreamMessage[K, V]]] = {
+    val offsets = streams.toSeq.map(streamOffset)
+    val jArgs   = new XReadArgs().noack(args.noack)
+    args.count.foreach(jArgs.count)
+    args.block.foreach(b => jArgs.block(b.toMillis))
+    async.flatMap(_.xreadgroup(consumer.asJava, jArgs, offsets: _*).futureLift).map(_.toScala)
+  }
+
+  override def xAck(key: K, group: K, ids: String*): F[Long] =
+    async.flatMap(_.xack(key, group, ids: _*).futureLift.map(x => Long.box(x)))
+
+  override def xClaim(
+      key: K,
+      consumer: StreamConsumer[K],
+      args: XClaimArgs,
+      ids: String*
+  ): F[List[StreamMessage[K, V]]] =
+    async.flatMap(_.xclaim(key, consumer.asJava, args.asJava, ids: _*).futureLift).map(_.toScala)
+
+  override def xAutoClaim(key: K, args: XAutoClaimArgs[K]): F[XAutoClaimResult[K, V]] =
+    async.flatMap(_.xautoclaim(key, args.asJava).futureLift.map(_.asScalaResult))
+
+  override def xPending(key: K, group: K): F[XPendingSummary] =
+    async.flatMap(_.xpending(key, group).futureLift.map(_.asScalaSummary))
+
+  override def xPending(
+      key: K,
+      group: K,
+      start: XRangePoint,
+      end: XRangePoint,
+      count: Long,
+      consumer: Option[StreamConsumer[K]]
+  ): F[List[XPendingMessage]] = {
+    val range = (start, end).asJavaRange
+    val limit = JLimit.from(count)
+    val fut = consumer match {
+      case Some(c) => async.flatMap(_.xpending(key, c.asJava, range, limit).futureLift)
+      case None    => async.flatMap(_.xpending(key, group, range, limit).futureLift)
+    }
+    fut.map(_.asScala.map(_.asScalaMessage).toList)
+  }
+
+  // format: off
   /******************************* PubSub API ***********************************/
   // format: on
   override def publish(channel: RedisChannel[K], message: V): F[Long] =
@@ -2114,6 +2189,63 @@ private[redis4cats] trait RedisConversionOps {
       list.asScala
         .map(msg => StreamMessage[K, V](MessageId(msg.getId), msg.getStream, msg.getBody.asScala.toMap))
         .toList
+  }
+
+  private[redis4cats] implicit class StreamConsumerOps[K](consumer: StreamConsumer[K]) {
+    def asJava: JConsumer[K] = JConsumer.from(consumer.group, consumer.consumer)
+  }
+
+  private[redis4cats] implicit class XClaimArgsOps(args: XClaimArgs) {
+    def asJava: JXClaimArgs = {
+      val jArgs = new JXClaimArgs().minIdleTime(args.minIdleTime.toMillis)
+      args.idle.foreach(d => jArgs.idle(d.toMillis))
+      args.time.foreach(jArgs.time)
+      args.retryCount.foreach(jArgs.retryCount)
+      if (args.force) jArgs.force()
+      if (args.justId) jArgs.justid()
+      jArgs
+    }
+  }
+
+  private[redis4cats] implicit class XAutoClaimArgsOps[K](args: XAutoClaimArgs[K]) {
+    def asJava: JXAutoClaimArgs[K] = {
+      val jArgs = new JXAutoClaimArgs[K]()
+        .consumer(args.consumer.asJava)
+        .minIdleTime(args.minIdleTime.toMillis)
+        .startId(args.start)
+      args.count.foreach(jArgs.count)
+      if (args.justId) jArgs.justid()
+      jArgs
+    }
+  }
+
+  private[redis4cats] implicit class PendingMessagesOps(pm: PendingMessages) {
+    def asScalaSummary: XPendingSummary = {
+      val ids = Option(pm.getMessageIds)
+      def boundary(b: JRange.Boundary[String]): Option[MessageId] =
+        if (b == null || b.isUnbounded) None else Option(b.getValue).map(MessageId(_))
+      XPendingSummary(
+        count = pm.getCount,
+        minId = ids.flatMap(r => boundary(r.getLower)),
+        maxId = ids.flatMap(r => boundary(r.getUpper)),
+        consumers = pm.getConsumerMessageCount.asScala.iterator.map { case (k, v) => k -> Long.unbox(v) }.toMap
+      )
+    }
+  }
+
+  private[redis4cats] implicit class PendingMessageOps(pm: PendingMessage) {
+    def asScalaMessage: XPendingMessage =
+      XPendingMessage(
+        id = MessageId(pm.getId),
+        consumer = pm.getConsumer,
+        sinceLastDelivery = FiniteDuration(pm.getMsSinceLastDelivery, MILLISECONDS),
+        redeliveryCount = pm.getRedeliveryCount
+      )
+  }
+
+  private[redis4cats] implicit class ClaimedMessagesOps[K, V](cm: ClaimedMessages[K, V]) {
+    def asScalaResult: XAutoClaimResult[K, V] =
+      XAutoClaimResult(MessageId(cm.getId), cm.getMessages.toScala)
   }
 
   private[redis4cats] implicit class CopyArgOps(underlying: CopyArgs) {

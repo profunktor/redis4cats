@@ -16,11 +16,29 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.redis4cats.effects.{ MessageId, StreamMessage, XAddArgs, XRangePoint, XReadOffsets, XTrimArgs }
+import dev.profunktor.redis4cats.effects.{
+  MessageId,
+  StreamConsumer,
+  StreamMessage,
+  XAddArgs,
+  XAutoClaimArgs,
+  XAutoClaimResult,
+  XClaimArgs,
+  XGroupCreateArgs,
+  XPendingMessage,
+  XPendingSummary,
+  XRangePoint,
+  XReadGroupArgs,
+  XReadOffsets,
+  XTrimArgs
+}
 
 import scala.concurrent.duration.Duration
 
-trait StreamCommands[F[_], K, V] extends StreamGetter[F, K, V] with StreamSetter[F, K, V]
+trait StreamCommands[F[_], K, V]
+    extends StreamGetter[F, K, V]
+    with StreamSetter[F, K, V]
+    with StreamConsumerGroups[F, K, V]
 
 trait StreamGetter[F[_], K, V] {
 
@@ -39,4 +57,48 @@ trait StreamSetter[F[_], K, V] {
   def xAdd(key: K, body: Map[K, V], args: XAddArgs = XAddArgs()): F[MessageId]
   def xTrim(key: K, args: XTrimArgs): F[Long]
   def xDel(key: K, ids: String*): F[Long]
+}
+
+/** Consumer-group commands for Redis Streams (the `XGROUP`/`XREADGROUP`/`XACK`/`XCLAIM`/`XPENDING` family).
+  *
+  * For reading new (never-delivered) messages with [[xReadGroup]], use `XReadOffsets.custom(">", key)`.
+  */
+trait StreamConsumerGroups[F[_], K, V] {
+
+  def xGroupCreate(
+      key: K,
+      group: K,
+      offset: String = "$",
+      args: XGroupCreateArgs = XGroupCreateArgs()
+  ): F[Unit]
+  def xGroupSetId(key: K, group: K, offset: String): F[Unit]
+  def xGroupDestroy(key: K, group: K): F[Boolean]
+  def xGroupCreateConsumer(key: K, consumer: StreamConsumer[K]): F[Boolean]
+  def xGroupDelConsumer(key: K, consumer: StreamConsumer[K]): F[Long]
+
+  def xReadGroup(
+      consumer: StreamConsumer[K],
+      streams: Set[XReadOffsets[K]],
+      args: XReadGroupArgs = XReadGroupArgs()
+  ): F[List[StreamMessage[K, V]]]
+
+  def xAck(key: K, group: K, ids: String*): F[Long]
+
+  def xClaim(
+      key: K,
+      consumer: StreamConsumer[K],
+      args: XClaimArgs,
+      ids: String*
+  ): F[List[StreamMessage[K, V]]]
+  def xAutoClaim(key: K, args: XAutoClaimArgs[K]): F[XAutoClaimResult[K, V]]
+
+  def xPending(key: K, group: K): F[XPendingSummary]
+  def xPending(
+      key: K,
+      group: K,
+      start: XRangePoint,
+      end: XRangePoint,
+      count: Long,
+      consumer: Option[StreamConsumer[K]] = None
+  ): F[List[XPendingMessage]]
 }
