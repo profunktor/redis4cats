@@ -3,13 +3,18 @@ name: Release Drafter
 on:
   push:
     branches:
-      - series/1.x # CE3
       - series/2.x
+      - series/3.x
 
 jobs:
   update_release_draft:
     runs-on: ubuntu-latest
     steps:
       - uses: release-drafter/release-drafter@v6
+        with:
+          # Maintain a separate draft per version line so pushes to one branch
+          # don't clobber the other's draft.
+          commitish: ${{ github.ref }}
+          filter-by-commitish: true
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
