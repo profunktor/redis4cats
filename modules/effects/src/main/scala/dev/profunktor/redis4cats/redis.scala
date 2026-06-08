@@ -1650,7 +1650,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def flushDb(mode: FlushMode): F[Unit] =
     async.flatMap(_.flushdb(mode.asJava).futureLift.void)
 
-  override def keys(key: K): F[List[K]] =
+  override def keys(key: String): F[List[K]] =
     async.flatMap(_.keys(key).futureLift.map(_.asScala.toList))
 
   private def parseInfo(info: String): F[Map[String, String]] =

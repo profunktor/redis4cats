@@ -6,7 +6,7 @@ import microsites.ExtraMdFileConfig
 ThisBuild / scalaVersion := "2.13.18"
 ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.7")
 ThisBuild / evictionErrorLevel := Level.Info
-ThisBuild / mimaBaseVersion := "2.0.0"
+ThisBuild / mimaBaseVersion := "3.0.0"
 Test / parallelExecution := false
 
 promptTheme := PromptTheme(
@@ -42,6 +42,11 @@ val commonSettings = Seq(
   licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   headerLicense := Some(HeaderLicense.ALv2("2018-2025", "ProfunKtor")),
   testFrameworks += new TestFramework("munit.Framework"),
+  mimaPreviousArtifacts ~= { prev =>
+    prev.filterNot { artifact =>
+      artifact.revision == "2.0.2"
+    }
+  },
   libraryDependencies ++= Seq(
     Libraries.catsEffectKernel,
     Libraries.redisClient,
