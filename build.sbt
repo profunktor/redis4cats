@@ -4,7 +4,7 @@ import Dependencies.*
 import microsites.ExtraMdFileConfig
 
 ThisBuild / scalaVersion := "2.13.18"
-ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.7")
+ThisBuild / crossScalaVersions := Seq("2.13.18", "3.3.7")
 ThisBuild / evictionErrorLevel := Level.Info
 ThisBuild / mimaBaseVersion := "3.0.0"
 Test / parallelExecution := false
@@ -58,11 +58,6 @@ val commonSettings = Seq(
   ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
-    getVersion(scalaVersion.value) == Some(2, 12),
-    t = Seq("-Xmax-classfile-name", "80"),
-    f = Seq.empty
-  ),
-  scalacOptions ++= pred(
     scalaVersion.value.startsWith("3"),
     t = Seq("-source:3.0-migration"),
     f = Seq("-Wconf:any:wv")
@@ -70,7 +65,6 @@ val commonSettings = Seq(
   Compile / doc / sources := (Compile / doc / sources).value,
   Compile / unmanagedSourceDirectories ++= {
     getVersion(scalaVersion.value) match {
-      case Some((2, 12)) => Seq("scala-2.12", "scala-2")
       case Some((2, 13)) => Seq("scala-2.13+", "scala-2")
       case _             => Seq("scala-2.13+", "scala-3")
     }

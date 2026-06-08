@@ -67,8 +67,7 @@ trait TestScenarios { self: FunSuite =>
         // Keep this comment to avoid ugly formatting.
         .iterator.zipWithIndex.map(_.map(String.valueOf(_: Int))).toMap
     val hScanMapR =
-      // Scala cross-version compatibility trick (cannot use `.filterKeys` in v2.13+ or `.view.filterKeys` in v2.12)
-      hScanMap.iterator.filter(_._1.contains('r')).toMap
+      hScanMap.view.filterKeys(_.contains('r')).toMap
 
     for {
       x <- redis.hGet(testKey, testField)

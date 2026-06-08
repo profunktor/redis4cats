@@ -16,8 +16,9 @@
 
 package dev.profunktor.redis4cats.connection
 
-import java.time.Duration
 import java.util.concurrent.TimeUnit
+
+import scala.jdk.DurationConverters._
 
 import cats.{ FlatMap, Functor }
 import cats.effect.kernel._
@@ -90,8 +91,7 @@ object RedisClusterClient {
               .topologyRefreshOptions(
                 ClusterTopologyRefreshOptions
                   .builder()
-                  // Use implicit duration converters from scala 2.13 once 2.12 support is removed
-                  .enablePeriodicRefresh(Duration.ofMillis(interval.toMillis))
+                  .enablePeriodicRefresh(interval.toJava)
                   .build()
               )
               .nodeFilter(nodeFilter(_))
@@ -105,8 +105,7 @@ object RedisClusterClient {
               .topologyRefreshOptions(
                 ClusterTopologyRefreshOptions
                   .builder()
-                  // Use implicit duration converters from scala 2.13 once 2.12 support is removed
-                  .adaptiveRefreshTriggersTimeout(Duration.ofMillis(timeout.toMillis))
+                  .adaptiveRefreshTriggersTimeout(timeout.toJava)
                   .build()
               )
               .nodeFilter(nodeFilter(_))
@@ -119,11 +118,10 @@ object RedisClusterClient {
             ClusterClientOptions
               .builder()
               .topologyRefreshOptions(
-                // Use implicit duration converters from scala 2.13 once 2.12 support is removed
                 ClusterTopologyRefreshOptions
                   .builder()
-                  .enablePeriodicRefresh(Duration.ofMillis(interval.toMillis))
-                  .adaptiveRefreshTriggersTimeout(Duration.ofMillis(timeout.toMillis))
+                  .enablePeriodicRefresh(interval.toJava)
+                  .adaptiveRefreshTriggersTimeout(timeout.toJava)
                   .build()
               )
               .nodeFilter(nodeFilter(_))
