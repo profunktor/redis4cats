@@ -4,7 +4,7 @@ import Dependencies.*
 import microsites.ExtraMdFileConfig
 
 ThisBuild / scalaVersion := "2.13.18"
-ThisBuild / crossScalaVersions := Seq("2.13.18", "3.3.7")
+ThisBuild / crossScalaVersions := Seq("2.13.18", "3.8.4")
 ThisBuild / evictionErrorLevel := Level.Info
 ThisBuild / mimaBaseVersion := "3.0.0"
 Test / parallelExecution := false
