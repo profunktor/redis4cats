@@ -1,10 +1,10 @@
-import com.scalapenos.sbt.prompt.SbtPrompt.autoImport._
-import com.scalapenos.sbt.prompt._
-import Dependencies._
+import com.scalapenos.sbt.prompt.SbtPrompt.autoImport.*
+import com.scalapenos.sbt.prompt.*
+import Dependencies.*
 import microsites.ExtraMdFileConfig
 
 ThisBuild / scalaVersion := "2.13.18"
-ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.7")
+ThisBuild / crossScalaVersions := Seq("2.13.18", "3.8.4")
 ThisBuild / evictionErrorLevel := Level.Info
 ThisBuild / mimaBaseVersion := "3.0.0"
 Test / parallelExecution := false
@@ -58,11 +58,6 @@ val commonSettings = Seq(
   ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions ++= pred(
-    getVersion(scalaVersion.value) == Some(2, 12),
-    t = Seq("-Xmax-classfile-name", "80"),
-    f = Seq.empty
-  ),
-  scalacOptions ++= pred(
     scalaVersion.value.startsWith("3"),
     t = Seq("-source:3.0-migration"),
     f = Seq("-Wconf:any:wv")
@@ -70,7 +65,6 @@ val commonSettings = Seq(
   Compile / doc / sources := (Compile / doc / sources).value,
   Compile / unmanagedSourceDirectories ++= {
     getVersion(scalaVersion.value) match {
-      case Some((2, 12)) => Seq("scala-2.12", "scala-2")
       case Some((2, 13)) => Seq("scala-2.13+", "scala-2")
       case _             => Seq("scala-2.13+", "scala-3")
     }
@@ -79,7 +73,10 @@ val commonSettings = Seq(
   autoAPIMappings := true,
   scalafmtOnCompile := true,
   scmInfo := Some(
-    ScmInfo(url("https://github.com/profunktor/redis4cats"), "scm:git:git@github.com:profunktor/redis4cats.git")
+    ScmInfo(
+      url("https://github.com/profunktor/redis4cats"),
+      "scm:git:git@github.com:profunktor/redis4cats.git"
+    )
   )
 )
 
@@ -110,7 +107,7 @@ lazy val `redis4cats-root` = project
 
 lazy val `redis4cats-core` = project
   .in(file("modules/core"))
-  .settings(commonSettings: _*)
+  .settings(commonSettings*)
   .settings(libraryDependencies += Libraries.literally)
   .settings(
     libraryDependencies ++=
@@ -124,7 +121,7 @@ lazy val `redis4cats-core` = project
 
 lazy val `redis4cats-log4cats` = project
   .in(file("modules/log4cats"))
-  .settings(commonSettings: _*)
+  .settings(commonSettings*)
   .settings(
     isMimaEnabled := true
   )
@@ -135,7 +132,7 @@ lazy val `redis4cats-log4cats` = project
 
 lazy val `redis4cats-effects` = project
   .in(file("modules/effects"))
-  .settings(commonSettings: _*)
+  .settings(commonSettings*)
   .settings(
     libraryDependencies += Libraries.keyPool
   )
@@ -148,7 +145,7 @@ lazy val `redis4cats-effects` = project
 
 lazy val `redis4cats-streams` = project
   .in(file("modules/streams"))
-  .settings(commonSettings: _*)
+  .settings(commonSettings*)
   .settings(
     isMimaEnabled := true
   )
@@ -160,7 +157,7 @@ lazy val `redis4cats-streams` = project
 
 lazy val examples = project
   .in(file("modules/examples"))
-  .settings(commonSettings: _*)
+  .settings(commonSettings*)
   .settings(noPublish)
   .settings(
     libraryDependencies ++= Seq(
@@ -179,7 +176,7 @@ lazy val examples = project
 
 lazy val tests = project
   .in(file("modules/tests"))
-  .settings(commonSettings: _*)
+  .settings(commonSettings*)
   .settings(Test / parallelExecution := false)
   .settings(noPublish)
   .enablePlugins(AutomateHeaderPlugin)
@@ -190,7 +187,7 @@ lazy val tests = project
 lazy val microsite = project
   .in(file("site"))
   .enablePlugins(MicrositesPlugin, SiteScaladocPlugin, ScalaUnidocPlugin)
-  .settings(commonSettings: _*)
+  .settings(commonSettings*)
   .settings(noPublish)
   .settings(
     micrositeName := "Redis4Cats",

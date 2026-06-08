@@ -1,23 +1,22 @@
-import sbt._
+import sbt.*
 
 object Dependencies {
 
   object V {
     val cats       = "2.13.0"
-    val catsEffect = "3.6.3"
+    val catsEffect = "3.7.0"
     val circe      = "0.14.15"
-    val fs2        = "3.12.2"
-    val log4cats   = "2.7.1"
-    val keyPool    = "0.4.10"
+    val fs2        = "3.13.0"
+    val log4cats   = "2.8.0"
+    val keyPool    = "0.4.11"
 
     val lettuce = "7.6.0.RELEASE"
 
-    val logback = "1.5.23"
+    val logback = "1.5.34"
 
-    val kindProjector = "0.13.4"
-
-    val munit           = "1.2.1"
-    val munitScalacheck = "1.2.0"
+    val kindProjector   = "0.13.4"
+    val munit           = "1.3.2"
+    val munitScalacheck = "1.3.0"
 
   }
 
