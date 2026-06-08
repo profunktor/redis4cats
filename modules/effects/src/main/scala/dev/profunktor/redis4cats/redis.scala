@@ -2057,16 +2057,23 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       group: K,
       start: XRangePoint,
       end: XRangePoint,
-      count: Long,
-      consumer: Option[StreamConsumer[K]]
+      count: Long
   ): F[List[XPendingMessage]] = {
     val range = (start, end).asJavaRange
     val limit = JLimit.from(count)
-    val fut = consumer match {
-      case Some(c) => async.flatMap(_.xpending(key, c.asJava, range, limit).futureLift)
-      case None    => async.flatMap(_.xpending(key, group, range, limit).futureLift)
-    }
-    fut.map(_.asScala.map(_.asScalaMessage).toList)
+    async.flatMap(_.xpending(key, group, range, limit).futureLift).map(_.asScala.map(_.asScalaMessage).toList)
+  }
+
+  override def xPending(
+      key: K,
+      consumer: StreamConsumer[K],
+      start: XRangePoint,
+      end: XRangePoint,
+      count: Long
+  ): F[List[XPendingMessage]] = {
+    val range = (start, end).asJavaRange
+    val limit = JLimit.from(count)
+    async.flatMap(_.xpending(key, consumer.asJava, range, limit).futureLift).map(_.asScala.map(_.asScalaMessage).toList)
   }
 
   // format: off

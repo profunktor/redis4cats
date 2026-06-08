@@ -143,12 +143,14 @@ object Subscriber {
             // No existing subscription, create a new one.
             val makeSubscription = for {
               _ <- Log[F].info(s"Creating subscription for $key")
-              // We use parallel dispatcher because multiple subscribers can be interested in the same key
+              topic <- Topic[F, Option[SubValue]]
+              // We use parallel dispatcher because multiple subscribers can be interested in the same key.
+              // Allocate it last so that nothing that can fail runs between acquiring it and the guarded
+              // block below; otherwise the dispatcher would leak (its finalizer is only reachable via `sub`).
               dispatcherTpl <- Dispatcher.parallel[F].allocated
               (dispatcher, cleanupDispatcher) = dispatcherTpl
-              topic <- Topic[F, Option[SubValue]]
-              listener        = makeListener(dispatcher, topic)
-              cleanupListener = Sync[F].delay(subConnection.removeListener(listener))
+              listener                        = makeListener(dispatcher, topic)
+              cleanupListener                 = Sync[F].delay(subConnection.removeListener(listener))
               cleanup = (
                           Log[F].debug(s"Cleaning up resources for $key subscription") *>
                             unsubscribeFromRedis *> cleanupListener *> cleanupDispatcher *>

@@ -98,7 +98,13 @@ trait StreamConsumerGroups[F[_], K, V] {
       group: K,
       start: XRangePoint,
       end: XRangePoint,
-      count: Long,
-      consumer: Option[StreamConsumer[K]] = None
+      count: Long
+  ): F[List[XPendingMessage]]
+  def xPending(
+      key: K,
+      consumer: StreamConsumer[K],
+      start: XRangePoint,
+      end: XRangePoint,
+      count: Long
   ): F[List[XPendingMessage]]
 }
