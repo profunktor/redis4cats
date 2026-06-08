@@ -2205,8 +2205,10 @@ private[redis4cats] trait RedisConversionOps {
   private[redis4cats] implicit class XClaimArgsOps(args: XClaimArgs) {
     def asJava: JXClaimArgs = {
       val jArgs = new JXClaimArgs().minIdleTime(args.minIdleTime.toMillis)
-      args.idle.foreach(d => jArgs.idle(d.toMillis))
-      args.time.foreach(jArgs.time)
+      args.idle.foreach {
+        case XClaimIdle.Relative(d) => jArgs.idle(d.toMillis)
+        case XClaimIdle.At(t)       => jArgs.time(t)
+      }
       args.retryCount.foreach(jArgs.retryCount)
       if (args.force) { jArgs.force(); () }
       if (args.justId) { jArgs.justid(); () }

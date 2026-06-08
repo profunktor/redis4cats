@@ -378,11 +378,24 @@ object effects {
       noack: Boolean = false
   )
 
-  /** Options for `XCLAIM`. `time` is a Unix timestamp in milliseconds (mutually exclusive with `idle`). */
+  /** The idle time to set on entries claimed by `XCLAIM` (the `IDLE`/`TIME` options). Both express the same thing — the
+    * time since the entry was last delivered — so they are modelled as alternatives rather than a pair that could be
+    * set together.
+    */
+  sealed trait XClaimIdle extends Product with Serializable
+  object XClaimIdle {
+
+    /** `IDLE <ms>`: idle time as a duration relative to now. */
+    final case class Relative(idle: FiniteDuration) extends XClaimIdle
+
+    /** `TIME <ms-unix-time>`: idle time as an absolute Unix timestamp in milliseconds. */
+    final case class At(unixTimeMillis: Long) extends XClaimIdle
+  }
+
+  /** Options for `XCLAIM`. */
   final case class XClaimArgs(
       minIdleTime: FiniteDuration,
-      idle: Option[FiniteDuration] = None,
-      time: Option[Long] = None,
+      idle: Option[XClaimIdle] = None,
       retryCount: Option[Long] = None,
       force: Boolean = false,
       justId: Boolean = false
