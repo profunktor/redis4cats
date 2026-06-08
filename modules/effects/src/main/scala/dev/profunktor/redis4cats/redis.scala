@@ -2201,8 +2201,8 @@ private[redis4cats] trait RedisConversionOps {
       args.idle.foreach(d => jArgs.idle(d.toMillis))
       args.time.foreach(jArgs.time)
       args.retryCount.foreach(jArgs.retryCount)
-      if (args.force) jArgs.force()
-      if (args.justId) jArgs.justid()
+      if (args.force) { jArgs.force(); () }
+      if (args.justId) { jArgs.justid(); () }
       jArgs
     }
   }
@@ -2214,7 +2214,7 @@ private[redis4cats] trait RedisConversionOps {
         .minIdleTime(args.minIdleTime.toMillis)
         .startId(args.start)
       args.count.foreach(jArgs.count)
-      if (args.justId) jArgs.justid()
+      if (args.justId) { jArgs.justid(); () }
       jArgs
     }
   }

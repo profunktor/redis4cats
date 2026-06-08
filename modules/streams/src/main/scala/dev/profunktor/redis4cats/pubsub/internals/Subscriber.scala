@@ -158,7 +158,7 @@ object Subscriber {
               // already acquired (the dispatcher, and the listener if it was added). Otherwise they leak:
               // `cleanup` is only reachable through `sub`, which is never created or stored on failure.
               _ <- (Sync[F].delay(subConnection.addListener(listener)) *> subscribeToRedis)
-                     .onError(_ => cleanupListener *> cleanupDispatcher)
+                     .onError { case _ => cleanupListener *> cleanupDispatcher }
               sub            = Redis4CatsSubscription(topic, subscribers = 1, cleanup)
               newSubscribers = subscribers.updated(key, sub)
               _ <- Log[F].debug(s"Created subscription for $key")
