@@ -4,11 +4,11 @@ on:
   workflow_dispatch: {}
   push:
     branches:
-      - series/1.x # CE3
       - series/2.x
+      - series/3.x
     tags:
-      - "v1.*"
       - "v2.*"
+      - "v3.*"
 
 jobs:
   build:

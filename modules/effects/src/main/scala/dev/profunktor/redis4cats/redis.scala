@@ -69,6 +69,7 @@ import java.time.Instant
 import java.util
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
+import dev.profunktor.redis4cats.data.Subscription.toSubscription
 
 object Redis {
 
@@ -729,6 +730,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def get(key: K): F[Option[V]] =
     async.flatMap(_.get(key).futureLift.map(Option.apply))
+
+  override def getDel(key: K): F[Option[V]] =
+    async.flatMap(_.getdel(key).futureLift.map(Option.apply))
 
   override def getEx(key: K, getExArg: GetExArg): F[Option[V]] = {
     val jgetExArgs = new JGetExArgs()
@@ -1989,6 +1993,36 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def xDel(key: K, ids: String*): F[Long] =
     async.flatMap(_.xdel(key, ids: _*).futureLift.map(Long.box(_)))
+
+    // format: off
+  /******************************* PubSub API ***********************************/
+  // format: on
+  override def publish(channel: RedisChannel[K], message: V): F[Long] =
+    async.flatMap(_.publish(channel.underlying, message).futureLift.map(Long.box(_)))
+
+  override def spublish(channel: RedisChannel[K], message: V): F[Long] =
+    async.flatMap(_.spublish(channel.underlying, message).futureLift.map(Long.box(_)))
+
+  override def numPat: F[Long] =
+    async.flatMap(_.pubsubNumpat.futureLift.map(Long.box(_)))
+
+  override def numSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
+    async.flatMap(_.pubsubNumsub(channels.toList.map(_.underlying): _*).futureLift.map(toSubscription[K]))
+
+  override def pubSubChannels: F[List[RedisChannel[K]]] =
+    async.flatMap(_.pubsubChannels().futureLift.map(_.asScala.toList.map(RedisChannel.apply)))
+
+  override def pubSubShardChannels: F[List[RedisChannel[K]]] =
+    async.flatMap(_.pubsubShardChannels().futureLift.map(_.asScala.toList.map(RedisChannel.apply)))
+
+  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]] =
+    pubSubSubscriptions(List(channel)).map(_.headOption)
+
+  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    async.flatMap(_.pubsubNumsub(channels.map(_.underlying): _*).futureLift.map(toSubscription[K]))
+
+  override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    async.flatMap(_.pubsubShardNumsub(channels.map(_.underlying): _*).futureLift.map(toSubscription[K]))
 }
 
 private[redis4cats] trait RedisConversionOps {
