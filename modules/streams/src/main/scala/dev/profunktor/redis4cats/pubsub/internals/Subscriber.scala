@@ -18,10 +18,8 @@ package dev.profunktor.redis4cats
 package pubsub
 package internals
 
-import cats.Applicative
 import cats.effect.kernel._
-import cats.effect.kernel.implicits._
-import cats.effect.std.{ AtomicCell, Dispatcher }
+import cats.effect.std.Dispatcher
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.{ RedisChannel, RedisPattern, RedisPatternEvent }
 import dev.profunktor.redis4cats.effect.{ FutureLift, Log }
@@ -66,103 +64,38 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
     Subscriber.unsubscribeFrom(pattern, state.patternSubs)
 
   override def internalChannelSubscriptions: F[Map[RedisChannel[K], Long]] =
-    state.channelSubs.get.map(_.iterator.map { case (k, v) => k -> v.subscribers }.toMap)
+    state.channelSubs.counts
 
   override def internalPatternSubscriptions: F[Map[RedisPattern[K], Long]] =
-    state.patternSubs.get.map(_.iterator.map { case (k, v) => k -> v.subscribers }.toMap)
+    state.patternSubs.counts
 }
 object Subscriber {
 
-  /** Check if we have a subscriber for this channel and remove it if we do.
-    *
-    * If it is the last subscriber, perform the subscription cleanup.
-    */
-  private def onStreamTermination[F[_]: Applicative: Log, K, V](
-      subs: AtomicCell[F, Map[K, Redis4CatsSubscription[F, V]]],
-      key: K
-  ): F[Unit] = subs.evalUpdate { subscribers =>
-    subscribers.get(key) match {
-      case None =>
-        Log[F]
-          .error(
-            s"We were notified about stream termination for $key but we don't have a subscription, " +
-              s"this is a bug in redis4cats!"
-          )
-          .as(subscribers)
-      case Some(sub) =>
-        if (!sub.isLastSubscriber) subscribers.updated(key, sub.removeSubscriber).pure
-        else sub.cleanup.as(subscribers - key)
-    }
-  }
-
-  private def unsubscribeFrom[F[_]: MonadCancelThrow: Log, K, V](
+  private def unsubscribeFrom[F[_], K, V](
       key: K,
-      subs: AtomicCell[F, Map[K, Redis4CatsSubscription[F, V]]]
+      state: PubSubState.SubscriptionMap[F, K, V]
   ): F[Unit] =
-    subs.evalUpdate { subscribers =>
-      subscribers.get(key) match {
-        case None =>
-          // No subscription = nothing to do
-          Log[F]
-            .debug(s"Not unsubscribing from $key because we don't have a subscription")
-            .as(subscribers)
-        case Some(sub) =>
-          // Publish `None` which will terminate all streams, which will perform cleanup once the last stream
-          // terminates.
-          (Log[F].info(
-            s"Unsubscribing from $key with ${sub.subscribers} subscribers"
-          ) *> sub.topic.publish1(None)).uncancelable.as(subscribers)
-      }
-    }
+    state.unsubscribe(key)
 
   private def subscribe[F[_]: Async: Log, TypedKey, SubValue, K, V](
       key: TypedKey,
-      subs: AtomicCell[F, Map[TypedKey, Redis4CatsSubscription[F, SubValue]]],
+      state: PubSubState.SubscriptionMap[F, TypedKey, SubValue],
       subConnection: StatefulRedisPubSubConnection[K, V],
       subscribeToRedis: F[Unit],
       unsubscribeFromRedis: F[Unit]
   )(makeListener: (Dispatcher[F], Topic[F, Option[SubValue]]) => RedisPubSubListener[K, V]): Stream[F, SubValue] =
-    Stream
-      .eval(subs.evalModify { subscribers =>
-        def stream(sub: Redis4CatsSubscription[F, SubValue]) =
-          sub.stream(onStreamTermination(subs, key))
-
-        subscribers.get(key) match {
-          case Some(subscription) =>
-            // We have an existing subscription, mark that it has one more subscriber.
-            val newSubscription = subscription.addSubscriber
-            val newSubscribers  = subscribers.updated(key, newSubscription)
-            Log[F]
-              .debug(
-                s"Returning existing subscription for $key, " +
-                  s"subscribers: ${subscription.subscribers} -> ${newSubscription.subscribers}"
-              )
-              .as((newSubscribers, stream(newSubscription)))
-
-          case None =>
-            // No existing subscription, create a new one.
-            val makeSubscription = for {
-              _ <- Log[F].info(s"Creating subscription for $key")
-              // We use parallel dispatcher because multiple subscribers can be interested in the same key
-              dispatcherTpl <- Dispatcher.parallel[F].allocated
-              (dispatcher, cleanupDispatcher) = dispatcherTpl
-              topic <- Topic[F, Option[SubValue]]
-              listener        = makeListener(dispatcher, topic)
-              cleanupListener = Sync[F].delay(subConnection.removeListener(listener))
-              cleanup = (
-                          Log[F].debug(s"Cleaning up resources for $key subscription") *>
-                            unsubscribeFromRedis *> cleanupListener *> cleanupDispatcher *>
-                            Log[F].debug(s"Cleaned up resources for $key subscription")
-                        ).uncancelable
-              _ <- Sync[F].delay(subConnection.addListener(listener))
-              _ <- subscribeToRedis
-              sub            = Redis4CatsSubscription(topic, subscribers = 1, cleanup)
-              newSubscribers = subscribers.updated(key, sub)
-              _ <- Log[F].debug(s"Created subscription for $key")
-            } yield (newSubscribers, stream(sub))
-
-            makeSubscription.uncancelable
-        }
-      })
-      .flatten
+    state.subscribe(key) {
+      for {
+        _ <- Resource.eval(Log[F].info(s"Creating subscription for $key"))
+        // We use parallel dispatcher because multiple subscribers can be interested in the same key
+        dispatcher <- Dispatcher.parallel[F]
+        topic <- Resource.eval(Topic[F, Option[SubValue]])
+        _ <- Resource.make {
+               val listener = makeListener(dispatcher, topic)
+               Sync[F].delay(subConnection.addListener(listener)).as(listener)
+             }(listener => Sync[F].delay(subConnection.removeListener(listener)))
+        _ <- Resource.make(subscribeToRedis)(_ => unsubscribeFromRedis)
+        _ <- Resource.eval(Log[F].debug(s"Created subscription for $key"))
+      } yield topic
+    }
 }
