@@ -155,7 +155,7 @@ lazy val `redis4cats-streams` = project
     mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }
   )
   .dependsOn(`redis4cats-effects`)
-  .settings(libraryDependencies += Libraries.fs2Core)
+  .settings(libraryDependencies ++= List(Libraries.fs2Core, Libraries.collectionCompat))
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`redis4cats-core`)

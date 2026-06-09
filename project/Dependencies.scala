@@ -36,6 +36,8 @@ object Dependencies {
 
     def reflect(version: String): ModuleID = "org.scala-lang" % "scala-reflect" % version
 
+    val collectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.13.0"
+
     // Examples libraries
     val catsEffect    = "org.typelevel" %% "cats-effect"     % V.catsEffect
     val circeCore     = "io.circe"      %% "circe-core"      % V.circe
