@@ -35,6 +35,41 @@
 
 <p>The <code class="language-plaintext highlighter-rouge">1.x.x</code> series is built on Cats Effect 3 whereas the <code class="language-plaintext highlighter-rouge">0.x.x</code> series is built on Cats Effect 2.</p>
 
+<p>redis4cats is a thin wrapper over the async Java client <a href="https://lettuce.io/">Lettuce</a>, so each series tracks a
+particular Lettuce major version:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>redis4cats</th>
+      <th>Lettuce</th>
+      <th>Cats Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">3.x</code></td>
+      <td><code class="language-plaintext highlighter-rouge">7.x</code></td>
+      <td><code class="language-plaintext highlighter-rouge">3.x</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">2.x</code></td>
+      <td><code class="language-plaintext highlighter-rouge">6.x</code> (currently <code class="language-plaintext highlighter-rouge">6.8.x</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">3.x</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">1.x</code></td>
+      <td><code class="language-plaintext highlighter-rouge">6.x</code> (<code class="language-plaintext highlighter-rouge">6.1.x</code>–<code class="language-plaintext highlighter-rouge">6.5.x</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">3.x</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">0.x</code></td>
+      <td><code class="language-plaintext highlighter-rouge">5.3.x</code> then <code class="language-plaintext highlighter-rouge">6.0.x</code></td>
+      <td><code class="language-plaintext highlighter-rouge">2.x</code></td>
+    </tr>
+  </tbody>
+</table>
+
 <h3 id="dependencies">Dependencies</h3>
 
 <p>Add this to your <code class="language-plaintext highlighter-rouge">build.sbt</code> for the <a href="https://redis4cats.profunktor.dev/effects/">Effects API</a> (depends on <code class="language-plaintext highlighter-rouge">cats-effect</code>):</p>
