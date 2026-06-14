@@ -4,7 +4,7 @@ import Dependencies.*
 import microsites.ExtraMdFileConfig
 
 ThisBuild / scalaVersion := "2.13.18"
-ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.7")
+ThisBuild / crossScalaVersions := Seq("2.12.21", "2.13.18", "3.3.8")
 ThisBuild / evictionErrorLevel := Level.Info
 ThisBuild / mimaBaseVersion := "2.0.0"
 Test / parallelExecution := false
@@ -108,7 +108,7 @@ lazy val `redis4cats-root` = project
 
 lazy val `redis4cats-core` = project
   .in(file("modules/core"))
-  .settings(commonSettings*)
+  .settings(commonSettings *)
   .settings(libraryDependencies += Libraries.literally)
   .settings(
     libraryDependencies ++=
@@ -123,7 +123,7 @@ lazy val `redis4cats-core` = project
 
 lazy val `redis4cats-log4cats` = project
   .in(file("modules/log4cats"))
-  .settings(commonSettings*)
+  .settings(commonSettings *)
   .settings(
     isMimaEnabled := true,
     mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }
@@ -135,7 +135,7 @@ lazy val `redis4cats-log4cats` = project
 
 lazy val `redis4cats-effects` = project
   .in(file("modules/effects"))
-  .settings(commonSettings*)
+  .settings(commonSettings *)
   .settings(
     libraryDependencies += Libraries.keyPool
   )
@@ -149,7 +149,7 @@ lazy val `redis4cats-effects` = project
 
 lazy val `redis4cats-streams` = project
   .in(file("modules/streams"))
-  .settings(commonSettings*)
+  .settings(commonSettings *)
   .settings(
     isMimaEnabled := true,
     mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }
@@ -162,7 +162,7 @@ lazy val `redis4cats-streams` = project
 
 lazy val examples = project
   .in(file("modules/examples"))
-  .settings(commonSettings*)
+  .settings(commonSettings *)
   .settings(noPublish)
   .settings(
     libraryDependencies ++= Seq(
@@ -181,7 +181,7 @@ lazy val examples = project
 
 lazy val tests = project
   .in(file("modules/tests"))
-  .settings(commonSettings*)
+  .settings(commonSettings *)
   .settings(Test / parallelExecution := false)
   .settings(noPublish)
   .enablePlugins(AutomateHeaderPlugin)
@@ -192,7 +192,7 @@ lazy val tests = project
 lazy val microsite = project
   .in(file("site"))
   .enablePlugins(MicrositesPlugin, SiteScaladocPlugin, ScalaUnidocPlugin)
-  .settings(commonSettings*)
+  .settings(commonSettings *)
   .settings(noPublish)
   .settings(
     micrositeName := "Redis4Cats",
