@@ -96,6 +96,57 @@ val `redis</span><span class="o">-</span><span class="n">socket</span><span clas
 
 </code></pre></div></div>
 
+<h3 id="authentication-credentials">Authentication credentials</h3>
+
+<p>Instead of embedding credentials in the URI string, you can attach them in a type-safe way with
+<code class="language-plaintext highlighter-rouge">withCredentials</code>. This is handy when a token contains URI-reserved characters (<code class="language-plaintext highlighter-rouge">@</code>, <code class="language-plaintext highlighter-rouge">:</code>, <code class="language-plaintext highlighter-rouge">/</code>),
+which would otherwise need escaping.</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.connection._</span>
+
+<span class="c1">// Token without a username (Redis `AUTH &lt;token&gt;`)</span>
+<span class="nv">RedisURI</span><span class="o">.</span><span class="py">make</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span><span class="s">"redis://localhost:6379"</span><span class="o">).</span><span class="py">map</span><span class="o">(</span><span class="nv">_</span><span class="o">.</span><span class="py">withCredentials</span><span class="o">(</span><span class="nv">RedisCredentials</span><span class="o">.</span><span class="py">Password</span><span class="o">(</span><span class="n">token</span><span class="o">)))</span>
+
+<span class="c1">// Username + token (Redis 6 ACL style `AUTH &lt;username&gt; &lt;token&gt;`)</span>
+<span class="nc">RedisURI</span>
+  <span class="o">.</span><span class="py">make</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span><span class="s">"redis://localhost:6379"</span><span class="o">)</span>
+  <span class="o">.</span><span class="py">map</span><span class="o">(</span><span class="nv">_</span><span class="o">.</span><span class="py">withCredentials</span><span class="o">(</span><span class="nv">RedisCredentials</span><span class="o">.</span><span class="py">UsernameAndPassword</span><span class="o">(</span><span class="n">username</span><span class="o">,</span> <span class="n">token</span><span class="o">)))</span>
+</code></pre></div></div>
+
+<p>The resulting <code class="language-plaintext highlighter-rouge">RedisURI</code> can be passed to <code class="language-plaintext highlighter-rouge">RedisClient[IO].fromUri(...)</code>, and is also accepted by the
+cluster and master/replica connections.</p>
+
+<h3 id="building-a-redisuri-from-config">Building a RedisURI from config</h3>
+
+<p>For full type-safe control over connection settings, build a <code class="language-plaintext highlighter-rouge">RedisURI</code> from a <code class="language-plaintext highlighter-rouge">RedisUriConfig</code>
+instead of a URI string. This covers all Lettuce connection modes and options. The <code class="language-plaintext highlighter-rouge">standalone</code>/
+<code class="language-plaintext highlighter-rouge">socket</code>/<code class="language-plaintext highlighter-rouge">sentinel</code> constructors and the fluent <code class="language-plaintext highlighter-rouge">withX</code> helpers let you avoid wrapping options in
+<code class="language-plaintext highlighter-rouge">Some</code> (the raw case class with named arguments is still available if you prefer it).</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">scala.concurrent.duration._</span>
+<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.connection._</span>
+
+<span class="c1">// Standalone with TLS and token auth</span>
+<span class="nc">RedisClient</span><span class="o">[</span><span class="kt">IO</span><span class="o">].</span><span class="py">fromConfig</span><span class="o">(</span>
+  <span class="nc">RedisUriConfig</span>
+    <span class="o">.</span><span class="py">standalone</span><span class="o">(</span><span class="s">"redis.example.com"</span><span class="o">,</span> <span class="mi">6380</span><span class="o">)</span>
+    <span class="o">.</span><span class="py">withCredentials</span><span class="o">(</span><span class="nv">RedisCredentials</span><span class="o">.</span><span class="py">Password</span><span class="o">(</span><span class="n">token</span><span class="o">))</span>
+    <span class="o">.</span><span class="py">withTls</span><span class="o">(</span><span class="nc">TlsConfig</span><span class="o">(</span><span class="n">verifyPeer</span> <span class="k">=</span> <span class="nv">SslVerifyMode</span><span class="o">.</span><span class="py">Full</span><span class="o">))</span>
+    <span class="o">.</span><span class="py">withDatabase</span><span class="o">(</span><span class="mi">1</span><span class="o">)</span>
+<span class="o">)</span>
+
+<span class="c1">// Sentinel (varargs nodes; per-node password via withPassword)</span>
+<span class="nv">RedisURI</span><span class="o">.</span><span class="py">fromConfig</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span>
+  <span class="nv">RedisUriConfig</span><span class="o">.</span><span class="py">sentinel</span><span class="o">(</span><span class="s">"mymaster"</span><span class="o">,</span> <span class="nc">SentinelNode</span><span class="o">(</span><span class="s">"host1"</span><span class="o">),</span> <span class="nc">SentinelNode</span><span class="o">(</span><span class="s">"host2"</span><span class="o">).</span><span class="py">withPassword</span><span class="o">(</span><span class="n">token</span><span class="o">))</span>
+<span class="o">)</span>
+
+<span class="c1">// Unix socket</span>
+<span class="nv">RedisURI</span><span class="o">.</span><span class="py">fromConfig</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span><span class="nv">RedisUriConfig</span><span class="o">.</span><span class="py">socket</span><span class="o">(</span><span class="s">"/tmp/redis.sock"</span><span class="o">))</span>
+</code></pre></div></div>
+
+<p>Dynamic/rotating credentials (Lettuce’s <code class="language-plaintext highlighter-rouge">RedisCredentialsProvider</code>) are not currently supported;
+use a static <code class="language-plaintext highlighter-rouge">RedisCredentials</code> or embed credentials in the URI string.</p>
+
 <h2 id="single-node-connection">Single node connection</h2>
 
 <p>For those who only need a simple API access to Redis commands, there are a few ways to acquire a connection:</p>
@@ -140,7 +191,9 @@ val `redis</span><span class="o">-</span><span class="n">socket</span><span clas
 
 <h2 id="standalone-sentinel-or-cluster">Standalone, Sentinel or Cluster</h2>
 
-<p>You can connect in any of these modes by either using <code class="language-plaintext highlighter-rouge">JRedisURI.create</code> or <code class="language-plaintext highlighter-rouge">JRedisURI.Builder</code>. More information
+<p>You can connect in any of these modes by building a <code class="language-plaintext highlighter-rouge">RedisURI</code> — type-safely from a <code class="language-plaintext highlighter-rouge">RedisUriConfig</code>
+(recommended; see the <em>Building a RedisURI from config</em> section above), from a URI string via
+<code class="language-plaintext highlighter-rouge">RedisURI.make</code>, or directly with Lettuce’s <code class="language-plaintext highlighter-rouge">JRedisURI.create</code> / <code class="language-plaintext highlighter-rouge">JRedisURI.Builder</code>. More information
 <a href="https://github.com/lettuce-io/lettuce-core/wiki/Redis-URI-and-connection-details">here</a>.</p>
 
 <h2 id="cluster-connection">Cluster connection</h2>
@@ -176,6 +229,7 @@ val `redis</span><span class="o">-</span><span class="n">socket</span><span clas
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">withOptions</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">](</span>
     <span class="n">codec</span><span class="k">:</span> <span class="kt">RedisCodec</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">],</span>
     <span class="n">opts</span><span class="k">:</span> <span class="kt">ClientOptions</span><span class="o">,</span>
+    <span class="n">config</span><span class="k">:</span> <span class="kt">Redis4CatsConfig</span><span class="o">,</span>
     <span class="n">uris</span><span class="k">:</span> <span class="kt">RedisURI*</span>
 <span class="o">)(</span><span class="n">readFrom</span><span class="k">:</span> <span class="kt">Option</span><span class="o">[</span><span class="kt">JReadFrom</span><span class="o">]</span> <span class="k">=</span> <span class="nc">None</span><span class="o">)</span><span class="k">:</span> <span class="kt">Resource</span><span class="o">[</span><span class="kt">F</span>, <span class="kt">RedisMasterReplica</span><span class="o">[</span><span class="kt">K</span>, <span class="kt">V</span><span class="o">]]</span>
 </code></pre></div></div>
