@@ -23,7 +23,21 @@ import io.lettuce.core.{ RedisURI => JRedisURI }
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-sealed abstract class RedisURI private (val underlying: JRedisURI)
+sealed abstract class RedisURI private (val underlying: JRedisURI) {
+
+  /** Returns a new [[RedisURI]] with the given static [[RedisCredentials]] attached.
+    *
+    * Host, port, database, SSL and all other settings are preserved. The original URI is not mutated. Tokens containing
+    * URI-reserved characters (e.g. `@`, `:`, `/`) need no escaping.
+    */
+  def withCredentials(credentials: RedisCredentials): RedisURI =
+    credentials match {
+      case RedisCredentials.Password(password) =>
+        RedisURI.fromUnderlying(JRedisURI.builder(underlying).withPassword(password).build())
+      case RedisCredentials.UsernameAndPassword(username, password) =>
+        RedisURI.fromUnderlying(JRedisURI.builder(underlying).withAuthentication(username, password).build())
+    }
+}
 
 object RedisURI {
   def make[F[_]: ApplicativeThrow](uri: => String): F[RedisURI] =
