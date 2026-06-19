@@ -18,6 +18,7 @@ package dev.profunktor.redis4cats.connection
 
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
+import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import io.lettuce.core.ClientOptions
 import io.lettuce.core.StaticCredentialsProvider
@@ -62,6 +63,23 @@ class RedisClientSuite extends FunSuite {
             credentials = Some(RedisCredentials.Password("tok@123"))
           ),
           ClientOptions.create()
+        )
+        .use(client => IO.pure((client.uri.underlying.getHost, passwordOf(client.uri))))
+        .unsafeRunSync()
+
+    assertEquals(host, "redis.example.com")
+    assertEquals(password, "tok@123")
+  }
+
+  test("fromConfig with ClientOptions and Redis4CatsConfig builds a client whose URI reflects the config") {
+    val (host, password) =
+      RedisClient[IO]
+        .fromConfig(
+          RedisUriConfig
+            .standalone("redis.example.com", 6380)
+            .withCredentials(RedisCredentials.Password("tok@123")),
+          ClientOptions.create(),
+          Redis4CatsConfig()
         )
         .use(client => IO.pure((client.uri.underlying.getHost, passwordOf(client.uri))))
         .unsafeRunSync()

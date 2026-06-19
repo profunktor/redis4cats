@@ -157,6 +157,14 @@ object RedisClient {
         implicit F: Sync[F]
     ): Resource[F, RedisClient] =
       Resource.eval(RedisURI.fromConfig[F](config)).flatMap(this.custom(_, opts))
+
+    /** Creates a [[RedisClient]] from a [[RedisUriConfig]] with the supplied options and
+      * [[dev.profunktor.redis4cats.config.Redis4CatsConfig]].
+      */
+    def fromConfig(config: RedisUriConfig, opts: ClientOptions, redis4CatsConfig: Redis4CatsConfig)(
+        implicit F: Sync[F]
+    ): Resource[F, RedisClient] =
+      Resource.eval(RedisURI.fromConfig[F](config)).flatMap(this.custom(_, opts, redis4CatsConfig))
   }
 
   def apply[F[_]: MkRedis: MonadThrow]: RedisClientPartiallyApplied[F] = new RedisClientPartiallyApplied[F]
