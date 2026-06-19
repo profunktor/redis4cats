@@ -24,7 +24,7 @@ import cats.data.NonEmptyList
 sealed trait SslVerifyMode
 object SslVerifyMode {
   case object Full extends SslVerifyMode
-  case object Ca   extends SslVerifyMode
+  case object Ca extends SslVerifyMode
   case object None extends SslVerifyMode
 }
 
@@ -38,7 +38,7 @@ final case class SentinelNode(host: String, port: Int = 26379, password: Option[
 sealed trait RedisEndpoint
 object RedisEndpoint {
   final case class Standalone(host: String = "localhost", port: Int = 6379) extends RedisEndpoint
-  final case class Socket(path: String)                                     extends RedisEndpoint
+  final case class Socket(path: String) extends RedisEndpoint
   final case class Sentinel(masterId: String, nodes: NonEmptyList[SentinelNode]) extends RedisEndpoint
 }
 

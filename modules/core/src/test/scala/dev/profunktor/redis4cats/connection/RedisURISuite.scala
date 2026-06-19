@@ -127,6 +127,21 @@ class RedisURISuite extends FunSuite {
     assertEquals(uri.underlying.getSentinels.get(1).getPort, 26380)
   }
 
+  test("fromConfig Sentinel places a node password on the sentinel node, not the main URI") {
+    val uri = unsafeCfg(
+      RedisUriConfig(
+        endpoint = RedisEndpoint.Sentinel(
+          "mymaster",
+          NonEmptyList.of(SentinelNode("h1", 26379, Some("sentpw")))
+        )
+      )
+    )
+    // password is on the sentinel node ...
+    assertEquals(passwordOf(RedisURI.fromUnderlying(uri.underlying.getSentinels.get(0))), "sentpw")
+    // ... and NOT on the main URI
+    assertEquals(passwordOf(uri), null)
+  }
+
   test("fromConfig maps libraryName and libraryVersion") {
     val uri = unsafeCfg(
       RedisUriConfig(

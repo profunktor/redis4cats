@@ -63,12 +63,7 @@ object RedisURI {
       case RedisEndpoint.Standalone(host, port) => JRedisURI.Builder.redis(host, port)
       case RedisEndpoint.Socket(path)           => JRedisURI.Builder.socket(path)
       case RedisEndpoint.Sentinel(masterId, nodes) =>
-        val head = nodes.head
-        val first = head.password match {
-          case Some(pw) => JRedisURI.Builder.sentinel(head.host, head.port, masterId).withPassword(pw)
-          case None     => JRedisURI.Builder.sentinel(head.host, head.port, masterId)
-        }
-        nodes.tail.foldLeft(first) { (b, n) =>
+        nodes.foldLeft(JRedisURI.builder().withSentinelMasterId(masterId)) { (b, n) =>
           n.password match {
             case Some(pw) => b.withSentinel(n.host, n.port, pw)
             case None     => b.withSentinel(n.host, n.port)
