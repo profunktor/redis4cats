@@ -131,33 +131,30 @@ cluster and master/replica connections.
 ### Building a RedisURI from config
 
 For full type-safe control over connection settings, build a `RedisURI` from a `RedisUriConfig`
-instead of a URI string. This covers all Lettuce connection modes and options.
+instead of a URI string. This covers all Lettuce connection modes and options. The `standalone`/
+`socket`/`sentinel` constructors and the fluent `withX` helpers let you avoid wrapping options in
+`Some` (the raw case class with named arguments is still available if you prefer it).
 
 ```scala
-import cats.data.NonEmptyList
 import scala.concurrent.duration._
 import dev.profunktor.redis4cats.connection._
-import dev.profunktor.redis4cats.connection.RedisEndpoint._
 
 // Standalone with TLS and token auth
 RedisClient[IO].fromConfig(
-  RedisUriConfig(
-    endpoint    = Standalone("redis.example.com", 6380),
-    credentials = Some(RedisCredentials.Password(token)),
-    tls         = Some(TlsConfig(verifyPeer = SslVerifyMode.Full)),
-    database    = Some(1)
-  )
+  RedisUriConfig
+    .standalone("redis.example.com", 6380)
+    .withCredentials(RedisCredentials.Password(token))
+    .withTls(TlsConfig(verifyPeer = SslVerifyMode.Full))
+    .withDatabase(1)
 )
 
-// Sentinel
+// Sentinel (varargs nodes; per-node password via withPassword)
 RedisURI.fromConfig[IO](
-  RedisUriConfig(
-    endpoint = Sentinel("mymaster", NonEmptyList.of(SentinelNode("host1"), SentinelNode("host2")))
-  )
+  RedisUriConfig.sentinel("mymaster", SentinelNode("host1"), SentinelNode("host2").withPassword(token))
 )
 
 // Unix socket
-RedisURI.fromConfig[IO](RedisUriConfig(endpoint = Socket("/tmp/redis.sock")))
+RedisURI.fromConfig[IO](RedisUriConfig.socket("/tmp/redis.sock"))
 ```
 
 Dynamic/rotating credentials (Lettuce's `RedisCredentialsProvider`) are not currently supported;

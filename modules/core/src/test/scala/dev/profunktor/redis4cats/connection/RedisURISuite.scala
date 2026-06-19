@@ -188,4 +188,49 @@ class RedisURISuite extends FunSuite {
     )
     assertEquals(ca.underlying.getVerifyMode, JSslVerifyMode.CA)
   }
+
+  test("RedisUriConfig.standalone + fluent withX equals the explicit case-class form") {
+    val viaHelpers = RedisUriConfig
+      .standalone("h", 1)
+      .withCredentials(RedisCredentials.Password("tok"))
+      .withTls(TlsConfig(verifyPeer = SslVerifyMode.None))
+      .withDatabase(2)
+      .withTimeout(5.seconds)
+      .withClientName("c")
+      .withLibraryName("ln")
+      .withLibraryVersion("lv")
+
+    val explicit = RedisUriConfig(
+      endpoint = RedisEndpoint.Standalone("h", 1),
+      credentials = Some(RedisCredentials.Password("tok")),
+      tls = Some(TlsConfig(verifyPeer = SslVerifyMode.None)),
+      database = Some(2),
+      timeout = Some(5.seconds),
+      clientName = Some("c"),
+      libraryName = Some("ln"),
+      libraryVersion = Some("lv")
+    )
+
+    assertEquals(viaHelpers, explicit)
+  }
+
+  test("withTls() defaults to an enabled TlsConfig") {
+    assertEquals(RedisUriConfig.standalone("h").withTls().tls, Some(TlsConfig()))
+  }
+
+  test("RedisUriConfig.socket builds a Socket endpoint") {
+    assertEquals(RedisUriConfig.socket("/tmp/x.sock").endpoint, RedisEndpoint.Socket("/tmp/x.sock"))
+  }
+
+  test("RedisUriConfig.sentinel varargs builds the NonEmptyList of nodes") {
+    val cfg = RedisUriConfig.sentinel("m", SentinelNode("h1"), SentinelNode("h2", 26380))
+    assertEquals(
+      cfg.endpoint,
+      RedisEndpoint.Sentinel("m", NonEmptyList.of(SentinelNode("h1"), SentinelNode("h2", 26380)))
+    )
+  }
+
+  test("SentinelNode.withPassword wraps the password") {
+    assertEquals(SentinelNode("h1").withPassword("pw"), SentinelNode("h1", 26379, Some("pw")))
+  }
 }

@@ -32,7 +32,9 @@ object SslVerifyMode {
 final case class TlsConfig(startTls: Boolean = false, verifyPeer: SslVerifyMode = SslVerifyMode.Full)
 
 /** A single Redis Sentinel node. */
-final case class SentinelNode(host: String, port: Int = 26379, password: Option[CharSequence] = None)
+final case class SentinelNode(host: String, port: Int = 26379, password: Option[CharSequence] = None) {
+  def withPassword(password: CharSequence): SentinelNode = copy(password = Some(password))
+}
 
 /** The Redis connection endpoint (mutually-exclusive modes). */
 sealed trait RedisEndpoint
@@ -57,4 +59,27 @@ final case class RedisUriConfig(
     clientName: Option[String] = None,
     libraryName: Option[String] = None,
     libraryVersion: Option[String] = None
-)
+) {
+  def withCredentials(credentials: RedisCredentials): RedisUriConfig = copy(credentials = Some(credentials))
+  def withTls(tls: TlsConfig = TlsConfig()): RedisUriConfig          = copy(tls = Some(tls))
+  def withDatabase(database: Int): RedisUriConfig                    = copy(database = Some(database))
+  def withTimeout(timeout: FiniteDuration): RedisUriConfig           = copy(timeout = Some(timeout))
+  def withClientName(clientName: String): RedisUriConfig             = copy(clientName = Some(clientName))
+  def withLibraryName(libraryName: String): RedisUriConfig           = copy(libraryName = Some(libraryName))
+  def withLibraryVersion(libraryVersion: String): RedisUriConfig     = copy(libraryVersion = Some(libraryVersion))
+}
+
+object RedisUriConfig {
+
+  /** A standalone TCP endpoint config. */
+  def standalone(host: String = "localhost", port: Int = 6379): RedisUriConfig =
+    RedisUriConfig(RedisEndpoint.Standalone(host, port))
+
+  /** A unix-socket endpoint config. */
+  def socket(path: String): RedisUriConfig =
+    RedisUriConfig(RedisEndpoint.Socket(path))
+
+  /** A Sentinel endpoint config with one or more nodes. */
+  def sentinel(masterId: String, first: SentinelNode, rest: SentinelNode*): RedisUriConfig =
+    RedisUriConfig(RedisEndpoint.Sentinel(masterId, NonEmptyList(first, rest.toList)))
+}
