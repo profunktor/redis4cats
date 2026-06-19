@@ -114,7 +114,8 @@ lazy val `redis4cats-core` = project
       pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(Libraries.reflect(scalaVersion.value)))
   )
   .settings(
-    isMimaEnabled := true
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }
   )
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -123,7 +124,8 @@ lazy val `redis4cats-log4cats` = project
   .in(file("modules/log4cats"))
   .settings(commonSettings*)
   .settings(
-    isMimaEnabled := true
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }
   )
   .settings(libraryDependencies += Libraries.log4CatsCore)
   .settings(Test / parallelExecution := false)
@@ -137,7 +139,8 @@ lazy val `redis4cats-effects` = project
     libraryDependencies += Libraries.keyPool
   )
   .settings(
-    isMimaEnabled := true
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }
   )
   .settings(Test / parallelExecution := false)
   .enablePlugins(AutomateHeaderPlugin)
@@ -147,7 +150,8 @@ lazy val `redis4cats-streams` = project
   .in(file("modules/streams"))
   .settings(commonSettings*)
   .settings(
-    isMimaEnabled := true
+    isMimaEnabled := true,
+    mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }
   )
   .dependsOn(`redis4cats-effects`)
   .settings(libraryDependencies += Libraries.fs2Core)

@@ -37,6 +37,16 @@ If you like it, give it a ⭐ ! If you think we could do better, please [let us 
 
 The `1.x.x` series is built on Cats Effect 3 whereas the `0.x.x` series is built on Cats Effect 2.
 
+redis4cats is a thin wrapper over the async Java client [Lettuce](https://lettuce.io/), so each series tracks a
+particular Lettuce major version:
+
+| redis4cats | Lettuce                   | Cats Effect |
+| ---------- | ------------------------- | ----------- |
+| `3.x`      | `7.x`                     | `3.x`       |
+| `2.x`      | `6.x` (currently `6.8.x`) | `3.x`       |
+| `1.x`      | `6.x` (`6.1.x`–`6.5.x`)   | `3.x`       |
+| `0.x`      | `5.3.x` then `6.0.x`      | `2.x`       |
+
 ### Dependencies
 
 Add this to your `build.sbt` for the [Effects API](https://redis4cats.profunktor.dev/effects/) (depends on `cats-effect`):

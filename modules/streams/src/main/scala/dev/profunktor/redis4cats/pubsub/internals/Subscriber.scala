@@ -143,19 +143,28 @@ object Subscriber {
             // No existing subscription, create a new one.
             val makeSubscription = for {
               _ <- Log[F].info(s"Creating subscription for $key")
-              // We use parallel dispatcher because multiple subscribers can be interested in the same key
+              topic <- Topic[F, Option[SubValue]]
+              // We use parallel dispatcher because multiple subscribers can be interested in the same key.
+              // Allocate it last so that nothing that can fail runs between acquiring it and the guarded
+              // block below; otherwise the dispatcher would leak (its finalizer is only reachable via `sub`).
               dispatcherTpl <- Dispatcher.parallel[F].allocated
               (dispatcher, cleanupDispatcher) = dispatcherTpl
-              topic <- Topic[F, Option[SubValue]]
-              listener        = makeListener(dispatcher, topic)
-              cleanupListener = Sync[F].delay(subConnection.removeListener(listener))
+              listener                        = makeListener(dispatcher, topic)
+              cleanupListener                 = Sync[F].delay(subConnection.removeListener(listener))
               cleanup = (
                           Log[F].debug(s"Cleaning up resources for $key subscription") *>
                             unsubscribeFromRedis *> cleanupListener *> cleanupDispatcher *>
                             Log[F].debug(s"Cleaned up resources for $key subscription")
                         ).uncancelable
-              _ <- Sync[F].delay(subConnection.addListener(listener))
-              _ <- subscribeToRedis
+              // If registering the listener or subscribing to Redis fails, release everything we have
+              // already acquired. Otherwise it leaks: `cleanup` is only reachable through `sub`, which is
+              // never created or stored on failure. We also unsubscribe in case we partially subscribed
+              // server-side, and attempt each step independently so one failure can't skip the dispatcher
+              // release and the original error is the one that propagates.
+              _ <- (Sync[F].delay(subConnection.addListener(listener)) *> subscribeToRedis)
+                     .onError { case _ =>
+                       unsubscribeFromRedis.attempt *> cleanupListener.attempt *> cleanupDispatcher.attempt.void
+                     }
               sub            = Redis4CatsSubscription(topic, subscribers = 1, cleanup)
               newSubscribers = subscribers.updated(key, sub)
               _ <- Log[F].debug(s"Created subscription for $key")
