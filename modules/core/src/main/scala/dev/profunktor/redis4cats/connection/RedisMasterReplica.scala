@@ -90,7 +90,7 @@ object RedisMasterReplica {
       *   for {
       *     ops <- Resource.eval(Sync[F].delay(ClientOptions.create()))
       *     uri <- Resource.eval(RedisURI.make[IO](redisURI))
-      *     mrc <- RedisMasterReplica[IO].withOptions(RedisCodec.Utf8, ops, uri)(Some(ReadFrom.MasterPreferred))
+      *     mrc <- RedisMasterReplica[IO].withOptions(RedisCodec.Utf8, ops, Redis4CatsConfig(), uri)(Some(ReadFrom.MasterPreferred))
       *   } yield mrc
       * }}}
       */

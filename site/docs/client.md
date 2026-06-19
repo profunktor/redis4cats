@@ -209,7 +209,9 @@ import dev.profunktor.redis4cats.effect.Log.Stdout._
 
 ## Standalone, Sentinel or Cluster
 
-You can connect in any of these modes by either using `JRedisURI.create` or `JRedisURI.Builder`. More information
+You can connect in any of these modes by building a `RedisURI` — type-safely from a `RedisUriConfig`
+(recommended; see the *Building a RedisURI from config* section above), from a URI string via
+`RedisURI.make`, or directly with Lettuce's `JRedisURI.create` / `JRedisURI.Builder`. More information
 [here](https://github.com/lettuce-io/lettuce-core/wiki/Redis-URI-and-connection-details).
 
 ## Cluster connection
@@ -249,6 +251,7 @@ And a way to customize the underlying client options.
 def withOptions[K, V](
     codec: RedisCodec[K, V],
     opts: ClientOptions,
+    config: Redis4CatsConfig,
     uris: RedisURI*
 )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]]
 ```
