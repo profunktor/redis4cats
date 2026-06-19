@@ -21,6 +21,10 @@ import munit.FunSuite
 
 class RedisURISuite extends FunSuite {
 
+  // Lettuce 6.8.2: RedisURI.getPassword/getUsername are deprecated (and -Wconf turns the
+  // warning into an error), so we read the credentials through the provider. Both withPassword
+  // and withAuthentication store into the username/password fields, so getCredentialsProvider
+  // returns a StaticCredentialsProvider; the cast is safe for the pinned Lettuce version.
   private def creds(uri: RedisURI): io.lettuce.core.RedisCredentials =
     uri.underlying.getCredentialsProvider
       .asInstanceOf[StaticCredentialsProvider]
