@@ -107,6 +107,27 @@ val `redis-socket` = redis"redis-socket:///tmp/redis.sock"
 
 ```
 
+### Authentication credentials
+
+Instead of embedding credentials in the URI string, you can attach them in a type-safe way with
+`withCredentials`. This is handy when a token contains URI-reserved characters (`@`, `:`, `/`),
+which would otherwise need escaping.
+
+```scala
+import dev.profunktor.redis4cats.connection._
+
+// Token without a username (Redis `AUTH <token>`)
+RedisURI.make[IO]("redis://localhost:6379").map(_.withCredentials(RedisCredentials.Password(token)))
+
+// Username + token (Redis 6 ACL style `AUTH <username> <token>`)
+RedisURI
+  .make[IO]("redis://localhost:6379")
+  .map(_.withCredentials(RedisCredentials.UsernameAndPassword(username, token)))
+```
+
+The resulting `RedisURI` can be passed to `RedisClient[IO].fromUri(...)`, and is also accepted by the
+cluster and master/replica connections.
+
 ## Single node connection
 
 For those who only need a simple API access to Redis commands, there are a few ways to acquire a connection:
