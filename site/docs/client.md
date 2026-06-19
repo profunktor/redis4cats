@@ -128,6 +128,41 @@ RedisURI
 The resulting `RedisURI` can be passed to `RedisClient[IO].fromUri(...)`, and is also accepted by the
 cluster and master/replica connections.
 
+### Building a RedisURI from config
+
+For full type-safe control over connection settings, build a `RedisURI` from a `RedisUriConfig`
+instead of a URI string. This covers all Lettuce connection modes and options.
+
+```scala
+import cats.data.NonEmptyList
+import scala.concurrent.duration._
+import dev.profunktor.redis4cats.connection._
+import dev.profunktor.redis4cats.connection.RedisEndpoint._
+
+// Standalone with TLS and token auth
+RedisClient[IO].fromConfig(
+  RedisUriConfig(
+    endpoint    = Standalone("redis.example.com", 6380),
+    credentials = Some(RedisCredentials.Password(token)),
+    tls         = Some(TlsConfig(verifyPeer = SslVerifyMode.Full)),
+    database    = Some(1)
+  )
+)
+
+// Sentinel
+RedisURI.fromConfig[IO](
+  RedisUriConfig(
+    endpoint = Sentinel("mymaster", NonEmptyList.of(SentinelNode("host1"), SentinelNode("host2")))
+  )
+)
+
+// Unix socket
+RedisURI.fromConfig[IO](RedisUriConfig(endpoint = Socket("/tmp/redis.sock")))
+```
+
+Dynamic/rotating credentials (Lettuce's `RedisCredentialsProvider`) are not currently supported;
+use a static `RedisCredentials` or embed credentials in the URI string.
+
 ## Single node connection
 
 For those who only need a simple API access to Redis commands, there are a few ways to acquire a connection:
