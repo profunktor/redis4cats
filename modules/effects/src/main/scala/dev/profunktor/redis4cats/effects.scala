@@ -171,6 +171,82 @@ object effects {
     case object Replace extends FunctionRestoreMode
   }
 
+  /** A command/key/channel selector attached to an ACL user (Redis 7+), as returned by `ACL GETUSER`. */
+  final case class AclSelector(commands: String, keys: String, channels: String)
+
+  /** An ACL user as returned by `ACL GETUSER`. The `commands`, `keys` and `channels` fields hold the rule strings
+    * exactly as Redis reports them (e.g. `"-@all +get"`, `"~app:*"`, `"&*"`).
+    */
+  final case class AclUser(
+      flags: List[String],
+      passwords: List[String],
+      commands: String,
+      keys: String,
+      channels: String,
+      selectors: List[AclSelector]
+  )
+
+  /** A single rule passed to `ACL SETUSER`, applied in the order given. Mirrors Lettuce's `AclSetuserArgs`. */
+  sealed trait AclSetUserRule
+  object AclSetUserRule {
+
+    /** Enable the user (`on`). */
+    case object On extends AclSetUserRule
+
+    /** Disable the user (`off`). */
+    case object Off extends AclSetUserRule
+
+    /** Reset the user to its just-created state (`reset`). */
+    case object Reset extends AclSetUserRule
+
+    /** Allow logging in with no password (`nopass`). */
+    case object NoPass extends AclSetUserRule
+
+    /** Remove all passwords (`resetpass`). */
+    case object ResetPass extends AclSetUserRule
+
+    final case class AddPassword(password: String) extends AclSetUserRule
+    final case class RemovePassword(password: String) extends AclSetUserRule
+    final case class AddHashedPassword(hashedPassword: String) extends AclSetUserRule
+    final case class RemoveHashedPassword(hashedPassword: String) extends AclSetUserRule
+
+    /** Allow access to all keys (`allkeys` / `~*`). */
+    case object AllKeys extends AclSetUserRule
+
+    /** Revoke access to all keys (`resetkeys`). */
+    case object ResetKeys extends AclSetUserRule
+
+    /** Allow access to keys matching a glob pattern (e.g. `~app:*`). */
+    final case class KeyPattern(pattern: String) extends AclSetUserRule
+
+    /** Allow access to all pub/sub channels (`allchannels` / `&*`). */
+    case object AllChannels extends AclSetUserRule
+
+    /** Revoke access to all pub/sub channels (`resetchannels`). */
+    case object ResetChannels extends AclSetUserRule
+
+    /** Allow access to channels matching a glob pattern (e.g. `&news.*`). */
+    final case class ChannelPattern(pattern: String) extends AclSetUserRule
+
+    /** Allow every command (`allcommands` / `+@all`). */
+    case object AllCommands extends AclSetUserRule
+
+    /** Disallow every command (`nocommands` / `-@all`). */
+    case object NoCommands extends AclSetUserRule
+
+    /** Allow a single command by name, e.g. `AddCommand("get")`. */
+    final case class AddCommand(command: String) extends AclSetUserRule
+
+    /** Disallow a single command by name, e.g. `RemoveCommand("set")`. */
+    final case class RemoveCommand(command: String) extends AclSetUserRule
+
+    /** Allow a command category by name, e.g. `AddCategory("read")`. */
+    final case class AddCategory(category: String) extends AclSetUserRule
+
+    /** Disallow a command category by name, e.g. `RemoveCategory("dangerous")`. */
+    final case class RemoveCategory(category: String) extends AclSetUserRule
+  }
+
   sealed trait GetExArg
   object GetExArg {
 

@@ -692,6 +692,54 @@ trait TestScenarios { self: FunSuite =>
     } yield ()
   }
 
+  def aclScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
+    import dev.profunktor.redis4cats.effects.AclSetUserRule._
+    val user = "redis4cats-acl-test"
+    val rules =
+      List[dev.profunktor.redis4cats.effects.AclSetUserRule](
+        On,
+        AddPassword("s3cret"),
+        NoCommands,
+        AddCommand("get"),
+        AddCategory("read"),
+        KeyPattern("app:*"),
+        ChannelPattern("news.*")
+      )
+    // make sure a previous failed run doesn't leave the user behind
+    redis.aclDelUser(user) >> {
+      for {
+        who <- redis.aclWhoAmI
+        _ <- IO(assertEquals(who, "default"))
+        cats <- redis.aclCat
+        _ <- IO(assert(cats.contains("read") && cats.contains("write"), s"categories: $cats"))
+        readCmds <- redis.aclCat("read")
+        _ <- IO(assert(readCmds.contains("get"), s"read commands: $readCmds"))
+        pass <- redis.aclGenPass
+        _ <- IO(assert(pass.length == 64, s"genpass: $pass"))
+        shortPass <- redis.aclGenPass(32)
+        _ <- IO(assert(shortPass.nonEmpty))
+        _ <- redis.aclSetUser(user, rules)
+        users <- redis.aclUsers
+        _ <- IO(assert(users.contains(user), s"users: $users"))
+        got <- redis.aclGetUser(user)
+        _ <- IO(assert(got.exists(_.flags.contains("on")), s"getuser: $got"))
+        _ <- IO(assert(got.exists(_.keys.contains("app:*")), s"getuser keys: ${got.map(_.keys)}"))
+        _ <- IO(assert(got.exists(_.commands.contains("+get")), s"getuser commands: ${got.map(_.commands)}"))
+        missing <- redis.aclGetUser("definitely-not-a-user")
+        _ <- IO(assertEquals(missing, None))
+        list <- redis.aclList
+        _ <- IO(assert(list.exists(_.startsWith("user default")), s"list: $list"))
+        deleted <- redis.aclDelUser(user)
+        _ <- IO(assertEquals(deleted, 1L))
+        usersAfter <- redis.aclUsers
+        _ <- IO(assert(!usersAfter.contains(user)))
+        _ <- redis.aclLogReset
+        log <- redis.aclLog
+        _ <- IO(assert(log.forall(_.contains("reason")) || log.isEmpty, s"log: $log"))
+      } yield ()
+    }
+  }
+
   def serverScenario(redis: RedisCommands[IO, String, String]): IO[Unit] =
     for {
       _ <- redis.mSet(Map("firstname" -> "Jack", "lastname" -> "Stuntman", "age" -> "35"))
