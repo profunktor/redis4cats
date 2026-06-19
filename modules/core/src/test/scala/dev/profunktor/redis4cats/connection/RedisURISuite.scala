@@ -153,4 +153,39 @@ class RedisURISuite extends FunSuite {
     assertEquals(uri.underlying.getLibraryName, "redis4cats")
     assertEquals(uri.underlying.getLibraryVersion, "2.x")
   }
+
+  test("fromConfig Sentinel maps per-node passwords across multiple nodes") {
+    val uri = unsafeCfg(
+      RedisUriConfig(
+        endpoint = RedisEndpoint.Sentinel(
+          "mymaster",
+          NonEmptyList.of(
+            SentinelNode("h1", 26379, Some("pw1")),
+            SentinelNode("h2", 26380)
+          )
+        )
+      )
+    )
+    assertEquals(uri.underlying.getSentinels.size, 2)
+    assertEquals(passwordOf(RedisURI.fromUnderlying(uri.underlying.getSentinels.get(0))), "pw1")
+    assertEquals(passwordOf(RedisURI.fromUnderlying(uri.underlying.getSentinels.get(1))), null)
+  }
+
+  test("fromConfig maps SslVerifyMode.Full and Ca to the Lettuce enum") {
+    val full = unsafeCfg(
+      RedisUriConfig(
+        endpoint = RedisEndpoint.Standalone("localhost"),
+        tls = Some(TlsConfig(verifyPeer = SslVerifyMode.Full))
+      )
+    )
+    assertEquals(full.underlying.getVerifyMode, JSslVerifyMode.FULL)
+
+    val ca = unsafeCfg(
+      RedisUriConfig(
+        endpoint = RedisEndpoint.Standalone("localhost"),
+        tls = Some(TlsConfig(verifyPeer = SslVerifyMode.Ca))
+      )
+    )
+    assertEquals(ca.underlying.getVerifyMode, JSslVerifyMode.CA)
+  }
 }
