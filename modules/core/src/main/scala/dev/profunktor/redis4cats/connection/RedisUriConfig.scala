@@ -42,7 +42,12 @@ object RedisEndpoint {
   final case class Sentinel(masterId: String, nodes: NonEmptyList[SentinelNode]) extends RedisEndpoint
 }
 
-/** Type-safe configuration for constructing a [[RedisURI]] with parity to Lettuce's `RedisURI`. */
+/** Type-safe configuration for constructing a [[RedisURI]] with parity to Lettuce's `RedisURI`.
+  *
+  * Cross-cutting options (`tls`, `database`, `timeout`, etc.) are applied as given and are not validated against the
+  * chosen `endpoint`. For example, combining `RedisEndpoint.Socket` with `tls` produces a URI carrying SSL flags even
+  * though TLS over a unix socket is unusual; this mirrors Lettuce, which performs no such validation either.
+  */
 final case class RedisUriConfig(
     endpoint: RedisEndpoint,
     credentials: Option[RedisCredentials] = None,
