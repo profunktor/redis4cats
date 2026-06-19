@@ -145,6 +145,18 @@ object RedisClient {
       val (acquire, release) = acquireAndRelease(uri, opts, config)
       Resource.make(acquire)(release)
     }
+
+    /** Creates a [[RedisClient]] from a [[RedisUriConfig]] with default options. */
+    def fromConfig(config: RedisUriConfig)(
+        implicit F: Sync[F]
+    ): Resource[F, RedisClient] =
+      Resource.eval(RedisURI.fromConfig[F](config)).flatMap(this.fromUri(_))
+
+    /** Creates a [[RedisClient]] from a [[RedisUriConfig]] with the supplied options. */
+    def fromConfig(config: RedisUriConfig, opts: ClientOptions)(
+        implicit F: Sync[F]
+    ): Resource[F, RedisClient] =
+      Resource.eval(RedisURI.fromConfig[F](config)).flatMap(this.custom(_, opts))
   }
 
   def apply[F[_]: MkRedis: MonadThrow]: RedisClientPartiallyApplied[F] = new RedisClientPartiallyApplied[F]
