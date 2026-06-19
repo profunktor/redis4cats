@@ -16,10 +16,16 @@
 
 package dev.profunktor.redis4cats.connection
 
+import cats.data.NonEmptyList
 import io.lettuce.core.StaticCredentialsProvider
+import io.lettuce.core.{ SslVerifyMode => JSslVerifyMode }
 import munit.FunSuite
 
+import scala.concurrent.duration._
+
 class RedisURISuite extends FunSuite {
+
+  private type ErrOr[A] = Either[Throwable, A]
 
   // Lettuce 6.8.2: RedisURI.getPassword/getUsername are deprecated (and -Wconf turns the
   // warning into an error), so we read the credentials through the provider. Both withPassword
@@ -60,5 +66,76 @@ class RedisURISuite extends FunSuite {
     assertEquals(uri.underlying.getHost, "localhost")
     assertEquals(uri.underlying.getPort, 6379)
     assertEquals(uri.underlying.getDatabase, 2)
+  }
+
+  private def unsafeCfg(config: RedisUriConfig): RedisURI =
+    RedisURI.fromConfig[ErrOr](config).fold(throw _, identity)
+
+  test("fromConfig Standalone maps host, port, database, timeout, clientName and credentials") {
+    val uri = unsafeCfg(
+      RedisUriConfig(
+        endpoint = RedisEndpoint.Standalone("redis.example.com", 6380),
+        credentials = Some(RedisCredentials.UsernameAndPassword("alice", "tok@123")),
+        database = Some(3),
+        timeout = Some(5.seconds),
+        clientName = Some("app-1")
+      )
+    )
+    assertEquals(uri.underlying.getHost, "redis.example.com")
+    assertEquals(uri.underlying.getPort, 6380)
+    assertEquals(uri.underlying.getDatabase, 3)
+    assertEquals(uri.underlying.getTimeout, java.time.Duration.ofSeconds(5))
+    assertEquals(uri.underlying.getClientName, "app-1")
+    assertEquals(usernameOf(uri), Some("alice"))
+    assertEquals(passwordOf(uri), "tok@123")
+  }
+
+  test("fromConfig with TLS enables ssl and maps startTls + verifyPeer") {
+    val uri = unsafeCfg(
+      RedisUriConfig(
+        endpoint = RedisEndpoint.Standalone("localhost"),
+        tls = Some(TlsConfig(startTls = true, verifyPeer = SslVerifyMode.None))
+      )
+    )
+    assertEquals(uri.underlying.isSsl, true)
+    assertEquals(uri.underlying.isStartTls, true)
+    assertEquals(uri.underlying.getVerifyMode, JSslVerifyMode.NONE)
+  }
+
+  test("fromConfig without TLS leaves ssl disabled") {
+    val uri = unsafeCfg(RedisUriConfig(endpoint = RedisEndpoint.Standalone("localhost")))
+    assertEquals(uri.underlying.isSsl, false)
+  }
+
+  test("fromConfig Socket sets the socket path") {
+    val uri = unsafeCfg(RedisUriConfig(endpoint = RedisEndpoint.Socket("/tmp/redis.sock")))
+    assertEquals(uri.underlying.getSocket, "/tmp/redis.sock")
+  }
+
+  test("fromConfig Sentinel sets master id and all nodes") {
+    val uri = unsafeCfg(
+      RedisUriConfig(
+        endpoint = RedisEndpoint.Sentinel(
+          "mymaster",
+          NonEmptyList.of(SentinelNode("h1", 26379), SentinelNode("h2", 26380))
+        )
+      )
+    )
+    assertEquals(uri.underlying.getSentinelMasterId, "mymaster")
+    assertEquals(uri.underlying.getSentinels.size, 2)
+    assertEquals(uri.underlying.getSentinels.get(0).getHost, "h1")
+    assertEquals(uri.underlying.getSentinels.get(1).getPort, 26380)
+  }
+
+  test("fromConfig maps libraryName and libraryVersion") {
+    val uri = unsafeCfg(
+      RedisUriConfig(
+        endpoint = RedisEndpoint.Standalone("localhost"),
+        libraryName = Some("redis4cats"),
+        libraryVersion = Some("2.x")
+      )
+    )
+    assertEquals(uri.underlying.getLibraryName, "redis4cats")
+    assertEquals(uri.underlying.getLibraryVersion, "2.x")
   }
 }
