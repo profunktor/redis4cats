@@ -342,7 +342,7 @@ object effects {
     /** Revoke access to all keys (`resetkeys`). */
     case object ResetKeys extends AclSetUserRule
 
-    /** Allow access to keys matching a glob pattern (e.g. `~app:*`). */
+    /** Allow access to keys matching a glob pattern, given without the `~` prefix (e.g. `app:*`). */
     final case class KeyPattern(pattern: String) extends AclSetUserRule
 
     /** Allow access to all pub/sub channels (`allchannels` / `&*`). */
@@ -351,7 +351,7 @@ object effects {
     /** Revoke access to all pub/sub channels (`resetchannels`). */
     case object ResetChannels extends AclSetUserRule
 
-    /** Allow access to channels matching a glob pattern (e.g. `&news.*`). */
+    /** Allow access to channels matching a glob pattern, given without the `&` prefix (e.g. `news.*`). */
     final case class ChannelPattern(pattern: String) extends AclSetUserRule
 
     /** Allow every command (`allcommands` / `+@all`). */

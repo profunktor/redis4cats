@@ -117,8 +117,13 @@ class AclDecoderSuite extends FunSuite {
     assert(AclDecoder.decodeUser(reply).left.exists(_.isInstanceOf[AclError.DecodingFailure]))
   }
 
-  test("decodeUser fails when a selector is not an array") {
+  test("decodeUser fails when a selector entry is not an array") {
     val reply = jlist("flags", jlist("on"), "selectors", jlist("not-an-array"))
+    assert(AclDecoder.decodeUser(reply).left.exists(_.isInstanceOf[AclError.DecodingFailure]))
+  }
+
+  test("decodeUser fails (rather than reporting empty) when the selectors field itself is not an array") {
+    val reply = jlist("flags", jlist("on"), "selectors", "not-an-array")
     assert(AclDecoder.decodeUser(reply).left.exists(_.isInstanceOf[AclError.DecodingFailure]))
   }
 

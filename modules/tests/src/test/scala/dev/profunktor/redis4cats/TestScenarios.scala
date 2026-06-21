@@ -705,9 +705,9 @@ trait TestScenarios { self: FunSuite =>
         KeyPattern("app:*"),
         ChannelPattern("news.*")
       )
-    // make sure a previous failed run doesn't leave the user behind
+    // make sure a previous failed run doesn't leave the user behind, and clean up even if an assertion fails
     redis.aclDelUser(user) >> {
-      for {
+      val scenario = for {
         who <- redis.aclWhoAmI
         _ <- IO(assertEquals(who, "default"))
         cats <- redis.aclCat
@@ -739,6 +739,7 @@ trait TestScenarios { self: FunSuite =>
         log <- redis.aclLog
         _ <- IO(assert(log.forall(_.contains("reason")), s"log: $log"))
       } yield ()
+      scenario.guarantee(redis.aclDelUser(user).void)
     }
   }
 

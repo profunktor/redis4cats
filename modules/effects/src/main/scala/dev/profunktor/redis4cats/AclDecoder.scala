@@ -22,8 +22,8 @@ import dev.profunktor.redis4cats.effects.{ AclError, AclSelector, AclUser }
 
 /** Pure decoders for Lettuce's untyped ACL replies (`java.util.List<Object>`).
   *
-  * The raw Java reply is converted exactly once, at [[toResp]], into a typed [[Resp]] tree; everything downstream
-  * works on that ADT with no `Any` and an explicit error channel. Total functions, no exceptions.
+  * The raw Java reply is converted exactly once, at [[toResp]], into a typed [[Resp]] tree; everything downstream works
+  * on that ADT with no `Any` and an explicit error channel. Total functions, no exceptions.
   */
 private[redis4cats] object AclDecoder {
 
@@ -33,14 +33,15 @@ private[redis4cats] object AclDecoder {
     final case class Arr(values: List[Resp]) extends Resp
   }
 
-  /** The single boundary that touches Lettuce's untyped reply. With a UTF-8 codec every element is a bulk string
-    * or a (possibly nested) array; anything else is a decoding failure rather than a silent coercion.
+  /** The single boundary that touches Lettuce's untyped reply. With a UTF-8 codec every element is a bulk string or a
+    * (possibly nested) array; anything else is a decoding failure rather than a silent coercion.
     */
   private def toResp(o: AnyRef): Either[AclError, Resp] =
     o match {
-      case null                 => Left(AclError.DecodingFailure("Unexpected null element in ACL reply"))
-      case s: String            => Right(Resp.Bulk(s))
-      case l: java.util.List[_] => l.asScala.toList.traverse(e => toResp(e.asInstanceOf[AnyRef])).map(rs => Resp.Arr(rs))
+      case null      => Left(AclError.DecodingFailure("Unexpected null element in ACL reply"))
+      case s: String => Right(Resp.Bulk(s))
+      case l: java.util.List[_] =>
+        l.asScala.toList.traverse(e => toResp(e.asInstanceOf[AnyRef])).map(rs => Resp.Arr(rs))
       case other =>
         Left(AclError.DecodingFailure(s"Unexpected ACL reply element of type ${other.getClass.getName}"))
     }
@@ -51,8 +52,8 @@ private[redis4cats] object AclDecoder {
       case _: Resp.Arr  => Left(AclError.DecodingFailure("Expected a bulk string but got an array"))
     }
 
-  /** A rule field (`commands`/`keys`/`channels`) is a single token on Redis 7+, but tolerate an array (older
-    * servers) by joining with spaces.
+  /** A rule field (`commands`/`keys`/`channels`) is a single token on Redis 7+, but tolerate an array (older servers)
+    * by joining with spaces.
     */
   private def ruleString(r: Resp): Either[AclError, String] =
     r match {
@@ -84,7 +85,7 @@ private[redis4cats] object AclDecoder {
         fields(items).flatMap { f =>
           for {
             commands <- ruleString(f.getOrElse("commands", Resp.Bulk("")))
-            keys     <- ruleString(f.getOrElse("keys", Resp.Bulk("")))
+            keys <- ruleString(f.getOrElse("keys", Resp.Bulk("")))
             channels <- ruleString(f.getOrElse("channels", Resp.Bulk("")))
           } yield AclSelector(commands, keys, channels)
         }
@@ -93,11 +94,10 @@ private[redis4cats] object AclDecoder {
 
   /** Decode an `ACL GETUSER` reply.
     *
-    * `None` means the user does not exist — and ONLY that. Redis replies nil for a missing user, which Lettuce
-    * surfaces as a `null` reply, an empty list, or a single `null` element; those are the sole sources of `None`.
-    * A present reply is expected to carry a `flags` field (every real user is `on`/`off`); its absence is treated
-    * as a structural failure rather than silently reported as a missing user, so malformation and absence stay
-    * distinct.
+    * `None` means the user does not exist — and ONLY that. Redis replies nil for a missing user, which Lettuce surfaces
+    * as a `null` reply, an empty list, or a single `null` element; those are the sole sources of `None`. A present
+    * reply is expected to carry a `flags` field (every real user is `on`/`off`); its absence is treated as a structural
+    * failure rather than silently reported as a missing user, so malformation and absence stay distinct.
     */
   def decodeUser(raw: java.util.List[Object]): Either[AclError, Option[AclUser]] =
     if (raw == null || raw.asScala.forall(_ == null)) Right(None)
@@ -111,20 +111,22 @@ private[redis4cats] object AclDecoder {
                          .toRight(AclError.DecodingFailure("ACL GETUSER reply had no 'flags' field"))
                          .flatMap(strings)
               passwords <- f.get("passwords").fold[Either[AclError, List[String]]](Right(Nil))(strings)
-              commands  <- ruleString(f.getOrElse("commands", Resp.Bulk("")))
-              keys      <- ruleString(f.getOrElse("keys", Resp.Bulk("")))
-              channels  <- ruleString(f.getOrElse("channels", Resp.Bulk("")))
+              commands <- ruleString(f.getOrElse("commands", Resp.Bulk("")))
+              keys <- ruleString(f.getOrElse("keys", Resp.Bulk("")))
+              channels <- ruleString(f.getOrElse("channels", Resp.Bulk("")))
               selectors <- f.get("selectors") match {
+                             case None                 => Right(List.empty[AclSelector])
                              case Some(Resp.Arr(sels)) => sels.traverse(selector)
-                             case _                    => Right(List.empty[AclSelector])
+                             case Some(_) =>
+                               Left(AclError.DecodingFailure("ACL GETUSER 'selectors' field was not an array"))
                            }
             } yield Some(AclUser(flags, passwords, commands, keys, channels, selectors))
           }
         case _: Resp.Bulk => Left(AclError.DecodingFailure("ACL GETUSER reply was not an array"))
       }
 
-  /** Decode an `ACL LOG` reply into field/value maps. Scalar values (strings, numbers, booleans) are rendered to
-    * their textual form, matching how Redis presents the diagnostic log.
+  /** Decode an `ACL LOG` reply into field/value maps. Scalar values (strings, numbers, booleans) are rendered to their
+    * textual form, matching how Redis presents the diagnostic log.
     */
   def decodeLog(entries: java.util.List[java.util.Map[String, Object]]): Either[AclError, List[Map[String, String]]] =
     entries.asScala.toList.traverse { entry =>
