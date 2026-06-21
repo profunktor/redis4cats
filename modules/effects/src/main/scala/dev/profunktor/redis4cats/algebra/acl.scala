@@ -16,8 +16,15 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.redis4cats.effects.{ AclSetUserRule, AclUser }
+import dev.profunktor.redis4cats.effects.{ AclCategory, AclSetUserRule, AclUser }
 
+/** Redis ACL commands (`ACL ...`).
+  *
+  * Note: replies that are decoded into structured results (`aclGetUser`, `aclLog`) are read as UTF-8 text and therefore
+  * assume the connection uses a string-decoding codec. On a connection whose value codec produces non-string values
+  * (e.g. `Array[Byte]`), those two commands fail with an `AclError.DecodingFailure` rather than returning a partial
+  * result.
+  */
 trait AclCommands[F[_]] extends AclManagement[F] with AclUserManagement[F]
 
 trait AclManagement[F[_]] {
@@ -25,11 +32,11 @@ trait AclManagement[F[_]] {
   /** `ACL WHOAMI` — the username of the current connection. */
   def aclWhoAmI: F[String]
 
-  /** `ACL CAT` — the available command categories (lowercase, e.g. `read`, `write`). */
-  def aclCat: F[Set[String]]
+  /** `ACL CAT` — the available command categories. */
+  def aclCat: F[Set[AclCategory]]
 
-  /** `ACL CAT <category>` — the commands in the given category (lowercase). */
-  def aclCat(category: String): F[Set[String]]
+  /** `ACL CAT <category>` — the command names in the given category (lowercase). */
+  def aclCat(category: AclCategory): F[Set[String]]
 
   /** `ACL GENPASS` — a 256-bit pseudorandom password as a 64-char hex string. */
   def aclGenPass: F[String]

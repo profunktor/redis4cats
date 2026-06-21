@@ -37,7 +37,6 @@ import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSy
 import io.lettuce.core.json.arguments.{ JsonMsetArgs, JsonRangeArgs, JsonSetArgs }
 import io.lettuce.core.json.{ JsonPath, JsonType, JsonValue }
 import io.lettuce.core.{
-  AclCategory,
   AclSetuserArgs,
   BitFieldArgs,
   ClientOptions,
@@ -1651,13 +1650,14 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override val aclUsers: F[List[String]] =
     async.flatMap(_.aclUsers().futureLift.map(_.asScala.toList))
 
-  override val aclCat: F[Set[String]] =
-    async.flatMap(_.aclCat().futureLift.map(_.asScala.toSet.map((c: AclCategory) => c.name().toLowerCase)))
+  override val aclCat: F[Set[AclCategory]] =
+    async.flatMap(_.aclCat().futureLift).flatMap { js =>
+      js.asScala.toList.traverse(AclCategory.fromJava).map(_.toSet).liftTo[F]
+    }
 
-  override def aclCat(category: String): F[Set[String]] =
+  override def aclCat(category: AclCategory): F[Set[String]] =
     async.flatMap(
-      _.aclCat(AclCategory.valueOf(category.toUpperCase)).futureLift
-        .map(_.asScala.toSet.map((c: CommandType) => c.toString.toLowerCase))
+      _.aclCat(category.asJava).futureLift.map(_.asScala.toSet.map((c: CommandType) => c.toString.toLowerCase))
     )
 
   override val aclGenPass: F[String] =
@@ -1676,98 +1676,54 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.aclLogReset().futureLift.void)
 
   override val aclLog: F[List[Map[String, String]]] =
-    async.flatMap(_.aclLog().futureLift.map(parseAclLog))
+    async.flatMap(_.aclLog().futureLift).flatMap(es => AclDecoder.decodeLog(es).liftTo[F])
 
   override def aclLog(count: Int): F[List[Map[String, String]]] =
-    async.flatMap(_.aclLog(count).futureLift.map(parseAclLog))
+    async.flatMap(_.aclLog(count).futureLift).flatMap(es => AclDecoder.decodeLog(es).liftTo[F])
 
   override def aclDelUser(username: String, usernames: String*): F[Long] =
     async.flatMap(_.aclDeluser((username +: usernames): _*).futureLift.map(Long.unbox))
 
   override def aclSetUser(username: String, rules: List[AclSetUserRule]): F[Unit] =
-    async.flatMap(_.aclSetuser(username, aclSetuserArgs(rules)).futureLift.void)
+    aclSetuserArgs(rules).liftTo[F].flatMap(args => async.flatMap(_.aclSetuser(username, args).futureLift.void))
 
   override def aclGetUser(username: String): F[Option[AclUser]] =
-    async.flatMap(_.aclGetuser(username).futureLift.map(parseAclUser))
+    async.flatMap(_.aclGetuser(username).futureLift).flatMap(raw => AclDecoder.decodeUser(raw).liftTo[F])
 
-  private def show(v: Any): String =
-    if (v == null) "" else v.toString
+  private def commandType(name: String): Either[AclError, CommandType] =
+    Either
+      .catchOnly[IllegalArgumentException](CommandType.valueOf(name.toUpperCase))
+      .leftMap(_ => AclError.UnknownCommand(name))
 
-  private def parseAclLog(entries: util.List[util.Map[String, AnyRef]]): List[Map[String, String]] =
-    entries.asScala.toList.map(_.asScala.toMap.map { case (k, v) => k -> show(v) })
+  private def aclSetuserArgs(rules: List[AclSetUserRule]): Either[AclError, AclSetuserArgs] =
+    rules.foldLeft(Right(new AclSetuserArgs()): Either[AclError, AclSetuserArgs])((acc, rule) =>
+      acc.flatMap(applyRule(_, rule))
+    )
 
-  private def aclSetuserArgs(rules: List[AclSetUserRule]): AclSetuserArgs =
-    rules.foldLeft(new AclSetuserArgs()) { (args, rule) =>
-      rule match {
-        case AclSetUserRule.On                      => args.on()
-        case AclSetUserRule.Off                     => args.off()
-        case AclSetUserRule.Reset                   => args.reset()
-        case AclSetUserRule.NoPass                  => args.nopass()
-        case AclSetUserRule.ResetPass               => args.resetpass()
-        case AclSetUserRule.AddPassword(p)          => args.addPassword(p)
-        case AclSetUserRule.RemovePassword(p)       => args.removePassword(p)
-        case AclSetUserRule.AddHashedPassword(h)    => args.addHashedPassword(h)
-        case AclSetUserRule.RemoveHashedPassword(h) => args.removeHashedPassword(h)
-        case AclSetUserRule.AllKeys                 => args.allKeys()
-        case AclSetUserRule.ResetKeys               => args.resetKeys()
-        case AclSetUserRule.KeyPattern(p)           => args.keyPattern(p)
-        case AclSetUserRule.AllChannels             => args.allChannels()
-        case AclSetUserRule.ResetChannels           => args.resetChannels()
-        case AclSetUserRule.ChannelPattern(p)       => args.channelPattern(p)
-        case AclSetUserRule.AllCommands             => args.allCommands()
-        case AclSetUserRule.NoCommands              => args.noCommands()
-        case AclSetUserRule.AddCommand(c)           => args.addCommand(CommandType.valueOf(c.toUpperCase))
-        case AclSetUserRule.RemoveCommand(c)        => args.removeCommand(CommandType.valueOf(c.toUpperCase))
-        case AclSetUserRule.AddCategory(c)          => args.addCategory(AclCategory.valueOf(c.toUpperCase))
-        case AclSetUserRule.RemoveCategory(c)       => args.removeCategory(AclCategory.valueOf(c.toUpperCase))
-      }
+  private def applyRule(args: AclSetuserArgs, rule: AclSetUserRule): Either[AclError, AclSetuserArgs] =
+    rule match {
+      case AclSetUserRule.On                      => Right(args.on())
+      case AclSetUserRule.Off                     => Right(args.off())
+      case AclSetUserRule.Reset                   => Right(args.reset())
+      case AclSetUserRule.NoPass                  => Right(args.nopass())
+      case AclSetUserRule.ResetPass               => Right(args.resetpass())
+      case AclSetUserRule.AddPassword(p)          => Right(args.addPassword(p))
+      case AclSetUserRule.RemovePassword(p)       => Right(args.removePassword(p))
+      case AclSetUserRule.AddHashedPassword(h)    => Right(args.addHashedPassword(h))
+      case AclSetUserRule.RemoveHashedPassword(h) => Right(args.removeHashedPassword(h))
+      case AclSetUserRule.AllKeys                 => Right(args.allKeys())
+      case AclSetUserRule.ResetKeys               => Right(args.resetKeys())
+      case AclSetUserRule.KeyPattern(p)           => Right(args.keyPattern(p))
+      case AclSetUserRule.AllChannels             => Right(args.allChannels())
+      case AclSetUserRule.ResetChannels           => Right(args.resetChannels())
+      case AclSetUserRule.ChannelPattern(p)       => Right(args.channelPattern(p))
+      case AclSetUserRule.AllCommands             => Right(args.allCommands())
+      case AclSetUserRule.NoCommands              => Right(args.noCommands())
+      case AclSetUserRule.AddCommand(c)           => commandType(c.value).map(ct => args.addCommand(ct))
+      case AclSetUserRule.RemoveCommand(c)        => commandType(c.value).map(ct => args.removeCommand(ct))
+      case AclSetUserRule.AddCategory(c)          => Right(args.addCategory(c.asJava))
+      case AclSetUserRule.RemoveCategory(c)       => Right(args.removeCategory(c.asJava))
     }
-
-  private def parseAclUser(raw: util.List[AnyRef]): Option[AclUser] = {
-    val entries = raw.asScala.toList
-    if (entries.isEmpty) None
-    else {
-      val fields = entries.grouped(2).collect { case List(k, v) => show(k) -> v }.toMap
-
-      def asStringList(v: Any): List[String] = v match {
-        case l: util.List[_] => l.asScala.toList.map(show)
-        case other           => if (other == null) Nil else List(show(other))
-      }
-
-      def asString(v: Any): String = v match {
-        case l: util.List[_] => l.asScala.toList.map(show).mkString(" ")
-        case other           => show(other)
-      }
-
-      val selectors = fields.get("selectors") match {
-        case Some(l: util.List[_]) =>
-          l.asScala.toList.collect { case sel: util.List[_] =>
-            val sf = sel.asScala.toList.grouped(2).collect { case List(k, v) => show(k) -> asString(v) }.toMap
-            AclSelector(
-              commands = sf.getOrElse("commands", ""),
-              keys = sf.getOrElse("keys", ""),
-              channels = sf.getOrElse("channels", "")
-            )
-          }
-        case _ => Nil
-      }
-
-      val user =
-        AclUser(
-          flags = asStringList(fields.getOrElse("flags", null)),
-          passwords = asStringList(fields.getOrElse("passwords", null)),
-          commands = asString(fields.getOrElse("commands", null)),
-          keys = asString(fields.getOrElse("keys", null)),
-          channels = asString(fields.getOrElse("channels", null)),
-          selectors = selectors
-        )
-
-      // Redis replies with nil for a missing user; Lettuce normalises that into an all-empty
-      // structure. Every real user always carries at least one flag (`on`/`off`), so empty flags
-      // means the user does not exist.
-      if (user.flags.isEmpty) None else Some(user)
-    }
-  }
 
   // format: off
   /******************************* Server API **********************************/

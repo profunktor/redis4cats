@@ -20,6 +20,7 @@ import cats.Eq
 
 import java.time.Instant
 import io.lettuce.core.{
+  AclCategory => JAclCategory,
   GeoArgs,
   KeyScanArgs => JKeyScanArgs,
   ScanArgs => JScanArgs,
@@ -171,6 +172,131 @@ object effects {
     case object Replace extends FunctionRestoreMode
   }
 
+  /** Failure raised while encoding ACL arguments or decoding ACL replies. */
+  sealed abstract class AclError(message: String) extends RuntimeException(message)
+  object AclError {
+
+    /** A command name was given to `ACL SETUSER` that Lettuce's `CommandType` does not know. */
+    final case class UnknownCommand(name: String) extends AclError(s"Unknown Redis command: '$name'")
+
+    /** An `ACL` reply could not be decoded into the expected shape. */
+    final case class DecodingFailure(message: String) extends AclError(message)
+  }
+
+  /** A raw Redis command name for use in `ACL SETUSER` rules (e.g. `RawCommand("get")`).
+    *
+    * The set of Redis commands is open (modules and new versions add commands), so it is modelled as an explicit string
+    * rather than a closed enum. Names unknown to the driver surface as [[AclError.UnknownCommand]] when the rule is
+    * applied, rather than throwing.
+    */
+  final case class RawCommand(value: String) extends AnyVal
+
+  /** A Redis ACL command category (the closed set understood by the driver). */
+  sealed trait AclCategory {
+    private[redis4cats] def asJava: JAclCategory =
+      this match {
+        case AclCategory.Keyspace    => JAclCategory.KEYSPACE
+        case AclCategory.Read        => JAclCategory.READ
+        case AclCategory.Write       => JAclCategory.WRITE
+        case AclCategory.Set         => JAclCategory.SET
+        case AclCategory.SortedSet   => JAclCategory.SORTEDSET
+        case AclCategory.List        => JAclCategory.LIST
+        case AclCategory.Hash        => JAclCategory.HASH
+        case AclCategory.String      => JAclCategory.STRING
+        case AclCategory.Bitmap      => JAclCategory.BITMAP
+        case AclCategory.HyperLogLog => JAclCategory.HYPERLOGLOG
+        case AclCategory.Geo         => JAclCategory.GEO
+        case AclCategory.Stream      => JAclCategory.STREAM
+        case AclCategory.PubSub      => JAclCategory.PUBSUB
+        case AclCategory.Admin       => JAclCategory.ADMIN
+        case AclCategory.Fast        => JAclCategory.FAST
+        case AclCategory.Slow        => JAclCategory.SLOW
+        case AclCategory.Blocking    => JAclCategory.BLOCKING
+        case AclCategory.Dangerous   => JAclCategory.DANGEROUS
+        case AclCategory.Connection  => JAclCategory.CONNECTION
+        case AclCategory.Transaction => JAclCategory.TRANSACTION
+        case AclCategory.Scripting   => JAclCategory.SCRIPTING
+        case AclCategory.Bloom       => JAclCategory.BLOOM
+        case AclCategory.Cuckoo      => JAclCategory.CUCKOO
+        case AclCategory.Cms         => JAclCategory.CMS
+        case AclCategory.TopK        => JAclCategory.TOPK
+        case AclCategory.TDigest     => JAclCategory.TDIGEST
+        case AclCategory.Search      => JAclCategory.SEARCH
+        case AclCategory.TimeSeries  => JAclCategory.TIMESERIES
+        case AclCategory.Json        => JAclCategory.JSON
+      }
+  }
+  object AclCategory {
+    // NOTE: `Set`, `List` and `String` below shadow the Scala types of the same name within this object.
+    // Nothing here references those Scala types, so it is safe; if you add a member that does (e.g. a
+    // `List[AclCategory]`), fully-qualify it (`scala.collection.immutable.List`) or it will resolve to the case object.
+    case object Keyspace extends AclCategory
+    case object Read extends AclCategory
+    case object Write extends AclCategory
+    case object Set extends AclCategory
+    case object SortedSet extends AclCategory
+    case object List extends AclCategory
+    case object Hash extends AclCategory
+    case object String extends AclCategory
+    case object Bitmap extends AclCategory
+    case object HyperLogLog extends AclCategory
+    case object Geo extends AclCategory
+    case object Stream extends AclCategory
+    case object PubSub extends AclCategory
+    case object Admin extends AclCategory
+    case object Fast extends AclCategory
+    case object Slow extends AclCategory
+    case object Blocking extends AclCategory
+    case object Dangerous extends AclCategory
+    case object Connection extends AclCategory
+    case object Transaction extends AclCategory
+    case object Scripting extends AclCategory
+    case object Bloom extends AclCategory
+    case object Cuckoo extends AclCategory
+    case object Cms extends AclCategory
+    case object TopK extends AclCategory
+    case object TDigest extends AclCategory
+    case object Search extends AclCategory
+    case object TimeSeries extends AclCategory
+    case object Json extends AclCategory
+
+    val values: Vector[AclCategory] =
+      Vector(
+        Keyspace,
+        Read,
+        Write,
+        Set,
+        SortedSet,
+        List,
+        Hash,
+        String,
+        Bitmap,
+        HyperLogLog,
+        Geo,
+        Stream,
+        PubSub,
+        Admin,
+        Fast,
+        Slow,
+        Blocking,
+        Dangerous,
+        Connection,
+        Transaction,
+        Scripting,
+        Bloom,
+        Cuckoo,
+        Cms,
+        TopK,
+        TDigest,
+        Search,
+        TimeSeries,
+        Json
+      )
+
+    private[redis4cats] def fromJava(j: JAclCategory): Either[AclError, AclCategory] =
+      values.find(_.asJava == j).toRight(AclError.DecodingFailure(s"Unknown ACL category: '$j'"))
+  }
+
   /** A command/key/channel selector attached to an ACL user (Redis 7+), as returned by `ACL GETUSER`. */
   final case class AclSelector(commands: String, keys: String, channels: String)
 
@@ -234,17 +360,17 @@ object effects {
     /** Disallow every command (`nocommands` / `-@all`). */
     case object NoCommands extends AclSetUserRule
 
-    /** Allow a single command by name, e.g. `AddCommand("get")`. */
-    final case class AddCommand(command: String) extends AclSetUserRule
+    /** Allow a single command, e.g. `AddCommand(RawCommand("get"))`. */
+    final case class AddCommand(command: RawCommand) extends AclSetUserRule
 
-    /** Disallow a single command by name, e.g. `RemoveCommand("set")`. */
-    final case class RemoveCommand(command: String) extends AclSetUserRule
+    /** Disallow a single command, e.g. `RemoveCommand(RawCommand("set"))`. */
+    final case class RemoveCommand(command: RawCommand) extends AclSetUserRule
 
-    /** Allow a command category by name, e.g. `AddCategory("read")`. */
-    final case class AddCategory(category: String) extends AclSetUserRule
+    /** Allow a command category, e.g. `AddCategory(AclCategory.Read)`. */
+    final case class AddCategory(category: AclCategory) extends AclSetUserRule
 
-    /** Disallow a command category by name, e.g. `RemoveCategory("dangerous")`. */
-    final case class RemoveCategory(category: String) extends AclSetUserRule
+    /** Disallow a command category, e.g. `RemoveCategory(AclCategory.Dangerous)`. */
+    final case class RemoveCategory(category: AclCategory) extends AclSetUserRule
   }
 
   sealed trait GetExArg

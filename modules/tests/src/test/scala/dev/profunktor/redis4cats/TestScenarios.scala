@@ -700,8 +700,8 @@ trait TestScenarios { self: FunSuite =>
         On,
         AddPassword("s3cret"),
         NoCommands,
-        AddCommand("get"),
-        AddCategory("read"),
+        AddCommand(RawCommand("get")),
+        AddCategory(AclCategory.Read),
         KeyPattern("app:*"),
         ChannelPattern("news.*")
       )
@@ -711,9 +711,11 @@ trait TestScenarios { self: FunSuite =>
         who <- redis.aclWhoAmI
         _ <- IO(assertEquals(who, "default"))
         cats <- redis.aclCat
-        _ <- IO(assert(cats.contains("read") && cats.contains("write"), s"categories: $cats"))
-        readCmds <- redis.aclCat("read")
+        _ <- IO(assert(cats.contains(AclCategory.Read) && cats.contains(AclCategory.Write), s"categories: $cats"))
+        readCmds <- redis.aclCat(AclCategory.Read)
         _ <- IO(assert(readCmds.contains("get"), s"read commands: $readCmds"))
+        unknownCmd <- redis.aclSetUser(user, List(AddCommand(RawCommand("nope-not-a-cmd")))).attempt
+        _ <- IO(assert(unknownCmd.left.exists(_.isInstanceOf[AclError.UnknownCommand]), s"unknown cmd: $unknownCmd"))
         pass <- redis.aclGenPass
         _ <- IO(assert(pass.length == 64, s"genpass: $pass"))
         shortPass <- redis.aclGenPass(32)
