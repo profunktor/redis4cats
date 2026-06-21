@@ -44,6 +44,8 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("server")(withRedis(serverScenario))
 
+  test("acl api")(withRedis(aclScenario))
+
   test("transactions: successful")(withRedis(transactionScenario))
 
   test("scripts")(withRedis(scriptsScenario))
