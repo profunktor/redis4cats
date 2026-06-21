@@ -24,7 +24,9 @@ class AclDecoderSuite extends FunSuite {
 
   private def jlist(xs: Object*): java.util.List[Object] = {
     val l = new java.util.ArrayList[Object]()
-    xs.foreach(x => { val _ = l.add(x) })
+    xs.foreach { x =>
+      val _ = l.add(x)
+    }
     l
   }
 
@@ -37,12 +39,18 @@ class AclDecoderSuite extends FunSuite {
   test("decodeUser parses a populated user") {
     val reply =
       jlist(
-        "flags", jlist("on", "nopass"),
-        "passwords", jlist(),
-        "commands", "+@all",
-        "keys", "~*",
-        "channels", "&*",
-        "selectors", jlist()
+        "flags",
+        jlist("on", "nopass"),
+        "passwords",
+        jlist(),
+        "commands",
+        "+@all",
+        "keys",
+        "~*",
+        "channels",
+        "&*",
+        "selectors",
+        jlist()
       )
     val expected: Either[AclError, Option[AclUser]] =
       Right(Some(AclUser(List("on", "nopass"), Nil, "+@all", "~*", "&*", Nil)))
@@ -81,12 +89,18 @@ class AclDecoderSuite extends FunSuite {
   test("decodeUser parses selectors") {
     val reply =
       jlist(
-        "flags", jlist("on"),
-        "passwords", jlist(),
-        "commands", "-@all",
-        "keys", "",
-        "channels", "",
-        "selectors", jlist(jlist("commands", "+get", "keys", "~k1", "channels", ""))
+        "flags",
+        jlist("on"),
+        "passwords",
+        jlist(),
+        "commands",
+        "-@all",
+        "keys",
+        "",
+        "channels",
+        "",
+        "selectors",
+        jlist(jlist("commands", "+get", "keys", "~k1", "channels", ""))
       )
     val expected: Either[AclError, Option[AclUser]] =
       Right(Some(AclUser(List("on"), Nil, "-@all", "", "", List(AclSelector("+get", "~k1", "")))))
@@ -110,7 +124,7 @@ class AclDecoderSuite extends FunSuite {
 
   test("decodeLog renders scalar values (strings, numbers, booleans) to text") {
     val entries = new java.util.ArrayList[java.util.Map[String, Object]]()
-    val _ = entries.add(jmap("count" -> Long.box(3), "reason" -> "auth", "enabled" -> Boolean.box(true)))
+    val _       = entries.add(jmap("count" -> Long.box(3), "reason" -> "auth", "enabled" -> Boolean.box(true)))
     val expected: Either[AclError, List[Map[String, String]]] =
       Right(List(Map("count" -> "3", "reason" -> "auth", "enabled" -> "true")))
     assertEquals(AclDecoder.decodeLog(entries), expected)
@@ -118,7 +132,7 @@ class AclDecoderSuite extends FunSuite {
 
   test("decodeLog fails on an unexpected null value") {
     val entries = new java.util.ArrayList[java.util.Map[String, Object]]()
-    val _ = entries.add(jmap("reason" -> null))
+    val _       = entries.add(jmap("reason" -> null))
     assert(AclDecoder.decodeLog(entries).left.exists(_.isInstanceOf[AclError.DecodingFailure]))
   }
 }

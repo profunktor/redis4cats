@@ -737,7 +737,7 @@ trait TestScenarios { self: FunSuite =>
         _ <- IO(assert(!usersAfter.contains(user)))
         _ <- redis.aclLogReset
         log <- redis.aclLog
-        _ <- IO(assert(log.forall(_.contains("reason")) || log.isEmpty, s"log: $log"))
+        _ <- IO(assert(log.forall(_.contains("reason")), s"log: $log"))
       } yield ()
     }
   }

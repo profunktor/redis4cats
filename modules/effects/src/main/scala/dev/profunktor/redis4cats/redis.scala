@@ -1657,7 +1657,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def aclCat(category: AclCategory): F[Set[String]] =
     async.flatMap(
-      _.aclCat(category.asJava).futureLift.map(_.asScala.toSet.map((c: CommandType) => c.toString.toLowerCase))
+      _.aclCat(category.asJava).futureLift
+        .map(_.asScala.toSet.map((c: CommandType) => c.toString.toLowerCase(java.util.Locale.ROOT)))
     )
 
   override val aclGenPass: F[String] =
@@ -1692,7 +1693,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   private def commandType(name: String): Either[AclError, CommandType] =
     Either
-      .catchOnly[IllegalArgumentException](CommandType.valueOf(name.toUpperCase))
+      .catchOnly[IllegalArgumentException](CommandType.valueOf(name.toUpperCase(java.util.Locale.ROOT)))
       .leftMap(_ => AclError.UnknownCommand(name))
 
   private def aclSetuserArgs(rules: List[AclSetUserRule]): Either[AclError, AclSetuserArgs] =
