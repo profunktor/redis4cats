@@ -736,8 +736,12 @@ trait TestScenarios { self: FunSuite =>
         usersAfter <- redis.aclUsers
         _ <- IO(assert(!usersAfter.contains(user)))
         _ <- redis.aclLogReset
+        clearedLog <- redis.aclLog
+        _ <- IO(assert(clearedLog.isEmpty, s"log should be empty right after reset: $clearedLog"))
+        // a denied authentication generates a known ACL LOG entry (reason "auth")
+        _ <- redis.auth(user, "wrong-password").attempt
         log <- redis.aclLog
-        _ <- IO(assert(log.forall(_.contains("reason")), s"log: $log"))
+        _ <- IO(assert(log.exists(_.get("reason").contains("auth")), s"log: $log"))
       } yield ()
       scenario.guarantee(redis.aclDelUser(user).void)
     }
