@@ -1,0 +1,197 @@
+<!DOCTYPE html><html><head><title>Redis4Cats: ACL</title><meta charset="utf-8" /><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="ProfunKtor" /><meta name="description" content="Redis client for Cats Effect &amp; Fs2" /><meta name="og:image" content="/img/poster.png" /><meta name="image" property="og:image" content="/img/poster.png" /><meta name="og:title" content="Redis4Cats: ACL" /><meta name="title" property="og:title" content="Redis4Cats: ACL" /><meta name="og:site_name" content="Redis4Cats" /><meta name="og:url" content="https://redis4cats.profunktor.dev/" /><meta name="og:type" content="website" /><meta name="og:description" content="Redis client for Cats Effect &amp; Fs2" /><link rel="icon" type="image/png" href="/img/favicon.png" /><meta name="twitter:title" content="Redis4Cats: ACL" /><meta name="twitter:image" content="/img/poster.png" /><meta name="twitter:description" content="Redis client for Cats Effect &amp; Fs2" /><meta name="twitter:card" content="summary_large_image" /><link rel="icon" type="image/png" sizes="16x16" href="/img/favicon16x16.png" /><link rel="icon" type="image/png" sizes="24x24" href="/img/favicon24x24.png" /><link rel="icon" type="image/png" sizes="32x32" href="/img/favicon32x32.png" /><link rel="icon" type="image/png" sizes="48x48" href="/img/favicon48x48.png" /><link rel="icon" type="image/png" sizes="57x57" href="/img/favicon57x57.png" /><link rel="icon" type="image/png" sizes="60x60" href="/img/favicon60x60.png" /><link rel="icon" type="image/png" sizes="64x64" href="/img/favicon64x64.png" /><link rel="icon" type="image/png" sizes="70x70" href="/img/favicon70x70.png" /><link rel="icon" type="image/png" sizes="72x72" href="/img/favicon72x72.png" /><link rel="icon" type="image/png" sizes="76x76" href="/img/favicon76x76.png" /><link rel="icon" type="image/png" sizes="96x96" href="/img/favicon96x96.png" /><link rel="icon" type="image/png" sizes="114x114" href="/img/favicon114x114.png" /><link rel="icon" type="image/png" sizes="120x120" href="/img/favicon120x120.png" /><link rel="icon" type="image/png" sizes="128x128" href="/img/favicon128x128.png" /><link rel="icon" type="image/png" sizes="144x144" href="/img/favicon144x144.png" /><link rel="icon" type="image/png" sizes="150x150" href="/img/favicon150x150.png" /><link rel="icon" type="image/png" sizes="152x152" href="/img/favicon152x152.png" /><link rel="icon" type="image/png" sizes="196x196" href="/img/favicon196x196.png" /><link rel="icon" type="image/png" sizes="310x310" href="/img/favicon310x310.png" /><link rel="icon" type="image/png" sizes="310x150" href="/img/favicon310x150.png" /><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" /><link rel="stylesheet" href="/highlight/styles/vs.css" /><link rel="stylesheet" href="/css/light-style.css" /></head><body class="docs"><div id="wrapper"><div id="sidebar-wrapper"><div id="sidebar-brand"><a href="/" class="brand"><div class="brand-wrapper"></div><span>Redis4Cats</span></a><button id="main-toggle" class="sidebar-toggle"><span class="close"></span></button></div><div class="sidebar-nav"> <div class="sidebar-nav-item  "><a href="/quickstart.html" title="Quick Start" class="">Quick Start</a></div> <div class="sidebar-nav-item  "><a href="/client.html" title="Client" class="">Client</a></div> <div class="sidebar-nav-item  "><a href="/codecs.html" title="Codecs" class="">Codecs</a></div> <div class="sidebar-nav-item  "><a href="/effects/" title="Effects API" class="drop-nested">Effects API</a><i class="fa fa-angle-right"></i><div class="sub-section"> <a href="/effects/bitmaps.html" title="Bitmaps" class="">Bitmaps</a> <a href="/effects/connection.html" title="Connection" class="">Connection</a> <a href="/effects/geo.html" title="Geo" class="">Geo</a> <a href="/effects/hashes.html" title="Hashes" class="">Hashes</a> <a href="/effects/keys.html" title="Keys" class="">Keys</a> <a href="/effects/lists.html" title="Lists" class="">Lists</a> <a href="/effects/scripting.html" title="Scripting" class="">Scripting</a> <a href="/effects/server.html" title="Server" class="">Server</a> <a href="/effects/sets.html" title="Sets" class="">Sets</a> <a href="/effects/sortedsets.html" title="Sorted Sets" class="">Sorted Sets</a> <a href="/effects/strings.html" title="Strings" class="">Strings</a></div></div> <div class="sidebar-nav-item  "><a href="/streams/" title="Streams API" class="drop-nested">Streams API</a><i class="fa fa-angle-right"></i><div class="sub-section"> <a href="/streams/pubsub.html" title="PubSub" class="">PubSub</a> <a href="/streams/streams.html" title="Streams" class="">Streams</a></div></div> <div class="sidebar-nav-item  "><a href="/transactions.html" title="Transactions" class="">Transactions</a></div> <div class="sidebar-nav-item  "><a href="/pipelining.html" title="Pipelining" class="">Pipelining</a></div></div></div><div id="page-content-wrapper"><div class="nav"><div class="container-fluid"><div class="row"><div class="col-lg-12"><div class="action-menu pull-left clearfix"><a href="#menu-toggle" id="menu-toggle"><i class="fa fa-bars" aria-hidden="true"></i></a></div><ul class="pull-right"><li class="search-nav"><div id="search-dropdown"><label><i class="fa fa-search"></i>Search</label><input id="search-bar" type="text" placeholder="Enter keywords here..." onclick="displayToggleSearch(event)" /><ul id="search-dropdown-content" class="dropdown dropdown-content"></ul></div></li><li id="gh-eyes-item" class="hidden-xs to-uppercase"><a href="https://github.com/profunktor/redis4cats" target="_blank" rel="noopener noreferrer"><i class="fa fa-eye"></i><span>Watchers<span id="eyes" class="label label-default">--</span></span></a></li><li id="gh-stars-item" class="hidden-xs to-uppercase"><a href="https://github.com/profunktor/redis4cats" target="_blank" rel="noopener noreferrer"><i class="fa fa-star-o"></i><span>Stars<span id="stars" class="label label-default">--</span></span></a></li></ul></div></div></div></div><div id="content" data-github-owner="profunktor" data-github-repo="redis4cats"><div class="content-wrapper"><section><h1 id="acl-api">ACL API</h1>
+
+<p>Purely functional interface for the <a href="https://redis.io/commands#server">ACL API</a> (<code class="language-plaintext highlighter-rouge">ACL ...</code>), used to
+inspect and manage Redis <a href="https://redis.io/docs/management/security/acl/">Access Control Lists</a> —
+users, their passwords, and the commands, keys and channels they are allowed to touch.</p>
+
+<p>The algebra is <code class="language-plaintext highlighter-rouge">AclCommands[F]</code> (note: it has no key/value type parameters, since ACL operates on
+usernames and rule strings rather than your codec’s <code class="language-plaintext highlighter-rouge">K</code>/<code class="language-plaintext highlighter-rouge">V</code>). It is the union of two smaller algebras:
+<code class="language-plaintext highlighter-rouge">AclManagement[F]</code> (server-wide: <code class="language-plaintext highlighter-rouge">WHOAMI</code>, <code class="language-plaintext highlighter-rouge">CAT</code>, <code class="language-plaintext highlighter-rouge">GENPASS</code>, <code class="language-plaintext highlighter-rouge">LIST</code>, <code class="language-plaintext highlighter-rouge">LOAD</code>, <code class="language-plaintext highlighter-rouge">SAVE</code>, <code class="language-plaintext highlighter-rouge">LOG</code>) and
+<code class="language-plaintext highlighter-rouge">AclUserManagement[F]</code> (per-user: <code class="language-plaintext highlighter-rouge">USERS</code>, <code class="language-plaintext highlighter-rouge">GETUSER</code>, <code class="language-plaintext highlighter-rouge">SETUSER</code>, <code class="language-plaintext highlighter-rouge">DELUSER</code>).</p>
+
+<h3 id="acl-commands-usage">ACL Commands usage</h3>
+
+<p>Once you have acquired a connection you can start using it:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.effects.</span><span class="o">{</span> <span class="nc">AclCategory</span><span class="o">,</span> <span class="nc">RawCommand</span> <span class="o">}</span>
+<span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.effects.AclSetUserRule._</span>
+
+<span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span> <span class="c1">// AclCommands[IO]</span>
+  <span class="k">for</span> <span class="o">{</span>
+    <span class="k">_</span>     <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">aclWhoAmI</span>                <span class="c1">// the current connection's user, e.g. "default"</span>
+    <span class="k">_</span>     <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">aclCat</span>                   <span class="c1">// Set[AclCategory] — the available categories</span>
+    <span class="k">_</span>     <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">aclCat</span><span class="o">(</span><span class="nv">AclCategory</span><span class="o">.</span><span class="py">Read</span><span class="o">)</span> <span class="c1">// Set[String] — command names in the "read" category</span>
+    <span class="k">_</span>     <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">aclSetUser</span><span class="o">(</span>
+               <span class="s">"alice"</span><span class="o">,</span>
+               <span class="nc">List</span><span class="o">(</span>
+                 <span class="nc">On</span><span class="o">,</span>
+                 <span class="nc">AddPassword</span><span class="o">(</span><span class="s">"s3cret"</span><span class="o">),</span>
+                 <span class="nc">NoCommands</span><span class="o">,</span>
+                 <span class="nc">AddCommand</span><span class="o">(</span><span class="nc">RawCommand</span><span class="o">(</span><span class="s">"get"</span><span class="o">)),</span>
+                 <span class="nc">AddCategory</span><span class="o">(</span><span class="nv">AclCategory</span><span class="o">.</span><span class="py">Read</span><span class="o">),</span>
+                 <span class="nc">KeyPattern</span><span class="o">(</span><span class="s">"app:*"</span><span class="o">),</span>
+                 <span class="nc">ChannelPattern</span><span class="o">(</span><span class="s">"news.*"</span><span class="o">)</span>
+               <span class="o">)</span>
+             <span class="o">)</span>
+    <span class="k">_</span>     <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">aclUsers</span>                 <span class="c1">// List[String] — all configured usernames</span>
+    <span class="n">alice</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">aclGetUser</span><span class="o">(</span><span class="s">"alice"</span><span class="o">)</span>      <span class="c1">// Option[AclUser]</span>
+    <span class="k">_</span>     <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">aclDelUser</span><span class="o">(</span><span class="s">"alice"</span><span class="o">)</span>      <span class="c1">// Long — number of users actually deleted</span>
+  <span class="o">}</span> <span class="k">yield</span> <span class="n">alice</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="creating-and-modifying-users-with-setuser">Creating and modifying users with <code class="language-plaintext highlighter-rouge">SETUSER</code></h3>
+
+<p><code class="language-plaintext highlighter-rouge">aclSetUser</code> takes the username and an <strong>ordered</strong> <code class="language-plaintext highlighter-rouge">List[AclSetUserRule]</code>; the rules are applied in
+order, exactly like the arguments to the <code class="language-plaintext highlighter-rouge">ACL SETUSER</code> command. The rule type is a closed sum type, so
+illegal combinations are caught at compile time rather than as a runtime error from Redis:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Rule</th>
+      <th><code class="language-plaintext highlighter-rouge">ACL SETUSER</code> equivalent</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">On</code> / <code class="language-plaintext highlighter-rouge">Off</code></td>
+      <td><code class="language-plaintext highlighter-rouge">on</code> / <code class="language-plaintext highlighter-rouge">off</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Reset</code></td>
+      <td><code class="language-plaintext highlighter-rouge">reset</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">AddPassword(p)</code> / <code class="language-plaintext highlighter-rouge">RemovePassword(p)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">&gt;p</code> / <code class="language-plaintext highlighter-rouge">&lt;p</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">AddHashedPassword(h)</code> / <code class="language-plaintext highlighter-rouge">RemoveHashedPassword(h)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">#h</code> / <code class="language-plaintext highlighter-rouge">!h</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">NoPass</code> / <code class="language-plaintext highlighter-rouge">ResetPass</code></td>
+      <td><code class="language-plaintext highlighter-rouge">nopass</code> / <code class="language-plaintext highlighter-rouge">resetpass</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">AllKeys</code> / <code class="language-plaintext highlighter-rouge">ResetKeys</code> / <code class="language-plaintext highlighter-rouge">KeyPattern(p)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">allkeys</code> (<code class="language-plaintext highlighter-rouge">~*</code>) / <code class="language-plaintext highlighter-rouge">resetkeys</code> / <code class="language-plaintext highlighter-rouge">~p</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">AllChannels</code> / <code class="language-plaintext highlighter-rouge">ResetChannels</code> / <code class="language-plaintext highlighter-rouge">ChannelPattern(p)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">allchannels</code> (<code class="language-plaintext highlighter-rouge">&amp;*</code>) / <code class="language-plaintext highlighter-rouge">resetchannels</code> / <code class="language-plaintext highlighter-rouge">&amp;p</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">AllCommands</code> / <code class="language-plaintext highlighter-rouge">NoCommands</code></td>
+      <td><code class="language-plaintext highlighter-rouge">allcommands</code> (<code class="language-plaintext highlighter-rouge">+@all</code>) / <code class="language-plaintext highlighter-rouge">nocommands</code> (<code class="language-plaintext highlighter-rouge">-@all</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">AddCommand(c)</code> / <code class="language-plaintext highlighter-rouge">RemoveCommand(c)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">+c</code> / <code class="language-plaintext highlighter-rouge">-c</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">AddCategory(cat)</code> / <code class="language-plaintext highlighter-rouge">RemoveCategory(cat)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">+@cat</code> / <code class="language-plaintext highlighter-rouge">-@cat</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A few notes on the typed arguments:</p>
+
+<ul>
+  <li><strong><code class="language-plaintext highlighter-rouge">KeyPattern</code>/<code class="language-plaintext highlighter-rouge">ChannelPattern</code></strong> take the bare glob (e.g. <code class="language-plaintext highlighter-rouge">"app:*"</code>, <code class="language-plaintext highlighter-rouge">"news.*"</code>); the <code class="language-plaintext highlighter-rouge">~</code>/<code class="language-plaintext highlighter-rouge">&amp;</code>
+prefix is added for you.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">AddCategory</code>/<code class="language-plaintext highlighter-rouge">RemoveCategory</code></strong> take an <code class="language-plaintext highlighter-rouge">AclCategory</code> — a sealed enumeration of the categories
+Redis understands (<code class="language-plaintext highlighter-rouge">AclCategory.Read</code>, <code class="language-plaintext highlighter-rouge">AclCategory.Write</code>, <code class="language-plaintext highlighter-rouge">AclCategory.Dangerous</code>, …), so a typo
+cannot compile.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">AddCommand</code>/<code class="language-plaintext highlighter-rouge">RemoveCommand</code></strong> take a <code class="language-plaintext highlighter-rouge">RawCommand(name)</code>. The set of Redis commands is open
+(modules and new versions add commands), so it is modelled as a string newtype rather than a closed
+enum. A name the driver does not recognise fails with <code class="language-plaintext highlighter-rouge">AclError.UnknownCommand</code> when the rule is
+applied — it never throws.</li>
+</ul>
+
+<h3 id="reading-a-user-with-getuser">Reading a user with <code class="language-plaintext highlighter-rouge">GETUSER</code></h3>
+
+<p><code class="language-plaintext highlighter-rouge">aclGetUser</code> returns <code class="language-plaintext highlighter-rouge">Option[AclUser]</code>. <code class="language-plaintext highlighter-rouge">None</code> means <strong>the user does not exist</strong> — and only that;
+a malformed reply fails instead (see <em>Errors</em> below). <code class="language-plaintext highlighter-rouge">AclUser</code> mirrors the fields Redis reports:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">final</span> <span class="k">case</span> <span class="k">class</span> <span class="nc">AclUser</span><span class="o">(</span>
+    <span class="n">flags</span><span class="k">:</span> <span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">],</span>     <span class="c1">// e.g. List("on", "nopass")</span>
+    <span class="n">passwords</span><span class="k">:</span> <span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">],</span> <span class="c1">// SHA-256 hashes of the user's passwords</span>
+    <span class="n">commands</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span>        <span class="c1">// the command rule string, e.g. "-@all +get +@read"</span>
+    <span class="n">keys</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span>            <span class="c1">// the key rule string, e.g. "~app:*"</span>
+    <span class="n">channels</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span>        <span class="c1">// the channel rule string, e.g. "&amp;news.*"</span>
+    <span class="n">selectors</span><span class="k">:</span> <span class="kt">List</span><span class="o">[</span><span class="kt">AclSelector</span><span class="o">]</span>
+<span class="o">)</span>
+
+<span class="c1">// Redis 7+ selectors, each its own commands/keys/channels rule strings</span>
+<span class="k">final</span> <span class="k">case</span> <span class="k">class</span> <span class="nc">AclSelector</span><span class="o">(</span><span class="n">commands</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">keys</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">channels</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span>
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">commands</code>/<code class="language-plaintext highlighter-rouge">keys</code>/<code class="language-plaintext highlighter-rouge">channels</code> fields are the rule strings exactly as Redis renders them (so the
+<code class="language-plaintext highlighter-rouge">~</code>/<code class="language-plaintext highlighter-rouge">&amp;</code>/<code class="language-plaintext highlighter-rouge">+</code>/<code class="language-plaintext highlighter-rouge">-</code> prefixes are present here, on the way <em>out</em> — unlike the bare patterns you pass <em>in</em>).</p>
+
+<h3 id="categories-and-commands">Categories and commands</h3>
+
+<p><code class="language-plaintext highlighter-rouge">aclCat</code> returns the set of available categories as <code class="language-plaintext highlighter-rouge">AclCategory</code> values; <code class="language-plaintext highlighter-rouge">aclCat(category)</code> returns the
+command names (lowercase) that belong to a category:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span>
+  <span class="k">for</span> <span class="o">{</span>
+    <span class="n">categories</span> <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">aclCat</span>               <span class="c1">// Set[AclCategory]</span>
+    <span class="n">readCmds</span>   <span class="k">&lt;-</span> <span class="nv">redis</span><span class="o">.</span><span class="py">aclCat</span><span class="o">(</span><span class="nv">AclCategory</span><span class="o">.</span><span class="py">Read</span><span class="o">)</span> <span class="c1">// Set[String], e.g. contains "get"</span>
+  <span class="o">}</span> <span class="nf">yield</span> <span class="o">(</span><span class="n">categories</span><span class="o">,</span> <span class="n">readCmds</span><span class="o">)</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="the-acl-log">The ACL log</h3>
+
+<p><code class="language-plaintext highlighter-rouge">aclLog</code> returns recent ACL security events (auth failures, denied commands/keys/channels) as
+field/value maps; <code class="language-plaintext highlighter-rouge">aclLogReset</code> clears it:</p>
+
+<div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">commandsApi</span><span class="o">.</span><span class="py">use</span> <span class="o">{</span> <span class="n">redis</span> <span class="k">=&gt;</span>
+  <span class="nv">redis</span><span class="o">.</span><span class="py">aclLogReset</span> <span class="o">&gt;&gt;</span> <span class="nv">redis</span><span class="o">.</span><span class="py">aclLog</span> <span class="c1">// List[Map[String, String]]</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="errors">Errors</h3>
+
+<p>ACL failures surface as <code class="language-plaintext highlighter-rouge">AclError</code> (a <code class="language-plaintext highlighter-rouge">Throwable</code>, raised into <code class="language-plaintext highlighter-rouge">F</code>), never as thrown exceptions from
+argument building or silent coercions:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">AclError.UnknownCommand(name)</code> — a <code class="language-plaintext highlighter-rouge">RawCommand</code> passed to <code class="language-plaintext highlighter-rouge">SETUSER</code> is not known to the driver.</li>
+  <li><code class="language-plaintext highlighter-rouge">AclError.DecodingFailure(msg)</code> — an <code class="language-plaintext highlighter-rouge">ACL GETUSER</code>/<code class="language-plaintext highlighter-rouge">ACL LOG</code> reply could not be decoded into the
+expected shape.</li>
+</ul>
+
+<p>Because <code class="language-plaintext highlighter-rouge">aclGetUser</code>/<code class="language-plaintext highlighter-rouge">aclLog</code> decode replies as UTF-8 text, they assume the connection uses a
+string-decoding codec. On a connection whose value codec produces non-string values (e.g.
+<code class="language-plaintext highlighter-rouge">Array[Byte]</code>), these two commands fail with an <code class="language-plaintext highlighter-rouge">AclError.DecodingFailure</code> rather than returning a
+partial result.</p>
+
+<h3 id="see-also">See also</h3>
+
+<p>For supplying credentials when <em>connecting</em> (as opposed to managing users on the server), see
+<a href="../client.html#authentication-credentials">Authentication</a> on the Client page — in particular
+<code class="language-plaintext highlighter-rouge">RedisCredentials.UsernameAndPassword</code>, which authenticates as a Redis 6+ ACL user.</p>
+</section></div></div></div></div><script src="/highlight/highlight.pack.js"></script><script src="/lunr/lunr.js"></script><script>
+// For all code blocks, copy the language from the containing div
+// to the inner code tag (where hljs expects it to be)
+const langPrefix = 'language-';
+document.querySelectorAll(`div[class^='${langPrefix}']`).forEach(function(div) {
+  div.classList.forEach(function(cssClass) {
+    if (cssClass.startsWith(langPrefix)) {
+      const lang = cssClass.substring(langPrefix.length);
+      div.querySelectorAll('pre code').forEach(function(code) {
+        code.classList.add(lang);
+      });
+    }
+  });
+});
+
+hljs.configure({languages:['scala','java','bash']});
+hljs.initHighlightingOnLoad();
+      </script><script>console.info('\x57\x65\x62\x73\x69\x74\x65\x20\x62\x75\x69\x6c\x74\x20\x77\x69\x74\x68\x3a\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x5f\x5f\x20\x20\x20\x20\x5f\x5f\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x5f\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x5f\x20\x5f\x5f\x0a\x20\x20\x20\x5f\x5f\x5f\x5f\x5f\x2f\x20\x2f\x5f\x20\x20\x2f\x20\x2f\x5f\x20\x20\x20\x20\x20\x20\x5f\x5f\x5f\x5f\x20\x5f\x5f\x5f\x20\x20\x28\x5f\x29\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x5f\x20\x20\x5f\x5f\x5f\x5f\x5f\x28\x5f\x29\x20\x2f\x5f\x5f\x5f\x5f\x20\x20\x5f\x5f\x5f\x5f\x5f\x0a\x20\x20\x2f\x20\x5f\x5f\x5f\x2f\x20\x5f\x5f\x20\x5c\x2f\x20\x5f\x5f\x2f\x5f\x5f\x5f\x5f\x5f\x2f\x20\x5f\x5f\x20\x60\x5f\x5f\x20\x5c\x2f\x20\x2f\x20\x5f\x5f\x5f\x2f\x20\x5f\x5f\x5f\x2f\x20\x5f\x5f\x20\x5c\x2f\x20\x5f\x5f\x5f\x2f\x20\x2f\x20\x5f\x5f\x2f\x20\x5f\x20\x5c\x2f\x20\x5f\x5f\x5f\x2f\x0a\x20\x28\x5f\x5f\x20\x20\x29\x20\x2f\x5f\x2f\x20\x2f\x20\x2f\x5f\x2f\x5f\x5f\x5f\x5f\x5f\x2f\x20\x2f\x20\x2f\x20\x2f\x20\x2f\x20\x2f\x20\x2f\x20\x2f\x5f\x5f\x2f\x20\x2f\x20\x20\x2f\x20\x2f\x5f\x2f\x20\x28\x5f\x5f\x20\x20\x29\x20\x2f\x20\x2f\x5f\x2f\x20\x20\x5f\x5f\x28\x5f\x5f\x20\x20\x29\x0a\x2f\x5f\x5f\x5f\x5f\x2f\x5f\x2e\x5f\x5f\x5f\x2f\x5c\x5f\x5f\x2f\x20\x20\x20\x20\x20\x2f\x5f\x2f\x20\x2f\x5f\x2f\x20\x2f\x5f\x2f\x5f\x2f\x5c\x5f\x5f\x5f\x2f\x5f\x2f\x20\x20\x20\x5c\x5f\x5f\x5f\x5f\x2f\x5f\x5f\x5f\x5f\x2f\x5f\x2f\x5c\x5f\x5f\x2f\x5c\x5f\x5f\x5f\x2f\x5f\x5f\x5f\x5f\x2f\x0a\x0a\x68\x74\x74\x70\x73\x3a\x2f\x2f\x34\x37\x64\x65\x67\x2e\x67\x69\x74\x68\x75\x62\x2e\x69\x6f\x2f\x73\x62\x74\x2d\x6d\x69\x63\x72\x6f\x73\x69\x74\x65\x73')</script><script>((window.gitter = {}).chat = {}).options = {
+room: 'profunktor-dev/redis4cats'};</script><script src="https://sidecar.gitter.im/dist/sidecar.v1.js"></script><script src="/js/search.js"></script><script src="/js/docs.js"></script></body></html>
