@@ -109,9 +109,21 @@ val `redis-socket` = redis"redis-socket:///tmp/redis.sock"
 
 ### Authentication credentials
 
-Instead of embedding credentials in the URI string, you can attach them in a type-safe way with
-`withCredentials`. This is handy when a token contains URI-reserved characters (`@`, `:`, `/`),
-which would otherwise need escaping.
+Redis authentication — the `AUTH` performed during the connection handshake — can be supplied in three
+ways:
+
+1. **In the URI string**: `redis://:password@host` (password only) or `redis://username:password@host`
+   (an ACL user). Convenient, but a password/token containing URI-reserved characters (`@`, `:`, `/`)
+   must be percent-encoded.
+2. **Attached to a `RedisURI`** with `withCredentials` (shown below), which avoids any escaping.
+3. **As part of a `RedisUriConfig`** with `.withCredentials` (see the next section).
+
+Approaches 2 and 3 both take a `RedisCredentials`, a small sum type that mirrors the two forms of
+Redis `AUTH`:
+
+- `RedisCredentials.Password(token)` — a password/token with no username (`AUTH <token>`).
+- `RedisCredentials.UsernameAndPassword(username, token)` — a username and password, i.e. the Redis 6+
+  ACL-style `AUTH <username> <token>`, authenticating as a specific [ACL user](./effects/acl.html).
 
 ```scala
 import dev.profunktor.redis4cats.connection._
@@ -127,6 +139,11 @@ RedisURI
 
 The resulting `RedisURI` can be passed to `RedisClient[IO].fromUri(...)`, and is also accepted by the
 cluster and master/replica connections.
+
+These credentials authenticate the connection when it is established. To re-authenticate an
+already-open connection at runtime, use `auth` from the [Connection API](./effects/connection.html); to
+manage the ACL users, passwords and permissions these credentials authenticate against, see the
+[ACL API](./effects/acl.html).
 
 ### Building a RedisURI from config
 
@@ -156,6 +173,12 @@ RedisURI.fromConfig[IO](
 // Unix socket
 RedisURI.fromConfig[IO](RedisUriConfig.socket("/tmp/redis.sock"))
 ```
+
+`RedisUriConfig.withCredentials` takes the same `RedisCredentials` described under
+[Authentication credentials](#authentication-credentials) above, so `Password` and
+`UsernameAndPassword` (ACL user) behave identically here. Note that a Sentinel `SentinelNode` carries
+its own optional `withPassword` — that authenticates to the *Sentinel* node itself, independently of
+the `RedisUriConfig.credentials` used to authenticate to the Redis data node.
 
 Dynamic/rotating credentials (Lettuce's `RedisCredentialsProvider`) are not currently supported;
 use a static `RedisCredentials` or embed credentials in the URI string.
