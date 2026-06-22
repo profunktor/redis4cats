@@ -98,9 +98,25 @@ val `redis</span><span class="o">-</span><span class="n">socket</span><span clas
 
 <h3 id="authentication-credentials">Authentication credentials</h3>
 
-<p>Instead of embedding credentials in the URI string, you can attach them in a type-safe way with
-<code class="language-plaintext highlighter-rouge">withCredentials</code>. This is handy when a token contains URI-reserved characters (<code class="language-plaintext highlighter-rouge">@</code>, <code class="language-plaintext highlighter-rouge">:</code>, <code class="language-plaintext highlighter-rouge">/</code>),
-which would otherwise need escaping.</p>
+<p>Redis authentication — the <code class="language-plaintext highlighter-rouge">AUTH</code> performed during the connection handshake — can be supplied in three
+ways:</p>
+
+<ol>
+  <li><strong>In the URI string</strong>: <code class="language-plaintext highlighter-rouge">redis://:password@host</code> (password only) or <code class="language-plaintext highlighter-rouge">redis://username:password@host</code>
+(an ACL user). Convenient, but a password/token containing URI-reserved characters (<code class="language-plaintext highlighter-rouge">@</code>, <code class="language-plaintext highlighter-rouge">:</code>, <code class="language-plaintext highlighter-rouge">/</code>)
+must be percent-encoded.</li>
+  <li><strong>Attached to a <code class="language-plaintext highlighter-rouge">RedisURI</code></strong> with <code class="language-plaintext highlighter-rouge">withCredentials</code> (shown below), which avoids any escaping.</li>
+  <li><strong>As part of a <code class="language-plaintext highlighter-rouge">RedisUriConfig</code></strong> with <code class="language-plaintext highlighter-rouge">.withCredentials</code> (see the next section).</li>
+</ol>
+
+<p>Approaches 2 and 3 both take a <code class="language-plaintext highlighter-rouge">RedisCredentials</code>, a small sum type that mirrors the two forms of
+Redis <code class="language-plaintext highlighter-rouge">AUTH</code>:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">RedisCredentials.Password(token)</code> — a password/token with no username (<code class="language-plaintext highlighter-rouge">AUTH &lt;token&gt;</code>).</li>
+  <li><code class="language-plaintext highlighter-rouge">RedisCredentials.UsernameAndPassword(username, token)</code> — a username and password, i.e. the Redis 6+
+ACL-style <code class="language-plaintext highlighter-rouge">AUTH &lt;username&gt; &lt;token&gt;</code>, authenticating as a specific <a href="./effects/acl.html">ACL user</a>.</li>
+</ul>
 
 <div class="language-scala highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nn">dev.profunktor.redis4cats.connection._</span>
 
@@ -115,6 +131,11 @@ which would otherwise need escaping.</p>
 
 <p>The resulting <code class="language-plaintext highlighter-rouge">RedisURI</code> can be passed to <code class="language-plaintext highlighter-rouge">RedisClient[IO].fromUri(...)</code>, and is also accepted by the
 cluster and master/replica connections.</p>
+
+<p>These credentials authenticate the connection when it is established. To re-authenticate an
+already-open connection at runtime, use <code class="language-plaintext highlighter-rouge">auth</code> from the <a href="./effects/connection.html">Connection API</a>; to
+manage the ACL users, passwords and permissions these credentials authenticate against, see the
+<a href="./effects/acl.html">ACL API</a>.</p>
 
 <h3 id="building-a-redisuri-from-config">Building a RedisURI from config</h3>
 
@@ -143,6 +164,12 @@ instead of a URI string. This covers all Lettuce connection modes and options. T
 <span class="c1">// Unix socket</span>
 <span class="nv">RedisURI</span><span class="o">.</span><span class="py">fromConfig</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span><span class="nv">RedisUriConfig</span><span class="o">.</span><span class="py">socket</span><span class="o">(</span><span class="s">"/tmp/redis.sock"</span><span class="o">))</span>
 </code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">RedisUriConfig.withCredentials</code> takes the same <code class="language-plaintext highlighter-rouge">RedisCredentials</code> described under
+<a href="#authentication-credentials">Authentication credentials</a> above, so <code class="language-plaintext highlighter-rouge">Password</code> and
+<code class="language-plaintext highlighter-rouge">UsernameAndPassword</code> (ACL user) behave identically here. Note that a Sentinel <code class="language-plaintext highlighter-rouge">SentinelNode</code> carries
+its own optional <code class="language-plaintext highlighter-rouge">withPassword</code> — that authenticates to the <em>Sentinel</em> node itself, independently of
+the <code class="language-plaintext highlighter-rouge">RedisUriConfig.credentials</code> used to authenticate to the Redis data node.</p>
 
 <p>Dynamic/rotating credentials (Lettuce’s <code class="language-plaintext highlighter-rouge">RedisCredentialsProvider</code>) are not currently supported;
 use a static <code class="language-plaintext highlighter-rouge">RedisCredentials</code> or embed credentials in the URI string.</p>
