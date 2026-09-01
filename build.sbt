@@ -222,7 +222,7 @@ lazy val microsite = project
   .dependsOn(`redis4cats-effects`, `redis4cats-streams`, examples)
 
 // CI build
-addCommandAlias("buildDoc", ";++2.13.12;mdoc;doc")
+addCommandAlias("buildDoc", ";mdoc;doc")
 addCommandAlias("buildRedis4Cats", ";+test;buildDoc")
 addCommandAlias("buildSite", ";doc;makeMicrosite")
 addCommandAlias("publishSite", ";doc;publishMicrosite")
