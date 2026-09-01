@@ -691,6 +691,61 @@ trait TestScenarios { self: FunSuite =>
     } yield ()
   }
 
+  def aclScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
+    import dev.profunktor.redis4cats.effects.AclSetUserRule._
+    val user = "redis4cats-acl-test"
+    val rules =
+      List[dev.profunktor.redis4cats.effects.AclSetUserRule](
+        On,
+        AddPassword("s3cret"),
+        NoCommands,
+        AddCommand(RawCommand("get")),
+        AddCategory(AclCategory.Read),
+        KeyPattern("app:*"),
+        ChannelPattern("news.*")
+      )
+    // make sure a previous failed run doesn't leave the user behind, and clean up even if an assertion fails
+    redis.aclDelUser(user) >> {
+      val scenario = for {
+        who <- redis.aclWhoAmI
+        _ <- IO(assertEquals(who, "default"))
+        cats <- redis.aclCat
+        _ <- IO(assert(cats.contains(AclCategory.Read) && cats.contains(AclCategory.Write), s"categories: $cats"))
+        readCmds <- redis.aclCat(AclCategory.Read)
+        _ <- IO(assert(readCmds.contains("get"), s"read commands: $readCmds"))
+        unknownCmd <- redis.aclSetUser(user, List(AddCommand(RawCommand("nope-not-a-cmd")))).attempt
+        _ <- IO(assert(unknownCmd.left.exists(_.isInstanceOf[AclError.UnknownCommand]), s"unknown cmd: $unknownCmd"))
+        pass <- redis.aclGenPass
+        _ <- IO(assert(pass.length == 64, s"genpass: $pass"))
+        shortPass <- redis.aclGenPass(32)
+        _ <- IO(assert(shortPass.nonEmpty))
+        _ <- redis.aclSetUser(user, rules)
+        users <- redis.aclUsers
+        _ <- IO(assert(users.contains(user), s"users: $users"))
+        got <- redis.aclGetUser(user)
+        _ <- IO(assert(got.exists(_.flags.contains("on")), s"getuser: $got"))
+        _ <- IO(assert(got.exists(_.keys.contains("app:*")), s"getuser keys: ${got.map(_.keys)}"))
+        _ <- IO(assert(got.exists(_.commands.contains("+get")), s"getuser commands: ${got.map(_.commands)}"))
+        missing <- redis.aclGetUser("definitely-not-a-user")
+        _ <- IO(assertEquals(missing, None))
+        list <- redis.aclList
+        _ <- IO(assert(list.exists(_.startsWith("user default")), s"list: $list"))
+        deleted <- redis.aclDelUser(user)
+        _ <- IO(assertEquals(deleted, 1L))
+        usersAfter <- redis.aclUsers
+        _ <- IO(assert(!usersAfter.contains(user)))
+        _ <- redis.aclLogReset
+        clearedLog <- redis.aclLog
+        _ <- IO(assert(clearedLog.isEmpty, s"log should be empty right after reset: $clearedLog"))
+        // a denied authentication generates a known ACL LOG entry (reason "auth")
+        _ <- redis.auth(user, "wrong-password").attempt
+        log <- redis.aclLog
+        _ <- IO(assert(log.exists(_.get("reason").contains("auth")), s"log: $log"))
+      } yield ()
+      scenario.guarantee(redis.aclDelUser(user).void)
+    }
+  }
+
   def serverScenario(redis: RedisCommands[IO, String, String]): IO[Unit] =
     for {
       _ <- redis.mSet(Map("firstname" -> "Jack", "lastname" -> "Stuntman", "age" -> "35"))
