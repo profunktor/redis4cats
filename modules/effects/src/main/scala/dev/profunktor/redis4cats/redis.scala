@@ -47,9 +47,11 @@ import io.lettuce.core.{
   FunctionRestoreMode => JFunctionRestoreMode,
   GeoArgs,
   GeoRadiusStoreArgs,
+  GeoSearch,
   GeoWithin,
   GetExArgs => JGetExArgs,
   HGetExArgs => JHGetExArgs,
+  LMoveArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
@@ -680,7 +682,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.append(key, value).futureLift.void)
 
   override def getSet(key: K, value: V): F[Option[V]] =
-    async.flatMap(_.getset(key, value).futureLift.map(Option.apply))
+    async.flatMap(_.setGet(key, value).futureLift.map(Option.apply))
 
   override def set(key: K, value: V): F[Unit] =
     async.flatMap(_.set(key, value).futureLift.void)
@@ -703,14 +705,14 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   }
 
   override def setNx(key: K, value: V): F[Boolean] =
-    async.flatMap(_.setnx(key, value).futureLift.map(x => Boolean.box(x)))
+    async.flatMap(_.set(key, value, new JSetArgs().nx()).futureLift.map(_.isSuccess))
 
   override def setEx(key: K, value: V, expiresIn: FiniteDuration): F[Unit] =
     expiresIn.unit match {
       case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS =>
-        async.flatMap(_.psetex(key, expiresIn.toMillis, value).futureLift.void)
+        async.flatMap(_.set(key, value, new JSetArgs().px(expiresIn.toMillis)).futureLift.void)
       case _ =>
-        async.flatMap(_.setex(key, expiresIn.toSeconds, value).futureLift.void)
+        async.flatMap(_.set(key, value, new JSetArgs().ex(expiresIn.toSeconds)).futureLift.void)
     }
 
   override def setRange(key: K, value: V, offset: Long): F[Unit] =
@@ -1066,7 +1068,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.hsetnx(key, field, value).futureLift.map(x => Boolean.box(x)))
 
   override def hmSet(key: K, fieldValues: Map[K, V]): F[Unit] =
-    async.flatMap(_.hmset(key, fieldValues.asJava).futureLift.void)
+    async.flatMap(_.hset(key, fieldValues.asJava).futureLift.void)
 
   override def hIncrBy(key: K, field: K, amount: Long): F[Long] =
     async.flatMap(_.hincrby(key, field, amount).futureLift.map(x => Long.box(x)))
@@ -1163,7 +1165,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       .map(Option(_).map(kv => kv.getKey -> kv.getValue))
 
   override def brPopLPush(timeout: Duration, source: K, destination: K): F[Option[V]] =
-    async.flatMap(_.brpoplpush(timeout.toSecondsOrZero, source, destination).futureLift.map(Option.apply))
+    async.flatMap(
+      _.blmove(source, destination, LMoveArgs.Builder.rightLeft(), timeout.toSecondsOrZero).futureLift.map(Option.apply)
+    )
 
   override def lPop(key: K): F[Option[V]] =
     async.flatMap(_.lpop(key).futureLift.map(Option.apply))
@@ -1178,7 +1182,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.rpop(key).futureLift.map(Option.apply))
 
   override def rPopLPush(source: K, destination: K): F[Option[V]] =
-    async.flatMap(_.rpoplpush(source, destination).futureLift.map(Option.apply))
+    async.flatMap(_.lmove(source, destination, LMoveArgs.Builder.rightLeft()).futureLift.map(Option.apply))
 
   override def rPush(key: K, values: V*): F[Long] =
     async.flatMap(_.rpush(key, values: _*).futureLift.map(x => Long.box(x)))
@@ -1282,14 +1286,32 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit): F[Set[V]] =
     async
-      .flatMap(_.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit).futureLift)
+      .flatMap(
+        _.geosearch(
+          key,
+          GeoSearch.fromCoordinates(geoRadius.lon.value, geoRadius.lat.value),
+          GeoSearch.byRadius(geoRadius.dist.value, unit)
+        ).futureLift
+      )
       .map(_.asScala.toSet)
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, args: GeoArgs): F[List[GeoRadiusResult[V]]] =
     async
-      .flatMap(_.georadius(key, geoRadius.lon.value, geoRadius.lat.value, geoRadius.dist.value, unit, args).futureLift)
+      .flatMap(
+        _.geosearch(
+          key,
+          GeoSearch.fromCoordinates(geoRadius.lon.value, geoRadius.lat.value),
+          GeoSearch.byRadius(geoRadius.dist.value, unit),
+          args
+        ).futureLift
+      )
       .map(_.asScala.toList.map(_.asGeoRadiusResult))
 
+  // georadiusbymember stays on the deprecated Lettuce API rather than geosearch/GeoSearch.fromMember:
+  // fromMember is typed `[K](member: K)` in Lettuce (a known upstream bug, marked "TODO: Should be
+  // V" in Lettuce's own source) and its build() encodes the member with the *key* codec via
+  // addKey(), not the value codec. For a RedisCodec[K, V] where K and V differ, that would silently
+  // miscode the member on the wire. georadiusbymember correctly takes the member as V.
   override def geoRadiusByMember(key: K, value: V, dist: Distance, unit: GeoArgs.Unit): F[Set[V]] =
     async.flatMap(_.georadiusbymember(key, value, dist.value, unit).futureLift.map(_.asScala.toSet))
 
@@ -1311,25 +1333,25 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, storage: GeoRadiusKeyStorage[K]): F[Unit] =
     conn.async.flatMap {
-      _.georadius(
+      _.geosearchstore(
+        storage.key,
         key,
-        geoRadius.lon.value,
-        geoRadius.lat.value,
-        geoRadius.dist.value,
-        unit,
-        storage.asGeoRadiusStoreArgs
+        GeoSearch.fromCoordinates(geoRadius.lon.value, geoRadius.lat.value),
+        GeoSearch.byRadius(geoRadius.dist.value, unit),
+        storage.asGeoArgs,
+        false
       ).futureLift.void
     }
 
   override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, storage: GeoRadiusDistStorage[K]): F[Unit] =
     conn.async.flatMap {
-      _.georadius(
+      _.geosearchstore(
+        storage.key,
         key,
-        geoRadius.lon.value,
-        geoRadius.lat.value,
-        geoRadius.dist.value,
-        unit,
-        storage.asGeoRadiusStoreArgs
+        GeoSearch.fromCoordinates(geoRadius.lon.value, geoRadius.lat.value),
+        GeoSearch.byRadius(geoRadius.dist.value, unit),
+        storage.asGeoArgs,
+        true
       ).futureLift.void
     }
 
@@ -2212,6 +2234,8 @@ private[redis4cats] trait RedisConversionOps {
   }
 
   private[redis4cats] implicit class GeoRadiusKeyStorageOps[K](v: GeoRadiusKeyStorage[K]) {
+    def asGeoArgs: GeoArgs = new GeoArgs().withCount(v.count).sort(v.sort)
+
     def asGeoRadiusStoreArgs: GeoRadiusStoreArgs[K] = {
       val store: GeoRadiusStoreArgs[_] = GeoRadiusStoreArgs.Builder
         .store[K](v.key)
@@ -2221,6 +2245,8 @@ private[redis4cats] trait RedisConversionOps {
   }
 
   private[redis4cats] implicit class GeoRadiusDistStorageOps[K](v: GeoRadiusDistStorage[K]) {
+    def asGeoArgs: GeoArgs = new GeoArgs().withCount(v.count).sort(v.sort)
+
     def asGeoRadiusStoreArgs: GeoRadiusStoreArgs[K] = {
       val store: GeoRadiusStoreArgs[_] = GeoRadiusStoreArgs.Builder
         .withStoreDist[K](v.key)
