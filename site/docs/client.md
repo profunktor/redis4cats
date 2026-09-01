@@ -107,6 +107,59 @@ val `redis-socket` = redis"redis-socket:///tmp/redis.sock"
 
 ```
 
+### Authentication credentials
+
+Instead of embedding credentials in the URI string, you can attach them in a type-safe way with
+`withCredentials`. This is handy when a token contains URI-reserved characters (`@`, `:`, `/`),
+which would otherwise need escaping.
+
+```scala
+import dev.profunktor.redis4cats.connection._
+
+// Token without a username (Redis `AUTH <token>`)
+RedisURI.make[IO]("redis://localhost:6379").map(_.withCredentials(RedisCredentials.Password(token)))
+
+// Username + token (Redis 6 ACL style `AUTH <username> <token>`)
+RedisURI
+  .make[IO]("redis://localhost:6379")
+  .map(_.withCredentials(RedisCredentials.UsernameAndPassword(username, token)))
+```
+
+The resulting `RedisURI` can be passed to `RedisClient[IO].fromUri(...)`, and is also accepted by the
+cluster and master/replica connections.
+
+### Building a RedisURI from config
+
+For full type-safe control over connection settings, build a `RedisURI` from a `RedisUriConfig`
+instead of a URI string. This covers all Lettuce connection modes and options. The `standalone`/
+`socket`/`sentinel` constructors and the fluent `withX` helpers let you avoid wrapping options in
+`Some` (the raw case class with named arguments is still available if you prefer it).
+
+```scala
+import scala.concurrent.duration._
+import dev.profunktor.redis4cats.connection._
+
+// Standalone with TLS and token auth
+RedisClient[IO].fromConfig(
+  RedisUriConfig
+    .standalone("redis.example.com", 6380)
+    .withCredentials(RedisCredentials.Password(token))
+    .withTls(TlsConfig(verifyPeer = SslVerifyMode.Full))
+    .withDatabase(1)
+)
+
+// Sentinel (varargs nodes; per-node password via withPassword)
+RedisURI.fromConfig[IO](
+  RedisUriConfig.sentinel("mymaster", SentinelNode("host1"), SentinelNode("host2").withPassword(token))
+)
+
+// Unix socket
+RedisURI.fromConfig[IO](RedisUriConfig.socket("/tmp/redis.sock"))
+```
+
+Dynamic/rotating credentials (Lettuce's `RedisCredentialsProvider`) are not currently supported;
+use a static `RedisCredentials` or embed credentials in the URI string.
+
 ## Single node connection
 
 For those who only need a simple API access to Redis commands, there are a few ways to acquire a connection:
@@ -156,7 +209,9 @@ import dev.profunktor.redis4cats.effect.Log.Stdout._
 
 ## Standalone, Sentinel or Cluster
 
-You can connect in any of these modes by either using `JRedisURI.create` or `JRedisURI.Builder`. More information
+You can connect in any of these modes by building a `RedisURI` — type-safely from a `RedisUriConfig`
+(recommended; see the *Building a RedisURI from config* section above), from a URI string via
+`RedisURI.make`, or directly with Lettuce's `JRedisURI.create` / `JRedisURI.Builder`. More information
 [here](https://github.com/lettuce-io/lettuce-core/wiki/Redis-URI-and-connection-details).
 
 ## Cluster connection
@@ -196,6 +251,7 @@ And a way to customize the underlying client options.
 def withOptions[K, V](
     codec: RedisCodec[K, V],
     opts: ClientOptions,
+    config: Redis4CatsConfig,
     uris: RedisURI*
 )(readFrom: Option[JReadFrom] = None): Resource[F, RedisMasterReplica[K, V]]
 ```
