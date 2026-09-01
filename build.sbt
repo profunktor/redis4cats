@@ -52,6 +52,11 @@ val commonSettings = Seq(
   ),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions += "-source:3.0-migration",
+  // Lettuce 7.7.0 deprecated several async command methods in favor of newer equivalents
+  // (SetArgs, LMOVE, GEOSEARCH, etc.) purely as an API preference; the old ones remain fully
+  // functional. Migrating call sites is a real API-surface change, tracked separately from
+  // this dependency bump.
+  scalacOptions += "-Wconf:cat=deprecation&origin=io\\.lettuce\\..*:s",
   Compile / doc / sources := (Compile / doc / sources).value,
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits"),
   autoAPIMappings := true,
