@@ -3,8 +3,7 @@ import com.scalapenos.sbt.prompt.*
 import Dependencies.*
 import microsites.ExtraMdFileConfig
 
-ThisBuild / scalaVersion := "2.13.18"
-ThisBuild / crossScalaVersions := Seq("2.13.18", "3.8.4")
+ThisBuild / scalaVersion := "3.8.4"
 ThisBuild / evictionErrorLevel := Level.Info
 ThisBuild / mimaBaseVersion := "3.0.0"
 Test / parallelExecution := false
@@ -31,11 +30,6 @@ ThisBuild / developers := List(
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-def pred[A](p: Boolean, t: => Seq[A], f: => Seq[A]): Seq[A] =
-  if (p) t else f
-
-def getVersion(strVersion: String): Option[(Long, Long)] = CrossVersion.partialVersion(strVersion)
-
 val commonSettings = Seq(
   organizationName := "Redis client for Cats Effect & Fs2",
   startYear := Some(2018),
@@ -55,20 +49,10 @@ val commonSettings = Seq(
     Libraries.catsTestKit     % Test,
     Libraries.munitCore       % Test,
     Libraries.munitScalacheck % Test
-  ) ++ pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(CompilerPlugins.kindProjector)),
-  resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
-  scalacOptions ++= pred(
-    scalaVersion.value.startsWith("3"),
-    t = Seq("-source:3.0-migration"),
-    f = Seq("-Wconf:any:wv")
   ),
+  resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
+  scalacOptions += "-source:3.0-migration",
   Compile / doc / sources := (Compile / doc / sources).value,
-  Compile / unmanagedSourceDirectories ++= {
-    getVersion(scalaVersion.value) match {
-      case Some((2, 13)) => Seq("scala-2.13+", "scala-2")
-      case _             => Seq("scala-2.13+", "scala-3")
-    }
-  }.map(baseDirectory.value / "src" / "main" / _),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits"),
   autoAPIMappings := true,
   scalafmtOnCompile := true,
@@ -109,10 +93,6 @@ lazy val `redis4cats-core` = project
   .in(file("modules/core"))
   .settings(commonSettings*)
   .settings(libraryDependencies += Libraries.literally)
-  .settings(
-    libraryDependencies ++=
-      pred(scalaVersion.value.startsWith("3"), t = Seq.empty, f = Seq(Libraries.reflect(scalaVersion.value)))
-  )
   .settings(
     isMimaEnabled := true,
     mimaPreviousArtifacts ~= { _.filterNot(_.revision == "2.0.2") }

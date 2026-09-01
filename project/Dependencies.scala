@@ -14,7 +14,6 @@ object Dependencies {
 
     val logback = "1.6.3"
 
-    val kindProjector   = "0.13.4"
     val munit           = "1.3.5"
     val munitScalacheck = "1.3.0"
 
@@ -34,8 +33,6 @@ object Dependencies {
 
     val literally = "org.typelevel" %% "literally" % "1.2.0"
 
-    def reflect(version: String): ModuleID = "org.scala-lang" % "scala-reflect" % version
-
     // Examples libraries
     val catsEffect    = "org.typelevel" %% "cats-effect"     % V.catsEffect
     val circeCore     = "io.circe"      %% "circe-core"      % V.circe
@@ -49,12 +46,6 @@ object Dependencies {
     val catsTestKit     = cats("testkit")
     val munitCore       = "org.scalameta" %% "munit"            % V.munit
     val munitScalacheck = "org.scalameta" %% "munit-scalacheck" % V.munitScalacheck
-  }
-
-  object CompilerPlugins {
-    val kindProjector = compilerPlugin(
-      "org.typelevel" % "kind-projector" % V.kindProjector cross CrossVersion.full
-    )
   }
 
 }
