@@ -37,6 +37,7 @@ import io.lettuce.core.cluster.api.sync.{ RedisClusterCommands => RedisClusterSy
 import io.lettuce.core.json.arguments.{ JsonMsetArgs, JsonRangeArgs, JsonSetArgs }
 import io.lettuce.core.json.{ JsonPath, JsonType, JsonValue }
 import io.lettuce.core.{
+  AclSetuserArgs,
   BitFieldArgs,
   ClientOptions,
   Consumer => JConsumer,
@@ -68,6 +69,7 @@ import io.lettuce.core.{
   ZStoreArgs
 }
 import io.lettuce.core.models.stream.{ ClaimedMessages, PendingMessage, PendingMessages }
+import io.lettuce.core.protocol.CommandType
 import org.typelevel.keypool.KeyPool
 
 import java.time.Instant
@@ -1635,6 +1637,94 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
         .collect { case k :: v :: Nil => (k, v) }
         .toMap
     )
+
+  // format: off
+  /******************************* ACL API **********************************/
+  // format: on
+  override val aclWhoAmI: F[String] =
+    async.flatMap(_.aclWhoami().futureLift)
+
+  override val aclList: F[List[String]] =
+    async.flatMap(_.aclList().futureLift.map(_.asScala.toList))
+
+  override val aclUsers: F[List[String]] =
+    async.flatMap(_.aclUsers().futureLift.map(_.asScala.toList))
+
+  override val aclCat: F[Set[AclCategory]] =
+    async.flatMap(_.aclCat().futureLift).flatMap { js =>
+      js.asScala.toList.traverse(AclCategory.fromJava).map(_.toSet).liftTo[F]
+    }
+
+  override def aclCat(category: AclCategory): F[Set[String]] =
+    async.flatMap(
+      _.aclCat(category.asJava).futureLift
+        .map(_.asScala.toSet.map((c: CommandType) => c.toString.toLowerCase(java.util.Locale.ROOT)))
+    )
+
+  override val aclGenPass: F[String] =
+    async.flatMap(_.aclGenpass().futureLift)
+
+  override def aclGenPass(bits: Int): F[String] =
+    async.flatMap(_.aclGenpass(bits).futureLift)
+
+  override val aclLoad: F[Unit] =
+    async.flatMap(_.aclLoad().futureLift.void)
+
+  override val aclSave: F[Unit] =
+    async.flatMap(_.aclSave().futureLift.void)
+
+  override val aclLogReset: F[Unit] =
+    async.flatMap(_.aclLogReset().futureLift.void)
+
+  override val aclLog: F[List[Map[String, String]]] =
+    async.flatMap(_.aclLog().futureLift).flatMap(es => AclDecoder.decodeLog(es).liftTo[F])
+
+  override def aclLog(count: Int): F[List[Map[String, String]]] =
+    async.flatMap(_.aclLog(count).futureLift).flatMap(es => AclDecoder.decodeLog(es).liftTo[F])
+
+  override def aclDelUser(username: String, usernames: String*): F[Long] =
+    async.flatMap(_.aclDeluser((username +: usernames): _*).futureLift.map(Long.unbox))
+
+  override def aclSetUser(username: String, rules: List[AclSetUserRule]): F[Unit] =
+    aclSetuserArgs(rules).liftTo[F].flatMap(args => async.flatMap(_.aclSetuser(username, args).futureLift.void))
+
+  override def aclGetUser(username: String): F[Option[AclUser]] =
+    async.flatMap(_.aclGetuser(username).futureLift).flatMap(raw => AclDecoder.decodeUser(raw).liftTo[F])
+
+  private def commandType(name: String): Either[AclError, CommandType] =
+    Either
+      .catchOnly[IllegalArgumentException](CommandType.valueOf(name.toUpperCase(java.util.Locale.ROOT)))
+      .leftMap(_ => AclError.UnknownCommand(name))
+
+  private def aclSetuserArgs(rules: List[AclSetUserRule]): Either[AclError, AclSetuserArgs] =
+    rules.foldLeft(Right(new AclSetuserArgs()): Either[AclError, AclSetuserArgs])((acc, rule) =>
+      acc.flatMap(applyRule(_, rule))
+    )
+
+  private def applyRule(args: AclSetuserArgs, rule: AclSetUserRule): Either[AclError, AclSetuserArgs] =
+    rule match {
+      case AclSetUserRule.On                      => Right(args.on())
+      case AclSetUserRule.Off                     => Right(args.off())
+      case AclSetUserRule.Reset                   => Right(args.reset())
+      case AclSetUserRule.NoPass                  => Right(args.nopass())
+      case AclSetUserRule.ResetPass               => Right(args.resetpass())
+      case AclSetUserRule.AddPassword(p)          => Right(args.addPassword(p))
+      case AclSetUserRule.RemovePassword(p)       => Right(args.removePassword(p))
+      case AclSetUserRule.AddHashedPassword(h)    => Right(args.addHashedPassword(h))
+      case AclSetUserRule.RemoveHashedPassword(h) => Right(args.removeHashedPassword(h))
+      case AclSetUserRule.AllKeys                 => Right(args.allKeys())
+      case AclSetUserRule.ResetKeys               => Right(args.resetKeys())
+      case AclSetUserRule.KeyPattern(p)           => Right(args.keyPattern(p))
+      case AclSetUserRule.AllChannels             => Right(args.allChannels())
+      case AclSetUserRule.ResetChannels           => Right(args.resetChannels())
+      case AclSetUserRule.ChannelPattern(p)       => Right(args.channelPattern(p))
+      case AclSetUserRule.AllCommands             => Right(args.allCommands())
+      case AclSetUserRule.NoCommands              => Right(args.noCommands())
+      case AclSetUserRule.AddCommand(c)           => commandType(c.value).map(ct => args.addCommand(ct))
+      case AclSetUserRule.RemoveCommand(c)        => commandType(c.value).map(ct => args.removeCommand(ct))
+      case AclSetUserRule.AddCategory(c)          => Right(args.addCategory(c.asJava))
+      case AclSetUserRule.RemoveCategory(c)       => Right(args.removeCategory(c.asJava))
+    }
 
   // format: off
   /******************************* Server API **********************************/
