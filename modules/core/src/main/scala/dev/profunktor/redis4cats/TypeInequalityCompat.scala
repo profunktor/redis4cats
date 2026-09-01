@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-package dev.profunktor.redis4cats.syntax
+package dev.profunktor.redis4cats
 
-import dev.profunktor.redis4cats.connection.RedisURI
+import scala.util.NotGiven
 
-class RedisURIOps(val sc: StringContext) extends AnyVal {
-  def redis(args: Any*): RedisURI = macro macros.RedisLiteral.make
+trait TypeInequalityCompat {
+
+  sealed class =!=[A, B]
+
+  object =!= {
+    implicit def nequal[A, B](
+        implicit ev: NotGiven[A =:= B]
+    ): =!=[A, B] = new =!=[A, B]
+  }
 }
-
-trait RedisSyntax {
-  implicit def toRedisURIOps(sc: StringContext): RedisURIOps =
-    new RedisURIOps(sc)
-}
-
-object literals extends RedisSyntax
