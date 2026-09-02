@@ -1941,7 +1941,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def scriptFlush: F[Unit] =
     async.flatMap(_.scriptFlush().futureLift.void)
 
-  override def scriptKill(): F[String] =
+  override def scriptKill: F[String] =
     async.flatMap(_.scriptKill().futureLift)
 
   override def digest(script: String): F[String] =

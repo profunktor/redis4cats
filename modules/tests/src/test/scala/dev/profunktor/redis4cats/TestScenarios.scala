@@ -1078,7 +1078,7 @@ trait TestScenarios { self: FunSuite =>
       // SCRIPT KILL only succeeds while a script is actually blocking the server; with nothing
       // running, Redis rejects it — that's the realistic case to assert, not a happy path we can't
       // safely trigger from a single-threaded test without actually hanging the server.
-      killAttempt <- redis.scriptKill().attempt
+      killAttempt <- redis.scriptKill.attempt
       _ <- IO(
              assert(
                killAttempt.left.exists { ex =>
