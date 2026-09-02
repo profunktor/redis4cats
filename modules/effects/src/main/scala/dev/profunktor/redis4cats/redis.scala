@@ -558,6 +558,13 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case d          => Instant.ofEpochMilli(d).some
     }
 
+  // EXPIRETIME (unlike PEXPIRETIME/HPEXPIRETIME) returns whole seconds since the epoch, not millis.
+  private def toEpochSeconds(duration: java.lang.Long): Option[Instant] =
+    duration match {
+      case d if d < 0 => none[Instant]
+      case d          => Instant.ofEpochSecond(d).some
+    }
+
   override def persist(key: K): F[Boolean] =
     async.flatMap(_.persist(key).futureLift.map(x => Boolean.box(x)))
 
@@ -641,7 +648,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.unlink(key: _*).futureLift.map(x => Long.box(x)))
 
   override def expireTime(key: K): F[Option[Instant]] =
-    async.flatMap(_.expiretime(key).futureLift.map(toEpoch))
+    async.flatMap(_.expiretime(key).futureLift.map(toEpochSeconds))
 
   override def pExpireTime(key: K): F[Option[Instant]] =
     async.flatMap(_.pexpiretime(key).futureLift.map(toEpoch))
