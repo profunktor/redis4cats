@@ -17,10 +17,17 @@
 package dev.profunktor.redis4cats.algebra
 
 import dev.profunktor.redis4cats.effects.FlushMode
+import io.lettuce.core.{ ClientListArgs, KillArgs, UnblockType }
 
 import java.time.Instant
+import scala.concurrent.duration.FiniteDuration
 
-trait ServerCommands[F[_], K] extends Flush[F, K] with Diagnostic[F]
+trait ServerCommands[F[_], K]
+    extends Flush[F, K]
+    with Diagnostic[F]
+    with Config[F]
+    with ClientAdmin[F]
+    with Maintenance[F, K]
 
 trait Flush[F[_], K] {
   def keys(key: String): F[List[K]]
@@ -36,4 +43,35 @@ trait Diagnostic[F[_]] {
   def dbsize: F[Long]
   def lastSave: F[Instant]
   def slowLogLen: F[Long]
+  def slowLogReset: F[Unit]
+  def commandCount: F[Long]
+}
+
+trait Config[F[_]] {
+  def configGet(parameter: String): F[Map[String, String]]
+  def configGet(parameters: String*): F[Map[String, String]]
+  def configSet(parameter: String, value: String): F[Unit]
+  def configSet(values: Map[String, String]): F[Unit]
+  def configResetStat: F[Unit]
+  def configRewrite: F[Unit]
+}
+
+trait ClientAdmin[F[_]] {
+  def clientList: F[List[Map[String, String]]]
+  def clientList(args: ClientListArgs): F[List[Map[String, String]]]
+  def clientKill(addr: String): F[Unit]
+  def clientKill(args: KillArgs): F[Long]
+  def clientPause(timeout: FiniteDuration): F[Unit]
+  def clientUnblock(id: Long, unblockType: UnblockType): F[Long]
+  def clientGetRedir: F[Long]
+  def clientCaching(enabled: Boolean): F[Unit]
+  def clientNoTouch(enabled: Boolean): F[Unit]
+  def clientNoEvict(enabled: Boolean): F[Unit]
+}
+
+trait Maintenance[F[_], K] {
+  def memoryUsage(key: K): F[Option[Long]]
+  def save: F[Unit]
+  def bgSave: F[Unit]
+  def bgRewriteAof: F[Unit]
 }
