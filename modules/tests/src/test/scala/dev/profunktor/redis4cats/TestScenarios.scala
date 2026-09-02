@@ -929,7 +929,12 @@ trait TestScenarios { self: FunSuite =>
         allowedDryRun <- redis.aclDryRun("default", "get", "somekey")
         _ <- IO(assertEquals(allowedDryRun, AclDryRunResult.Allowed))
         deniedDryRun <- redis.aclDryRun(user, "set", "somekey", "someval")
-        _ <- IO(assert(deniedDryRun.isInstanceOf[AclDryRunResult.Denied], s"dry run: $deniedDryRun"))
+        _ <- IO(
+               assert(
+                 PartialFunction.cond(deniedDryRun) { case AclDryRunResult.Denied(_) => true },
+                 s"dry run: $deniedDryRun"
+               )
+             )
         missing <- redis.aclGetUser("definitely-not-a-user")
         _ <- IO(assertEquals(missing, None))
         list <- redis.aclList
