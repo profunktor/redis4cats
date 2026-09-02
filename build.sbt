@@ -52,10 +52,13 @@ val commonSettings = Seq(
   ),
   resolvers += "Apache public" at "https://repository.apache.org/content/groups/public/",
   scalacOptions += "-source:3.0-migration",
-  // Lettuce 7.7.0 deprecated several async command methods in favor of newer equivalents
-  // (SetArgs, LMOVE, GEOSEARCH, etc.) purely as an API preference; the old ones remain fully
-  // functional. Migrating call sites is a real API-surface change, tracked separately from
-  // this dependency bump.
+  // Lettuce 7.7.0 deprecated most async command methods this library calls in favor of newer
+  // equivalents (SetArgs, LMOVE, GEOSEARCH); those call sites have been migrated. georadiusbymember
+  // stays on the deprecated API deliberately: its geosearch/GeoSearch.fromMember replacement is
+  // mistyped upstream (Lettuce's own source marks it "TODO: Should be V") and encodes the member
+  // with the key codec instead of the value codec, which would miscode data for a RedisCodec[K, V]
+  // with distinct K/V types. This rule silences Lettuce-originated deprecations generally so future
+  // Lettuce bumps don't fail the build on them without a deliberate look.
   scalacOptions += "-Wconf:cat=deprecation&origin=io\\.lettuce\\..*:s",
   Compile / doc / sources := (Compile / doc / sources).value,
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits"),
