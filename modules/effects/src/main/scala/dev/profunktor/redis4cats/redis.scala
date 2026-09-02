@@ -1703,16 +1703,16 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
               case ip :: port :: replOffset :: Nil =>
                 RedisRole.ReplicaNode(ip.toString, asLong(port), asLong(replOffset))
               case other =>
-                throw new IllegalStateException(s"Unexpected replica entry in ROLE reply: $other")
+                throw ReplicationError.UnexpectedReplicaEntry(other.toString)
             }
           case other =>
-            throw new IllegalStateException(s"Unexpected replica entry in ROLE reply: $other")
+            throw ReplicationError.UnexpectedReplicaEntry(other.toString)
         }
         RedisRole.Master(asLong(offset), nodes)
       case (role: String) :: host :: port :: state :: offset :: Nil if role == "slave" || role == "replica" =>
         RedisRole.Replica(host.toString, asLong(port), state.toString, asLong(offset))
       case other =>
-        throw new IllegalStateException(s"Unexpected ROLE reply: $other")
+        throw ReplicationError.UnexpectedRoleReply(other.toString)
     }
   }
 

@@ -681,4 +681,16 @@ object effects {
     final case class Replica(masterHost: String, masterPort: Long, replicationState: String, replicationOffset: Long)
         extends RedisRole
   }
+
+  /** Failure raised while decoding a `ROLE` reply into [[RedisRole]]. */
+  sealed abstract class ReplicationError(message: String) extends RuntimeException(message)
+  object ReplicationError {
+
+    /** The top-level `ROLE` reply didn't match either the master or the replica shape. */
+    final case class UnexpectedRoleReply(reply: String) extends ReplicationError(s"Unexpected ROLE reply: $reply")
+
+    /** A replica entry inside a master's `ROLE` reply didn't have the expected `[ip, port, offset]` shape. */
+    final case class UnexpectedReplicaEntry(entry: String)
+        extends ReplicationError(s"Unexpected replica entry in ROLE reply: $entry")
+  }
 }
