@@ -1679,10 +1679,10 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.waitForReplication(numReplicas, timeout.toMillis).futureLift.map(x => Long.box(x)))
 
   override def readOnly: F[Unit] =
-    conn.async.flatMap(_.readOnly().futureLift.void)
+    async.flatMap(_.readOnly().futureLift.void)
 
   override def readWrite: F[Unit] =
-    conn.async.flatMap(_.readWrite().futureLift.void)
+    async.flatMap(_.readWrite().futureLift.void)
 
   override def role: F[RedisRole] =
     async.flatMap(_.role().futureLift).flatMap(reply => FutureLift[F].delay(toRedisRole(reply)))
