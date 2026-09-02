@@ -1,7 +1,7 @@
 services:
   SingleNode:
     restart: always
-    image: redis:8.0.1
+    image: redis:8.10.1
     ports:
       - "6379:6379"
     environment:
@@ -10,7 +10,7 @@ services:
 
   ReplicaNode:
     restart: always
-    image: redis:8.0.1
+    image: redis:8.10.1
     ports:
       - "6380:6379"
     command: redis-server --replicaof SingleNode 6379
