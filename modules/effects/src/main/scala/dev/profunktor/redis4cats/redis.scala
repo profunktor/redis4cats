@@ -1653,12 +1653,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def zmPopMin(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]] =
     async
       .flatMap(_.zmpop(count.toInt, ZPopArgs.Builder.min(), keys.toList: _*).futureLift)
-      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
 
   override def zmPopMax(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]] =
     async
       .flatMap(_.zmpop(count.toInt, ZPopArgs.Builder.max(), keys.toList: _*).futureLift)
-      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
 
   override def bzmPopMin(
       timeout: Duration,
@@ -1667,7 +1667,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   ): F[Option[(K, List[ScoreWithValue[V]])]] =
     async
       .flatMap(_.bzmpop(timeout.toSecondsOrZero, count, ZPopArgs.Builder.min(), keys.toList: _*).futureLift)
-      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
 
   override def bzmPopMax(
       timeout: Duration,
@@ -1676,7 +1676,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   ): F[Option[(K, List[ScoreWithValue[V]])]] =
     async
       .flatMap(_.bzmpop(timeout.toSecondsOrZero, count, ZPopArgs.Builder.max(), keys.toList: _*).futureLift)
-      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
 
   override def zUnion(args: Option[ZAggregateArgs], keys: K*): F[List[V]] = {
     val res = args match {
