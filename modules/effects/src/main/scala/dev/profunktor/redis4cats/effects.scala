@@ -74,6 +74,32 @@ object effects {
   final case class ZRange[V](start: V, end: V)
   final case class RangeLimit(offset: Long, count: Long)
 
+  sealed trait SortOrder
+  object SortOrder {
+    case object Asc extends SortOrder
+    case object Desc extends SortOrder
+  }
+
+  /** Options for the `SORT`/`SORT_RO`/`SORT ... STORE` commands.
+    * @param by
+    *   external-key sort-weight pattern (`*` is substituted with each element)
+    * @param limit
+    *   offset/count to page the sorted result
+    * @param get
+    *   external-key patterns to fetch instead of the sorted elements themselves
+    * @param order
+    *   ascending/descending; Redis defaults to ascending when unset
+    * @param alpha
+    *   sort lexicographically instead of numerically
+    */
+  final case class SortArgs(
+      by: Option[String] = None,
+      limit: Option[RangeLimit] = None,
+      get: List[String] = Nil,
+      order: Option[SortOrder] = None,
+      alpha: Boolean = false
+  )
+
   sealed trait ScriptOutputType[V] {
     type R
     private[redis4cats] type Underlying

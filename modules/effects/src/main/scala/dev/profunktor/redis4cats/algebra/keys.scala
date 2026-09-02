@@ -18,11 +18,19 @@ package dev.profunktor.redis4cats.algebra
 
 import java.time.Instant
 import dev.profunktor.redis4cats.data.KeyScanCursor
-import dev.profunktor.redis4cats.effects.{ CopyArgs, ExpireExistenceArg, KeyScanArgs, RedisType, RestoreArgs, ScanArgs }
+import dev.profunktor.redis4cats.effects.{
+  CopyArgs,
+  ExpireExistenceArg,
+  KeyScanArgs,
+  RedisType,
+  RestoreArgs,
+  ScanArgs,
+  SortArgs
+}
 
 import scala.concurrent.duration.FiniteDuration
 
-trait KeyCommands[F[_], K] {
+trait KeyCommands[F[_], K, V] {
   def copy(source: K, destination: K): F[Boolean]
   def copy(source: K, destination: K, copyArgs: CopyArgs): F[Boolean]
   def del(k: K, keys: K*): F[Long]
@@ -33,9 +41,14 @@ trait KeyCommands[F[_], K] {
   def expireAt(key: K, at: Instant): F[Boolean]
   def expireAt(key: K, at: Instant, expireExistenceArg: ExpireExistenceArg): F[Boolean]
   def objectIdletime(key: K): F[Option[FiniteDuration]]
+  def objectEncoding(key: K): F[Option[String]]
+  def objectFreq(key: K): F[Long]
+  def objectRefcount(key: K): F[Long]
   def persist(key: K): F[Boolean]
   def pttl(key: K): F[Option[FiniteDuration]]
   def randomKey: F[Option[K]]
+  def rename(key: K, newKey: K): F[Unit]
+  def renameNx(key: K, newKey: K): F[Boolean]
   // restores a key with the given serialized value, previously obtained using DUMP without a ttl
   def restore(key: K, value: Array[Byte]): F[Unit]
   def restore(key: K, value: Array[Byte], restoreArgs: RestoreArgs): F[Unit]
@@ -51,8 +64,17 @@ trait KeyCommands[F[_], K] {
   @deprecated("In favor of scan(previous: KeyScanCursor[K], keyScanArgs: KeyScanArgs)", since = "1.7.2")
   def scan(previous: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]]
   def scan(cursor: KeyScanCursor[K], keyScanArgs: KeyScanArgs): F[KeyScanCursor[K]]
+  def sort(key: K): F[List[V]]
+  def sort(key: K, sortArgs: SortArgs): F[List[V]]
+  def sortReadOnly(key: K): F[List[V]]
+  def sortReadOnly(key: K, sortArgs: SortArgs): F[List[V]]
+  def sortStore(key: K, sortArgs: SortArgs, destination: K): F[Long]
   def typeOf(key: K): F[Option[RedisType]]
   def ttl(key: K): F[Option[FiniteDuration]]
+  def expireTime(key: K): F[Option[Instant]]
+  def pExpireTime(key: K): F[Option[Instant]]
+  def move(key: K, db: Int): F[Boolean]
+  def touch(key: K, keys: K*): F[Long]
   // This command is very similar to DEL: it removes the specified keys. Just like DEL a key is ignored if it does not exist. However the command performs the actual memory reclaiming in a different thread, so it is not blocking, while DEL is. This is where the command name comes from: the command just unlinks the keys from the keyspace. The actual removal will happen later asynchronously.
   def unlink(key: K*): F[Long]
 
