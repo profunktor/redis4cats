@@ -53,7 +53,11 @@ commandsApi.use { redis => // GeoCommands[IO, String, String]
     _ <- putStrLn(s"Distance from ${_BuenosAires.value} to Tokyo: $x km")
     y <- redis.geoPos(testKey, _RioDeJaneiro.value)
     _ <- putStrLn(s"Geo Pos of ${_RioDeJaneiro.value}: ${y.headOption}")
-    z <- redis.geoRadius(testKey, GeoRadius(_Montevideo.lon, _Montevideo.lat, Distance(10000.0)), GeoArgs.Unit.km)
+    z <- redis.geoSearch(
+           testKey,
+           GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
+           GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km)
+         )
     _ <- putStrLn(s"Geo Radius in 1000 km: $z")
   } yield ()
 }

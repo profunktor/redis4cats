@@ -38,12 +38,36 @@ object effects {
   final case class Longitude(value: Double) extends AnyVal
 
   final case class GeoLocation[V](lon: Longitude, lat: Latitude, value: V)
-  final case class GeoRadius(lon: Longitude, lat: Latitude, dist: Distance)
+
+  sealed trait GeoSearchReference[V]
+  object GeoSearchReference {
+    final case class FromCoordinates[V](lon: Longitude, lat: Latitude) extends GeoSearchReference[V]
+    final case class FromMember[V](value: V) extends GeoSearchReference[V]
+  }
+
+  sealed trait GeoSearchPredicate
+  object GeoSearchPredicate {
+    final case class ByRadius(dist: Distance, unit: GeoArgs.Unit) extends GeoSearchPredicate
+    final case class ByBox(width: Distance, height: Distance, unit: GeoArgs.Unit) extends GeoSearchPredicate
+  }
 
   final case class GeoCoordinate(x: Double, y: Double)
-  final case class GeoRadiusResult[V](value: V, dist: Distance, hash: GeoHash, coordinate: GeoCoordinate)
-  final case class GeoRadiusKeyStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
-  final case class GeoRadiusDistStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
+
+  /** `dist`/`hash`/`coordinate` are each present only when the `GeoArgs` passed to the `geoSearch` call that produced
+    * this result set the corresponding `withDistance()`/`withHash()`/ `withCoordinates()` flag — `None` otherwise,
+    * matching Lettuce's own `GeoWithin` contract ("if requested, otherwise null").
+    */
+  final case class GeoSearchResult[V](
+      value: V,
+      dist: Option[Distance],
+      hash: Option[GeoHash],
+      coordinate: Option[GeoCoordinate]
+  )
+
+  /** The subset of `GeoArgs` that `GEOSEARCHSTORE` actually accepts (COUNT/ASC/DESC) — unlike `GEOSEARCH`, it rejects
+    * the WITHDIST/WITHHASH/WITHCOORD flags a raw `GeoArgs` could also carry.
+    */
+  final case class GeoStoreArgs(count: Option[Long] = None, sort: Option[GeoArgs.Sort] = None)
 
   final case class Score(value: Double) extends AnyVal
   final case class ScoreWithValue[V](score: Score, value: V)
@@ -440,6 +464,12 @@ object effects {
     def apply(ex: SetArg.Existence): SetArgs                  = SetArgs(Some(ex), None)
     def apply(ttl: SetArg.Ttl): SetArgs                       = SetArgs(None, Some(ttl))
     def apply(ex: SetArg.Existence, ttl: SetArg.Ttl): SetArgs = SetArgs(Some(ex), Some(ttl))
+  }
+
+  sealed trait LMoveSide
+  object LMoveSide {
+    case object Left extends LMoveSide
+    case object Right extends LMoveSide
   }
 
   sealed trait ExpireExistenceArg

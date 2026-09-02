@@ -17,6 +17,7 @@
 package dev.profunktor.redis4cats.algebra
 
 import cats.data.NonEmptyList
+import dev.profunktor.redis4cats.effects.LMoveSide
 
 import scala.concurrent.duration.Duration
 
@@ -30,6 +31,13 @@ trait ListBlocking[F[_], K, V] {
   def blPop(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, V)]]
   def brPop(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, V)]]
   def brPopLPush(timeout: Duration, source: K, destination: K): F[Option[V]]
+  def blMove(
+      timeout: Duration,
+      source: K,
+      destination: K,
+      sourceSide: LMoveSide,
+      destinationSide: LMoveSide
+  ): F[Option[V]]
 }
 
 trait ListGetter[F[_], K, V] {
@@ -52,6 +60,7 @@ trait ListPushPop[F[_], K, V] {
   def lPushX(key: K, values: V*): F[Long]
   def rPop(key: K): F[Option[V]]
   def rPopLPush(source: K, destination: K): F[Option[V]]
+  def lMove(source: K, destination: K, sourceSide: LMoveSide, destinationSide: LMoveSide): F[Option[V]]
   def rPush(key: K, values: V*): F[Long]
   def rPushX(key: K, values: V*): F[Long]
 }

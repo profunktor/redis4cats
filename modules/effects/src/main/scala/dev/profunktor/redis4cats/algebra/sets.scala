@@ -32,7 +32,7 @@ trait SetGetter[F[_], K, V] {
   def sRandMember(key: K): F[Option[V]]
   def sRandMember(key: K, count: Long): F[List[V]]
   def sUnion(keys: K*): F[Set[V]]
-  def sUnionStore(destination: K, keys: K*): F[Unit]
+  def sUnionStore(destination: K, keys: K*): F[Long]
   def sScan(key: K): F[ValueScanCursor[V]]
   def sScan(key: K, cursor: ValueScanCursor[V]): F[ValueScanCursor[V]]
   def sScan(key: K, scanArgs: ScanArgs): F[ValueScanCursor[V]]
