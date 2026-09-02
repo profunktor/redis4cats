@@ -41,7 +41,7 @@ trait TestScenarios { self: FunSuite =>
     val _Montevideo   = GeoLocation(Longitude(-56.164532), Latitude(-34.901112), "Montevideo")
     val _Tokyo        = GeoLocation(Longitude(139.6917), Latitude(35.6895), "Tokyo")
 
-    val testKey = "location"
+    val testKey = "{geosearch}:location"
     for {
       addCount1 <- redis.geoAdd(testKey, _BuenosAires)
       _ <- IO(assertEquals(addCount1, 1L))
@@ -72,7 +72,7 @@ trait TestScenarios { self: FunSuite =>
                              testKey,
                              GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
                              GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
-                             new GeoArgs()
+                             GeoArgs.Builder.full()
                            )
       _ <- IO(assert(byCoordRadiusArgs.map(_.value).toSet == byCoordRadius))
 
@@ -89,7 +89,7 @@ trait TestScenarios { self: FunSuite =>
                               testKey,
                               GeoSearchReference.FromMember(_Montevideo.value),
                               GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
-                              new GeoArgs()
+                              GeoArgs.Builder.full()
                             )
       _ <- IO(assertEquals(byMemberRadiusArgs.map(_.value).toSet, byCoordRadius))
 
@@ -138,19 +138,19 @@ trait TestScenarios { self: FunSuite =>
 
       // geoSearchStore: FromCoordinates, storeDist = false
       storeCount1 <- redis.geoSearchStore(
-                       "location-store-1",
+                       "{geosearch}:location-store-1",
                        testKey,
                        GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
                        GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
                        storeDist = false
                      )
       _ <- IO(assertEquals(storeCount1, 3L))
-      storedMembers1 <- redis.zRange("location-store-1", 0, -1)
+      storedMembers1 <- redis.zRange("{geosearch}:location-store-1", 0, -1)
       _ <- IO(assertEquals(storedMembers1.toSet, byCoordRadius))
 
       // geoSearchStore: FromCoordinates, storeDist = true
       storeCount2 <- redis.geoSearchStore(
-                       "location-store-2",
+                       "{geosearch}:location-store-2",
                        testKey,
                        GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
                        GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
@@ -160,7 +160,7 @@ trait TestScenarios { self: FunSuite =>
 
       // geoSearchStore: FromMember, storeDist = false, with GeoArgs (count = 1)
       storeCount3 <- redis.geoSearchStore(
-                       "location-store-3",
+                       "{geosearch}:location-store-3",
                        testKey,
                        GeoSearchReference.FromMember(_Montevideo.value),
                        GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
@@ -171,7 +171,7 @@ trait TestScenarios { self: FunSuite =>
 
       // geoSearchStore: FromMember, storeDist = true
       storeCount4 <- redis.geoSearchStore(
-                       "location-store-4",
+                       "{geosearch}:location-store-4",
                        testKey,
                        GeoSearchReference.FromMember(_Montevideo.value),
                        GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
@@ -181,7 +181,7 @@ trait TestScenarios { self: FunSuite =>
 
       // geoSearchStore: empty result stores nothing
       storeCountEmpty <- redis.geoSearchStore(
-                           "location-store-empty",
+                           "{geosearch}:location-store-empty",
                            testKey,
                            GeoSearchReference.FromCoordinates(Longitude(0.0), Latitude(0.0)),
                            GeoSearchPredicate.ByRadius(Distance(1.0), GeoArgs.Unit.km),
@@ -327,36 +327,43 @@ trait TestScenarios { self: FunSuite =>
       h <- redis.lRange(testKey, 0, 10)
       _ <- IO(assertEquals(h, List("four")))
       // lMove: all 4 direction combinations
-      _ <- redis.rPush("lmove-src", "a", "b", "c")
-      lmRL <- redis.lMove("lmove-src", "lmove-dst", LMoveSide.Right, LMoveSide.Left)
+      _ <- redis.rPush("{listmove}:lmove-src", "a", "b", "c")
+      lmRL <- redis.lMove("{listmove}:lmove-src", "{listmove}:lmove-dst", LMoveSide.Right, LMoveSide.Left)
       _ <- IO(assertEquals(lmRL, Some("c")))
-      lmDst1 <- redis.lRange("lmove-dst", 0, -1)
+      lmDst1 <- redis.lRange("{listmove}:lmove-dst", 0, -1)
       _ <- IO(assertEquals(lmDst1, List("c")))
-      lmLL <- redis.lMove("lmove-src", "lmove-dst", LMoveSide.Left, LMoveSide.Left)
+      lmLL <- redis.lMove("{listmove}:lmove-src", "{listmove}:lmove-dst", LMoveSide.Left, LMoveSide.Left)
       _ <- IO(assertEquals(lmLL, Some("a")))
-      lmDst2 <- redis.lRange("lmove-dst", 0, -1)
+      lmDst2 <- redis.lRange("{listmove}:lmove-dst", 0, -1)
       _ <- IO(assertEquals(lmDst2, List("a", "c")))
-      lmLR <- redis.lMove("lmove-src", "lmove-dst", LMoveSide.Left, LMoveSide.Right)
+      lmLR <- redis.lMove("{listmove}:lmove-src", "{listmove}:lmove-dst", LMoveSide.Left, LMoveSide.Right)
       _ <- IO(assertEquals(lmLR, Some("b")))
-      lmDst3 <- redis.lRange("lmove-dst", 0, -1)
+      lmDst3 <- redis.lRange("{listmove}:lmove-dst", 0, -1)
       _ <- IO(assertEquals(lmDst3, List("a", "c", "b")))
-      lmSrcEmpty <- redis.lRange("lmove-src", 0, -1)
+      lmSrcEmpty <- redis.lRange("{listmove}:lmove-src", 0, -1)
       _ <- IO(assert(lmSrcEmpty.isEmpty))
       // rightRight + self-rotation (source == destination)
-      _ <- redis.rPush("lmove-rot", "x", "y", "z")
-      lmRR <- redis.lMove("lmove-rot", "lmove-rot", LMoveSide.Right, LMoveSide.Right)
+      _ <- redis.rPush("{listmove}:lmove-rot", "x", "y", "z")
+      lmRR <- redis.lMove("{listmove}:lmove-rot", "{listmove}:lmove-rot", LMoveSide.Right, LMoveSide.Right)
       _ <- IO(assertEquals(lmRR, Some("z")))
-      lmRotResult <- redis.lRange("lmove-rot", 0, -1)
+      lmRotResult <- redis.lRange("{listmove}:lmove-rot", 0, -1)
       _ <- IO(assertEquals(lmRotResult, List("x", "y", "z")))
       // lMove on an empty source returns None
-      lmEmpty <- redis.lMove("lmove-does-not-exist", "lmove-dst", LMoveSide.Right, LMoveSide.Left)
+      lmEmpty <- redis.lMove("{listmove}:lmove-does-not-exist", "{listmove}:lmove-dst", LMoveSide.Right, LMoveSide.Left)
       _ <- IO(assertEquals(lmEmpty, None))
       // blMove: element available immediately
-      _ <- redis.rPush("blmove-src", "one")
-      blmImmediate <- redis.blMove(1.second, "blmove-src", "blmove-dst", LMoveSide.Right, LMoveSide.Left)
+      _ <- redis.rPush("{listmove}:blmove-src", "one")
+      blmImmediate <-
+        redis.blMove(1.second, "{listmove}:blmove-src", "{listmove}:blmove-dst", LMoveSide.Right, LMoveSide.Left)
       _ <- IO(assertEquals(blmImmediate, Some("one")))
       // blMove: timeout expiry with no element available
-      blmTimeout <- redis.blMove(1.second, "blmove-does-not-exist", "blmove-dst", LMoveSide.Right, LMoveSide.Left)
+      blmTimeout <- redis.blMove(
+                      1.second,
+                      "{listmove}:blmove-does-not-exist",
+                      "{listmove}:blmove-dst",
+                      LMoveSide.Right,
+                      LMoveSide.Left
+                    )
       _ <- IO(assertEquals(blmTimeout, None))
     } yield ()
   }
@@ -404,11 +411,11 @@ trait TestScenarios { self: FunSuite =>
           (sScanKey, ScanArgs("*r*", count = 3L))
         ) { case (k, a) => redis.sScan(k, a) } { case ((k, a), c) => redis.sScan(k, c, a) }
       _ <- IO(assertEquals(sScanSeqResR, sScanSeqR))
-      _ <- redis.sAdd("sunion-a", "1", "2")
-      _ <- redis.sAdd("sunion-b", "2", "3")
-      unionCount <- redis.sUnionStore("sunion-dest", "sunion-a", "sunion-b")
+      _ <- redis.sAdd("{sunion}:sunion-a", "1", "2")
+      _ <- redis.sAdd("{sunion}:sunion-b", "2", "3")
+      unionCount <- redis.sUnionStore("{sunion}:sunion-dest", "{sunion}:sunion-a", "{sunion}:sunion-b")
       _ <- IO(assertEquals(unionCount, 3L))
-      unionMembers <- redis.sMembers("sunion-dest")
+      unionMembers <- redis.sMembers("{sunion}:sunion-dest")
       _ <- IO(assertEquals(unionMembers, Set("1", "2", "3")))
     } yield ()
   }

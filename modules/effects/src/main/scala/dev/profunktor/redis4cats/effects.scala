@@ -52,6 +52,11 @@ object effects {
   }
 
   final case class GeoCoordinate(x: Double, y: Double)
+
+  /** `dist`/`hash`/`coordinate` are only meaningful when the `GeoArgs` passed to the `geoSearch` call that produced
+    * this result set the corresponding `withDistance()`/`withHash()`/ `withCoordinates()` flag — otherwise these fields
+    * reflect Lettuce's unset/default values.
+    */
   final case class GeoRadiusResult[V](value: V, dist: Distance, hash: GeoHash, coordinate: GeoCoordinate)
 
   final case class Score(value: Double) extends AnyVal

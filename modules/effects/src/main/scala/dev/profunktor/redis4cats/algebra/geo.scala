@@ -32,6 +32,12 @@ trait GeoGetter[F[_], K, V] {
 
 trait GeoSetter[F[_], K, V] {
   def geoAdd(key: K, geoValues: GeoLocation[V]*): F[Long]
+  /** Issues GEOSEARCHSTORE, which only ever accepts COUNT/ASC/DESC/STOREDIST — see the
+    * `args`-taking overload below for the caveat about which `GeoArgs` flags are safe there.
+    */
   def geoSearchStore(destination: K, key: K, ref: GeoSearchReference[V], predicate: GeoSearchPredicate, storeDist: Boolean): F[Long]
+  /** @param args Only `count`/`sort` (i.e. COUNT/ASC/DESC) are meaningful here — GEOSEARCHSTORE
+    *             rejects the WITHDIST/WITHHASH/WITHCOORD flags that GeoArgs can also carry.
+    */
   def geoSearchStore(destination: K, key: K, ref: GeoSearchReference[V], predicate: GeoSearchPredicate, storeDist: Boolean, args: GeoArgs): F[Long]
 }
