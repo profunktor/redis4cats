@@ -43,16 +43,151 @@ trait TestScenarios { self: FunSuite =>
 
     val testKey = "location"
     for {
-      _ <- redis.geoAdd(testKey, _BuenosAires)
+      addCount1 <- redis.geoAdd(testKey, _BuenosAires)
+      _ <- IO(assertEquals(addCount1, 1L))
       _ <- redis.geoAdd(testKey, _RioDeJaneiro)
       _ <- redis.geoAdd(testKey, _Montevideo)
       _ <- redis.geoAdd(testKey, _Tokyo)
+      addCountExisting <- redis.geoAdd(testKey, _Tokyo)
+      _ <- IO(assertEquals(addCountExisting, 0L)) // re-adding an existing member updates it, adds nothing new
       x <- redis.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoArgs.Unit.km)
       _ <- IO(assertEquals(x, 18374.9052))
       y <- redis.geoPos(testKey, _RioDeJaneiro.value)
       _ <- IO(assert(y.contains(GeoCoordinate(-43.17289799451828, -22.906801071586663))))
-      z <- redis.geoRadius(testKey, GeoRadius(_Montevideo.lon, _Montevideo.lat, Distance(10000.0)), GeoArgs.Unit.km)
-      _ <- IO(assert(z.toList.containsSlice(List(_BuenosAires.value, _Montevideo.value, _RioDeJaneiro.value))))
+
+      // geoSearch: FromCoordinates x ByRadius (plain Set[V] result)
+      byCoordRadius <- redis.geoSearch(
+                         testKey,
+                         GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
+                         GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km)
+                       )
+      _ <- IO(
+             assert(
+               byCoordRadius.toList.containsSlice(List(_BuenosAires.value, _Montevideo.value, _RioDeJaneiro.value))
+             )
+           )
+
+      // geoSearch: FromCoordinates x ByRadius, with GeoArgs (List[GeoRadiusResult[V]] result)
+      byCoordRadiusArgs <- redis.geoSearch(
+                             testKey,
+                             GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
+                             GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
+                             new GeoArgs()
+                           )
+      _ <- IO(assert(byCoordRadiusArgs.map(_.value).toSet == byCoordRadius))
+
+      // geoSearch: FromMember x ByRadius
+      byMemberRadius <- redis.geoSearch(
+                          testKey,
+                          GeoSearchReference.FromMember(_Montevideo.value),
+                          GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km)
+                        )
+      _ <- IO(assertEquals(byMemberRadius, byCoordRadius))
+
+      // geoSearch: FromMember x ByRadius, with GeoArgs
+      byMemberRadiusArgs <- redis.geoSearch(
+                              testKey,
+                              GeoSearchReference.FromMember(_Montevideo.value),
+                              GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
+                              new GeoArgs()
+                            )
+      _ <- IO(assertEquals(byMemberRadiusArgs.map(_.value).toSet, byCoordRadius))
+
+      // geoSearch: FromCoordinates x ByBox (new capability, GEORADIUS never supported box search)
+      byCoordBox <- redis.geoSearch(
+                      testKey,
+                      GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
+                      GeoSearchPredicate.ByBox(Distance(10000.0), Distance(10000.0), GeoArgs.Unit.km)
+                    )
+      _ <- IO(assert(byCoordBox.contains(_Montevideo.value)))
+
+      // geoSearch: FromMember x ByBox (the combination with no legacy fallback)
+      byMemberBox <- redis.geoSearch(
+                       testKey,
+                       GeoSearchReference.FromMember(_Montevideo.value),
+                       GeoSearchPredicate.ByBox(Distance(10000.0), Distance(10000.0), GeoArgs.Unit.km)
+                     )
+      _ <- IO(assert(byMemberBox.contains(_Montevideo.value)))
+
+      // asymmetric box (width != height)
+      asymmetricBox <- redis.geoSearch(
+                         testKey,
+                         GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
+                         GeoSearchPredicate.ByBox(Distance(20000.0), Distance(1.0), GeoArgs.Unit.km)
+                       )
+      _ <- IO(assert(asymmetricBox.contains(_Montevideo.value)))
+
+      // empty result set: a tiny radius far from everything
+      emptyResult <- redis.geoSearch(
+                       testKey,
+                       GeoSearchReference.FromCoordinates(Longitude(0.0), Latitude(0.0)),
+                       GeoSearchPredicate.ByRadius(Distance(1.0), GeoArgs.Unit.km)
+                     )
+      _ <- IO(assert(emptyResult.isEmpty))
+
+      // FromMember referencing a non-existent member fails
+      nonExistentMemberAttempt <-
+        redis
+          .geoSearch(
+            testKey,
+            GeoSearchReference.FromMember("does-not-exist"),
+            GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km)
+          )
+          .attempt
+      _ <- IO(assert(nonExistentMemberAttempt.isLeft))
+
+      // geoSearchStore: FromCoordinates, storeDist = false
+      storeCount1 <- redis.geoSearchStore(
+                       "location-store-1",
+                       testKey,
+                       GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
+                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
+                       storeDist = false
+                     )
+      _ <- IO(assertEquals(storeCount1, 3L))
+      storedMembers1 <- redis.zRange("location-store-1", 0, -1)
+      _ <- IO(assertEquals(storedMembers1.toSet, byCoordRadius))
+
+      // geoSearchStore: FromCoordinates, storeDist = true
+      storeCount2 <- redis.geoSearchStore(
+                       "location-store-2",
+                       testKey,
+                       GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
+                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
+                       storeDist = true
+                     )
+      _ <- IO(assertEquals(storeCount2, 3L))
+
+      // geoSearchStore: FromMember, storeDist = false, with GeoArgs (count = 1)
+      storeCount3 <- redis.geoSearchStore(
+                       "location-store-3",
+                       testKey,
+                       GeoSearchReference.FromMember(_Montevideo.value),
+                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
+                       storeDist = false,
+                       new GeoArgs().withCount(1)
+                     )
+      _ <- IO(assertEquals(storeCount3, 1L))
+
+      // geoSearchStore: FromMember, storeDist = true
+      storeCount4 <- redis.geoSearchStore(
+                       "location-store-4",
+                       testKey,
+                       GeoSearchReference.FromMember(_Montevideo.value),
+                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
+                       storeDist = true
+                     )
+      _ <- IO(assertEquals(storeCount4, 3L))
+
+      // geoSearchStore: empty result stores nothing
+      storeCountEmpty <- redis.geoSearchStore(
+                           "location-store-empty",
+                           testKey,
+                           GeoSearchReference.FromCoordinates(Longitude(0.0), Latitude(0.0)),
+                           GeoSearchPredicate.ByRadius(Distance(1.0), GeoArgs.Unit.km),
+                           storeDist = false
+                         )
+      _ <- IO(assertEquals(storeCountEmpty, 0L))
     } yield ()
   }
 
