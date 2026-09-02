@@ -16,7 +16,7 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.redis4cats.effects.{ AclCategory, AclSetUserRule, AclUser }
+import dev.profunktor.redis4cats.effects.{ AclCategory, AclDryRunResult, AclSetUserRule, AclUser }
 
 /** Redis ACL commands (`ACL ...`).
   *
@@ -76,4 +76,9 @@ trait AclUserManagement[F[_]] {
 
   /** `ACL DELUSER <username...>` — delete the given users, returning the number actually deleted. */
   def aclDelUser(username: String, usernames: String*): F[Long]
+
+  /** `ACL DRYRUN <username> <command> [arg...]` — test whether `username` would be allowed to run `command` with the
+    * given arguments, without actually running it.
+    */
+  def aclDryRun(username: String, command: String, args: String*): F[AclDryRunResult]
 }

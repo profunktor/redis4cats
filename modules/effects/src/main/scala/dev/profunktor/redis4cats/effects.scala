@@ -362,6 +362,19 @@ object effects {
       selectors: List[AclSelector]
   )
 
+  /** The result of `ACL DRYRUN` — whether the given user would be allowed to run the tested command. */
+  sealed trait AclDryRunResult
+  object AclDryRunResult {
+
+    /** The user would be allowed to run the command. */
+    case object Allowed extends AclDryRunResult
+
+    /** The user would NOT be allowed to run the command, for the given reason (Redis's own explanation text, e.g.
+      * `"This user has no permissions to run the 'set' command"`).
+      */
+    final case class Denied(reason: String) extends AclDryRunResult
+  }
+
   /** A single rule passed to `ACL SETUSER`, applied in the order given. Mirrors Lettuce's `AclSetuserArgs`. */
   sealed trait AclSetUserRule
   object AclSetUserRule {

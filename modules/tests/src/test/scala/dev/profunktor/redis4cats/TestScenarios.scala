@@ -989,6 +989,15 @@ trait TestScenarios { self: FunSuite =>
         _ <- IO(assert(got.exists(_.flags.contains("on")), s"getuser: $got"))
         _ <- IO(assert(got.exists(_.keys.contains("app:*")), s"getuser keys: ${got.map(_.keys)}"))
         _ <- IO(assert(got.exists(_.commands.contains("+get")), s"getuser commands: ${got.map(_.commands)}"))
+        allowedDryRun <- redis.aclDryRun("default", "get", "somekey")
+        _ <- IO(assertEquals(allowedDryRun, AclDryRunResult.Allowed))
+        deniedDryRun <- redis.aclDryRun(user, "set", "somekey", "someval")
+        _ <- IO(
+               assert(
+                 PartialFunction.cond(deniedDryRun) { case AclDryRunResult.Denied(_) => true },
+                 s"dry run: $deniedDryRun"
+               )
+             )
         missing <- redis.aclGetUser("definitely-not-a-user")
         _ <- IO(assertEquals(missing, None))
         list <- redis.aclList
