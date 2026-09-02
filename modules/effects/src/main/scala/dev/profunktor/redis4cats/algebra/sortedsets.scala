@@ -58,10 +58,24 @@ trait SortedSetGetter[F[_], K, V] {
   def zPopMax(key: K, count: Long): F[List[ScoreWithValue[V]]]
   def bzPopMax(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]]
   def bzPopMin(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]]
+
+  /** Pops up to `count` members with the lowest scores from the first non-empty of `keys`. */
+  def zmPopMin(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
+
+  /** Pops up to `count` members with the highest scores from the first non-empty of `keys`. */
+  def zmPopMax(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
+  def bzmPopMin(timeout: Duration, keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
+  def bzmPopMax(timeout: Duration, keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
   def zUnion(args: Option[ZAggregateArgs], keys: K*): F[List[V]]
   def zUnionWithScores(args: Option[ZAggregateArgs], keys: K*): F[List[ScoreWithValue[V]]]
   def zInter(args: Option[ZAggregateArgs], keys: K*): F[List[V]]
   def zInterWithScores(args: Option[ZAggregateArgs], keys: K*): F[List[ScoreWithValue[V]]]
+
+  /** Cardinality of the intersection of `keys`, without materializing it. */
+  def zInterCard(keys: K*): F[Long]
+
+  /** As [[zInterCard]], but stops counting once `limit` is reached (0 means unlimited). */
+  def zInterCard(limit: Long, keys: K*): F[Long]
   def zDiff(keys: K*): F[List[V]]
   def zDiffWithScores(keys: K*): F[List[ScoreWithValue[V]]]
 }
@@ -76,4 +90,12 @@ trait SortedSetSetter[F[_], K, V] {
   def zRemRangeByRank(key: K, start: Long, stop: Long): F[Long]
   def zRemRangeByScore[T: Numeric](key: K, range: ZRange[T]): F[Long]
   def zUnionStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Long]
+
+  /** Stores the by-rank range `[start, stop]` of `key` into `destination`, returning the count stored. */
+  def zRangeStore(destination: K, key: K, start: Long, stop: Long): F[Long]
+  def zRangeStoreByScore[T: Numeric](destination: K, key: K, range: ZRange[T], limit: Option[RangeLimit]): F[Long]
+  def zRangeStoreByLex(destination: K, key: K, range: ZRange[V], limit: Option[RangeLimit]): F[Long]
+  def zRevRangeStore(destination: K, key: K, start: Long, stop: Long): F[Long]
+  def zRevRangeStoreByScore[T: Numeric](destination: K, key: K, range: ZRange[T], limit: Option[RangeLimit]): F[Long]
+  def zRevRangeStoreByLex(destination: K, key: K, range: ZRange[V], limit: Option[RangeLimit]): F[Long]
 }
