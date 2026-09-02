@@ -1672,6 +1672,50 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
         .toMap
     )
 
+  override def echo(msg: V): F[V] =
+    async.flatMap(_.echo(msg).futureLift)
+
+  override def waitForReplication(numReplicas: Int, timeout: FiniteDuration): F[Long] =
+    async.flatMap(_.waitForReplication(numReplicas, timeout.toMillis).futureLift.map(x => Long.box(x)))
+
+  override def readOnly: F[Unit] =
+    conn.async.flatMap(_.readOnly().futureLift.void)
+
+  override def readWrite: F[Unit] =
+    conn.async.flatMap(_.readWrite().futureLift.void)
+
+  override def role: F[RedisRole] =
+    async.flatMap(_.role().futureLift).flatMap(reply => FutureLift[F].delay(toRedisRole(reply)))
+
+  // The ROLE reply shape genuinely differs by role: a master reports its replication offset and
+  // the list of connected replicas; a replica reports its master's address and its own sync state.
+  // Lettuce hands this back as an untyped List[Object] — element types are read loosely (`.toString`)
+  // rather than assumed to be a specific boxed numeric type, since that's an implementation detail
+  // of Lettuce's RESP decoding this API doesn't otherwise commit to.
+  private def toRedisRole(reply: java.util.List[Object]): RedisRole = {
+    def asLong(a: Any): Long = a.toString.toLong
+
+    reply.asScala.toList match {
+      case (role: String) :: offset :: (replicas: java.util.List[_]) :: Nil if role == "master" =>
+        val nodes = replicas.asScala.toList.map {
+          case entry: java.util.List[_] =>
+            entry.asScala.toList match {
+              case ip :: port :: replOffset :: Nil =>
+                RedisRole.ReplicaNode(ip.toString, asLong(port), asLong(replOffset))
+              case other =>
+                throw new IllegalStateException(s"Unexpected replica entry in ROLE reply: $other")
+            }
+          case other =>
+            throw new IllegalStateException(s"Unexpected replica entry in ROLE reply: $other")
+        }
+        RedisRole.Master(asLong(offset), nodes)
+      case (role: String) :: host :: port :: state :: offset :: Nil if role == "slave" || role == "replica" =>
+        RedisRole.Replica(host.toString, asLong(port), state.toString, asLong(offset))
+      case other =>
+        throw new IllegalStateException(s"Unexpected ROLE reply: $other")
+    }
+  }
+
   // format: off
   /******************************* ACL API **********************************/
   // format: on

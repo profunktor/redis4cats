@@ -888,6 +888,14 @@ trait TestScenarios { self: FunSuite =>
       info <- redis.getClientInfo
       _ <- IO(assert(info.get("lib-name").contains("redis4cats")))
       _ <- IO(assert(info.get("lib-ver").contains("0.10.0")))
+      echoed <- redis.echo("hello redis4cats")
+      _ <- IO(assertEquals(echoed, "hello redis4cats"))
+      role <- redis.role
+      _ <- IO(assert(role.isInstanceOf[RedisRole.Master], s"expected Master in the single-node test setup, got $role"))
+      waited <- redis.waitForReplication(numReplicas = 0, timeout = 100.millis)
+      _ <- IO(assert(waited >= 0L))
+      _ <- redis.readOnly
+      _ <- redis.readWrite
     } yield ()
   }
 

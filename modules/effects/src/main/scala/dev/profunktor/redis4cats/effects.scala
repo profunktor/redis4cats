@@ -670,4 +670,15 @@ object effects {
       case _                                                                    => duration.toSeconds
     }
   }
+
+  /** The reply to the Redis `ROLE` command. Lettuce decodes this as an untyped `List[Object]` (its RESP shape genuinely
+    * differs between a master and a replica) — this models both cases.
+    */
+  sealed trait RedisRole
+  object RedisRole {
+    final case class ReplicaNode(ip: String, port: Long, replicationOffset: Long)
+    final case class Master(replicationOffset: Long, replicas: List[ReplicaNode]) extends RedisRole
+    final case class Replica(masterHost: String, masterPort: Long, replicationState: String, replicationOffset: Long)
+        extends RedisRole
+  }
 }
