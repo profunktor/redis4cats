@@ -27,7 +27,7 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
 import fs2.Stream
-import io.lettuce.core.{ GeoArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs }
+import io.lettuce.core.{ GeoArgs, LMovemArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs }
 import munit.FunSuite
 
 import java.time.Instant
@@ -400,6 +400,100 @@ trait TestScenarios { self: FunSuite =>
                       LMoveSide.Left
                     )
       _ <- IO(assertEquals(blmTimeout, None))
+
+      // lMoveMany: UpTo, BULK ordering (preserves original order)
+      _ <- redis.rPush("{listmove}:lmm-src", "a", "b", "c")
+      lmmUpTo <- redis.lMoveMany(
+                   "{listmove}:lmm-src",
+                   "{listmove}:lmm-dst",
+                   LMoveSide.Right,
+                   LMoveSide.Left,
+                   LMoveCount.UpTo(2, LMovemArgs.Ordering.BULK)
+                 )
+      _ <- IO(assertEquals(lmmUpTo, List("b", "c")))
+      lmmDst <- redis.lRange("{listmove}:lmm-dst", 0, -1)
+      _ <- IO(assertEquals(lmmDst, List("b", "c")))
+      lmmSrcRemaining <- redis.lRange("{listmove}:lmm-src", 0, -1)
+      _ <- IO(assertEquals(lmmSrcRemaining, List("a")))
+      // lMoveMany: no count block behaves like a single-element move but returns a List
+      lmmNoCount <- redis.lMoveMany("{listmove}:lmm-src", "{listmove}:lmm-dst", LMoveSide.Right, LMoveSide.Left)
+      _ <- IO(assertEquals(lmmNoCount, List("a")))
+      // lMoveMany: Exactly requesting more than available returns empty, moves nothing
+      _ <- redis.rPush("{listmove}:lmm-exactly-src", "x")
+      lmmExactlyShort <- redis.lMoveMany(
+                           "{listmove}:lmm-exactly-src",
+                           "{listmove}:lmm-exactly-dst",
+                           LMoveSide.Right,
+                           LMoveSide.Left,
+                           LMoveCount.Exactly(2, LMovemArgs.Ordering.BULK)
+                         )
+      _ <- IO(assert(lmmExactlyShort.isEmpty))
+      lmmExactlySrcUntouched <- redis.lRange("{listmove}:lmm-exactly-src", 0, -1)
+      _ <- IO(assertEquals(lmmExactlySrcUntouched, List("x")))
+
+      // blMoveMany: elements available immediately, with a count
+      _ <- redis.rPush("{listmove}:blmm-src", "p", "q")
+      blmmImmediate <- redis.blMoveMany(
+                         1.second,
+                         "{listmove}:blmm-src",
+                         "{listmove}:blmm-dst",
+                         LMoveSide.Right,
+                         LMoveSide.Left,
+                         LMoveCount.UpTo(2, LMovemArgs.Ordering.BULK)
+                       )
+      _ <- IO(assertEquals(blmmImmediate, List("p", "q")))
+      // blMoveMany: timeout expiry, no count block
+      blmmTimeout <- redis.blMoveMany(
+                       1.second,
+                       "{listmove}:blmm-does-not-exist",
+                       "{listmove}:blmm-dst",
+                       LMoveSide.Right,
+                       LMoveSide.Left
+                     )
+      _ <- IO(assert(blmmTimeout.isEmpty))
+
+      // lmPop: first non-empty of several keys
+      _ <- redis.rPush("{listmove}:lmpop-b", "1", "2")
+      lmPopResult <- redis.lmPop(NonEmptyList.of("{listmove}:lmpop-a", "{listmove}:lmpop-b"), LMoveSide.Left)
+      _ <- IO(assertEquals(lmPopResult, Some(("{listmove}:lmpop-b", List("1")))))
+      // lmPop: with an explicit count
+      _ <- redis.rPush("{listmove}:lmpop-c", "3", "4", "5")
+      lmPopCountResult <- redis.lmPop(NonEmptyList.one("{listmove}:lmpop-c"), LMoveSide.Left, 2)
+      _ <- IO(assertEquals(lmPopCountResult, Some(("{listmove}:lmpop-c", List("3", "4")))))
+      // lmPop: no key has elements
+      lmPopEmpty <- redis.lmPop(NonEmptyList.one("{listmove}:lmpop-empty"), LMoveSide.Left)
+      _ <- IO(assertEquals(lmPopEmpty, None))
+
+      // blmPop: element available immediately
+      _ <- redis.rPush("{listmove}:blmpop-a", "6")
+      blmPopResult <- redis.blmPop(1.second, NonEmptyList.one("{listmove}:blmpop-a"), LMoveSide.Left)
+      _ <- IO(assertEquals(blmPopResult, Some(("{listmove}:blmpop-a", List("6")))))
+      // blmPop: timeout expiry
+      blmPopTimeout <- redis.blmPop(1.second, NonEmptyList.one("{listmove}:blmpop-empty"), LMoveSide.Left)
+      _ <- IO(assertEquals(blmPopTimeout, None))
+
+      // lPos: basic position, and a missing element
+      _ <- redis.rPush("lpos-key", "a", "b", "c", "b")
+      lPosSingle <- redis.lPos("lpos-key", "b")
+      _ <- IO(assertEquals(lPosSingle, Some(1L)))
+      lPosMissing <- redis.lPos("lpos-key", "z")
+      _ <- IO(assertEquals(lPosMissing, None))
+      // lPos: RANK 2 skips to the second occurrence
+      lPosRank <- redis.lPos("lpos-key", "b", LPosArgs(rank = Some(2)))
+      _ <- IO(assertEquals(lPosRank, Some(3L)))
+      // lPos: COUNT 0 returns every occurrence
+      lPosCount <- redis.lPos("lpos-key", "b", 0L)
+      _ <- IO(assertEquals(lPosCount, List(1L, 3L)))
+      // lPos: COUNT 0 with MAXLEN limits how much of the list is scanned
+      lPosCountArgs <- redis.lPos("lpos-key", "b", 0L, LPosArgs(maxLen = Some(2)))
+      _ <- IO(assertEquals(lPosCountArgs, List(1L)))
+
+      // lPop/rPop multi-pop
+      _ <- redis.rPush("multipop-key", "1", "2", "3", "4")
+      lPopMulti <- redis.lPop("multipop-key", 2)
+      _ <- IO(assertEquals(lPopMulti, List("1", "2")))
+      rPopMulti <- redis.rPop("multipop-key", 2)
+      _ <- IO(assertEquals(rPopMulti, List("4", "3")))
     } yield ()
   }
 

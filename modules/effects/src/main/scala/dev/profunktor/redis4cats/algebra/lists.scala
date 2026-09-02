@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats.algebra
 
 import cats.data.NonEmptyList
-import dev.profunktor.redis4cats.effects.LMoveSide
+import dev.profunktor.redis4cats.effects.{ LMoveCount, LMoveSide, LPosArgs }
 
 import scala.concurrent.duration.Duration
 
@@ -38,12 +38,33 @@ trait ListBlocking[F[_], K, V] {
       sourceSide: LMoveSide,
       destinationSide: LMoveSide
   ): F[Option[V]]
+  def blMoveMany(
+      timeout: Duration,
+      source: K,
+      destination: K,
+      sourceSide: LMoveSide,
+      destinationSide: LMoveSide
+  ): F[List[V]]
+  def blMoveMany(
+      timeout: Duration,
+      source: K,
+      destination: K,
+      sourceSide: LMoveSide,
+      destinationSide: LMoveSide,
+      count: LMoveCount
+  ): F[List[V]]
+  def blmPop(timeout: Duration, keys: NonEmptyList[K], side: LMoveSide): F[Option[(K, List[V])]]
+  def blmPop(timeout: Duration, keys: NonEmptyList[K], side: LMoveSide, count: Long): F[Option[(K, List[V])]]
 }
 
 trait ListGetter[F[_], K, V] {
   def lIndex(key: K, index: Long): F[Option[V]]
   def lLen(key: K): F[Long]
   def lRange(key: K, start: Long, stop: Long): F[List[V]]
+  def lPos(key: K, value: V): F[Option[Long]]
+  def lPos(key: K, value: V, args: LPosArgs): F[Option[Long]]
+  def lPos(key: K, value: V, count: Long): F[List[Long]]
+  def lPos(key: K, value: V, count: Long, args: LPosArgs): F[List[Long]]
 }
 
 trait ListSetter[F[_], K, V] {
@@ -56,11 +77,23 @@ trait ListSetter[F[_], K, V] {
 
 trait ListPushPop[F[_], K, V] {
   def lPop(key: K): F[Option[V]]
+  def lPop(key: K, count: Long): F[List[V]]
   def lPush(key: K, values: V*): F[Long]
   def lPushX(key: K, values: V*): F[Long]
   def rPop(key: K): F[Option[V]]
+  def rPop(key: K, count: Long): F[List[V]]
   def rPopLPush(source: K, destination: K): F[Option[V]]
   def lMove(source: K, destination: K, sourceSide: LMoveSide, destinationSide: LMoveSide): F[Option[V]]
+  def lMoveMany(source: K, destination: K, sourceSide: LMoveSide, destinationSide: LMoveSide): F[List[V]]
+  def lMoveMany(
+      source: K,
+      destination: K,
+      sourceSide: LMoveSide,
+      destinationSide: LMoveSide,
+      count: LMoveCount
+  ): F[List[V]]
+  def lmPop(keys: NonEmptyList[K], side: LMoveSide): F[Option[(K, List[V])]]
+  def lmPop(keys: NonEmptyList[K], side: LMoveSide, count: Long): F[Option[(K, List[V])]]
   def rPush(key: K, values: V*): F[Long]
   def rPushX(key: K, values: V*): F[Long]
 }

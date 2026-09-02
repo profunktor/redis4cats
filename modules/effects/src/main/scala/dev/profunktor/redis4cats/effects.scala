@@ -23,6 +23,7 @@ import io.lettuce.core.{
   AclCategory => JAclCategory,
   GeoArgs,
   KeyScanArgs => JKeyScanArgs,
+  LMovemArgs,
   ScanArgs => JScanArgs,
   ScriptOutputType => JScriptOutputType
 }
@@ -548,6 +549,21 @@ object effects {
     case object Left extends LMoveSide
     case object Right extends LMoveSide
   }
+
+  /** The optional COUNT/EXACTLY block of LMOVEM/BLMOVEM. Without one, LMOVEM/BLMOVEM behave like LMOVE/BLMOVE (move a
+    * single element) — use `lMove`/`blMove` for that case instead.
+    */
+  sealed trait LMoveCount
+  object LMoveCount {
+
+    /** Move up to `count` elements. */
+    final case class UpTo(count: Long, ordering: LMovemArgs.Ordering) extends LMoveCount
+
+    /** Move exactly `count` elements, or none at all if the source doesn't have enough. */
+    final case class Exactly(count: Long, ordering: LMovemArgs.Ordering) extends LMoveCount
+  }
+
+  final case class LPosArgs(rank: Option[Long] = None, maxLen: Option[Long] = None)
 
   sealed trait ExpireExistenceArg
   object ExpireExistenceArg {
