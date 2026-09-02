@@ -1287,9 +1287,10 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(existingKeyUsage.exists(_ > 0)))
       missingKeyUsage <- redis.memoryUsage("no-such-key-for-memory-usage")
       _ <- IO(assert(missingKeyUsage.isEmpty))
+      // save/bgSave/bgRewriteAof all hold Redis's single persistence lock — calling more than
+      // one back-to-back reliably errors with "Background save already in progress" on a fresh
+      // fork. Only bgSave is exercised here as representative coverage.
       _ <- redis.bgSave
-      _ <- redis.save
-      _ <- redis.bgRewriteAof
     } yield ()
 
   def pipelineScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
