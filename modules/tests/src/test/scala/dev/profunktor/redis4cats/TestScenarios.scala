@@ -283,6 +283,40 @@ trait TestScenarios { self: FunSuite =>
           (hScanKey, ScanArgs("*r*", count = 5L))
         ) { case (k, a) => redis.hScanNoValues(k, a) } { case ((k, a), c) => redis.hScanNoValues(k, c, a) }
       _ <- IO(assertEquals(hScanNovResR.toSet, hScanMapR.keySet))
+      // hRandField / hRandFieldWithValues
+      hRandKey    = "hrand-test"
+      hRandFields = Map("a" -> "1", "b" -> "2", "c" -> "3")
+      _ <- redis.hSet(hRandKey, hRandFields)
+      oneField <- redis.hRandField(hRandKey)
+      _ <- IO(assert(oneField.exists(hRandFields.keySet.contains)))
+      allFields <- redis.hRandField(hRandKey, 3)
+      _ <- IO(assertEquals(allFields.toSet, hRandFields.keySet))
+      _ <- IO(assertEquals(allFields.distinct.size, 3)) // count == cardinality, no repeats
+      onePair <- redis.hRandFieldWithValues(hRandKey)
+      _ <- IO(assert(onePair.exists { case (k, v) => hRandFields.get(k).contains(v) }))
+      allPairs <- redis.hRandFieldWithValues(hRandKey, 3)
+      _ <- IO(assertEquals(allPairs.toMap, hRandFields))
+      missingField <- redis.hRandField("hrand-does-not-exist")
+      _ <- IO(assertEquals(missingField, None))
+      missingFieldList <- redis.hRandField("hrand-does-not-exist", 3)
+      _ <- IO(assert(missingFieldList.isEmpty))
+      missingPair <- redis.hRandFieldWithValues("hrand-does-not-exist")
+      _ <- IO(assertEquals(missingPair, None))
+      // hSetEx: plain (no args), and with existence/TTL args
+      hSetExKey = "hsetex-test"
+      hSetExPlain <- redis.hSetEx(hSetExKey, Map("x" -> "1", "y" -> "2"))
+      _ <- IO(assertEquals(hSetExPlain, 1L)) // whole-operation success status, not a per-field count
+      hSetExVal <- redis.hGet(hSetExKey, "x")
+      _ <- IO(assertEquals(hSetExVal, Some("1")))
+      hSetExNxFirst <- redis.hSetEx(hSetExKey, HSetExArgs(HSetExArg.Existence.Nx), Map("z" -> "3"))
+      _ <- IO(assertEquals(hSetExNxFirst, 1L)) // "z" didn't exist yet, condition satisfied
+      hSetExNxSecond <- redis.hSetEx(hSetExKey, HSetExArgs(HSetExArg.Existence.Nx), Map("z" -> "should-not-apply"))
+      _ <- IO(assertEquals(hSetExNxSecond, 0L)) // "z" now exists, FNX condition fails
+      hSetExUnchangedVal <- redis.hGet(hSetExKey, "z")
+      _ <- IO(assertEquals(hSetExUnchangedVal, Some("3")))
+      _ <- redis.hSetEx(hSetExKey, HSetExArgs(HSetExArg.Ttl.Ex(10.seconds)), Map("withTtl" -> "value"))
+      hSetExTtl <- redis.httl(hSetExKey, "withTtl")
+      _ <- IO(assert(hSetExTtl.forall(_.exists(_ > 0.seconds))))
     } yield ()
   }
 

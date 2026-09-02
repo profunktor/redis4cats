@@ -466,6 +466,44 @@ object effects {
     def apply(ex: SetArg.Existence, ttl: SetArg.Ttl): SetArgs = SetArgs(Some(ex), Some(ttl))
   }
 
+  sealed trait HSetExArg
+  object HSetExArg {
+    sealed trait Existence extends HSetExArg
+    object Existence {
+
+      /** Only set fields that do not already exist (FNX) */
+      case object Nx extends Existence
+
+      /** Only set fields that already exist (FXX) */
+      case object Xx extends Existence
+    }
+
+    sealed trait Ttl extends HSetExArg
+    object Ttl {
+
+      /** Set expiration in seconds, relative */
+      case class Ex(duration: FiniteDuration) extends Ttl
+
+      /** Set expiration in millis, relative */
+      case class Px(duration: FiniteDuration) extends Ttl
+
+      /** Set expiration at an absolute time, second precision */
+      case class ExAt(at: Instant) extends Ttl
+
+      /** Set expiration at an absolute time, millisecond precision */
+      case class PxAt(at: Instant) extends Ttl
+
+      /** Retain the fields' existing TTL */
+      case object Keep extends Ttl
+    }
+  }
+  case class HSetExArgs(existence: Option[HSetExArg.Existence] = None, ttl: Option[HSetExArg.Ttl] = None)
+  object HSetExArgs {
+    def apply(ex: HSetExArg.Existence): HSetExArgs                     = HSetExArgs(Some(ex), None)
+    def apply(ttl: HSetExArg.Ttl): HSetExArgs                          = HSetExArgs(None, Some(ttl))
+    def apply(ex: HSetExArg.Existence, ttl: HSetExArg.Ttl): HSetExArgs = HSetExArgs(Some(ex), Some(ttl))
+  }
+
   sealed trait LMoveSide
   object LMoveSide {
     case object Left extends LMoveSide

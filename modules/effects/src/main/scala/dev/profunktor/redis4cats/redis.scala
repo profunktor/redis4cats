@@ -50,6 +50,7 @@ import io.lettuce.core.{
   GeoWithin,
   GetExArgs => JGetExArgs,
   HGetExArgs => JHGetExArgs,
+  HSetExArgs => JHSetExArgs,
   LMoveArgs,
   Limit => JLimit,
   Range => JRange,
@@ -1001,6 +1002,20 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def hScanNoValues(key: K, cursor: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]] =
     async.flatMap(_.hscanNovalues(key, cursor.underlying, scanArgs.underlying).futureLift.map(KeyScanCursor[K](_)))
 
+  override def hRandField(key: K): F[Option[K]] =
+    async.flatMap(_.hrandfield(key).futureLift.map(Option.apply))
+
+  override def hRandField(key: K, count: Long): F[List[K]] =
+    async.flatMap(_.hrandfield(key, count).futureLift.map(_.asScala.toList))
+
+  override def hRandFieldWithValues(key: K): F[Option[(K, V)]] =
+    async.flatMap(_.hrandfieldWithvalues(key).futureLift.map(kv => Option(kv).map(kv => kv.getKey -> kv.getValue)))
+
+  override def hRandFieldWithValues(key: K, count: Long): F[List[(K, V)]] =
+    async.flatMap(
+      _.hrandfieldWithvalues(key, count).futureLift.map(_.asScala.toList.map(kv => kv.getKey -> kv.getValue))
+    )
+
   override def hSet(key: K, field: K, value: V): F[Boolean] =
     async.flatMap(_.hset(key, field, value).futureLift.map(x => Boolean.box(x)))
 
@@ -1065,6 +1080,28 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def hSetNx(key: K, field: K, value: V): F[Boolean] =
     async.flatMap(_.hsetnx(key, field, value).futureLift.map(x => Boolean.box(x)))
+
+  override def hSetEx(key: K, fieldValues: Map[K, V]): F[Long] =
+    async.flatMap(_.hsetex(key, fieldValues.asJava).futureLift.map(x => Long.box(x)))
+
+  override def hSetEx(key: K, args: HSetExArgs, fieldValues: Map[K, V]): F[Long] = {
+    val jArgs = new JHSetExArgs()
+
+    args.existence.foreach {
+      case HSetExArg.Existence.Nx => jArgs.fnx()
+      case HSetExArg.Existence.Xx => jArgs.fxx()
+    }
+
+    args.ttl.foreach {
+      case HSetExArg.Ttl.Ex(d)    => jArgs.ex(java.time.Duration.ofMillis(d.toMillis))
+      case HSetExArg.Ttl.Px(d)    => jArgs.px(java.time.Duration.ofMillis(d.toMillis))
+      case HSetExArg.Ttl.ExAt(at) => jArgs.exAt(at)
+      case HSetExArg.Ttl.PxAt(at) => jArgs.pxAt(at)
+      case HSetExArg.Ttl.Keep     => jArgs.keepttl()
+    }
+
+    async.flatMap(_.hsetex(key, jArgs, fieldValues.asJava).futureLift.map(x => Long.box(x)))
+  }
 
   override def hIncrBy(key: K, field: K, amount: Long): F[Long] =
     async.flatMap(_.hincrby(key, field, amount).futureLift.map(x => Long.box(x)))

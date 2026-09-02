@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats.algebra
 
 import dev.profunktor.redis4cats.data.{ KeyScanCursor, MapScanCursor }
-import dev.profunktor.redis4cats.effects.{ ExpireExistenceArg, HGetExArgs, ScanArgs }
+import dev.profunktor.redis4cats.effects.{ ExpireExistenceArg, HGetExArgs, HSetExArgs, ScanArgs }
 
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
@@ -48,12 +48,30 @@ trait HashGetter[F[_], K, V] {
   def hScanNoValues(key: K, cursor: KeyScanCursor[K]): F[KeyScanCursor[K]]
   def hScanNoValues(key: K, scanArgs: ScanArgs): F[KeyScanCursor[K]]
   def hScanNoValues(key: K, cursor: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]]
+
+  /** Returns a single random field from the hash, or `None` if the hash doesn't exist. */
+  def hRandField(key: K): F[Option[K]]
+
+  /** Returns up to `count` random fields from the hash (fewer than `count` distinct fields, or duplicates if `count` is
+    * negative — see HRANDFIELD's own semantics for the exact behavior).
+    */
+  def hRandField(key: K, count: Long): F[List[K]]
+
+  /** Returns a single random field-value pair from the hash, or `None` if the hash doesn't exist. */
+  def hRandFieldWithValues(key: K): F[Option[(K, V)]]
+
+  /** Returns up to `count` random field-value pairs from the hash. */
+  def hRandFieldWithValues(key: K, count: Long): F[List[(K, V)]]
 }
 
 trait HashSetter[F[_], K, V] {
   def hSet(key: K, field: K, value: V): F[Boolean]
   def hSet(key: K, fieldValues: Map[K, V]): F[Long]
   def hSetNx(key: K, field: K, value: V): F[Boolean]
+
+  /** HSETEX: set one or more fields with an optional TTL and/or field-existence condition, atomically. */
+  def hSetEx(key: K, fieldValues: Map[K, V]): F[Long]
+  def hSetEx(key: K, args: HSetExArgs, fieldValues: Map[K, V]): F[Long]
 }
 
 trait HashExpire[F[_], K] {
