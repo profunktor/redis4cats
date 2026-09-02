@@ -56,8 +56,6 @@ import io.lettuce.core.{
   ReadFrom => JReadFrom,
   RedisFuture,
   RestoreArgs => JRestoreArgs,
-  SDiffCardArgs,
-  SUnionCardArgs,
   ScanCursor => JScanCursor,
   ScoredValue,
   SetArgs => JSetArgs,
@@ -1110,12 +1108,6 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def sDiff(keys: K*): F[Set[V]] =
     async.flatMap(_.sdiff(keys: _*).futureLift.map(_.asScala.toSet))
 
-  override def sDiffCard(keys: K*): F[Long] =
-    async.flatMap(_.sdiffcard(keys.asJava).futureLift.map(x => Long.box(x)))
-
-  override def sDiffCard(limit: Long, keys: K*): F[Long] =
-    async.flatMap(_.sdiffcard(keys.asJava, new SDiffCardArgs().limit(limit)).futureLift.map(x => Long.box(x)))
-
   override def sInter(keys: K*): F[Set[V]] =
     async.flatMap(_.sinter(keys: _*).futureLift.map(_.asScala.toSet))
 
@@ -1136,12 +1128,6 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def sUnion(keys: K*): F[Set[V]] =
     async.flatMap(_.sunion(keys: _*).futureLift.map(_.asScala.toSet))
-
-  override def sUnionCard(keys: K*): F[Long] =
-    async.flatMap(_.sunioncard(keys.asJava).futureLift.map(x => Long.box(x)))
-
-  override def sUnionCard(limit: Long, keys: K*): F[Long] =
-    async.flatMap(_.sunioncard(keys.asJava, new SUnionCardArgs().limit(limit)).futureLift.map(x => Long.box(x)))
 
   override def sUnionStore(destination: K, keys: K*): F[Long] =
     async.flatMap(_.sunionstore(destination, keys: _*).futureLift.map(x => Long.box(x)))
