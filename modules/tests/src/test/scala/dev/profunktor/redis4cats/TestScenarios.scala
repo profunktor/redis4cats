@@ -404,6 +404,12 @@ trait TestScenarios { self: FunSuite =>
           (sScanKey, ScanArgs("*r*", count = 3L))
         ) { case (k, a) => redis.sScan(k, a) } { case ((k, a), c) => redis.sScan(k, c, a) }
       _ <- IO(assertEquals(sScanSeqResR, sScanSeqR))
+      _ <- redis.sAdd("sunion-a", "1", "2")
+      _ <- redis.sAdd("sunion-b", "2", "3")
+      unionCount <- redis.sUnionStore("sunion-dest", "sunion-a", "sunion-b")
+      _ <- IO(assertEquals(unionCount, 3L))
+      unionMembers <- redis.sMembers("sunion-dest")
+      _ <- IO(assertEquals(unionMembers, Set("1", "2", "3")))
     } yield ()
   }
 
@@ -711,15 +717,24 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(bitLen2, 2.toLong))
       _ <- redis.setBit(key, 0, 1)
       _ <- redis.setBit(secondKey, 0, 1)
-      _ <- redis.bitOpAnd(thirdKey, key, secondKey)
+      andLen <- redis.bitOpAnd(thirdKey, key, secondKey)
+      _ <- IO(assertEquals(andLen, 1L)) // both source keys are 1 byte long
       r <- redis.getBit(thirdKey, 0)
       _ <- IO(assertEquals(r, Some(1.toLong)))
-      _ <- redis.bitOpNot(thirdKey, key)
+      notLen <- redis.bitOpNot(thirdKey, key)
+      _ <- IO(assertEquals(notLen, 1L)) // result length == source's own length
       r2 <- redis.getBit(thirdKey, 0)
       _ <- IO(assertEquals(r2, Some(0.toLong)))
-      _ <- redis.bitOpOr(thirdKey, key, secondKey)
+      orLen <- redis.bitOpOr(thirdKey, key, secondKey)
+      _ <- IO(assertEquals(orLen, 1L))
       r3 <- redis.getBit(thirdKey, 0)
       _ <- IO(assertEquals(r3, Some(1.toLong)))
+      xorLen <- redis.bitOpXor(thirdKey, key, secondKey)
+      _ <- IO(assertEquals(xorLen, 1L))
+      _ <- redis.setBit("bitop-long", 20, 1) // 3 bytes long
+      _ <- redis.setBit("bitop-short", 0, 1) // 1 byte long
+      orDifferentLengths <- redis.bitOpOr("bitop-result", "bitop-long", "bitop-short")
+      _ <- IO(assertEquals(orDifferentLengths, 3L)) // result length == longest source
       _ <- for {
              s1 <- redis.setBit(key, 2, 1)
              s2 <- redis.setBit(key, 3, 1)
@@ -812,6 +827,16 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(getDelExisting.contains("valueToGetDel")))
       getDelAfter <- redis.get("keyToGetDel")
       _ <- IO(assert(getDelAfter.isEmpty))
+      appendLen1 <- redis.append("append-key", "Hello")
+      _ <- IO(assertEquals(appendLen1, 5L))
+      appendLen2 <- redis.append("append-key", " World")
+      _ <- IO(assertEquals(appendLen2, 11L)) // cumulative length
+      appendVal <- redis.get("append-key")
+      _ <- IO(assertEquals(appendVal, Some("Hello World")))
+      setRangeLen <- redis.setRange("append-key", "Redis", 6)
+      _ <- IO(assertEquals(setRangeLen, 11L))
+      setRangeVal <- redis.get("append-key")
+      _ <- IO(assertEquals(setRangeVal, Some("Hello Redis")))
     } yield ()
   }
 

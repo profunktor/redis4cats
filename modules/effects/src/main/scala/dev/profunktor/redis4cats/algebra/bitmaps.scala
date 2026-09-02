@@ -47,13 +47,13 @@ trait BitCommands[F[_], K, V] {
 
   def bitField(key: K, operations: BitCommandOperation*): F[List[Long]]
 
-  def bitOpAnd(destination: K, source: K, sources: K*): F[Unit]
+  def bitOpAnd(destination: K, source: K, sources: K*): F[Long]
 
-  def bitOpNot(destination: K, source: K): F[Unit]
+  def bitOpNot(destination: K, source: K): F[Long]
 
-  def bitOpOr(destination: K, source: K, sources: K*): F[Unit]
+  def bitOpOr(destination: K, source: K, sources: K*): F[Long]
 
-  def bitOpXor(destination: K, source: K, sources: K*): F[Unit]
+  def bitOpXor(destination: K, source: K, sources: K*): F[Long]
 
   def bitPos(key: K, state: Boolean): F[Long]
 

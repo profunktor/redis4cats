@@ -677,8 +677,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   // format: off
   /******************************* Strings API **********************************/
   // format: on
-  override def append(key: K, value: V): F[Unit] =
-    async.flatMap(_.append(key, value).futureLift.void)
+  override def append(key: K, value: V): F[Long] =
+    async.flatMap(_.append(key, value).futureLift.map(x => Long.box(x)))
 
   override def getSet(key: K, value: V): F[Option[V]] =
     async.flatMap(_.setGet(key, value).futureLift.map(Option.apply))
@@ -714,8 +714,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
         async.flatMap(_.set(key, value, new JSetArgs().ex(expiresIn.toSeconds)).futureLift.void)
     }
 
-  override def setRange(key: K, value: V, offset: Long): F[Unit] =
-    async.flatMap(_.setrange(key, offset, value).futureLift.void)
+  override def setRange(key: K, value: V, offset: Long): F[Long] =
+    async.flatMap(_.setrange(key, offset, value).futureLift.map(x => Long.box(x)))
 
   override def decr(key: K): F[Long] =
     async.flatMap(_.decr(key).futureLift.map(x => Long.box(x)))
@@ -1123,8 +1123,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def sUnion(keys: K*): F[Set[V]] =
     async.flatMap(_.sunion(keys: _*).futureLift.map(_.asScala.toSet))
 
-  override def sUnionStore(destination: K, keys: K*): F[Unit] =
-    async.flatMap(_.sunionstore(destination, keys: _*).futureLift.void)
+  override def sUnionStore(destination: K, keys: K*): F[Long] =
+    async.flatMap(_.sunionstore(destination, keys: _*).futureLift.map(x => Long.box(x)))
 
   override def sScan(key: K): F[ValueScanCursor[V]] =
     async.flatMap(_.sscan(key).futureLift.map(ValueScanCursor[V]))
@@ -1269,17 +1269,17 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def bitPos(key: K, state: Boolean, start: Long, end: Long): F[Long] =
     async.flatMap(_.bitpos(key, state, start, end).futureLift.map(x => Long.box(x)))
 
-  override def bitOpAnd(destination: K, source: K, sources: K*): F[Unit] =
-    async.flatMap(_.bitopAnd(destination, (source +: sources): _*).futureLift.void)
+  override def bitOpAnd(destination: K, source: K, sources: K*): F[Long] =
+    async.flatMap(_.bitopAnd(destination, (source +: sources): _*).futureLift.map(x => Long.box(x)))
 
-  override def bitOpNot(destination: K, source: K): F[Unit] =
-    async.flatMap(_.bitopNot(destination, source).futureLift.void)
+  override def bitOpNot(destination: K, source: K): F[Long] =
+    async.flatMap(_.bitopNot(destination, source).futureLift.map(x => Long.box(x)))
 
-  override def bitOpOr(destination: K, source: K, sources: K*): F[Unit] =
-    async.flatMap(_.bitopOr(destination, (source +: sources): _*).futureLift.void)
+  override def bitOpOr(destination: K, source: K, sources: K*): F[Long] =
+    async.flatMap(_.bitopOr(destination, (source +: sources): _*).futureLift.map(x => Long.box(x)))
 
-  override def bitOpXor(destination: K, source: K, sources: K*): F[Unit] =
-    async.flatMap(_.bitopXor(destination, (source +: sources): _*).futureLift.void)
+  override def bitOpXor(destination: K, source: K, sources: K*): F[Long] =
+    async.flatMap(_.bitopXor(destination, (source +: sources): _*).futureLift.map(x => Long.box(x)))
 
   override def getBit(key: K, offset: Long): F[Option[Long]] =
     async.flatMap(_.getbit(key, offset).futureLift.map(x => Option(Long.unbox(x))))

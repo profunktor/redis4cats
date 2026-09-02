@@ -40,13 +40,13 @@ trait Getter[F[_], K, V] {
 }
 
 trait Setter[F[_], K, V] {
-  def append(key: K, value: V): F[Unit]
+  def append(key: K, value: V): F[Long]
   def getSet(key: K, value: V): F[Option[V]]
   def set(key: K, value: V): F[Unit]
   def set(key: K, value: V, setArgs: SetArgs): F[Boolean]
   def setNx(key: K, value: V): F[Boolean]
   def setEx(key: K, value: V, expiresIn: FiniteDuration): F[Unit]
-  def setRange(key: K, value: V, offset: Long): F[Unit]
+  def setRange(key: K, value: V, offset: Long): F[Long]
 }
 
 trait MultiKey[F[_], K, V] {
