@@ -1138,6 +1138,18 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.scriptFlush
       exists2 <- redis.scriptExists(sha42)
       _ <- IO(assertEquals(exists2, List(false)))
+      // SCRIPT KILL only succeeds while a script is actually blocking the server; with nothing
+      // running, Redis rejects it — that's the realistic case to assert, not a happy path we can't
+      // safely trigger from a single-threaded test without actually hanging the server.
+      killAttempt <- redis.scriptKill.attempt
+      _ <- IO(
+             assert(
+               killAttempt.left.exists { ex =>
+                 ex.isInstanceOf[RedisCommandExecutionException] &&
+                 ex.getMessage.startsWith("NOTBUSY")
+               }
+             )
+           )
     } yield ()
   }
 
