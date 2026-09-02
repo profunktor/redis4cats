@@ -59,6 +59,7 @@ import io.lettuce.core.{
   ScanCursor => JScanCursor,
   ScoredValue,
   SetArgs => JSetArgs,
+  SortArgs => JSortArgs,
   XAddArgs => JXAddArgs,
   XAutoClaimArgs => JXAutoClaimArgs,
   XClaimArgs => JXClaimArgs,
@@ -536,6 +537,15 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case d    => FiniteDuration(d, TimeUnit.SECONDS).some
     }
 
+  override def objectEncoding(key: K): F[Option[String]] =
+    async.flatMap(_.objectEncoding(key).futureLift.map(Option(_)))
+
+  override def objectFreq(key: K): F[Long] =
+    async.flatMap(_.objectFreq(key).futureLift.map(x => Long.box(x)))
+
+  override def objectRefcount(key: K): F[Long] =
+    async.flatMap(_.objectRefcount(key).futureLift.map(x => Long.box(x)))
+
   private def toFiniteDuration(units: TimeUnit)(duration: java.lang.Long): Option[FiniteDuration] =
     duration match {
       case d if d < 0 => none[FiniteDuration]
@@ -548,6 +558,13 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case d          => Instant.ofEpochMilli(d).some
     }
 
+  // EXPIRETIME (unlike PEXPIRETIME/HPEXPIRETIME) returns whole seconds since the epoch, not millis.
+  private def toEpochSeconds(duration: java.lang.Long): Option[Instant] =
+    duration match {
+      case d if d < 0 => none[Instant]
+      case d          => Instant.ofEpochSecond(d).some
+    }
+
   override def persist(key: K): F[Boolean] =
     async.flatMap(_.persist(key).futureLift.map(x => Boolean.box(x)))
 
@@ -556,6 +573,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def randomKey: F[Option[K]] =
     async.flatMap(_.randomkey().futureLift.map(Option(_)))
+
+  override def rename(key: K, newKey: K): F[Unit] =
+    async.flatMap(_.rename(key, newKey).futureLift.void)
+
+  override def renameNx(key: K, newKey: K): F[Boolean] =
+    async.flatMap(_.renamenx(key, newKey).futureLift.map(x => Boolean.box(x)))
 
   override def restore(key: K, value: Array[Byte]): F[Unit] =
     async.flatMap(_.restore(key, 0, value).futureLift.void)
@@ -587,6 +610,34 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def scan(cursor: KeyScanCursor[K], keyScanArgs: KeyScanArgs): F[KeyScanCursor[K]] =
     async.flatMap(_.scan(cursor.underlying, keyScanArgs.underlying).futureLift.map(KeyScanCursor[K]))
 
+  private def toSortArgs(sortArgs: SortArgs): JSortArgs = {
+    val jArgs = new JSortArgs()
+    sortArgs.by.foreach(jArgs.by)
+    sortArgs.limit.foreach(l => jArgs.limit(JLimit.create(l.offset, l.count)))
+    sortArgs.get.foreach(jArgs.get)
+    sortArgs.order.foreach {
+      case SortOrder.Asc  => jArgs.asc()
+      case SortOrder.Desc => jArgs.desc()
+    }
+    if (sortArgs.alpha) jArgs.alpha(): Unit
+    jArgs
+  }
+
+  override def sort(key: K): F[List[V]] =
+    async.flatMap(_.sort(key).futureLift.map(_.asScala.toList))
+
+  override def sort(key: K, sortArgs: SortArgs): F[List[V]] =
+    async.flatMap(_.sort(key, toSortArgs(sortArgs)).futureLift.map(_.asScala.toList))
+
+  override def sortReadOnly(key: K): F[List[V]] =
+    async.flatMap(_.sortReadOnly(key).futureLift.map(_.asScala.toList))
+
+  override def sortReadOnly(key: K, sortArgs: SortArgs): F[List[V]] =
+    async.flatMap(_.sortReadOnly(key, toSortArgs(sortArgs)).futureLift.map(_.asScala.toList))
+
+  override def sortStore(key: K, sortArgs: SortArgs, destination: K): F[Long] =
+    async.flatMap(_.sortStore(key, toSortArgs(sortArgs), destination).futureLift.map(x => Long.box(x)))
+
   override def ttl(key: K): F[Option[FiniteDuration]] =
     async.flatMap(_.ttl(key).futureLift.map(toFiniteDuration(TimeUnit.SECONDS)))
 
@@ -595,6 +646,18 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def unlink(key: K*): F[Long] =
     async.flatMap(_.unlink(key: _*).futureLift.map(x => Long.box(x)))
+
+  override def expireTime(key: K): F[Option[Instant]] =
+    async.flatMap(_.expiretime(key).futureLift.map(toEpochSeconds))
+
+  override def pExpireTime(key: K): F[Option[Instant]] =
+    async.flatMap(_.pexpiretime(key).futureLift.map(toEpoch))
+
+  override def move(key: K, db: Int): F[Boolean] =
+    async.flatMap(_.move(key, db).futureLift.map(x => Boolean.box(x)))
+
+  override def touch(key: K, keys: K*): F[Long] =
+    async.flatMap(_.touch((key +: keys): _*).futureLift.map(x => Long.box(x)))
 
   // format: off
   /******************************* Transactions API **********************************/
@@ -1946,6 +2009,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def scriptFlush: F[Unit] =
     async.flatMap(_.scriptFlush().futureLift.void)
+
+  override def scriptKill: F[String] =
+    async.flatMap(_.scriptKill().futureLift)
 
   override def digest(script: String): F[String] =
     async.map(_.digest(script))

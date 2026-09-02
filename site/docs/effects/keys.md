@@ -21,8 +21,10 @@ import scala.concurrent.duration._
 
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-val commandsApi: Resource[IO, KeyCommands[IO, String]] = {
-  Redis[IO].fromClient[String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[KeyCommands[IO, String]]
+val commandsApi: Resource[IO, KeyCommands[IO, String, String]] = {
+  Redis[IO]
+    .fromClient[String, String](null, null.asInstanceOf[RedisCodec[String, String]])
+    .widen[KeyCommands[IO, String, String]]
 }
 ```
 
@@ -35,7 +37,7 @@ import cats.effect.IO
 
 val key = "users"
 
-commandsApi.use { redis => // KeyCommands[IO, String]
+commandsApi.use { redis => // KeyCommands[IO, String, String]
   for {
     _ <- redis.del(key)
     _ <- redis.exists(key)

@@ -28,7 +28,7 @@ class RedisSpec extends Redis4CatsFunSuite(false) with TestScenarios {
 
   test("lists api")(withRedis(listsScenario))
 
-  test("keys api")(withRedis(cmd => keysScenario(cmd) >> scanScenario(cmd)))
+  test("keys api")(withRedis(cmd => keysScenario(cmd) >> keysMoveScenario(cmd) >> scanScenario(cmd)))
 
   test("sets api")(withRedis(setsScenario))
 
