@@ -30,7 +30,7 @@ object RedisKeysDemo extends LoggerIOApp {
     val showResult: Option[String] => IO[Unit] =
       _.fold(IO.println(s"Not found key: $usernameKey"))(s => IO.println(s))
 
-    val commandsApi: Resource[IO, KeyCommands[IO, String] with StringCommands[IO, String, String]] =
+    val commandsApi: Resource[IO, KeyCommands[IO, String, String] with StringCommands[IO, String, String]] =
       Redis[IO].utf8(redisURI)
 
     commandsApi.use { redis =>

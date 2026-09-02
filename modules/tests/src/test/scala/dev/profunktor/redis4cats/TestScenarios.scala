@@ -603,9 +603,72 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.geoAdd("geo", GeoLocation(Longitude(13.361389), Latitude(38.115556), "Palermo"))
       geo <- redis.typeOf("geo")
       _ <- IO(assertEquals(geo, Some(RedisType.SortedSet)))
+      // SORT / SORT_RO / SORT ... STORE
+      _ <- redis.rPush("{keystest}:sortsrc", "3", "1", "2")
+      sorted <- redis.sort("{keystest}:sortsrc")
+      _ <- IO(assertEquals(sorted, List("1", "2", "3")))
+      sortedDesc <- redis.sortReadOnly("{keystest}:sortsrc", SortArgs(order = Some(SortOrder.Desc)))
+      _ <- IO(assertEquals(sortedDesc, List("3", "2", "1")))
+      sortedLimit <- redis.sort(
+                       "{keystest}:sortsrc",
+                       SortArgs(order = Some(SortOrder.Asc), limit = Some(RangeLimit(0, 2)))
+                     )
+      _ <- IO(assertEquals(sortedLimit, List("1", "2")))
+      sortStoreCount <-
+        redis.sortStore("{keystest}:sortsrc", SortArgs(order = Some(SortOrder.Asc)), "{keystest}:sortdst")
+      _ <- IO(assertEquals(sortStoreCount, 3L))
+      sortedStored <- redis.lRange("{keystest}:sortdst", 0, -1)
+      _ <- IO(assertEquals(sortedStored, List("1", "2", "3")))
+      // RENAME / RENAMENX
+      _ <- redis.set("{keystest}:renamesrc", "renamed value")
+      _ <- redis.rename("{keystest}:renamesrc", "{keystest}:renamedst")
+      renamedVal <- redis.get("{keystest}:renamedst")
+      _ <- IO(assertEquals(renamedVal, Some("renamed value")))
+      _ <- redis.set("{keystest}:renamenxsrc", "a")
+      _ <- redis.set("{keystest}:renamenxexisting", "b")
+      renameNxFailed <- redis.renameNx("{keystest}:renamenxsrc", "{keystest}:renamenxexisting")
+      _ <- IO(assertEquals(renameNxFailed, false)) // destination already exists
+      renameNxOk <- redis.renameNx("{keystest}:renamenxsrc", "{keystest}:renamenxdst")
+      _ <- IO(assertEquals(renameNxOk, true))
+      // EXPIRETIME / PEXPIRETIME
+      _ <- redis.set("exptimekey", "v")
+      noExpireTime <- redis.expireTime("exptimekey")
+      _ <- IO(assert(noExpireTime.isEmpty)) // no TTL set yet
+      _ <- redis.expire("exptimekey", 100.seconds)
+      hasExpireTime <- redis.expireTime("exptimekey")
+      _ <- IO(assert(hasExpireTime.exists(_.isAfter(Instant.now()))))
+      hasPExpireTime <- redis.pExpireTime("exptimekey")
+      _ <- IO(assert(hasPExpireTime.exists(_.isAfter(Instant.now()))))
+      // TOUCH
+      _ <- redis.set("touchkey1", "v")
+      _ <- redis.set("touchkey2", "v")
+      touchedCount <- redis.touch("touchkey1", "touchkey2", "touchkey-does-not-exist")
+      _ <- IO(assertEquals(touchedCount, 2L))
+      // OBJECT ENCODING / REFCOUNT / FREQ
+      _ <- redis.set("objkey", "12345") // short numeric string -> "int" encoding
+      encoding <- redis.objectEncoding("objkey")
+      _ <- IO(assertEquals(encoding, Some("int")))
+      refcount <- redis.objectRefcount("objkey")
+      _ <- IO(assert(refcount >= 1L))
+      // OBJECT FREQ requires an LFU maxmemory-policy; this test suite's Redis runs the default
+      // (non-LFU) policy, so the real, correct behavior here is that it fails, not succeeds.
+      freqAttempt <- redis.objectFreq("objkey").attempt
+      _ <- IO(assert(freqAttempt.isLeft))
       _ <- redis.flushAll
     } yield ()
   }
+
+  // MOVE requires multiple DBs, which Redis Cluster doesn't support (cluster mode has only DB 0) —
+  // this is intentionally NOT part of keysScenario (which runs under both RedisSpec and
+  // RedisClusterSpec); wire this into RedisSpec only.
+  def keysMoveScenario(redis: RedisCommands[IO, String, String]): IO[Unit] =
+    for {
+      _ <- redis.set("movekey", "v")
+      moved <- redis.move("movekey", 1)
+      _ <- IO(assertEquals(moved, true))
+      goneFromDb0 <- redis.exists("movekey")
+      _ <- IO(assert(!goneFromDb0))
+    } yield ()
 
   def scanScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     val keys = (1 until 10).map("key" + _).sorted.toList
