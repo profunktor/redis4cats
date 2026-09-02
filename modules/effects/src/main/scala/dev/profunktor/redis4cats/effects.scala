@@ -442,6 +442,12 @@ object effects {
     def apply(ex: SetArg.Existence, ttl: SetArg.Ttl): SetArgs = SetArgs(Some(ex), Some(ttl))
   }
 
+  sealed trait LMoveSide
+  object LMoveSide {
+    case object Left extends LMoveSide
+    case object Right extends LMoveSide
+  }
+
   sealed trait ExpireExistenceArg
   object ExpireExistenceArg {
 

@@ -1161,9 +1161,29 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       .flatMap(_.brpop(timeout.toSecondsOrZero, keys.toList: _*).futureLift)
       .map(Option(_).map(kv => kv.getKey -> kv.getValue))
 
+  private def toLMoveArgs(sourceSide: LMoveSide, destinationSide: LMoveSide): LMoveArgs =
+    (sourceSide, destinationSide) match {
+      case (LMoveSide.Left, LMoveSide.Left)   => LMoveArgs.Builder.leftLeft()
+      case (LMoveSide.Left, LMoveSide.Right)  => LMoveArgs.Builder.leftRight()
+      case (LMoveSide.Right, LMoveSide.Left)  => LMoveArgs.Builder.rightLeft()
+      case (LMoveSide.Right, LMoveSide.Right) => LMoveArgs.Builder.rightRight()
+    }
+
   override def brPopLPush(timeout: Duration, source: K, destination: K): F[Option[V]] =
     async.flatMap(
       _.blmove(source, destination, LMoveArgs.Builder.rightLeft(), timeout.toSecondsOrZero).futureLift.map(Option.apply)
+    )
+
+  override def blMove(
+      timeout: Duration,
+      source: K,
+      destination: K,
+      sourceSide: LMoveSide,
+      destinationSide: LMoveSide
+  ): F[Option[V]] =
+    async.flatMap(
+      _.blmove(source, destination, toLMoveArgs(sourceSide, destinationSide), timeout.toSecondsOrZero).futureLift
+        .map(Option.apply)
     )
 
   override def lPop(key: K): F[Option[V]] =
@@ -1180,6 +1200,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def rPopLPush(source: K, destination: K): F[Option[V]] =
     async.flatMap(_.lmove(source, destination, LMoveArgs.Builder.rightLeft()).futureLift.map(Option.apply))
+
+  override def lMove(source: K, destination: K, sourceSide: LMoveSide, destinationSide: LMoveSide): F[Option[V]] =
+    async.flatMap(_.lmove(source, destination, toLMoveArgs(sourceSide, destinationSide)).futureLift.map(Option.apply))
 
   override def rPush(key: K, values: V*): F[Long] =
     async.flatMap(_.rpush(key, values: _*).futureLift.map(x => Long.box(x)))

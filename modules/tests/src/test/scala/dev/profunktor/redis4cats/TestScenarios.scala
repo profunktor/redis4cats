@@ -191,6 +191,38 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.lTrim(testKey, 1, 2)
       h <- redis.lRange(testKey, 0, 10)
       _ <- IO(assertEquals(h, List("four")))
+      // lMove: all 4 direction combinations
+      _ <- redis.rPush("lmove-src", "a", "b", "c")
+      lmRL <- redis.lMove("lmove-src", "lmove-dst", LMoveSide.Right, LMoveSide.Left)
+      _ <- IO(assertEquals(lmRL, Some("c")))
+      lmDst1 <- redis.lRange("lmove-dst", 0, -1)
+      _ <- IO(assertEquals(lmDst1, List("c")))
+      lmLL <- redis.lMove("lmove-src", "lmove-dst", LMoveSide.Left, LMoveSide.Left)
+      _ <- IO(assertEquals(lmLL, Some("a")))
+      lmDst2 <- redis.lRange("lmove-dst", 0, -1)
+      _ <- IO(assertEquals(lmDst2, List("a", "c")))
+      lmLR <- redis.lMove("lmove-src", "lmove-dst", LMoveSide.Left, LMoveSide.Right)
+      _ <- IO(assertEquals(lmLR, Some("b")))
+      lmDst3 <- redis.lRange("lmove-dst", 0, -1)
+      _ <- IO(assertEquals(lmDst3, List("a", "c", "b")))
+      lmSrcEmpty <- redis.lRange("lmove-src", 0, -1)
+      _ <- IO(assert(lmSrcEmpty.isEmpty))
+      // rightRight + self-rotation (source == destination)
+      _ <- redis.rPush("lmove-rot", "x", "y", "z")
+      lmRR <- redis.lMove("lmove-rot", "lmove-rot", LMoveSide.Right, LMoveSide.Right)
+      _ <- IO(assertEquals(lmRR, Some("z")))
+      lmRotResult <- redis.lRange("lmove-rot", 0, -1)
+      _ <- IO(assertEquals(lmRotResult, List("x", "y", "z")))
+      // lMove on an empty source returns None
+      lmEmpty <- redis.lMove("lmove-does-not-exist", "lmove-dst", LMoveSide.Right, LMoveSide.Left)
+      _ <- IO(assertEquals(lmEmpty, None))
+      // blMove: element available immediately
+      _ <- redis.rPush("blmove-src", "one")
+      blmImmediate <- redis.blMove(1.second, "blmove-src", "blmove-dst", LMoveSide.Right, LMoveSide.Left)
+      _ <- IO(assertEquals(blmImmediate, Some("one")))
+      // blMove: timeout expiry with no element available
+      blmTimeout <- redis.blMove(1.second, "blmove-does-not-exist", "blmove-dst", LMoveSide.Right, LMoveSide.Left)
+      _ <- IO(assertEquals(blmTimeout, None))
     } yield ()
   }
 
