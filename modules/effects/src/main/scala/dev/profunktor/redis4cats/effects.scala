@@ -38,12 +38,21 @@ object effects {
   final case class Longitude(value: Double) extends AnyVal
 
   final case class GeoLocation[V](lon: Longitude, lat: Latitude, value: V)
-  final case class GeoRadius(lon: Longitude, lat: Latitude, dist: Distance)
+
+  sealed trait GeoSearchReference[V]
+  object GeoSearchReference {
+    final case class FromCoordinates[V](lon: Longitude, lat: Latitude) extends GeoSearchReference[V]
+    final case class FromMember[V](value: V) extends GeoSearchReference[V]
+  }
+
+  sealed trait GeoSearchPredicate
+  object GeoSearchPredicate {
+    final case class ByRadius(dist: Distance, unit: GeoArgs.Unit) extends GeoSearchPredicate
+    final case class ByBox(width: Distance, height: Distance, unit: GeoArgs.Unit) extends GeoSearchPredicate
+  }
 
   final case class GeoCoordinate(x: Double, y: Double)
   final case class GeoRadiusResult[V](value: V, dist: Distance, hash: GeoHash, coordinate: GeoCoordinate)
-  final case class GeoRadiusKeyStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
-  final case class GeoRadiusDistStorage[K](key: K, count: Long, sort: GeoArgs.Sort)
 
   final case class Score(value: Double) extends AnyVal
   final case class ScoreWithValue[V](score: Score, value: V)
