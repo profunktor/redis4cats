@@ -54,12 +54,16 @@ import io.lettuce.core.{
   GetExArgs => JGetExArgs,
   HGetExArgs => JHGetExArgs,
   HSetExArgs => JHSetExArgs,
+  IncrexArgs => JIncrexArgs,
+  IncrexFloatArgs => JIncrexFloatArgs,
   KillArgs => JKillArgs,
   LMPopArgs,
   LMoveArgs,
   LMovemArgs,
   LPosArgs => JLPosArgs,
+  LcsArgs => JLcsArgs,
   Limit => JLimit,
+  MSetExArgs => JMSetExArgs,
   MigrateArgs => JMigrateArgs,
   Range => JRange,
   ReadFrom => JReadFrom,
@@ -71,6 +75,7 @@ import io.lettuce.core.{
   ScoredValue,
   SetArgs => JSetArgs,
   SortArgs => JSortArgs,
+  StringMatchResult => JStringMatchResult,
   TrackingArgs => JTrackingArgs,
   TrackingInfo => JTrackingInfo,
   UnblockType => JUnblockType,
@@ -848,6 +853,56 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def incrByFloat(key: K, amount: Double): F[Double] =
     async.flatMap(_.incrbyfloat(key, amount).futureLift.map(x => Double.box(x)))
 
+  // ex/px/exAt/pxAt on IncrexArgs/IncrexFloatArgs take raw longs (seconds/millis/epoch), unlike
+  // GetExArgs/HGetExArgs's Instant-accepting exAt/pxAt — a genuine difference in Lettuce's own API
+  // shape between the two command families, not an inconsistency on our side.
+  private def toJIncrexArgs(args: IncrexArgs): JIncrexArgs = {
+    val jArgs = new JIncrexArgs()
+    args.lowerBound.foreach(jArgs.lbound)
+    args.upperBound.foreach(jArgs.ubound)
+    if (args.saturate) jArgs.saturate(): Unit
+    args.ttl.foreach {
+      case IncrexTtl.Ex(d)    => jArgs.ex(d.toSeconds)
+      case IncrexTtl.Px(d)    => jArgs.px(d.toMillis)
+      case IncrexTtl.ExAt(at) => jArgs.exAt(at.getEpochSecond)
+      case IncrexTtl.PxAt(at) => jArgs.pxAt(at.toEpochMilli)
+      case IncrexTtl.Persist  => jArgs.persist()
+    }
+    if (args.ttlOnlyIfNoneSet) jArgs.enx(): Unit
+    jArgs
+  }
+
+  private def toJIncrexFloatArgs(args: IncrexFloatArgs): JIncrexFloatArgs = {
+    val jArgs = new JIncrexFloatArgs()
+    args.lowerBound.foreach(jArgs.lbound)
+    args.upperBound.foreach(jArgs.ubound)
+    if (args.saturate) jArgs.saturate(): Unit
+    args.ttl.foreach {
+      case IncrexTtl.Ex(d)    => jArgs.ex(d.toSeconds)
+      case IncrexTtl.Px(d)    => jArgs.px(d.toMillis)
+      case IncrexTtl.ExAt(at) => jArgs.exAt(at.getEpochSecond)
+      case IncrexTtl.PxAt(at) => jArgs.pxAt(at.toEpochMilli)
+      case IncrexTtl.Persist  => jArgs.persist()
+    }
+    if (args.ttlOnlyIfNoneSet) jArgs.enx(): Unit
+    jArgs
+  }
+
+  override def incrEx(key: K): F[IncrexResult[Long]] =
+    async.flatMap(_.increx(key).futureLift.map(v => IncrexResult(v.getValue.longValue(), v.getIncrement.longValue())))
+
+  override def incrEx(key: K, amount: Long, args: IncrexArgs): F[IncrexResult[Long]] =
+    async.flatMap(
+      _.increx(key, amount, toJIncrexArgs(args)).futureLift
+        .map(v => IncrexResult(v.getValue.longValue(), v.getIncrement.longValue()))
+    )
+
+  override def incrExFloat(key: K, amount: Double, args: IncrexFloatArgs): F[IncrexResult[Double]] =
+    async.flatMap(
+      _.increx(key, amount, toJIncrexFloatArgs(args)).futureLift
+        .map(v => IncrexResult(v.getValue.doubleValue(), v.getIncrement.doubleValue()))
+    )
+
   override def get(key: K): F[Option[V]] =
     async.flatMap(_.get(key).futureLift.map(Option.apply))
 
@@ -874,6 +929,42 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def strLen(key: K): F[Long] =
     async.flatMap(_.strlen(key).futureLift.map(x => Long.unbox(x)))
 
+  private def toLcsMatch(withMatchLen: Boolean)(m: JStringMatchResult.MatchedPosition): LcsMatch =
+    LcsMatch(
+      LcsMatchPosition(m.getA.getStart, m.getA.getEnd),
+      LcsMatchPosition(m.getB.getStart, m.getB.getEnd),
+      // matchLen is a Java primitive long (always 0 when WITHMATCHLEN wasn't requested) rather than a
+      // nullable field, so — same as GeoSearchResult — Option-ness is decided from what was actually
+      // requested, not inferred from the value.
+      if (withMatchLen) Some(m.getMatchLen) else None
+    )
+
+  private def toLcsResult(withMatchLen: Boolean)(r: JStringMatchResult): LcsResult =
+    LcsResult(
+      Option(r.getMatchString),
+      r.getMatches.asScala.toList.map(toLcsMatch(withMatchLen)),
+      r.getLen
+    )
+
+  // Lettuce's LcsArgs.Builder.keys(String...) takes raw key names rather than K-encoded values (it
+  // calls CommandArgs.add(String), not addKey(K)) — a Lettuce API limitation, not a redis4cats one.
+  // key.toString only produces the correct Redis key when K's toString matches its actual encoded
+  // text, which holds for the common String/UTF8 codec but isn't guaranteed for an arbitrary K.
+  override def lcs(key1: K, key2: K): F[LcsResult] =
+    async.flatMap(
+      _.lcs(JLcsArgs.Builder.keys(key1.toString, key2.toString)).futureLift.map(toLcsResult(withMatchLen = false))
+    )
+
+  override def lcsLen(key1: K, key2: K): F[Long] =
+    async.flatMap(_.lcs(JLcsArgs.Builder.keys(key1.toString, key2.toString).justLen()).futureLift.map(_.getLen))
+
+  override def lcsIdx(key1: K, key2: K, minMatchLen: Option[Int], withMatchLen: Boolean): F[LcsResult] = {
+    val jArgs = JLcsArgs.Builder.keys(key1.toString, key2.toString).withIdx()
+    minMatchLen.foreach(jArgs.minMatchLen)
+    if (withMatchLen) jArgs.withMatchLen(): Unit
+    async.flatMap(_.lcs(jArgs).futureLift.map(toLcsResult(withMatchLen)))
+  }
+
   override def mGet(keys: Set[K]): F[Map[K, V]] =
     async
       .flatMap(_.mget(keys.toSeq: _*).futureLift)
@@ -884,6 +975,24 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def mSetNx(keyValues: Map[K, V]): F[Boolean] =
     async.flatMap(_.msetnx(keyValues.asJava).futureLift.map(x => Boolean.box(x)))
+
+  override def msetEx(keyValues: Map[K, V], args: MSetExArgs): F[Boolean] = {
+    val jArgs = new JMSetExArgs()
+
+    args.ttl.foreach {
+      case MSetExTtl.Ex(d)    => jArgs.ex(java.time.Duration.ofMillis(d.toMillis))
+      case MSetExTtl.Px(d)    => jArgs.px(java.time.Duration.ofMillis(d.toMillis))
+      case MSetExTtl.ExAt(at) => jArgs.exAt(at)
+      case MSetExTtl.PxAt(at) => jArgs.pxAt(at)
+      case MSetExTtl.KeepTtl  => jArgs.keepttl()
+    }
+    args.existence.foreach {
+      case SetArg.Existence.Nx => jArgs.nx()
+      case SetArg.Existence.Xx => jArgs.xx()
+    }
+
+    async.flatMap(_.msetex(keyValues.asJava, jArgs).futureLift.map(x => Boolean.box(x)))
+  }
 
   /** ***************************** JSON API *********************************
     */
@@ -1588,6 +1697,18 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def bitOpXor(destination: K, source: K, sources: K*): F[Long] =
     async.flatMap(_.bitopXor(destination, (source +: sources): _*).futureLift.map(x => Long.box(x)))
+
+  override def bitOpDiff(destination: K, source: K, keys: K*): F[Long] =
+    async.flatMap(_.bitopDiff(destination, source, keys: _*).futureLift.map(x => Long.box(x)))
+
+  override def bitOpDiff1(destination: K, source: K, keys: K*): F[Long] =
+    async.flatMap(_.bitopDiff1(destination, source, keys: _*).futureLift.map(x => Long.box(x)))
+
+  override def bitOpAndOr(destination: K, source: K, keys: K*): F[Long] =
+    async.flatMap(_.bitopAndor(destination, source, keys: _*).futureLift.map(x => Long.box(x)))
+
+  override def bitOpOne(destination: K, keys: K*): F[Long] =
+    async.flatMap(_.bitopOne(destination, keys: _*).futureLift.map(x => Long.box(x)))
 
   override def getBit(key: K, offset: Long): F[Option[Long]] =
     async.flatMap(_.getbit(key, offset).futureLift.map(x => Option(Long.unbox(x))))
