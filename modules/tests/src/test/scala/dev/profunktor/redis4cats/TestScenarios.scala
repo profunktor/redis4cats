@@ -989,6 +989,15 @@ trait TestScenarios { self: FunSuite =>
         _ <- IO(assert(got.exists(_.flags.contains("on")), s"getuser: $got"))
         _ <- IO(assert(got.exists(_.keys.contains("app:*")), s"getuser keys: ${got.map(_.keys)}"))
         _ <- IO(assert(got.exists(_.commands.contains("+get")), s"getuser commands: ${got.map(_.commands)}"))
+        allowedDryRun <- redis.aclDryRun("default", "get", "somekey")
+        _ <- IO(assertEquals(allowedDryRun, AclDryRunResult.Allowed))
+        deniedDryRun <- redis.aclDryRun(user, "set", "somekey", "someval")
+        _ <- IO(
+               assert(
+                 PartialFunction.cond(deniedDryRun) { case AclDryRunResult.Denied(_) => true },
+                 s"dry run: $deniedDryRun"
+               )
+             )
         missing <- redis.aclGetUser("definitely-not-a-user")
         _ <- IO(assertEquals(missing, None))
         list <- redis.aclList
@@ -1138,6 +1147,18 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.scriptFlush
       exists2 <- redis.scriptExists(sha42)
       _ <- IO(assertEquals(exists2, List(false)))
+      // SCRIPT KILL only succeeds while a script is actually blocking the server; with nothing
+      // running, Redis rejects it — that's the realistic case to assert, not a happy path we can't
+      // safely trigger from a single-threaded test without actually hanging the server.
+      killAttempt <- redis.scriptKill.attempt
+      _ <- IO(
+             assert(
+               killAttempt.left.exists { ex =>
+                 ex.isInstanceOf[RedisCommandExecutionException] &&
+                 ex.getMessage.startsWith("NOTBUSY")
+               }
+             )
+           )
     } yield ()
   }
 
