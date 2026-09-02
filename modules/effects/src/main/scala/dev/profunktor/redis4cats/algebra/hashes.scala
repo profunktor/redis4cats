@@ -54,8 +54,6 @@ trait HashSetter[F[_], K, V] {
   def hSet(key: K, field: K, value: V): F[Boolean]
   def hSet(key: K, fieldValues: Map[K, V]): F[Long]
   def hSetNx(key: K, field: K, value: V): F[Boolean]
-  @deprecated("In favor of hSet(key: K, fieldValues: Map[K, V])", since = "1.0.1")
-  def hmSet(key: K, fieldValues: Map[K, V]): F[Unit]
 }
 
 trait HashExpire[F[_], K] {
