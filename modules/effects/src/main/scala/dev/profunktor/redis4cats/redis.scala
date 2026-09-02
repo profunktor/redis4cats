@@ -1329,6 +1329,13 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
         GeoSearch.byBox(width.value, height.value, unit)
     }
 
+  private def toGeoArgs(args: GeoStoreArgs): GeoArgs = {
+    val jArgs = new GeoArgs()
+    args.count.foreach(jArgs.withCount)
+    args.sort.foreach(jArgs.sort)
+    jArgs
+  }
+
   override def geoSearch(key: K, ref: GeoSearchReference[V], predicate: GeoSearchPredicate): F[Set[V]] =
     async
       .flatMap(_.geosearch(key, toGeoRef(ref), toGeoPredicate(predicate)).futureLift)
@@ -1339,10 +1346,10 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       ref: GeoSearchReference[V],
       predicate: GeoSearchPredicate,
       args: GeoArgs
-  ): F[List[GeoRadiusResult[V]]] =
+  ): F[List[GeoSearchResult[V]]] =
     async
       .flatMap(_.geosearch(key, toGeoRef(ref), toGeoPredicate(predicate), args).futureLift)
-      .map(_.asScala.toList.map(_.asGeoRadiusResult))
+      .map(_.asScala.toList.map(_.asGeoSearchResult))
 
   override def geoAdd(key: K, geoValues: GeoLocation[V]*): F[Long] = {
     val triplets = geoValues.flatMap(g => Seq[Any](g.lon.value, g.lat.value, g.value)).asInstanceOf[Seq[AnyRef]]
@@ -1356,7 +1363,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       predicate: GeoSearchPredicate,
       storeDist: Boolean
   ): F[Long] =
-    geoSearchStore(destination, key, ref, predicate, storeDist, new GeoArgs())
+    geoSearchStore(destination, key, ref, predicate, storeDist, GeoStoreArgs())
 
   override def geoSearchStore(
       destination: K,
@@ -1364,10 +1371,17 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       ref: GeoSearchReference[V],
       predicate: GeoSearchPredicate,
       storeDist: Boolean,
-      args: GeoArgs
+      args: GeoStoreArgs
   ): F[Long] =
     async.flatMap(
-      _.geosearchstore(destination, key, toGeoRef(ref), toGeoPredicate(predicate), args, storeDist).futureLift
+      _.geosearchstore(
+        destination,
+        key,
+        toGeoRef(ref),
+        toGeoPredicate(predicate),
+        toGeoArgs(args),
+        storeDist
+      ).futureLift
         .map(x => Long.box(x))
     )
 
@@ -2221,13 +2235,16 @@ private[redis4cats] trait RedisConversionOps {
 
   import dev.profunktor.redis4cats.JavaConversions._
 
-  private[redis4cats] implicit class GeoRadiusResultOps[V](v: GeoWithin[V]) {
-    def asGeoRadiusResult: GeoRadiusResult[V] =
-      GeoRadiusResult[V](
+  private[redis4cats] implicit class GeoWithinOps[V](v: GeoWithin[V]) {
+    // Lettuce's GeoWithin fields are null unless the corresponding GeoArgs flag was requested
+    // ("if requested, otherwise null" per its own scaladoc) — Option(...) is the correct, safe
+    // check here, since it wraps the (possibly-null) boxed reference before anything unboxes it.
+    def asGeoSearchResult: GeoSearchResult[V] =
+      GeoSearchResult[V](
         v.getMember,
-        Distance(v.getDistance),
-        GeoHash(v.getGeohash),
-        GeoCoordinate(v.getCoordinates.getX.doubleValue(), v.getCoordinates.getY.doubleValue())
+        Option(v.getDistance).map(Distance(_)),
+        Option(v.getGeohash).map(GeoHash(_)),
+        Option(v.getCoordinates).map(c => GeoCoordinate(c.getX.doubleValue(), c.getY.doubleValue()))
       )
   }
 

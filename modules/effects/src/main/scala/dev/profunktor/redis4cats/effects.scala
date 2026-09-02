@@ -53,11 +53,21 @@ object effects {
 
   final case class GeoCoordinate(x: Double, y: Double)
 
-  /** `dist`/`hash`/`coordinate` are only meaningful when the `GeoArgs` passed to the `geoSearch` call that produced
-    * this result set the corresponding `withDistance()`/`withHash()`/ `withCoordinates()` flag — otherwise these fields
-    * reflect Lettuce's unset/default values.
+  /** `dist`/`hash`/`coordinate` are each present only when the `GeoArgs` passed to the `geoSearch` call that produced
+    * this result set the corresponding `withDistance()`/`withHash()`/ `withCoordinates()` flag — `None` otherwise,
+    * matching Lettuce's own `GeoWithin` contract ("if requested, otherwise null").
     */
-  final case class GeoRadiusResult[V](value: V, dist: Distance, hash: GeoHash, coordinate: GeoCoordinate)
+  final case class GeoSearchResult[V](
+      value: V,
+      dist: Option[Distance],
+      hash: Option[GeoHash],
+      coordinate: Option[GeoCoordinate]
+  )
+
+  /** The subset of `GeoArgs` that `GEOSEARCHSTORE` actually accepts (COUNT/ASC/DESC) — unlike `GEOSEARCH`, it rejects
+    * the WITHDIST/WITHHASH/WITHCOORD flags a raw `GeoArgs` could also carry.
+    */
+  final case class GeoStoreArgs(count: Option[Long] = None, sort: Option[GeoArgs.Sort] = None)
 
   final case class Score(value: Double) extends AnyVal
   final case class ScoreWithValue[V](score: Score, value: V)

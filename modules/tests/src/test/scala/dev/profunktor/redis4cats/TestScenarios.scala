@@ -67,7 +67,7 @@ trait TestScenarios { self: FunSuite =>
              )
            )
 
-      // geoSearch: FromCoordinates x ByRadius, with GeoArgs (List[GeoRadiusResult[V]] result)
+      // geoSearch: FromCoordinates x ByRadius, with GeoArgs (List[GeoSearchResult[V]] result)
       byCoordRadiusArgs <- redis.geoSearch(
                              testKey,
                              GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
@@ -165,7 +165,7 @@ trait TestScenarios { self: FunSuite =>
                        GeoSearchReference.FromMember(_Montevideo.value),
                        GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
                        storeDist = false,
-                       new GeoArgs().withCount(1)
+                       GeoStoreArgs(count = Some(1))
                      )
       _ <- IO(assertEquals(storeCount3, 1L))
 
@@ -223,7 +223,8 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(d, 1L))
       z <- redis.hGet(testKey, testField)
       _ <- IO(assert(z.isEmpty))
-      _ <- redis.hSet(testKey, Map(testField -> "some value", testField2 -> "another value"))
+      hSetCount <- redis.hSet(testKey, Map(testField -> "some value", testField2 -> "another value"))
+      _ <- IO(assertEquals(hSetCount, 2L)) // both fields are new, per hDel above
       v <- redis.hGet(testKey, testField)
       _ <- IO(assert(v.contains("some value")))
       v <- redis.hGet(testKey, testField2)
