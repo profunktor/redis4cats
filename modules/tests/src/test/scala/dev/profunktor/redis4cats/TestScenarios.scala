@@ -894,10 +894,18 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(role.isInstanceOf[RedisRole.Master], s"expected Master in the single-node test setup, got $role"))
       waited <- redis.waitForReplication(numReplicas = 0, timeout = 100.millis)
       _ <- IO(assert(waited >= 0L))
+    } yield ()
+  }
+
+  // READONLY/READWRITE are cluster-only commands - rejected with "ERR This instance
+  // has cluster support disabled" on a standalone instance - so they're kept out of
+  // connectionScenario (shared by RedisSpec and RedisClusterSpec) and exercised only
+  // from the cluster suite.
+  def connectionClusterScenario(redis: RedisCommands[IO, String, String]): IO[Unit] =
+    for {
       _ <- redis.readOnly
       _ <- redis.readWrite
     } yield ()
-  }
 
   def aclScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
     import dev.profunktor.redis4cats.effects.AclSetUserRule._
