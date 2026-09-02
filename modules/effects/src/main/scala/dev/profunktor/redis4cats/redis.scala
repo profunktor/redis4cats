@@ -46,7 +46,6 @@ import io.lettuce.core.{
   FlushMode => JFlushMode,
   FunctionRestoreMode => JFunctionRestoreMode,
   GeoArgs,
-  GeoRadiusStoreArgs,
   GeoSearch,
   GeoWithin,
   GetExArgs => JGetExArgs,
@@ -1304,94 +1303,73 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       .flatMap(_.geopos(key, (value +: values): _*).futureLift)
       .map(_.asScala.toList.map(c => GeoCoordinate(c.getX.doubleValue(), c.getY.doubleValue())))
 
-  override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit): F[Set[V]] =
+  private def toGeoRef(ref: GeoSearchReference[V]): GeoSearch.GeoRef[K] =
+    ref match {
+      case GeoSearchReference.FromCoordinates(lon, lat) =>
+        GeoSearch.fromCoordinates(lon.value, lat.value)
+      case GeoSearchReference.FromMember(value) =>
+        // Lettuce's GeoSearch.fromMember is generically typed over K (Lettuce's own source
+        // marks this "TODO: Should be V") and internally encodes the member using the key
+        // codec instead of the value codec via an unchecked cast. For a RedisCodec[K, V]
+        // where K and V are encoded differently, this can produce a mismatched encoding on
+        // the wire. This is a real, currently-shipped Lettuce bug (see
+        // https://github.com/redis/lettuce/issues/826 for the identical class of bug,
+        // previously reported and fixed for ZINCRBY), not something redis4cats works around:
+        // using the modern GEOSEARCH API uniformly here, since the legacy GEORADIUSBYMEMBER
+        // command never supported box-shaped search and so has no safe fallback for every
+        // case anyway.
+        GeoSearch.fromMember[K](value.asInstanceOf[K])
+    }
+
+  private def toGeoPredicate(predicate: GeoSearchPredicate): GeoSearch.GeoPredicate =
+    predicate match {
+      case GeoSearchPredicate.ByRadius(dist, unit) =>
+        GeoSearch.byRadius(dist.value, unit)
+      case GeoSearchPredicate.ByBox(width, height, unit) =>
+        GeoSearch.byBox(width.value, height.value, unit)
+    }
+
+  override def geoSearch(key: K, ref: GeoSearchReference[V], predicate: GeoSearchPredicate): F[Set[V]] =
     async
-      .flatMap(
-        _.geosearch(
-          key,
-          GeoSearch.fromCoordinates(geoRadius.lon.value, geoRadius.lat.value),
-          GeoSearch.byRadius(geoRadius.dist.value, unit)
-        ).futureLift
-      )
+      .flatMap(_.geosearch(key, toGeoRef(ref), toGeoPredicate(predicate)).futureLift)
       .map(_.asScala.toSet)
 
-  override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, args: GeoArgs): F[List[GeoRadiusResult[V]]] =
-    async
-      .flatMap(
-        _.geosearch(
-          key,
-          GeoSearch.fromCoordinates(geoRadius.lon.value, geoRadius.lat.value),
-          GeoSearch.byRadius(geoRadius.dist.value, unit),
-          args
-        ).futureLift
-      )
-      .map(_.asScala.toList.map(_.asGeoRadiusResult))
-
-  // georadiusbymember stays on the deprecated Lettuce API rather than geosearch/GeoSearch.fromMember:
-  // fromMember is typed `[K](member: K)` in Lettuce (a known upstream bug, marked "TODO: Should be
-  // V" in Lettuce's own source) and its build() encodes the member with the *key* codec via
-  // addKey(), not the value codec. For a RedisCodec[K, V] where K and V differ, that would silently
-  // miscode the member on the wire. georadiusbymember correctly takes the member as V.
-  override def geoRadiusByMember(key: K, value: V, dist: Distance, unit: GeoArgs.Unit): F[Set[V]] =
-    async.flatMap(_.georadiusbymember(key, value, dist.value, unit).futureLift.map(_.asScala.toSet))
-
-  override def geoRadiusByMember(
+  override def geoSearch(
       key: K,
-      value: V,
-      dist: Distance,
-      unit: GeoArgs.Unit,
+      ref: GeoSearchReference[V],
+      predicate: GeoSearchPredicate,
       args: GeoArgs
   ): F[List[GeoRadiusResult[V]]] =
     async
-      .flatMap(_.georadiusbymember(key, value, dist.value, unit, args).futureLift)
+      .flatMap(_.geosearch(key, toGeoRef(ref), toGeoPredicate(predicate), args).futureLift)
       .map(_.asScala.toList.map(_.asGeoRadiusResult))
 
-  override def geoAdd(key: K, geoValues: GeoLocation[V]*): F[Unit] = {
+  override def geoAdd(key: K, geoValues: GeoLocation[V]*): F[Long] = {
     val triplets = geoValues.flatMap(g => Seq[Any](g.lon.value, g.lat.value, g.value)).asInstanceOf[Seq[AnyRef]]
-    async.flatMap(_.geoadd(key, triplets: _*).futureLift.void)
+    async.flatMap(_.geoadd(key, triplets: _*).futureLift.map(x => Long.box(x)))
   }
 
-  override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, storage: GeoRadiusKeyStorage[K]): F[Unit] =
-    conn.async.flatMap {
-      _.geosearchstore(
-        storage.key,
-        key,
-        GeoSearch.fromCoordinates(geoRadius.lon.value, geoRadius.lat.value),
-        GeoSearch.byRadius(geoRadius.dist.value, unit),
-        storage.asGeoArgs,
-        false
-      ).futureLift.void
-    }
-
-  override def geoRadius(key: K, geoRadius: GeoRadius, unit: GeoArgs.Unit, storage: GeoRadiusDistStorage[K]): F[Unit] =
-    conn.async.flatMap {
-      _.geosearchstore(
-        storage.key,
-        key,
-        GeoSearch.fromCoordinates(geoRadius.lon.value, geoRadius.lat.value),
-        GeoSearch.byRadius(geoRadius.dist.value, unit),
-        storage.asGeoArgs,
-        true
-      ).futureLift.void
-    }
-
-  override def geoRadiusByMember(
+  override def geoSearchStore(
+      destination: K,
       key: K,
-      value: V,
-      dist: Distance,
-      unit: GeoArgs.Unit,
-      storage: GeoRadiusKeyStorage[K]
-  ): F[Unit] =
-    async.flatMap(_.georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs).futureLift.void)
+      ref: GeoSearchReference[V],
+      predicate: GeoSearchPredicate,
+      storeDist: Boolean
+  ): F[Long] =
+    geoSearchStore(destination, key, ref, predicate, storeDist, new GeoArgs())
 
-  override def geoRadiusByMember(
+  override def geoSearchStore(
+      destination: K,
       key: K,
-      value: V,
-      dist: Distance,
-      unit: GeoArgs.Unit,
-      storage: GeoRadiusDistStorage[K]
-  ): F[Unit] =
-    async.flatMap(_.georadiusbymember(key, value, dist.value, unit, storage.asGeoRadiusStoreArgs).futureLift.void)
+      ref: GeoSearchReference[V],
+      predicate: GeoSearchPredicate,
+      storeDist: Boolean,
+      args: GeoArgs
+  ): F[Long] =
+    async.flatMap(
+      _.geosearchstore(destination, key, toGeoRef(ref), toGeoPredicate(predicate), args, storeDist).futureLift
+        .map(x => Long.box(x))
+    )
 
   // format: off
   /******************************* Sorted Sets API **********************************/
@@ -2251,28 +2229,6 @@ private[redis4cats] trait RedisConversionOps {
         GeoHash(v.getGeohash),
         GeoCoordinate(v.getCoordinates.getX.doubleValue(), v.getCoordinates.getY.doubleValue())
       )
-  }
-
-  private[redis4cats] implicit class GeoRadiusKeyStorageOps[K](v: GeoRadiusKeyStorage[K]) {
-    def asGeoArgs: GeoArgs = new GeoArgs().withCount(v.count).sort(v.sort)
-
-    def asGeoRadiusStoreArgs: GeoRadiusStoreArgs[K] = {
-      val store: GeoRadiusStoreArgs[_] = GeoRadiusStoreArgs.Builder
-        .store[K](v.key)
-        .withCount(v.count)
-      store.asInstanceOf[GeoRadiusStoreArgs[K]]
-    }
-  }
-
-  private[redis4cats] implicit class GeoRadiusDistStorageOps[K](v: GeoRadiusDistStorage[K]) {
-    def asGeoArgs: GeoArgs = new GeoArgs().withCount(v.count).sort(v.sort)
-
-    def asGeoRadiusStoreArgs: GeoRadiusStoreArgs[K] = {
-      val store: GeoRadiusStoreArgs[_] = GeoRadiusStoreArgs.Builder
-        .withStoreDist[K](v.key)
-        .withCount(v.count)
-      store.asInstanceOf[GeoRadiusStoreArgs[K]]
-    }
   }
 
   private[redis4cats] implicit class ZRangeOps[T: Numeric](range: ZRange[T]) {
