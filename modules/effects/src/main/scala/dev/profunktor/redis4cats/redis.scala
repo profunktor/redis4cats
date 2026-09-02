@@ -1719,6 +1719,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def aclDelUser(username: String, usernames: String*): F[Long] =
     async.flatMap(_.aclDeluser((username +: usernames): _*).futureLift.map(Long.unbox))
 
+  override def aclDryRun(username: String, command: String, args: String*): F[AclDryRunResult] =
+    async.flatMap(_.aclDryRun(username, command, args: _*).futureLift).map {
+      case "OK"    => AclDryRunResult.Allowed
+      case message => AclDryRunResult.Denied(message)
+    }
+
   override def aclSetUser(username: String, rules: List[AclSetUserRule]): F[Unit] =
     aclSetuserArgs(rules).liftTo[F].flatMap(args => async.flatMap(_.aclSetuser(username, args).futureLift.void))
 
