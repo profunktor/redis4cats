@@ -1174,6 +1174,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def sInter(keys: K*): F[Set[V]] =
     async.flatMap(_.sinter(keys: _*).futureLift.map(_.asScala.toSet))
 
+  override def sInterCard(keys: K*): F[Long] =
+    async.flatMap(_.sintercard(keys: _*).futureLift.map(x => Long.box(x)))
+
+  override def sInterCard(limit: Long, keys: K*): F[Long] =
+    async.flatMap(_.sintercard(limit, keys: _*).futureLift.map(x => Long.box(x)))
+
   override def sMembers(key: K): F[Set[V]] =
     async.flatMap(_.smembers(key).futureLift.map(_.asScala.toSet))
 

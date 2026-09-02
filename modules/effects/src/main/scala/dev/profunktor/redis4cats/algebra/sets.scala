@@ -28,6 +28,8 @@ trait SetGetter[F[_], K, V] {
   def sCard(key: K): F[Long]
   def sDiff(keys: K*): F[Set[V]]
   def sInter(keys: K*): F[Set[V]]
+  def sInterCard(keys: K*): F[Long]
+  def sInterCard(limit: Long, keys: K*): F[Long]
   def sMembers(key: K): F[Set[V]]
   def sRandMember(key: K): F[Option[V]]
   def sRandMember(key: K, count: Long): F[List[V]]
