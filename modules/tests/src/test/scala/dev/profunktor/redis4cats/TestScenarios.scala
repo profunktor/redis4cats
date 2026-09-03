@@ -541,6 +541,56 @@ trait TestScenarios { self: FunSuite =>
                  randomValuesWithScore.distinct.size == 2
              )
            )
+
+      // zmPopMin/zmPopMax: pop from the first non-empty of several keys
+      _ <- redis.del(testKey, otherTestKey)
+      zmPopEmpty <- redis.zmPopMin(NonEmptyList.of(testKey, otherTestKey), 1)
+      _ <- IO(assert(zmPopEmpty.isEmpty))
+      _ <- redis.zAdd(otherTestKey, args = None, scoreWithValue1, scoreWithValue2, scoreWithValue3)
+      zmPopMinResult <- redis.zmPopMin(NonEmptyList.of(testKey, otherTestKey), 2)
+      _ <- IO(assertEquals(zmPopMinResult, Some((otherTestKey, List(scoreWithValue1, scoreWithValue2)))))
+      zmPopMaxResult <- redis.zmPopMax(NonEmptyList.of(testKey, otherTestKey), 1)
+      _ <- IO(assertEquals(zmPopMaxResult, Some((otherTestKey, List(scoreWithValue3)))))
+      _ <- redis.zAdd(otherTestKey, args = None, scoreWithValue1)
+      bzmPopMinResult <- redis.bzmPopMin(timeout, NonEmptyList.of(testKey, otherTestKey), 1)
+      _ <- IO(assertEquals(bzmPopMinResult, Some((otherTestKey, List(scoreWithValue1)))))
+      bzmPopEmptyResult <- redis.bzmPopMax(timeout, NonEmptyList.one(testKey), 1)
+      _ <- IO(assert(bzmPopEmptyResult.isEmpty))
+
+      // zInterCard: cardinality of intersection without materializing it
+      _ <- redis.zAdd(testKey, args = None, scoreWithValue1, scoreWithValue2)
+      _ <- redis.zAdd(otherTestKey, args = None, scoreWithValue1, scoreWithValue3)
+      interCard <- redis.zInterCard(testKey, otherTestKey)
+      _ <- IO(assertEquals(interCard, 1L))
+      interCardLimited <- redis.zInterCard(0, testKey, otherTestKey)
+      _ <- IO(assertEquals(interCardLimited, 1L))
+
+      // zRangeStore/zRevRangeStore: by-rank range into a destination key
+      rangeStoreCount <- redis.zRangeStore("{same_hash_slot}:range-store-dest", testKey, 0, -1)
+      _ <- IO(assertEquals(rangeStoreCount, 2L))
+      rangeStoreMembers <- redis.zRangeWithScores("{same_hash_slot}:range-store-dest", 0, -1)
+      _ <- IO(assertEquals(rangeStoreMembers, List(scoreWithValue1, scoreWithValue2)))
+      revRangeStoreCount <- redis.zRevRangeStore("{same_hash_slot}:rev-range-store-dest", testKey, 0, -1)
+      _ <- IO(assertEquals(revRangeStoreCount, 2L))
+      revRangeStoreMembers <- redis.zRangeWithScores("{same_hash_slot}:rev-range-store-dest", 0, -1)
+      _ <- IO(assertEquals(revRangeStoreMembers, List(scoreWithValue1, scoreWithValue2)))
+
+      // zRangeStoreByScore/zRevRangeStoreByScore
+      rangeStoreByScoreCount <-
+        redis.zRangeStoreByScore("{same_hash_slot}:range-store-score-dest", testKey, ZRange(0, 1), limit = None)
+      _ <- IO(assertEquals(rangeStoreByScoreCount, 1L))
+      rangeStoreByScoreMembers <- redis.zRangeWithScores("{same_hash_slot}:range-store-score-dest", 0, -1)
+      _ <- IO(assertEquals(rangeStoreByScoreMembers, List(scoreWithValue1)))
+      revRangeStoreByScoreCount <-
+        redis.zRevRangeStoreByScore(
+          "{same_hash_slot}:rev-range-store-score-dest",
+          testKey,
+          ZRange(0, 3),
+          limit = Some(RangeLimit(0, 1))
+        )
+      _ <- IO(assertEquals(revRangeStoreByScoreCount, 1L))
+      revRangeStoreByScoreMembers <- redis.zRangeWithScores("{same_hash_slot}:rev-range-store-score-dest", 0, -1)
+      _ <- IO(assertEquals(revRangeStoreByScoreMembers, List(scoreWithValue2)))
     } yield ()
   }
 
