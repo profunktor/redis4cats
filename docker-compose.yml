@@ -21,7 +21,7 @@ services:
 
   RedisCluster:
     restart: always
-    image: yisraelu/redis-cluster:8.0.1
+    image: yisraelu/redis-cluster:8.10.1
     ports:
       - "30001:30001"
       - "30002:30002"
