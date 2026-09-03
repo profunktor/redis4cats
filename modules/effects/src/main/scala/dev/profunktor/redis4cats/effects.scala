@@ -749,4 +749,27 @@ object effects {
       case _                                                                    => duration.toSeconds
     }
   }
+
+  /** The reply to the Redis `ROLE` command. Lettuce decodes this as an untyped `List[Object]` (its RESP shape genuinely
+    * differs between a master and a replica) — this models both cases.
+    */
+  sealed trait RedisRole
+  object RedisRole {
+    final case class ReplicaNode(ip: String, port: Long, replicationOffset: Long)
+    final case class Master(replicationOffset: Long, replicas: List[ReplicaNode]) extends RedisRole
+    final case class Replica(masterHost: String, masterPort: Long, replicationState: String, replicationOffset: Long)
+        extends RedisRole
+  }
+
+  /** Failure raised while decoding a `ROLE` reply into [[RedisRole]]. */
+  sealed abstract class ReplicationError(message: String) extends RuntimeException(message)
+  object ReplicationError {
+
+    /** The top-level `ROLE` reply didn't match either the master or the replica shape. */
+    final case class UnexpectedRoleReply(reply: String) extends ReplicationError(s"Unexpected ROLE reply: $reply")
+
+    /** A replica entry inside a master's `ROLE` reply didn't have the expected `[ip, port, offset]` shape. */
+    final case class UnexpectedReplicaEntry(entry: String)
+        extends ReplicationError(s"Unexpected replica entry in ROLE reply: $entry")
+  }
 }

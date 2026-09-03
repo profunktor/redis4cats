@@ -16,11 +16,23 @@
 
 package dev.profunktor.redis4cats.algebra
 
-trait ConnectionCommands[F[_], K] extends Ping[F] with Auth[F] with Client[F, K]
+import dev.profunktor.redis4cats.effects.RedisRole
+
+import scala.concurrent.duration.FiniteDuration
+
+trait ConnectionCommands[F[_], K, V] extends Ping[F] with Auth[F] with Client[F, K] with Replication[F, V]
 
 trait Ping[F[_]] {
   def ping: F[String]
   def select(index: Int): F[Unit]
+}
+
+trait Replication[F[_], V] {
+  def echo(msg: V): F[V]
+  def role: F[RedisRole]
+  def waitForReplication(numReplicas: Int, timeout: FiniteDuration): F[Long]
+  def readOnly: F[Unit]
+  def readWrite: F[Unit]
 }
 
 trait Auth[F[_]] {

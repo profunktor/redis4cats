@@ -38,6 +38,8 @@ class RedisClusterSpec extends Redis4CatsFunSuite(true) with TestScenarios {
 
   test("cluster: connection api")(withRedisCluster(connectionScenario))
 
+  test("cluster: connection api - readOnly/readWrite")(withRedisCluster(connectionClusterScenario))
+
   test("cluster: server api")(withRedisCluster(serverScenario))
 
   test("cluster: scripts")(withRedis(scriptsScenario))
