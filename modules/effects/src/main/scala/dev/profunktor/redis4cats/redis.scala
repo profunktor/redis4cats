@@ -51,7 +51,9 @@ import io.lettuce.core.{
   GetExArgs => JGetExArgs,
   HGetExArgs => JHGetExArgs,
   HSetExArgs => JHSetExArgs,
+  LMPopArgs,
   LMoveArgs,
+  LPosArgs => JLPosArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
@@ -1275,6 +1277,19 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case (LMoveSide.Right, LMoveSide.Right) => LMoveArgs.Builder.rightRight()
     }
 
+  private def toLMPopArgs(side: LMoveSide): LMPopArgs =
+    side match {
+      case LMoveSide.Left  => LMPopArgs.Builder.left()
+      case LMoveSide.Right => LMPopArgs.Builder.right()
+    }
+
+  private def toJLPosArgs(args: LPosArgs): JLPosArgs = {
+    val jArgs = JLPosArgs.Builder.empty()
+    args.rank.foreach(jArgs.rank)
+    args.maxLen.foreach(jArgs.maxlen)
+    jArgs
+  }
+
   override def brPopLPush(timeout: Duration, source: K, destination: K): F[Option[V]] =
     async.flatMap(
       _.blmove(source, destination, LMoveArgs.Builder.rightLeft(), timeout.toSecondsOrZero).futureLift.map(Option.apply)
@@ -1292,8 +1307,26 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
         .map(Option.apply)
     )
 
+  override def blmPop(timeout: Duration, keys: NonEmptyList[K], side: LMoveSide): F[Option[(K, List[V])]] =
+    async
+      .flatMap(_.blmpop(timeout.toSecondsOrZero, toLMPopArgs(side), keys.toList: _*).futureLift)
+      .map(Option(_).map(kv => kv.getKey -> kv.getValue.asScala.toList))
+
+  override def blmPop(
+      timeout: Duration,
+      keys: NonEmptyList[K],
+      side: LMoveSide,
+      count: Long
+  ): F[Option[(K, List[V])]] =
+    async
+      .flatMap(_.blmpop(timeout.toSecondsOrZero, toLMPopArgs(side).count(count), keys.toList: _*).futureLift)
+      .map(Option(_).map(kv => kv.getKey -> kv.getValue.asScala.toList))
+
   override def lPop(key: K): F[Option[V]] =
     async.flatMap(_.lpop(key).futureLift.map(Option.apply))
+
+  override def lPop(key: K, count: Long): F[List[V]] =
+    async.flatMap(_.lpop(key, count).futureLift.map(_.asScala.toList))
 
   override def lPush(key: K, values: V*): F[Long] =
     async.flatMap(_.lpush(key, values: _*).futureLift.map(x => Long.box(x)))
@@ -1304,11 +1337,36 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def rPop(key: K): F[Option[V]] =
     async.flatMap(_.rpop(key).futureLift.map(Option.apply))
 
+  override def rPop(key: K, count: Long): F[List[V]] =
+    async.flatMap(_.rpop(key, count).futureLift.map(_.asScala.toList))
+
   override def rPopLPush(source: K, destination: K): F[Option[V]] =
     async.flatMap(_.lmove(source, destination, LMoveArgs.Builder.rightLeft()).futureLift.map(Option.apply))
 
   override def lMove(source: K, destination: K, sourceSide: LMoveSide, destinationSide: LMoveSide): F[Option[V]] =
     async.flatMap(_.lmove(source, destination, toLMoveArgs(sourceSide, destinationSide)).futureLift.map(Option.apply))
+
+  override def lmPop(keys: NonEmptyList[K], side: LMoveSide): F[Option[(K, List[V])]] =
+    async
+      .flatMap(_.lmpop(toLMPopArgs(side), keys.toList: _*).futureLift)
+      .map(Option(_).map(kv => kv.getKey -> kv.getValue.asScala.toList))
+
+  override def lmPop(keys: NonEmptyList[K], side: LMoveSide, count: Long): F[Option[(K, List[V])]] =
+    async
+      .flatMap(_.lmpop(toLMPopArgs(side).count(count), keys.toList: _*).futureLift)
+      .map(Option(_).map(kv => kv.getKey -> kv.getValue.asScala.toList))
+
+  override def lPos(key: K, value: V): F[Option[Long]] =
+    async.flatMap(_.lpos(key, value).futureLift.map(x => Option(x).map(Long.unbox)))
+
+  override def lPos(key: K, value: V, args: LPosArgs): F[Option[Long]] =
+    async.flatMap(_.lpos(key, value, toJLPosArgs(args)).futureLift.map(x => Option(x).map(Long.unbox)))
+
+  override def lPos(key: K, value: V, count: Long): F[List[Long]] =
+    async.flatMap(_.lpos(key, value, count.toInt).futureLift.map(_.asScala.toList.map(Long.unbox)))
+
+  override def lPos(key: K, value: V, count: Long, args: LPosArgs): F[List[Long]] =
+    async.flatMap(_.lpos(key, value, count.toInt, toJLPosArgs(args)).futureLift.map(_.asScala.toList.map(Long.unbox)))
 
   override def rPush(key: K, values: V*): F[Long] =
     async.flatMap(_.rpush(key, values: _*).futureLift.map(x => Long.box(x)))

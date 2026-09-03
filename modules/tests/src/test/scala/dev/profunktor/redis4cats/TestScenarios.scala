@@ -400,6 +400,54 @@ trait TestScenarios { self: FunSuite =>
                       LMoveSide.Left
                     )
       _ <- IO(assertEquals(blmTimeout, None))
+
+      // Note: lMoveMany/blMoveMany (LMOVEM/BLMOVEM) are intentionally NOT covered here yet —
+      // that command was only added in Redis 8.10 (redis/redis#15405), newer than the Redis
+      // version this repo's CI currently tests against (8.0.1). Once the test Redis image is
+      // bumped, that coverage belongs in its own follow-up.
+
+      // lmPop: first non-empty of several keys
+      _ <- redis.rPush("{listmove}:lmpop-b", "1", "2")
+      lmPopResult <- redis.lmPop(NonEmptyList.of("{listmove}:lmpop-a", "{listmove}:lmpop-b"), LMoveSide.Left)
+      _ <- IO(assertEquals(lmPopResult, Some(("{listmove}:lmpop-b", List("1")))))
+      // lmPop: with an explicit count
+      _ <- redis.rPush("{listmove}:lmpop-c", "3", "4", "5")
+      lmPopCountResult <- redis.lmPop(NonEmptyList.one("{listmove}:lmpop-c"), LMoveSide.Left, 2)
+      _ <- IO(assertEquals(lmPopCountResult, Some(("{listmove}:lmpop-c", List("3", "4")))))
+      // lmPop: no key has elements
+      lmPopEmpty <- redis.lmPop(NonEmptyList.one("{listmove}:lmpop-empty"), LMoveSide.Left)
+      _ <- IO(assertEquals(lmPopEmpty, None))
+
+      // blmPop: element available immediately
+      _ <- redis.rPush("{listmove}:blmpop-a", "6")
+      blmPopResult <- redis.blmPop(1.second, NonEmptyList.one("{listmove}:blmpop-a"), LMoveSide.Left)
+      _ <- IO(assertEquals(blmPopResult, Some(("{listmove}:blmpop-a", List("6")))))
+      // blmPop: timeout expiry
+      blmPopTimeout <- redis.blmPop(1.second, NonEmptyList.one("{listmove}:blmpop-empty"), LMoveSide.Left)
+      _ <- IO(assertEquals(blmPopTimeout, None))
+
+      // lPos: basic position, and a missing element
+      _ <- redis.rPush("lpos-key", "a", "b", "c", "b")
+      lPosSingle <- redis.lPos("lpos-key", "b")
+      _ <- IO(assertEquals(lPosSingle, Some(1L)))
+      lPosMissing <- redis.lPos("lpos-key", "z")
+      _ <- IO(assertEquals(lPosMissing, None))
+      // lPos: RANK 2 skips to the second occurrence
+      lPosRank <- redis.lPos("lpos-key", "b", LPosArgs(rank = Some(2)))
+      _ <- IO(assertEquals(lPosRank, Some(3L)))
+      // lPos: COUNT 0 returns every occurrence
+      lPosCount <- redis.lPos("lpos-key", "b", 0L)
+      _ <- IO(assertEquals(lPosCount, List(1L, 3L)))
+      // lPos: COUNT 0 with MAXLEN limits how much of the list is scanned
+      lPosCountArgs <- redis.lPos("lpos-key", "b", 0L, LPosArgs(maxLen = Some(2)))
+      _ <- IO(assertEquals(lPosCountArgs, List(1L)))
+
+      // lPop/rPop multi-pop
+      _ <- redis.rPush("multipop-key", "1", "2", "3", "4")
+      lPopMulti <- redis.lPop("multipop-key", 2)
+      _ <- IO(assertEquals(lPopMulti, List("1", "2")))
+      rPopMulti <- redis.rPop("multipop-key", 2)
+      _ <- IO(assertEquals(rPopMulti, List("4", "3")))
     } yield ()
   }
 

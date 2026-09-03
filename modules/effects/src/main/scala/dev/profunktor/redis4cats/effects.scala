@@ -549,6 +549,8 @@ object effects {
     case object Right extends LMoveSide
   }
 
+  final case class LPosArgs(rank: Option[Long] = None, maxLen: Option[Long] = None)
+
   sealed trait ExpireExistenceArg
   object ExpireExistenceArg {
 
