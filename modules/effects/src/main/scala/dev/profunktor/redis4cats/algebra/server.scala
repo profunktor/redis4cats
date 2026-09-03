@@ -16,8 +16,7 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.redis4cats.effects.{ FlushMode, RedisServerTime }
-import io.lettuce.core.{ ClientListArgs, KillArgs, UnblockType }
+import dev.profunktor.redis4cats.effects.{ ClientListArgs, FlushMode, KillArgs, RedisServerTime, UnblockType }
 
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration

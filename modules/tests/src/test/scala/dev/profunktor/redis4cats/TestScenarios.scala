@@ -27,16 +27,7 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
 import fs2.Stream
-import io.lettuce.core.{
-  ClientListArgs,
-  GeoArgs,
-  KillArgs,
-  LMovemArgs,
-  RedisCommandExecutionException,
-  RedisException,
-  UnblockType,
-  ZAggregateArgs
-}
+import io.lettuce.core.{ GeoArgs, LMovemArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs }
 import munit.FunSuite
 
 import java.time.Instant
@@ -857,6 +848,28 @@ trait TestScenarios { self: FunSuite =>
       // whether "no-such-host" is actually reachable - no second live instance needed.
       migratedMissing <- redis.migrate("no-such-host", 6379, "migratekey-does-not-exist", 0, 1.second)
       _ <- IO(assertEquals(migratedMissing, false))
+      migratedMissingArgs <- redis.migrate(
+                               "no-such-host",
+                               6379,
+                               0,
+                               1.second,
+                               MigrateArgs(keys = List("migratekey-does-not-exist"), keepSource = true)
+                             )
+      _ <- IO(assertEquals(migratedMissingArgs, false))
+      // DELEX: value-based condition, both the holds and doesn't-hold branches are real assertions;
+      // the digest-based branch can only safely assert the doesn't-match case, since computing the
+      // real XXH3 digest to hit the matching branch isn't practical from a test.
+      _ <- redis.set("delexkey", "v1")
+      deletedOnMismatch <- redis.delex("delexkey", CompareCondition.ValueEqual("wrong-value"))
+      _ <- IO(assertEquals(deletedOnMismatch, false))
+      stillThere <- redis.exists("delexkey")
+      _ <- IO(assert(stillThere))
+      deletedOnDigestMismatch <- redis.delex("delexkey", CompareCondition.DigestEqual("0" * 16))
+      _ <- IO(assertEquals(deletedOnDigestMismatch, false))
+      deletedOnMatch <- redis.delex("delexkey", CompareCondition.ValueEqual("v1"))
+      _ <- IO(assertEquals(deletedOnMatch, true))
+      goneAfterDelex <- redis.exists("delexkey")
+      _ <- IO(assert(!goneAfterDelex))
       _ <- redis.flushAll
     } yield ()
   }
@@ -1271,14 +1284,14 @@ trait TestScenarios { self: FunSuite =>
       clients <- redis.clientList
       _ <- IO(assert(clients.nonEmpty))
       ownId <- redis.getClientId()
-      clientsById <- redis.clientList(new ClientListArgs().ids(ownId))
+      clientsById <- redis.clientList(ClientListArgs.ByIds(List(ownId)))
       _ <- IO(assert(clientsById.nonEmpty))
       // CLIENT KILL by bogus single address errors ("No such client"); by filter args (a
       // non-existent id) just reports zero matches, which is the safe form to assert on.
       _ <- redis.clientKill("255.255.255.255:1").attempt.void
-      killedByFilter <- redis.clientKill(new KillArgs().id(Long.MaxValue))
+      killedByFilter <- redis.clientKill(KillArgs(id = Some(Long.MaxValue)))
       _ <- IO(assertEquals(killedByFilter, 0L))
-      unblocked <- redis.clientUnblock(Long.MaxValue, UnblockType.TIMEOUT)
+      unblocked <- redis.clientUnblock(Long.MaxValue, UnblockType.Timeout)
       _ <- IO(assertEquals(unblocked, 0L))
       redir <- redis.clientGetRedir
       _ <- IO(assert(redir.isValidLong))

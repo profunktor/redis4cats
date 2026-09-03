@@ -19,15 +19,16 @@ package dev.profunktor.redis4cats.algebra
 import java.time.Instant
 import dev.profunktor.redis4cats.data.KeyScanCursor
 import dev.profunktor.redis4cats.effects.{
+  CompareCondition,
   CopyArgs,
   ExpireExistenceArg,
   KeyScanArgs,
+  MigrateArgs,
   RedisType,
   RestoreArgs,
   ScanArgs,
   SortArgs
 }
-import io.lettuce.core.MigrateArgs
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -35,6 +36,12 @@ trait KeyCommands[F[_], K, V] {
   def copy(source: K, destination: K): F[Boolean]
   def copy(source: K, destination: K, copyArgs: CopyArgs): F[Boolean]
   def del(k: K, keys: K*): F[Long]
+
+  /** Deletes `key` only if `condition` holds against its current value/digest - Redis's `DELEX`. `false` if the key
+    * didn't exist or the condition didn't hold; any other failure raises in `F` as usual.
+    */
+  def delex(key: K, condition: CompareCondition[V]): F[Boolean]
+
   def dump(key: K): F[Option[Array[Byte]]]
   def exists(key: K, keys: K*): F[Boolean]
   def expire(key: K, expiresIn: FiniteDuration): F[Boolean]

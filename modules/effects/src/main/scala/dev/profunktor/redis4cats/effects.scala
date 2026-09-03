@@ -168,6 +168,39 @@ object effects {
     def idleTime(idleTime: Long): RestoreArgs  = copy(idleTime = Some(idleTime))
   }
 
+  /** Credentials for the destination instance in a [[MigrateArgs]]-driven `MIGRATE`, mirroring Redis's `AUTH` (password
+    * only) vs `AUTH2` (username + password) forms.
+    */
+  sealed trait MigrateAuth
+  object MigrateAuth {
+    final case class Password(password: CharSequence) extends MigrateAuth
+    final case class UsernamePassword(username: CharSequence, password: CharSequence) extends MigrateAuth
+  }
+
+  /** Options for the multi-key/`COPY`/`REPLACE`/`AUTH` form of `MIGRATE`.
+    * @param keepSource
+    *   Redis's `COPY` flag - don't remove the key(s) from the source instance
+    */
+  final case class MigrateArgs[K](
+      keys: List[K] = Nil,
+      keepSource: Boolean = false,
+      replace: Boolean = false,
+      auth: Option[MigrateAuth] = None
+  )
+
+  /** A compare condition for commands that support conditional value checks (currently `DELEX`; Lettuce also uses this
+    * for `SET`'s `IFEQ`/`IFNE`/`IFDEQ`/`IFDNE`, not yet wrapped here). Digest-based comparisons use a 64-bit XXH3
+    * digest as a 16-character lower-case hex string. Modeled as our own ADT rather than exposing Lettuce's
+    * `CompareCondition[V]` directly, since that type is marked `@Experimental` upstream.
+    */
+  sealed trait CompareCondition[V]
+  object CompareCondition {
+    final case class ValueEqual[V](value: V) extends CompareCondition[V]
+    final case class ValueNotEqual[V](value: V) extends CompareCondition[V]
+    final case class DigestEqual[V](digest: String) extends CompareCondition[V]
+    final case class DigestNotEqual[V](digest: String) extends CompareCondition[V]
+  }
+
   case class ScanArgs(`match`: Option[String], count: Option[Long]) {
     def underlying: JScanArgs = {
       val u = new JScanArgs
@@ -797,4 +830,44 @@ object effects {
     * been stable since Redis 1.0.0, so this should never fire in practice.
     */
   final case class UnexpectedTimeReply(reply: String) extends RuntimeException(s"Unexpected TIME reply: $reply")
+
+  /** Which kind of client connection a `CLIENT LIST`/`CLIENT KILL` filter targets. */
+  sealed trait ClientType
+  object ClientType {
+    case object Normal extends ClientType
+    case object Master extends ClientType
+    case object Replica extends ClientType
+    case object PubSub extends ClientType
+  }
+
+  /** Options for the filtered form of `CLIENT LIST`. Redis's own syntax is `CLIENT LIST [TYPE type] | [ID id...]` - a
+    * filter is either by type or by ids, never both - modeled as a sum type rather than two independent optional fields
+    * so an invalid combination can't be constructed.
+    */
+  sealed trait ClientListArgs
+  object ClientListArgs {
+    final case class ByIds(ids: List[Long]) extends ClientListArgs
+    final case class ByType(tpe: ClientType) extends ClientListArgs
+  }
+
+  /** Options for the filtered form of `CLIENT KILL`. `id`/`tpe`/`user`/`addr`/`laddr`/`maxAge` are independent filters
+    * ANDed together by Redis; `skipMe` (Redis defaults it to `true`) controls whether the calling client's own
+    * connection is excluded from the match.
+    */
+  final case class KillArgs(
+      id: Option[Long] = None,
+      tpe: Option[ClientType] = None,
+      user: Option[String] = None,
+      addr: Option[String] = None,
+      laddr: Option[String] = None,
+      skipMe: Option[Boolean] = None,
+      maxAge: Option[Long] = None
+  )
+
+  /** Which condition unblocks a client via `CLIENT UNBLOCK`: as a successful timeout, or as an error. */
+  sealed trait UnblockType
+  object UnblockType {
+    case object Timeout extends UnblockType
+    case object Error extends UnblockType
+  }
 }

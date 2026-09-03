@@ -40,8 +40,9 @@ import io.lettuce.core.{
   AclSetuserArgs,
   BLMovemArgs,
   BitFieldArgs,
-  ClientListArgs,
+  ClientListArgs => JClientListArgs,
   ClientOptions,
+  CompareCondition => JCompareCondition,
   Consumer => JConsumer,
   CopyArgs => JCopyArgs,
   ExpireArgs => JExpireArgs,
@@ -53,13 +54,13 @@ import io.lettuce.core.{
   GetExArgs => JGetExArgs,
   HGetExArgs => JHGetExArgs,
   HSetExArgs => JHSetExArgs,
-  KillArgs,
+  KillArgs => JKillArgs,
   LMPopArgs,
   LMoveArgs,
   LMovemArgs,
   LPosArgs => JLPosArgs,
   Limit => JLimit,
-  MigrateArgs,
+  MigrateArgs => JMigrateArgs,
   Range => JRange,
   ReadFrom => JReadFrom,
   RedisFuture,
@@ -70,7 +71,7 @@ import io.lettuce.core.{
   ScoredValue,
   SetArgs => JSetArgs,
   SortArgs => JSortArgs,
-  UnblockType,
+  UnblockType => JUnblockType,
   XAddArgs => JXAddArgs,
   XAutoClaimArgs => JXAutoClaimArgs,
   XClaimArgs => JXClaimArgs,
@@ -496,6 +497,17 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   def del(k: K, keys: K*): F[Long] =
     async.flatMap(_.del((k +: keys): _*).futureLift.map(x => Long.box(x)))
 
+  override def delex(key: K, condition: CompareCondition[V]): F[Boolean] =
+    async.flatMap(_.delex(key, toJCompareCondition(condition)).futureLift.map(x => Long.unbox(x) > 0))
+
+  private def toJCompareCondition(condition: CompareCondition[V]): JCompareCondition[V] =
+    condition match {
+      case CompareCondition.ValueEqual(value)      => JCompareCondition.valueEq(value)
+      case CompareCondition.ValueNotEqual(value)   => JCompareCondition.valueNe(value)
+      case CompareCondition.DigestEqual(digest)    => JCompareCondition.digestEq(digest)
+      case CompareCondition.DigestNotEqual(digest) => JCompareCondition.digestNe(digest)
+    }
+
   override def dump(key: K): F[Option[Array[Byte]]] =
     async.flatMap(_.dump(key).futureLift.map(Option(_)))
 
@@ -678,7 +690,21 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       timeout: FiniteDuration,
       args: MigrateArgs[K]
   ): F[Boolean] =
-    async.flatMap(_.migrate(host, port, destinationDb, timeout.toMillis, args).futureLift.map(_ != "NOKEY"))
+    async
+      .flatMap(_.migrate(host, port, destinationDb, timeout.toMillis, toJMigrateArgs(args)).futureLift)
+      .map(_ != "NOKEY")
+
+  private def toJMigrateArgs(args: MigrateArgs[K]): JMigrateArgs[K] = {
+    val jArgs = new JMigrateArgs[K]()
+    if (args.keys.nonEmpty) jArgs.keys(args.keys.asJava): Unit
+    if (args.keepSource) jArgs.copy(): Unit
+    if (args.replace) jArgs.replace(): Unit
+    args.auth.foreach {
+      case MigrateAuth.Password(password)                   => jArgs.auth(password): Unit
+      case MigrateAuth.UsernamePassword(username, password) => jArgs.auth2(username, password): Unit
+    }
+    jArgs
+  }
 
   override def touch(key: K, keys: K*): F[Long] =
     async.flatMap(_.touch((key +: keys): _*).futureLift.map(x => Long.box(x)))
@@ -2281,19 +2307,61 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.clientList().futureLift).flatMap(parseClientLines)
 
   override def clientList(args: ClientListArgs): F[List[Map[String, String]]] =
-    async.flatMap(_.clientList(args).futureLift).flatMap(parseClientLines)
+    async.flatMap(_.clientList(toJClientListArgs(args)).futureLift).flatMap(parseClientLines)
 
   override def clientKill(addr: String): F[Unit] =
     async.flatMap(_.clientKill(addr).futureLift.void)
 
   override def clientKill(args: KillArgs): F[Long] =
-    async.flatMap(_.clientKill(args).futureLift.map(Long.unbox))
+    async.flatMap(_.clientKill(toJKillArgs(args)).futureLift.map(Long.unbox))
 
   override def clientPause(timeout: FiniteDuration): F[Unit] =
     async.flatMap(_.clientPause(timeout.toMillis).futureLift.void)
 
   override def clientUnblock(id: Long, unblockType: UnblockType): F[Long] =
-    async.flatMap(_.clientUnblock(id, unblockType).futureLift.map(Long.unbox))
+    async.flatMap(_.clientUnblock(id, toJUnblockType(unblockType)).futureLift.map(Long.unbox))
+
+  // ClientListArgs.Type/KillArgs.Type are private to their enclosing Java class, unreachable from
+  // outside io.lettuce.core - Lettuce's own workaround is a set of Builder.typeX() static factories,
+  // each returning a fresh instance with that type already set. We start from one of those (or a
+  // plain constructor when no type filter applies) and chain the remaining public setters onto it.
+  private def toJClientListArgs(args: ClientListArgs): JClientListArgs =
+    args match {
+      case ClientListArgs.ByIds(ids) => JClientListArgs.Builder.ids(ids: _*)
+      case ClientListArgs.ByType(tpe) =>
+        tpe match {
+          case ClientType.Normal  => JClientListArgs.Builder.typeNormal()
+          case ClientType.Master  => JClientListArgs.Builder.typeMaster()
+          case ClientType.Replica => JClientListArgs.Builder.typeReplica()
+          case ClientType.PubSub  => JClientListArgs.Builder.typePubsub()
+        }
+    }
+
+  private def toJKillArgs(args: KillArgs): JKillArgs = {
+    val jArgs = args.tpe match {
+      case None => new JKillArgs()
+      case Some(tpe) =>
+        tpe match {
+          case ClientType.Normal  => JKillArgs.Builder.typeNormal()
+          case ClientType.Master  => JKillArgs.Builder.typeMaster()
+          case ClientType.Replica => JKillArgs.Builder.typeSlave()
+          case ClientType.PubSub  => JKillArgs.Builder.typePubsub()
+        }
+    }
+    args.id.foreach(jArgs.id)
+    args.user.foreach(jArgs.user)
+    args.addr.foreach(jArgs.addr)
+    args.laddr.foreach(jArgs.laddr)
+    args.skipMe.foreach(jArgs.skipme)
+    args.maxAge.foreach(v => jArgs.maxAge(v): Unit)
+    jArgs
+  }
+
+  private def toJUnblockType(tpe: UnblockType): JUnblockType =
+    tpe match {
+      case UnblockType.Timeout => JUnblockType.TIMEOUT
+      case UnblockType.Error   => JUnblockType.ERROR
+    }
 
   override def clientGetRedir: F[Long] =
     async.flatMap(_.clientGetredir().futureLift.map(Long.unbox))
