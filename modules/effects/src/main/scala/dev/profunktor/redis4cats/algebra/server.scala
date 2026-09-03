@@ -16,7 +16,17 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.redis4cats.effects.{ ClientListArgs, FlushMode, KillArgs, RedisServerTime, UnblockType }
+import dev.profunktor.redis4cats.effects.{
+  ClientListArgs,
+  ClientTrackingArgs,
+  CommandInfo,
+  FlushMode,
+  KillArgs,
+  RedisServerTime,
+  SlowLogEntry,
+  TrackingInfo,
+  UnblockType
+}
 
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
@@ -43,7 +53,11 @@ trait Diagnostic[F[_], V] {
   def lastSave: F[Instant]
   def slowLogLen: F[Long]
   def slowLogReset: F[Unit]
+  def slowLogGet: F[List[SlowLogEntry]]
+  def slowLogGet(count: Int): F[List[SlowLogEntry]]
   def commandCount: F[Long]
+  def command: F[List[CommandInfo]]
+  def commandInfo(names: String*): F[List[CommandInfo]]
   def time: F[RedisServerTime]
 }
 
@@ -67,6 +81,8 @@ trait ClientAdmin[F[_]] {
   def clientCaching(enabled: Boolean): F[Unit]
   def clientNoTouch(enabled: Boolean): F[Unit]
   def clientNoEvict(enabled: Boolean): F[Unit]
+  def clientTracking(args: ClientTrackingArgs): F[Unit]
+  def clientTrackingInfo: F[TrackingInfo]
 }
 
 trait Maintenance[F[_], K] {

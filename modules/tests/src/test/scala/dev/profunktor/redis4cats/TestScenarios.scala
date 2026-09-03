@@ -1266,8 +1266,25 @@ trait TestScenarios { self: FunSuite =>
       slowLogLen <- redis.slowLogLen
       _ <- IO(assert(slowLogLen.isValidLong))
       _ <- redis.slowLogReset
+      // force every command to log, so PING deterministically produces a SLOWLOG entry
+      originalSlowlogThreshold <- redis.configGet("slowlog-log-slower-than")
+      _ <- redis.configSet("slowlog-log-slower-than", "0")
+      _ <- redis.ping
+      slowLogEntries <- redis.slowLogGet
+      _ <- IO(assert(slowLogEntries.nonEmpty))
+      _ <- IO(assert(slowLogEntries.head.args.headOption.exists(_.equalsIgnoreCase("ping"))))
+      slowLogEntriesLimited <- redis.slowLogGet(1)
+      _ <- IO(assertEquals(slowLogEntriesLimited.size, 1))
+      _ <- originalSlowlogThreshold
+             .get("slowlog-log-slower-than")
+             .traverse_(v => redis.configSet("slowlog-log-slower-than", v))
+      _ <- redis.slowLogReset
       commandCount <- redis.commandCount
       _ <- IO(assert(commandCount > 0))
+      allCommands <- redis.command
+      _ <- IO(assert(allCommands.exists(_.name == "get")))
+      pingInfo <- redis.commandInfo("ping")
+      _ <- IO(assert(pingInfo.exists(c => c.name == "ping" && c.flags.contains(CommandFlag.Fast))))
       time <- redis.time
       _ <- IO(assert(time.epochSecond > 0 && time.microseconds >= 0 && time.microseconds < 1000000))
       // config
@@ -1295,9 +1312,16 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(unblocked, 0L))
       redir <- redis.clientGetRedir
       _ <- IO(assert(redir.isValidLong))
-      // CLIENT CACHING requires CLIENT TRACKING to already be on, which this PR doesn't wrap —
-      // exercised for coverage, expected to error here.
-      _ <- redis.clientCaching(true).attempt.void
+      // CLIENT CACHING requires CLIENT TRACKING to already be on with OPTIN/OPTOUT - now that
+      // clientTracking is wrapped, this is a real success path rather than an expected error.
+      _ <- redis.clientTracking(ClientTrackingArgs(enabled = true, optIn = true))
+      trackingInfo <- redis.clientTrackingInfo
+      _ <- IO(assert(trackingInfo.flags.contains(TrackingFlag.On)))
+      _ <- IO(assert(trackingInfo.flags.contains(TrackingFlag.OptIn)))
+      _ <- redis.clientCaching(true)
+      _ <- redis.clientTracking(ClientTrackingArgs(enabled = false))
+      offTrackingInfo <- redis.clientTrackingInfo
+      _ <- IO(assert(offTrackingInfo.flags.contains(TrackingFlag.Off)))
       _ <- redis.clientNoTouch(true)
       _ <- redis.clientNoTouch(false)
       _ <- redis.clientNoEvict(true)

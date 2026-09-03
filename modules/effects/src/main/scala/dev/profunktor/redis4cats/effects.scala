@@ -870,4 +870,89 @@ object effects {
     case object Timeout extends UnblockType
     case object Error extends UnblockType
   }
+
+  /** A behavioral flag on a Redis command, as reported by `COMMAND`/`COMMAND INFO`. */
+  sealed trait CommandFlag
+  object CommandFlag {
+    case object Write extends CommandFlag
+    case object ReadOnly extends CommandFlag
+    case object DenyOom extends CommandFlag
+    case object Admin extends CommandFlag
+    case object PubSub extends CommandFlag
+    case object NoScript extends CommandFlag
+    case object Random extends CommandFlag
+    case object SortForScript extends CommandFlag
+    case object Loading extends CommandFlag
+    case object Stale extends CommandFlag
+    case object SkipMonitor extends CommandFlag
+    case object Asking extends CommandFlag
+    case object Fast extends CommandFlag
+    case object MovableKeys extends CommandFlag
+  }
+
+  /** One entry of a `COMMAND`/`COMMAND INFO` reply. `firstKeyPosition`/`lastKeyPosition`/`keyStepCount` describe where
+    * the command's keys sit among its arguments - all `0` when the command has no predetermined key position (see
+    * [[CommandFlag.MovableKeys]]).
+    */
+  final case class CommandInfo(
+      name: String,
+      arity: Int,
+      flags: Set[CommandFlag],
+      firstKeyPosition: Int,
+      lastKeyPosition: Int,
+      keyStepCount: Int,
+      aclCategories: Set[AclCategory]
+  )
+
+  /** One entry of a `SLOWLOG GET` reply. `clientAddr`/`clientName` are absent on Redis servers older than 4.0, which
+    * only reported `id`/`timestamp`/`duration`/`args`. `originalArgCount` is a newer field still - it's the true number
+    * of arguments the command had, which can exceed `args.size` when Redis truncates a long argument list for display;
+    * `None` on servers that don't report it.
+    */
+  final case class SlowLogEntry(
+      id: Long,
+      timestamp: Instant,
+      duration: FiniteDuration,
+      args: List[String],
+      clientAddr: Option[String],
+      clientName: Option[String],
+      originalArgCount: Option[Int]
+  )
+
+  /** Failure raised while decoding a `SLOWLOG GET` reply into [[SlowLogEntry]]. */
+  final case class UnexpectedSlowLogEntry(entry: String) extends RuntimeException(s"Unexpected SLOWLOG entry: $entry")
+
+  /** Options for `CLIENT TRACKING`. `enabled` is Redis's mandatory `ON`/`OFF` first argument; the rest are optional
+    * modifiers that only apply when enabling tracking. `optIn`/`optOut` are mutually exclusive by Redis's own rules,
+    * but left as independent flags here rather than a sum type, mirroring `TrackingArgs`' own shape - Redis itself
+    * rejects setting both, there's no silent-wrong-behavior risk in letting the server be the one to say so.
+    */
+  final case class ClientTrackingArgs(
+      enabled: Boolean,
+      bcast: Boolean = false,
+      optIn: Boolean = false,
+      optOut: Boolean = false,
+      noLoop: Boolean = false,
+      redirect: Option[Long] = None,
+      prefixes: List[String] = Nil
+  )
+
+  /** A single flag in a `CLIENT TRACKINGINFO` reply, describing one aspect of the connection's client-side-caching
+    * state.
+    */
+  sealed trait TrackingFlag
+  object TrackingFlag {
+    case object Off extends TrackingFlag
+    case object On extends TrackingFlag
+    case object Bcast extends TrackingFlag
+    case object OptIn extends TrackingFlag
+    case object OptOut extends TrackingFlag
+    case object CachingYes extends TrackingFlag
+    case object CachingNo extends TrackingFlag
+    case object NoLoop extends TrackingFlag
+    case object BrokenRedirect extends TrackingFlag
+  }
+
+  /** The reply to `CLIENT TRACKINGINFO`. */
+  final case class TrackingInfo(flags: Set[TrackingFlag], redirect: Long, prefixes: List[String])
 }
