@@ -38,6 +38,7 @@ import io.lettuce.core.json.arguments.{ JsonMsetArgs, JsonRangeArgs, JsonSetArgs
 import io.lettuce.core.json.{ JsonPath, JsonType, JsonValue }
 import io.lettuce.core.{
   AclSetuserArgs,
+  BLMovemArgs,
   BitFieldArgs,
   ClientOptions,
   Consumer => JConsumer,
@@ -53,12 +54,15 @@ import io.lettuce.core.{
   HSetExArgs => JHSetExArgs,
   LMPopArgs,
   LMoveArgs,
+  LMovemArgs,
   LPosArgs => JLPosArgs,
   Limit => JLimit,
   Range => JRange,
   ReadFrom => JReadFrom,
   RedisFuture,
   RestoreArgs => JRestoreArgs,
+  SDiffCardArgs,
+  SUnionCardArgs,
   ScanCursor => JScanCursor,
   ScoredValue,
   SetArgs => JSetArgs,
@@ -1211,6 +1215,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def sDiff(keys: K*): F[Set[V]] =
     async.flatMap(_.sdiff(keys: _*).futureLift.map(_.asScala.toSet))
 
+  override def sDiffCard(keys: K*): F[Long] =
+    async.flatMap(_.sdiffcard(keys.asJava).futureLift.map(x => Long.box(x)))
+
+  override def sDiffCard(limit: Long, keys: K*): F[Long] =
+    async.flatMap(_.sdiffcard(keys.asJava, new SDiffCardArgs().limit(limit)).futureLift.map(x => Long.box(x)))
+
   override def sInter(keys: K*): F[Set[V]] =
     async.flatMap(_.sinter(keys: _*).futureLift.map(_.asScala.toSet))
 
@@ -1231,6 +1241,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def sUnion(keys: K*): F[Set[V]] =
     async.flatMap(_.sunion(keys: _*).futureLift.map(_.asScala.toSet))
+
+  override def sUnionCard(keys: K*): F[Long] =
+    async.flatMap(_.sunioncard(keys.asJava).futureLift.map(x => Long.box(x)))
+
+  override def sUnionCard(limit: Long, keys: K*): F[Long] =
+    async.flatMap(_.sunioncard(keys.asJava, new SUnionCardArgs().limit(limit)).futureLift.map(x => Long.box(x)))
 
   override def sUnionStore(destination: K, keys: K*): F[Long] =
     async.flatMap(_.sunionstore(destination, keys: _*).futureLift.map(x => Long.box(x)))
@@ -1277,6 +1293,34 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case (LMoveSide.Right, LMoveSide.Right) => LMoveArgs.Builder.rightRight()
     }
 
+  private def toLMovemArgs(sourceSide: LMoveSide, destinationSide: LMoveSide): LMovemArgs =
+    (sourceSide, destinationSide) match {
+      case (LMoveSide.Left, LMoveSide.Left)   => LMovemArgs.Builder.leftLeft()
+      case (LMoveSide.Left, LMoveSide.Right)  => LMovemArgs.Builder.leftRight()
+      case (LMoveSide.Right, LMoveSide.Left)  => LMovemArgs.Builder.rightLeft()
+      case (LMoveSide.Right, LMoveSide.Right) => LMovemArgs.Builder.rightRight()
+    }
+
+  private def applyLMoveCount(args: LMovemArgs, count: LMoveCount): LMovemArgs =
+    count match {
+      case LMoveCount.UpTo(n, ordering)    => args.count(n, ordering)
+      case LMoveCount.Exactly(n, ordering) => args.exactly(n, ordering)
+    }
+
+  private def toBLMovemArgs(sourceSide: LMoveSide, destinationSide: LMoveSide): BLMovemArgs =
+    (sourceSide, destinationSide) match {
+      case (LMoveSide.Left, LMoveSide.Left)   => BLMovemArgs.Builder.leftLeft()
+      case (LMoveSide.Left, LMoveSide.Right)  => BLMovemArgs.Builder.leftRight()
+      case (LMoveSide.Right, LMoveSide.Left)  => BLMovemArgs.Builder.rightLeft()
+      case (LMoveSide.Right, LMoveSide.Right) => BLMovemArgs.Builder.rightRight()
+    }
+
+  private def applyLMoveCount(args: BLMovemArgs, count: LMoveCount): BLMovemArgs =
+    count match {
+      case LMoveCount.UpTo(n, ordering)    => args.count(n, ordering)
+      case LMoveCount.Exactly(n, ordering) => args.exactly(n, ordering)
+    }
+
   private def toLMPopArgs(side: LMoveSide): LMPopArgs =
     side match {
       case LMoveSide.Left  => LMPopArgs.Builder.left()
@@ -1305,6 +1349,38 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(
       _.blmove(source, destination, toLMoveArgs(sourceSide, destinationSide), timeout.toSecondsOrZero).futureLift
         .map(Option.apply)
+    )
+
+  override def blMoveMany(
+      timeout: Duration,
+      source: K,
+      destination: K,
+      sourceSide: LMoveSide,
+      destinationSide: LMoveSide
+  ): F[List[V]] =
+    async.flatMap(
+      _.blmovem(
+        source,
+        destination,
+        toBLMovemArgs(sourceSide, destinationSide).timeout(timeout.toSecondsOrZero)
+      ).futureLift
+        .map(_.asScala.toList)
+    )
+
+  override def blMoveMany(
+      timeout: Duration,
+      source: K,
+      destination: K,
+      sourceSide: LMoveSide,
+      destinationSide: LMoveSide,
+      count: LMoveCount
+  ): F[List[V]] =
+    async.flatMap(
+      _.blmovem(
+        source,
+        destination,
+        applyLMoveCount(toBLMovemArgs(sourceSide, destinationSide), count).timeout(timeout.toSecondsOrZero)
+      ).futureLift.map(_.asScala.toList)
     )
 
   override def blmPop(timeout: Duration, keys: NonEmptyList[K], side: LMoveSide): F[Option[(K, List[V])]] =
@@ -1345,6 +1421,28 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def lMove(source: K, destination: K, sourceSide: LMoveSide, destinationSide: LMoveSide): F[Option[V]] =
     async.flatMap(_.lmove(source, destination, toLMoveArgs(sourceSide, destinationSide)).futureLift.map(Option.apply))
+
+  override def lMoveMany(
+      source: K,
+      destination: K,
+      sourceSide: LMoveSide,
+      destinationSide: LMoveSide
+  ): F[List[V]] =
+    async.flatMap(
+      _.lmovem(source, destination, toLMovemArgs(sourceSide, destinationSide)).futureLift.map(_.asScala.toList)
+    )
+
+  override def lMoveMany(
+      source: K,
+      destination: K,
+      sourceSide: LMoveSide,
+      destinationSide: LMoveSide,
+      count: LMoveCount
+  ): F[List[V]] =
+    async.flatMap(
+      _.lmovem(source, destination, applyLMoveCount(toLMovemArgs(sourceSide, destinationSide), count)).futureLift
+        .map(_.asScala.toList)
+    )
 
   override def lmPop(keys: NonEmptyList[K], side: LMoveSide): F[Option[(K, List[V])]] =
     async
