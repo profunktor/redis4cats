@@ -40,8 +40,9 @@ import io.lettuce.core.{
   AclSetuserArgs,
   BLMovemArgs,
   BitFieldArgs,
-  ClientListArgs,
+  ClientListArgs => JClientListArgs,
   ClientOptions,
+  CompareCondition => JCompareCondition,
   Consumer => JConsumer,
   CopyArgs => JCopyArgs,
   ExpireArgs => JExpireArgs,
@@ -53,12 +54,13 @@ import io.lettuce.core.{
   GetExArgs => JGetExArgs,
   HGetExArgs => JHGetExArgs,
   HSetExArgs => JHSetExArgs,
-  KillArgs,
+  KillArgs => JKillArgs,
   LMPopArgs,
   LMoveArgs,
   LMovemArgs,
   LPosArgs => JLPosArgs,
   Limit => JLimit,
+  MigrateArgs => JMigrateArgs,
   Range => JRange,
   ReadFrom => JReadFrom,
   RedisFuture,
@@ -69,7 +71,9 @@ import io.lettuce.core.{
   ScoredValue,
   SetArgs => JSetArgs,
   SortArgs => JSortArgs,
-  UnblockType,
+  TrackingArgs => JTrackingArgs,
+  TrackingInfo => JTrackingInfo,
+  UnblockType => JUnblockType,
   XAddArgs => JXAddArgs,
   XAutoClaimArgs => JXAutoClaimArgs,
   XClaimArgs => JXClaimArgs,
@@ -81,6 +85,7 @@ import io.lettuce.core.{
   ZPopArgs,
   ZStoreArgs
 }
+import io.lettuce.core.models.command.{ CommandDetail => JCommandDetail, CommandDetailParser }
 import io.lettuce.core.models.stream.{ ClaimedMessages, PendingMessage, PendingMessages }
 import io.lettuce.core.protocol.CommandType
 import org.typelevel.keypool.KeyPool
@@ -495,6 +500,17 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   def del(k: K, keys: K*): F[Long] =
     async.flatMap(_.del((k +: keys): _*).futureLift.map(x => Long.box(x)))
 
+  override def delex(key: K, condition: CompareCondition[V]): F[Boolean] =
+    async.flatMap(_.delex(key, toJCompareCondition(condition)).futureLift.map(x => Long.unbox(x) > 0))
+
+  private def toJCompareCondition(condition: CompareCondition[V]): JCompareCondition[V] =
+    condition match {
+      case CompareCondition.ValueEqual(value)      => JCompareCondition.valueEq(value)
+      case CompareCondition.ValueNotEqual(value)   => JCompareCondition.valueNe(value)
+      case CompareCondition.DigestEqual(digest)    => JCompareCondition.digestEq(digest)
+      case CompareCondition.DigestNotEqual(digest) => JCompareCondition.digestNe(digest)
+    }
+
   override def dump(key: K): F[Option[Array[Byte]]] =
     async.flatMap(_.dump(key).futureLift.map(Option(_)))
 
@@ -666,6 +682,32 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def move(key: K, db: Int): F[Boolean] =
     async.flatMap(_.move(key, db).futureLift.map(x => Boolean.box(x)))
+
+  override def migrate(host: String, port: Int, key: K, destinationDb: Int, timeout: FiniteDuration): F[Boolean] =
+    async.flatMap(_.migrate(host, port, key, destinationDb, timeout.toMillis).futureLift.map(_ != "NOKEY"))
+
+  override def migrate(
+      host: String,
+      port: Int,
+      destinationDb: Int,
+      timeout: FiniteDuration,
+      args: MigrateArgs[K]
+  ): F[Boolean] =
+    async
+      .flatMap(_.migrate(host, port, destinationDb, timeout.toMillis, toJMigrateArgs(args)).futureLift)
+      .map(_ != "NOKEY")
+
+  private def toJMigrateArgs(args: MigrateArgs[K]): JMigrateArgs[K] = {
+    val jArgs = new JMigrateArgs[K]()
+    if (args.keys.nonEmpty) jArgs.keys(args.keys.asJava): Unit
+    if (args.keepSource) jArgs.copy(): Unit
+    if (args.replace) jArgs.replace(): Unit
+    args.auth.foreach {
+      case MigrateAuth.Password(password)                   => jArgs.auth(password): Unit
+      case MigrateAuth.UsernamePassword(username, password) => jArgs.auth2(username, password): Unit
+    }
+    jArgs
+  }
 
   override def touch(key: K, keys: K*): F[Long] =
     async.flatMap(_.touch((key +: keys): _*).futureLift.map(x => Long.box(x)))
@@ -1908,12 +1950,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def bzPopMin(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
     async
       .flatMap(_.bzpopmin(timeout.toSecondsOrZero, keys.toList: _*).futureLift)
-      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
   override def bzPopMax(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
     async
       .flatMap(_.bzpopmax(timeout.toSecondsOrZero, keys.toList: _*).futureLift)
-      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
   override def zmPopMin(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]] =
     async
@@ -2220,8 +2262,115 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def slowLogReset: F[Unit] =
     async.flatMap(_.slowlogReset().futureLift.void)
 
+  override def slowLogGet: F[List[SlowLogEntry]] =
+    async.flatMap(_.slowlogGet().futureLift).flatMap(toSlowLogEntries)
+
+  override def slowLogGet(count: Int): F[List[SlowLogEntry]] =
+    async.flatMap(_.slowlogGet(count).futureLift).flatMap(toSlowLogEntries)
+
+  private def toSlowLogEntries(reply: java.util.List[Object]): F[List[SlowLogEntry]] =
+    reply.asScala.toList.traverse(toSlowLogEntry).liftTo[F]
+
+  // SLOWLOG GET entries are [id, timestamp, duration, [args...]] on Redis < 4.0, or with
+  // client addr/name appended on 4.0+; Lettuce hands this back as untyped nested List[Object].
+  private def toSlowLogEntry(raw: Any): Either[UnexpectedSlowLogEntry, SlowLogEntry] =
+    raw match {
+      case entry: java.util.List[_] =>
+        entry.asScala.toList match {
+          case id :: ts :: dur :: (args: java.util.List[_]) :: Nil =>
+            Right(
+              SlowLogEntry(
+                id.toString.toLong,
+                Instant.ofEpochSecond(ts.toString.toLong),
+                FiniteDuration(dur.toString.toLong, TimeUnit.MICROSECONDS),
+                args.asScala.toList.map(_.toString),
+                None,
+                None,
+                None
+              )
+            )
+          case id :: ts :: dur :: (args: java.util.List[_]) :: addr :: name :: Nil =>
+            Right(
+              SlowLogEntry(
+                id.toString.toLong,
+                Instant.ofEpochSecond(ts.toString.toLong),
+                FiniteDuration(dur.toString.toLong, TimeUnit.MICROSECONDS),
+                args.asScala.toList.map(_.toString),
+                Some(addr.toString),
+                Some(name.toString),
+                None
+              )
+            )
+          // Redis 8.x adds a 7th field: the command's true argument count, which can exceed
+          // args.size when a long argument list is truncated for display.
+          case id :: ts :: dur :: (args: java.util.List[_]) :: addr :: name :: argCount :: Nil =>
+            Right(
+              SlowLogEntry(
+                id.toString.toLong,
+                Instant.ofEpochSecond(ts.toString.toLong),
+                FiniteDuration(dur.toString.toLong, TimeUnit.MICROSECONDS),
+                args.asScala.toList.map(_.toString),
+                Some(addr.toString),
+                Some(name.toString),
+                Some(argCount.toString.toInt)
+              )
+            )
+          case other => Left(UnexpectedSlowLogEntry(other.toString))
+        }
+      case other => Left(UnexpectedSlowLogEntry(other.toString))
+    }
+
   override def commandCount: F[Long] =
     async.flatMap(_.commandCount().futureLift.map(Long.unbox))
+
+  override def command: F[List[CommandInfo]] =
+    async.flatMap(_.command().futureLift).flatMap(toCommandInfoList)
+
+  override def commandInfo(names: String*): F[List[CommandInfo]] =
+    async.flatMap(_.commandInfo(names: _*).futureLift).flatMap(toCommandInfoList)
+
+  private def toCommandInfoList(reply: java.util.List[Object]): F[List[CommandInfo]] =
+    CommandDetailParser.parse(reply).asScala.toList.traverse(toCommandInfo).liftTo[F]
+
+  private def toCommandInfo(cd: JCommandDetail): Either[AclError, CommandInfo] =
+    cd.getAclCategories.asScala.toList.traverse(AclCategory.fromJava).map(_.toSet).map { cats =>
+      CommandInfo(
+        name = cd.getName,
+        arity = cd.getArity,
+        flags = cd.getFlags.asScala.toSet.map(toCommandFlag),
+        firstKeyPosition = cd.getFirstKeyPosition,
+        lastKeyPosition = cd.getLastKeyPosition,
+        keyStepCount = cd.getKeyStepCount,
+        aclCategories = cats
+      )
+    }
+
+  private def toCommandFlag(f: JCommandDetail.Flag): CommandFlag =
+    f match {
+      case JCommandDetail.Flag.WRITE           => CommandFlag.Write
+      case JCommandDetail.Flag.READONLY        => CommandFlag.ReadOnly
+      case JCommandDetail.Flag.DENYOOM         => CommandFlag.DenyOom
+      case JCommandDetail.Flag.ADMIN           => CommandFlag.Admin
+      case JCommandDetail.Flag.PUBSUB          => CommandFlag.PubSub
+      case JCommandDetail.Flag.NOSCRIPT        => CommandFlag.NoScript
+      case JCommandDetail.Flag.RANDOM          => CommandFlag.Random
+      case JCommandDetail.Flag.SORT_FOR_SCRIPT => CommandFlag.SortForScript
+      case JCommandDetail.Flag.LOADING         => CommandFlag.Loading
+      case JCommandDetail.Flag.STALE           => CommandFlag.Stale
+      case JCommandDetail.Flag.SKIP_MONITOR    => CommandFlag.SkipMonitor
+      case JCommandDetail.Flag.ASKING          => CommandFlag.Asking
+      case JCommandDetail.Flag.FAST            => CommandFlag.Fast
+      case JCommandDetail.Flag.MOVABLEKEYS     => CommandFlag.MovableKeys
+    }
+
+  override def time: F[RedisServerTime] =
+    async.flatMap(_.time().futureLift.map(reply => toRedisServerTime(reply)))
+
+  private def toRedisServerTime(reply: java.util.List[V]): RedisServerTime =
+    reply.asScala.toList match {
+      case s :: us :: Nil => RedisServerTime(s.toString.toLong, us.toString.toLong)
+      case other          => throw UnexpectedTimeReply(other.toString)
+    }
 
   override def configGet(parameter: String): F[Map[String, String]] =
     async.flatMap(_.configGet(parameter).futureLift.map(_.asScala.toMap))
@@ -2259,19 +2408,61 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.clientList().futureLift).flatMap(parseClientLines)
 
   override def clientList(args: ClientListArgs): F[List[Map[String, String]]] =
-    async.flatMap(_.clientList(args).futureLift).flatMap(parseClientLines)
+    async.flatMap(_.clientList(toJClientListArgs(args)).futureLift).flatMap(parseClientLines)
 
   override def clientKill(addr: String): F[Unit] =
     async.flatMap(_.clientKill(addr).futureLift.void)
 
   override def clientKill(args: KillArgs): F[Long] =
-    async.flatMap(_.clientKill(args).futureLift.map(Long.unbox))
+    async.flatMap(_.clientKill(toJKillArgs(args)).futureLift.map(Long.unbox))
 
   override def clientPause(timeout: FiniteDuration): F[Unit] =
     async.flatMap(_.clientPause(timeout.toMillis).futureLift.void)
 
   override def clientUnblock(id: Long, unblockType: UnblockType): F[Long] =
-    async.flatMap(_.clientUnblock(id, unblockType).futureLift.map(Long.unbox))
+    async.flatMap(_.clientUnblock(id, toJUnblockType(unblockType)).futureLift.map(Long.unbox))
+
+  // ClientListArgs.Type/KillArgs.Type are private to their enclosing Java class, unreachable from
+  // outside io.lettuce.core - Lettuce's own workaround is a set of Builder.typeX() static factories,
+  // each returning a fresh instance with that type already set. We start from one of those (or a
+  // plain constructor when no type filter applies) and chain the remaining public setters onto it.
+  private def toJClientListArgs(args: ClientListArgs): JClientListArgs =
+    args match {
+      case ClientListArgs.ByIds(ids) => JClientListArgs.Builder.ids(ids: _*)
+      case ClientListArgs.ByType(tpe) =>
+        tpe match {
+          case ClientType.Normal  => JClientListArgs.Builder.typeNormal()
+          case ClientType.Master  => JClientListArgs.Builder.typeMaster()
+          case ClientType.Replica => JClientListArgs.Builder.typeReplica()
+          case ClientType.PubSub  => JClientListArgs.Builder.typePubsub()
+        }
+    }
+
+  private def toJKillArgs(args: KillArgs): JKillArgs = {
+    val jArgs = args.tpe match {
+      case None => new JKillArgs()
+      case Some(tpe) =>
+        tpe match {
+          case ClientType.Normal  => JKillArgs.Builder.typeNormal()
+          case ClientType.Master  => JKillArgs.Builder.typeMaster()
+          case ClientType.Replica => JKillArgs.Builder.typeSlave()
+          case ClientType.PubSub  => JKillArgs.Builder.typePubsub()
+        }
+    }
+    args.id.foreach(jArgs.id)
+    args.user.foreach(jArgs.user)
+    args.addr.foreach(jArgs.addr)
+    args.laddr.foreach(jArgs.laddr)
+    args.skipMe.foreach(jArgs.skipme)
+    args.maxAge.foreach(v => jArgs.maxAge(v): Unit)
+    jArgs
+  }
+
+  private def toJUnblockType(tpe: UnblockType): JUnblockType =
+    tpe match {
+      case UnblockType.Timeout => JUnblockType.TIMEOUT
+      case UnblockType.Error   => JUnblockType.ERROR
+    }
 
   override def clientGetRedir: F[Long] =
     async.flatMap(_.clientGetredir().futureLift.map(Long.unbox))
@@ -2284,6 +2475,43 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def clientNoEvict(enabled: Boolean): F[Unit] =
     async.flatMap(_.clientNoEvict(enabled).futureLift.void)
+
+  override def clientTracking(args: ClientTrackingArgs): F[Unit] =
+    async.flatMap(_.clientTracking(toJTrackingArgs(args)).futureLift.void)
+
+  private def toJTrackingArgs(args: ClientTrackingArgs): JTrackingArgs = {
+    val jArgs = new JTrackingArgs().enabled(args.enabled)
+    if (args.bcast) jArgs.bcast(): Unit
+    if (args.optIn) jArgs.optin(): Unit
+    if (args.optOut) jArgs.optout(): Unit
+    if (args.noLoop) jArgs.noloop(): Unit
+    args.redirect.foreach(r => jArgs.redirect(r): Unit)
+    if (args.prefixes.nonEmpty) jArgs.prefixes(args.prefixes: _*): Unit
+    jArgs
+  }
+
+  override def clientTrackingInfo: F[TrackingInfo] =
+    async.flatMap(_.clientTrackinginfo().futureLift).map(toTrackingInfo)
+
+  private def toTrackingInfo(info: JTrackingInfo): TrackingInfo =
+    TrackingInfo(
+      flags = info.getFlags.asScala.toSet.map(toTrackingFlag),
+      redirect = info.getRedirect,
+      prefixes = info.getPrefixes.asScala.toList
+    )
+
+  private def toTrackingFlag(f: JTrackingInfo.TrackingFlag): TrackingFlag =
+    f match {
+      case JTrackingInfo.TrackingFlag.OFF             => TrackingFlag.Off
+      case JTrackingInfo.TrackingFlag.ON              => TrackingFlag.On
+      case JTrackingInfo.TrackingFlag.BCAST           => TrackingFlag.Bcast
+      case JTrackingInfo.TrackingFlag.OPTIN           => TrackingFlag.OptIn
+      case JTrackingInfo.TrackingFlag.OPTOUT          => TrackingFlag.OptOut
+      case JTrackingInfo.TrackingFlag.CACHING_YES     => TrackingFlag.CachingYes
+      case JTrackingInfo.TrackingFlag.CACHING_NO      => TrackingFlag.CachingNo
+      case JTrackingInfo.TrackingFlag.NOLOOP          => TrackingFlag.NoLoop
+      case JTrackingInfo.TrackingFlag.BROKEN_REDIRECT => TrackingFlag.BrokenRedirect
+    }
 
   override def memoryUsage(key: K): F[Option[Long]] =
     async.flatMap(_.memoryUsage(key).futureLift.map(x => Option(x).map(Long.unbox)))

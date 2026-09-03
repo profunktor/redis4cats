@@ -27,16 +27,7 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
 import fs2.Stream
-import io.lettuce.core.{
-  ClientListArgs,
-  GeoArgs,
-  KillArgs,
-  LMovemArgs,
-  RedisCommandExecutionException,
-  RedisException,
-  UnblockType,
-  ZAggregateArgs
-}
+import io.lettuce.core.{ GeoArgs, LMovemArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs }
 import munit.FunSuite
 
 import java.time.Instant
@@ -852,6 +843,33 @@ trait TestScenarios { self: FunSuite =>
       // (non-LFU) policy, so the real, correct behavior here is that it fails, not succeeds.
       freqAttempt <- redis.objectFreq("objkey").attempt
       _ <- IO(assert(freqAttempt.isLeft))
+      // MIGRATE: Redis checks the source key's existence before ever attempting to reach the
+      // destination, so a missing key deterministically returns NOKEY (false) regardless of
+      // whether "no-such-host" is actually reachable - no second live instance needed.
+      migratedMissing <- redis.migrate("no-such-host", 6379, "migratekey-does-not-exist", 0, 1.second)
+      _ <- IO(assertEquals(migratedMissing, false))
+      migratedMissingArgs <- redis.migrate(
+                               "no-such-host",
+                               6379,
+                               0,
+                               1.second,
+                               MigrateArgs(keys = List("migratekey-does-not-exist"), keepSource = true)
+                             )
+      _ <- IO(assertEquals(migratedMissingArgs, false))
+      // DELEX: value-based condition, both the holds and doesn't-hold branches are real assertions;
+      // the digest-based branch can only safely assert the doesn't-match case, since computing the
+      // real XXH3 digest to hit the matching branch isn't practical from a test.
+      _ <- redis.set("delexkey", "v1")
+      deletedOnMismatch <- redis.delex("delexkey", CompareCondition.ValueEqual("wrong-value"))
+      _ <- IO(assertEquals(deletedOnMismatch, false))
+      stillThere <- redis.exists("delexkey")
+      _ <- IO(assert(stillThere))
+      deletedOnDigestMismatch <- redis.delex("delexkey", CompareCondition.DigestEqual("0" * 16))
+      _ <- IO(assertEquals(deletedOnDigestMismatch, false))
+      deletedOnMatch <- redis.delex("delexkey", CompareCondition.ValueEqual("v1"))
+      _ <- IO(assertEquals(deletedOnMatch, true))
+      goneAfterDelex <- redis.exists("delexkey")
+      _ <- IO(assert(!goneAfterDelex))
       _ <- redis.flushAll
     } yield ()
   }
@@ -1248,8 +1266,27 @@ trait TestScenarios { self: FunSuite =>
       slowLogLen <- redis.slowLogLen
       _ <- IO(assert(slowLogLen.isValidLong))
       _ <- redis.slowLogReset
+      // force every command to log, so PING deterministically produces a SLOWLOG entry
+      originalSlowlogThreshold <- redis.configGet("slowlog-log-slower-than")
+      _ <- redis.configSet("slowlog-log-slower-than", "0")
+      _ <- redis.ping
+      slowLogEntries <- redis.slowLogGet
+      _ <- IO(assert(slowLogEntries.nonEmpty))
+      _ <- IO(assert(slowLogEntries.head.args.headOption.exists(_.equalsIgnoreCase("ping"))))
+      slowLogEntriesLimited <- redis.slowLogGet(1)
+      _ <- IO(assertEquals(slowLogEntriesLimited.size, 1))
+      _ <- originalSlowlogThreshold
+             .get("slowlog-log-slower-than")
+             .traverse_(v => redis.configSet("slowlog-log-slower-than", v))
+      _ <- redis.slowLogReset
       commandCount <- redis.commandCount
       _ <- IO(assert(commandCount > 0))
+      allCommands <- redis.command
+      _ <- IO(assert(allCommands.exists(_.name == "get")))
+      pingInfo <- redis.commandInfo("ping")
+      _ <- IO(assert(pingInfo.exists(c => c.name == "ping" && c.flags.contains(CommandFlag.Fast))))
+      time <- redis.time
+      _ <- IO(assert(time.epochSecond > 0 && time.microseconds >= 0 && time.microseconds < 1000000))
       // config
       originalSamples <- redis.configGet("maxmemory-samples")
       _ <- redis.configSet("maxmemory-samples", "3")
@@ -1264,20 +1301,27 @@ trait TestScenarios { self: FunSuite =>
       clients <- redis.clientList
       _ <- IO(assert(clients.nonEmpty))
       ownId <- redis.getClientId()
-      clientsById <- redis.clientList(new ClientListArgs().ids(ownId))
+      clientsById <- redis.clientList(ClientListArgs.ByIds(List(ownId)))
       _ <- IO(assert(clientsById.nonEmpty))
       // CLIENT KILL by bogus single address errors ("No such client"); by filter args (a
       // non-existent id) just reports zero matches, which is the safe form to assert on.
       _ <- redis.clientKill("255.255.255.255:1").attempt.void
-      killedByFilter <- redis.clientKill(new KillArgs().id(Long.MaxValue))
+      killedByFilter <- redis.clientKill(KillArgs(id = Some(Long.MaxValue)))
       _ <- IO(assertEquals(killedByFilter, 0L))
-      unblocked <- redis.clientUnblock(Long.MaxValue, UnblockType.TIMEOUT)
+      unblocked <- redis.clientUnblock(Long.MaxValue, UnblockType.Timeout)
       _ <- IO(assertEquals(unblocked, 0L))
       redir <- redis.clientGetRedir
       _ <- IO(assert(redir.isValidLong))
-      // CLIENT CACHING requires CLIENT TRACKING to already be on, which this PR doesn't wrap —
-      // exercised for coverage, expected to error here.
-      _ <- redis.clientCaching(true).attempt.void
+      // CLIENT CACHING requires CLIENT TRACKING to already be on with OPTIN/OPTOUT - now that
+      // clientTracking is wrapped, this is a real success path rather than an expected error.
+      _ <- redis.clientTracking(ClientTrackingArgs(enabled = true, optIn = true))
+      trackingInfo <- redis.clientTrackingInfo
+      _ <- IO(assert(trackingInfo.flags.contains(TrackingFlag.On)))
+      _ <- IO(assert(trackingInfo.flags.contains(TrackingFlag.OptIn)))
+      _ <- redis.clientCaching(true)
+      _ <- redis.clientTracking(ClientTrackingArgs(enabled = false))
+      offTrackingInfo <- redis.clientTrackingInfo
+      _ <- IO(assert(offTrackingInfo.flags.contains(TrackingFlag.Off)))
       _ <- redis.clientNoTouch(true)
       _ <- redis.clientNoTouch(false)
       _ <- redis.clientNoEvict(true)

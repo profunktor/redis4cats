@@ -19,9 +19,11 @@ package dev.profunktor.redis4cats.algebra
 import java.time.Instant
 import dev.profunktor.redis4cats.data.KeyScanCursor
 import dev.profunktor.redis4cats.effects.{
+  CompareCondition,
   CopyArgs,
   ExpireExistenceArg,
   KeyScanArgs,
+  MigrateArgs,
   RedisType,
   RestoreArgs,
   ScanArgs,
@@ -34,6 +36,12 @@ trait KeyCommands[F[_], K, V] {
   def copy(source: K, destination: K): F[Boolean]
   def copy(source: K, destination: K, copyArgs: CopyArgs): F[Boolean]
   def del(k: K, keys: K*): F[Long]
+
+  /** Deletes `key` only if `condition` holds against its current value/digest - Redis's `DELEX`. `false` if the key
+    * didn't exist or the condition didn't hold; any other failure raises in `F` as usual.
+    */
+  def delex(key: K, condition: CompareCondition[V]): F[Boolean]
+
   def dump(key: K): F[Option[Array[Byte]]]
   def exists(key: K, keys: K*): F[Boolean]
   def expire(key: K, expiresIn: FiniteDuration): F[Boolean]
@@ -74,6 +82,15 @@ trait KeyCommands[F[_], K, V] {
   def expireTime(key: K): F[Option[Instant]]
   def pExpireTime(key: K): F[Option[Instant]]
   def move(key: K, db: Int): F[Boolean]
+
+  /** Moves `key` to a different Redis instance. Returns `false` for Redis's own "NOKEY" reply (the key didn't exist),
+    * `true` on success - any other failure (auth, connection, timeout) raises in `F` as usual.
+    */
+  def migrate(host: String, port: Int, key: K, destinationDb: Int, timeout: FiniteDuration): F[Boolean]
+
+  /** Multi-key form of [[migrate]], via Lettuce's [[io.lettuce.core.MigrateArgs]] (COPY/REPLACE/AUTH/multiple keys). */
+  def migrate(host: String, port: Int, destinationDb: Int, timeout: FiniteDuration, args: MigrateArgs[K]): F[Boolean]
+
   def touch(key: K, keys: K*): F[Long]
   // This command is very similar to DEL: it removes the specified keys. Just like DEL a key is ignored if it does not exist. However the command performs the actual memory reclaiming in a different thread, so it is not blocking, while DEL is. This is where the command name comes from: the command just unlinks the keys from the keyspace. The actual removal will happen later asynchronously.
   def unlink(key: K*): F[Long]

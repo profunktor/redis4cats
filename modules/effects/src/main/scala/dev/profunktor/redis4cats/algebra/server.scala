@@ -16,15 +16,24 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.redis4cats.effects.FlushMode
-import io.lettuce.core.{ ClientListArgs, KillArgs, UnblockType }
+import dev.profunktor.redis4cats.effects.{
+  ClientListArgs,
+  ClientTrackingArgs,
+  CommandInfo,
+  FlushMode,
+  KillArgs,
+  RedisServerTime,
+  SlowLogEntry,
+  TrackingInfo,
+  UnblockType
+}
 
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
-trait ServerCommands[F[_], K]
+trait ServerCommands[F[_], K, V]
     extends Flush[F, K]
-    with Diagnostic[F]
+    with Diagnostic[F, V]
     with Config[F]
     with ClientAdmin[F]
     with Maintenance[F, K]
@@ -37,14 +46,19 @@ trait Flush[F[_], K] {
   def flushDb(mode: FlushMode): F[Unit]
 }
 
-trait Diagnostic[F[_]] {
+trait Diagnostic[F[_], V] {
   def info: F[Map[String, String]]
   def info(section: String): F[Map[String, String]]
   def dbsize: F[Long]
   def lastSave: F[Instant]
   def slowLogLen: F[Long]
   def slowLogReset: F[Unit]
+  def slowLogGet: F[List[SlowLogEntry]]
+  def slowLogGet(count: Int): F[List[SlowLogEntry]]
   def commandCount: F[Long]
+  def command: F[List[CommandInfo]]
+  def commandInfo(names: String*): F[List[CommandInfo]]
+  def time: F[RedisServerTime]
 }
 
 trait Config[F[_]] {
@@ -67,6 +81,8 @@ trait ClientAdmin[F[_]] {
   def clientCaching(enabled: Boolean): F[Unit]
   def clientNoTouch(enabled: Boolean): F[Unit]
   def clientNoEvict(enabled: Boolean): F[Unit]
+  def clientTracking(args: ClientTrackingArgs): F[Unit]
+  def clientTrackingInfo: F[TrackingInfo]
 }
 
 trait Maintenance[F[_], K] {

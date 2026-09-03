@@ -20,8 +20,8 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-val commandsApi: Resource[IO, ServerCommands[IO, String]] = {
-  Redis[IO].fromClient[String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[ServerCommands[IO, String]]
+val commandsApi: Resource[IO, ServerCommands[IO, String, String]] = {
+  Redis[IO].fromClient[String, String](null, null.asInstanceOf[RedisCodec[String, String]]).widen[ServerCommands[IO, String, String]]
 }
 ```
 
