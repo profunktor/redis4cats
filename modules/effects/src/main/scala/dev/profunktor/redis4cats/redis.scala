@@ -939,12 +939,15 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       if (withMatchLen) Some(m.getMatchLen) else None
     )
 
-  private def toLcsResult(withMatchLen: Boolean)(r: JStringMatchResult): LcsResult =
-    LcsResult(
-      Option(r.getMatchString),
-      r.getMatches.asScala.toList.map(toLcsMatch(withMatchLen)),
-      r.getLen
-    )
+  // Redis's plain (non-LEN, non-IDX) LCS reply is just the matched string - no length field at all
+  // on the wire - so Lettuce's StringMatchResult.getLen() defaults to 0 in that mode, not the actual
+  // length. LEN/IDX replies do carry a real length. isIdx tells us which reply shape we're decoding;
+  // the plain case derives len from the matched string we do have, rather than trusting an unset 0.
+  private def toLcsResult(isIdx: Boolean, withMatchLen: Boolean)(r: JStringMatchResult): LcsResult = {
+    val matchString = Option(r.getMatchString)
+    val len         = if (isIdx) r.getLen else matchString.fold(0L)(_.length.toLong)
+    LcsResult(matchString, r.getMatches.asScala.toList.map(toLcsMatch(withMatchLen)), len)
+  }
 
   // Lettuce's LcsArgs.Builder.keys(String...) takes raw key names rather than K-encoded values (it
   // calls CommandArgs.add(String), not addKey(K)) — a Lettuce API limitation, not a redis4cats one.
@@ -952,7 +955,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   // text, which holds for the common String/UTF8 codec but isn't guaranteed for an arbitrary K.
   override def lcs(key1: K, key2: K): F[LcsResult] =
     async.flatMap(
-      _.lcs(JLcsArgs.Builder.keys(key1.toString, key2.toString)).futureLift.map(toLcsResult(withMatchLen = false))
+      _.lcs(JLcsArgs.Builder.keys(key1.toString, key2.toString)).futureLift
+        .map(toLcsResult(isIdx = false, withMatchLen = false))
     )
 
   override def lcsLen(key1: K, key2: K): F[Long] =
@@ -962,7 +966,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     val jArgs = JLcsArgs.Builder.keys(key1.toString, key2.toString).withIdx()
     minMatchLen.foreach(jArgs.minMatchLen)
     if (withMatchLen) jArgs.withMatchLen(): Unit
-    async.flatMap(_.lcs(jArgs).futureLift.map(toLcsResult(withMatchLen)))
+    async.flatMap(_.lcs(jArgs).futureLift.map(toLcsResult(isIdx = true, withMatchLen)))
   }
 
   override def mGet(keys: Set[K]): F[Map[K, V]] =
