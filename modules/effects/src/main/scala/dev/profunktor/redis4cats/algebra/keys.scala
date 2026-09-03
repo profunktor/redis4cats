@@ -27,6 +27,7 @@ import dev.profunktor.redis4cats.effects.{
   ScanArgs,
   SortArgs
 }
+import io.lettuce.core.MigrateArgs
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -74,6 +75,15 @@ trait KeyCommands[F[_], K, V] {
   def expireTime(key: K): F[Option[Instant]]
   def pExpireTime(key: K): F[Option[Instant]]
   def move(key: K, db: Int): F[Boolean]
+
+  /** Moves `key` to a different Redis instance. Returns `false` for Redis's own "NOKEY" reply (the key didn't exist),
+    * `true` on success - any other failure (auth, connection, timeout) raises in `F` as usual.
+    */
+  def migrate(host: String, port: Int, key: K, destinationDb: Int, timeout: FiniteDuration): F[Boolean]
+
+  /** Multi-key form of [[migrate]], via Lettuce's [[io.lettuce.core.MigrateArgs]] (COPY/REPLACE/AUTH/multiple keys). */
+  def migrate(host: String, port: Int, destinationDb: Int, timeout: FiniteDuration, args: MigrateArgs[K]): F[Boolean]
+
   def touch(key: K, keys: K*): F[Long]
   // This command is very similar to DEL: it removes the specified keys. Just like DEL a key is ignored if it does not exist. However the command performs the actual memory reclaiming in a different thread, so it is not blocking, while DEL is. This is where the command name comes from: the command just unlinks the keys from the keyspace. The actual removal will happen later asynchronously.
   def unlink(key: K*): F[Long]

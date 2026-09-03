@@ -59,6 +59,7 @@ import io.lettuce.core.{
   LMovemArgs,
   LPosArgs => JLPosArgs,
   Limit => JLimit,
+  MigrateArgs,
   Range => JRange,
   ReadFrom => JReadFrom,
   RedisFuture,
@@ -666,6 +667,18 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def move(key: K, db: Int): F[Boolean] =
     async.flatMap(_.move(key, db).futureLift.map(x => Boolean.box(x)))
+
+  override def migrate(host: String, port: Int, key: K, destinationDb: Int, timeout: FiniteDuration): F[Boolean] =
+    async.flatMap(_.migrate(host, port, key, destinationDb, timeout.toMillis).futureLift.map(_ != "NOKEY"))
+
+  override def migrate(
+      host: String,
+      port: Int,
+      destinationDb: Int,
+      timeout: FiniteDuration,
+      args: MigrateArgs[K]
+  ): F[Boolean] =
+    async.flatMap(_.migrate(host, port, destinationDb, timeout.toMillis, args).futureLift.map(_ != "NOKEY"))
 
   override def touch(key: K, keys: K*): F[Long] =
     async.flatMap(_.touch((key +: keys): _*).futureLift.map(x => Long.box(x)))
@@ -1908,12 +1921,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def bzPopMin(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
     async
       .flatMap(_.bzpopmin(timeout.toSecondsOrZero, keys.toList: _*).futureLift)
-      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
   override def bzPopMax(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]] =
     async
       .flatMap(_.bzpopmax(timeout.toSecondsOrZero, keys.toList: _*).futureLift)
-      .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
   override def zmPopMin(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]] =
     async
@@ -2222,6 +2235,15 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def commandCount: F[Long] =
     async.flatMap(_.commandCount().futureLift.map(Long.unbox))
+
+  override def time: F[RedisServerTime] =
+    async.flatMap(_.time().futureLift.map(reply => toRedisServerTime(reply)))
+
+  private def toRedisServerTime(reply: java.util.List[V]): RedisServerTime =
+    reply.asScala.toList match {
+      case s :: us :: Nil => RedisServerTime(s.toString.toLong, us.toString.toLong)
+      case other          => throw UnexpectedTimeReply(other.toString)
+    }
 
   override def configGet(parameter: String): F[Map[String, String]] =
     async.flatMap(_.configGet(parameter).futureLift.map(_.asScala.toMap))

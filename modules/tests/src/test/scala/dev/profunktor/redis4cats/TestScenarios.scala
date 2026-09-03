@@ -852,6 +852,11 @@ trait TestScenarios { self: FunSuite =>
       // (non-LFU) policy, so the real, correct behavior here is that it fails, not succeeds.
       freqAttempt <- redis.objectFreq("objkey").attempt
       _ <- IO(assert(freqAttempt.isLeft))
+      // MIGRATE: Redis checks the source key's existence before ever attempting to reach the
+      // destination, so a missing key deterministically returns NOKEY (false) regardless of
+      // whether "no-such-host" is actually reachable - no second live instance needed.
+      migratedMissing <- redis.migrate("no-such-host", 6379, "migratekey-does-not-exist", 0, 1.second)
+      _ <- IO(assertEquals(migratedMissing, false))
       _ <- redis.flushAll
     } yield ()
   }
@@ -1250,6 +1255,8 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.slowLogReset
       commandCount <- redis.commandCount
       _ <- IO(assert(commandCount > 0))
+      time <- redis.time
+      _ <- IO(assert(time.epochSecond > 0 && time.microseconds >= 0 && time.microseconds < 1000000))
       // config
       originalSamples <- redis.configGet("maxmemory-samples")
       _ <- redis.configSet("maxmemory-samples", "3")

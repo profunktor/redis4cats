@@ -786,4 +786,15 @@ object effects {
     final case class UnexpectedReplicaEntry(entry: String)
         extends ReplicationError(s"Unexpected replica entry in ROLE reply: $entry")
   }
+
+  /** The reply to the Redis `TIME` command: the server's current Unix time. Lettuce decodes this as an untyped
+    * `List[V]` of exactly two elements (seconds, microseconds) - this gives both a name and a numeric type instead of
+    * positional list access.
+    */
+  final case class RedisServerTime(epochSecond: Long, microseconds: Long)
+
+  /** Failure raised while decoding a `TIME` reply into [[RedisServerTime]]. Its `[seconds, microseconds]` shape has
+    * been stable since Redis 1.0.0, so this should never fire in practice.
+    */
+  final case class UnexpectedTimeReply(reply: String) extends RuntimeException(s"Unexpected TIME reply: $reply")
 }
