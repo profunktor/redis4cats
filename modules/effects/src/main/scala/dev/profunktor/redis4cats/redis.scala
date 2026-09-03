@@ -40,6 +40,7 @@ import io.lettuce.core.{
   AclSetuserArgs,
   BLMovemArgs,
   BitFieldArgs,
+  ClientListArgs,
   ClientOptions,
   Consumer => JConsumer,
   CopyArgs => JCopyArgs,
@@ -52,6 +53,7 @@ import io.lettuce.core.{
   GetExArgs => JGetExArgs,
   HGetExArgs => JHGetExArgs,
   HSetExArgs => JHSetExArgs,
+  KillArgs,
   LMPopArgs,
   LMoveArgs,
   LMovemArgs,
@@ -67,6 +69,7 @@ import io.lettuce.core.{
   ScoredValue,
   SetArgs => JSetArgs,
   SortArgs => JSortArgs,
+  UnblockType,
   XAddArgs => JXAddArgs,
   XAutoClaimArgs => JXAutoClaimArgs,
   XClaimArgs => JXClaimArgs,
@@ -2213,6 +2216,86 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def slowLogLen: F[Long] =
     async.flatMap(_.slowlogLen.futureLift.map(Long.unbox))
+
+  override def slowLogReset: F[Unit] =
+    async.flatMap(_.slowlogReset().futureLift.void)
+
+  override def commandCount: F[Long] =
+    async.flatMap(_.commandCount().futureLift.map(Long.unbox))
+
+  override def configGet(parameter: String): F[Map[String, String]] =
+    async.flatMap(_.configGet(parameter).futureLift.map(_.asScala.toMap))
+
+  override def configGet(parameters: String*): F[Map[String, String]] =
+    async.flatMap(_.configGet(parameters: _*).futureLift.map(_.asScala.toMap))
+
+  override def configSet(parameter: String, value: String): F[Unit] =
+    async.flatMap(_.configSet(parameter, value).futureLift.void)
+
+  override def configSet(values: Map[String, String]): F[Unit] =
+    async.flatMap(_.configSet(values.asJava).futureLift.void)
+
+  override def configResetStat: F[Unit] =
+    async.flatMap(_.configResetstat().futureLift.void)
+
+  override def configRewrite: F[Unit] =
+    async.flatMap(_.configRewrite().futureLift.void)
+
+  private def parseClientLines(info: String): F[List[Map[String, String]]] =
+    FutureLift[F].delay(
+      info
+        .split("\\r?\\n")
+        .toList
+        .filter(_.nonEmpty)
+        .map(
+          _.split(" ").toList
+            .map(_.split("=", 2).toList)
+            .collect { case k :: v :: Nil => (k, v) }
+            .toMap
+        )
+    )
+
+  override def clientList: F[List[Map[String, String]]] =
+    async.flatMap(_.clientList().futureLift).flatMap(parseClientLines)
+
+  override def clientList(args: ClientListArgs): F[List[Map[String, String]]] =
+    async.flatMap(_.clientList(args).futureLift).flatMap(parseClientLines)
+
+  override def clientKill(addr: String): F[Unit] =
+    async.flatMap(_.clientKill(addr).futureLift.void)
+
+  override def clientKill(args: KillArgs): F[Long] =
+    async.flatMap(_.clientKill(args).futureLift.map(Long.unbox))
+
+  override def clientPause(timeout: FiniteDuration): F[Unit] =
+    async.flatMap(_.clientPause(timeout.toMillis).futureLift.void)
+
+  override def clientUnblock(id: Long, unblockType: UnblockType): F[Long] =
+    async.flatMap(_.clientUnblock(id, unblockType).futureLift.map(Long.unbox))
+
+  override def clientGetRedir: F[Long] =
+    async.flatMap(_.clientGetredir().futureLift.map(Long.unbox))
+
+  override def clientCaching(enabled: Boolean): F[Unit] =
+    async.flatMap(_.clientCaching(enabled).futureLift.void)
+
+  override def clientNoTouch(enabled: Boolean): F[Unit] =
+    async.flatMap(_.clientNoTouch(enabled).futureLift.void)
+
+  override def clientNoEvict(enabled: Boolean): F[Unit] =
+    async.flatMap(_.clientNoEvict(enabled).futureLift.void)
+
+  override def memoryUsage(key: K): F[Option[Long]] =
+    async.flatMap(_.memoryUsage(key).futureLift.map(x => Option(x).map(Long.unbox)))
+
+  override def save: F[Unit] =
+    async.flatMap(_.save().futureLift.void)
+
+  override def bgSave: F[Unit] =
+    async.flatMap(_.bgsave().futureLift.void)
+
+  override def bgRewriteAof: F[Unit] =
+    async.flatMap(_.bgrewriteaof().futureLift.void)
 
   override def eval(script: String, output: ScriptOutputType[V]): F[output.R] =
     async

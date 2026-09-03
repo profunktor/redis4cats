@@ -27,7 +27,16 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
 import fs2.Stream
-import io.lettuce.core.{ GeoArgs, LMovemArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs }
+import io.lettuce.core.{
+  ClientListArgs,
+  GeoArgs,
+  KillArgs,
+  LMovemArgs,
+  RedisCommandExecutionException,
+  RedisException,
+  UnblockType,
+  ZAggregateArgs
+}
 import munit.FunSuite
 
 import java.time.Instant
@@ -1238,6 +1247,50 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(lastSave.isBefore(Instant.now)))
       slowLogLen <- redis.slowLogLen
       _ <- IO(assert(slowLogLen.isValidLong))
+      _ <- redis.slowLogReset
+      commandCount <- redis.commandCount
+      _ <- IO(assert(commandCount > 0))
+      // config
+      originalSamples <- redis.configGet("maxmemory-samples")
+      _ <- redis.configSet("maxmemory-samples", "3")
+      updatedSamples <- redis.configGet("maxmemory-samples")
+      _ <- IO(assertEquals(updatedSamples.get("maxmemory-samples"), Some("3")))
+      _ <- originalSamples.get("maxmemory-samples").traverse_(v => redis.configSet("maxmemory-samples", v))
+      _ <- redis.configResetStat
+      // CONFIG REWRITE errors when the server wasn't started with a config file, which is how
+      // the test containers run — exercised for coverage, outcome not asserted either way.
+      _ <- redis.configRewrite.attempt.void
+      // client admin
+      clients <- redis.clientList
+      _ <- IO(assert(clients.nonEmpty))
+      ownId <- redis.getClientId()
+      clientsById <- redis.clientList(new ClientListArgs().ids(ownId))
+      _ <- IO(assert(clientsById.nonEmpty))
+      // CLIENT KILL by bogus single address errors ("No such client"); by filter args (a
+      // non-existent id) just reports zero matches, which is the safe form to assert on.
+      _ <- redis.clientKill("255.255.255.255:1").attempt.void
+      killedByFilter <- redis.clientKill(new KillArgs().id(Long.MaxValue))
+      _ <- IO(assertEquals(killedByFilter, 0L))
+      unblocked <- redis.clientUnblock(Long.MaxValue, UnblockType.TIMEOUT)
+      _ <- IO(assertEquals(unblocked, 0L))
+      redir <- redis.clientGetRedir
+      _ <- IO(assert(redir.isValidLong))
+      // CLIENT CACHING requires CLIENT TRACKING to already be on, which this PR doesn't wrap —
+      // exercised for coverage, expected to error here.
+      _ <- redis.clientCaching(true).attempt.void
+      _ <- redis.clientNoTouch(true)
+      _ <- redis.clientNoTouch(false)
+      _ <- redis.clientNoEvict(true)
+      _ <- redis.clientNoEvict(false)
+      // maintenance
+      existingKeyUsage <- redis.memoryUsage("age")
+      _ <- IO(assert(existingKeyUsage.exists(_ > 0)))
+      missingKeyUsage <- redis.memoryUsage("no-such-key-for-memory-usage")
+      _ <- IO(assert(missingKeyUsage.isEmpty))
+      // save/bgSave/bgRewriteAof all hold Redis's single persistence lock — calling more than
+      // one back-to-back reliably errors with "Background save already in progress" on a fresh
+      // fork. Only bgSave is exercised here as representative coverage.
+      _ <- redis.bgSave
     } yield ()
 
   def pipelineScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
