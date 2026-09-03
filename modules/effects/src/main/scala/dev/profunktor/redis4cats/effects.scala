@@ -889,6 +889,72 @@ object effects {
       lastEntry: Option[StreamMessage[K, V]],
       extra: Map[String, String] = Map.empty
   )
+  object XStreamInfo {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    private val knownFields = Set(
+      "length",
+      "radix-tree-keys",
+      "radix-tree-nodes",
+      "last-generated-id",
+      "max-deleted-entry-id",
+      "entries-added",
+      "recorded-first-entry-id",
+      "groups",
+      "first-entry",
+      "last-entry"
+    )
+
+    // A first-entry/last-entry value is Lettuce's untyped stand-in for a StreamMessage: [id, [field, value, ...]].
+    // The K/V pairs have already passed through the connection's codec by the time they reach us as Object - the
+    // cast here is exactly as safe as the one Lettuce's own typed StreamMessage[K, V] getters perform internally,
+    // just visible instead of hidden behind a generic type parameter.
+    private def toEntry[K, V](key: K, raw: Any): StreamMessage[K, V] =
+      raw match {
+        case entry: java.util.List[_] =>
+          entry.asScala.toList match {
+            case (id: String) :: (fields: java.util.List[_]) :: Nil =>
+              val body = fields.asScala.toList
+                .grouped(2)
+                .collect { case (k: Any) :: (v: Any) :: Nil => k.asInstanceOf[K] -> v.asInstanceOf[V] }
+                .toMap
+              StreamMessage(MessageId(id), key, body)
+            case other => throw XInfoError.UnexpectedStreamInfoReply(other.toString)
+          }
+        case other => throw XInfoError.UnexpectedStreamInfoReply(other.toString)
+      }
+
+    /** Decodes `XINFO STREAM`'s reply - a flat, untyped `List[Object]` of alternating field-name/value pairs. */
+    private[redis4cats] def fromLettuce[K, V](key: K, reply: java.util.List[Object]): XStreamInfo[K, V] = {
+      def fail                 = throw XInfoError.UnexpectedStreamInfoReply(reply.toString)
+      def asLong(a: Any): Long = a.toString.toLong
+
+      val fields = reply.asScala.toList
+        .grouped(2)
+        .collect { case (name: String) :: value :: Nil => name -> value }
+        .toMap
+
+      def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
+      // Redis reports an empty stream's first-entry/last-entry as a nil reply, which the field map above
+      // stores as a present key with a null value rather than a missing key - Option(_) collapses that null
+      // to None, same as Map.get already does for a genuinely absent key.
+      def optional[A](name: String)(f: Any => A): Option[A] = fields.get(name).flatMap(Option(_)).map(f)
+
+      XStreamInfo[K, V](
+        length = required("length")(asLong),
+        radixTreeKeys = required("radix-tree-keys")(asLong),
+        radixTreeNodes = required("radix-tree-nodes")(asLong),
+        lastGeneratedId = required("last-generated-id")(v => MessageId(v.toString)),
+        maxDeletedEntryId = required("max-deleted-entry-id")(v => MessageId(v.toString)),
+        entriesAdded = required("entries-added")(asLong),
+        recordedFirstEntryId = required("recorded-first-entry-id")(v => MessageId(v.toString)),
+        groups = required("groups")(asLong),
+        firstEntry = optional("first-entry")(toEntry(key, _)),
+        lastEntry = optional("last-entry")(toEntry(key, _)),
+        extra = fields.collect { case (k, v) if !knownFields.contains(k) => k -> v.toString }
+      )
+    }
+  }
 
   /** One entry of an `XINFO GROUPS` reply. `entriesRead`/`lag` are `None` when Redis cannot determine them (e.g. right
     * after `XGROUP CREATE`/`XSETID`, before anything has been read).
@@ -901,6 +967,34 @@ object effects {
       entriesRead: Option[Long],
       lag: Option[Long]
   )
+  object XGroupInfo {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    /** Decodes one element of `XINFO GROUPS`' reply - a flat, untyped `List[Object]` of field-name/value pairs.
+      * `entries-read`/`lag` are null when Redis can't compute them yet (e.g. right after `XGROUP CREATE`/`XSETID`).
+      */
+    private[redis4cats] def fromLettuce(raw: Any): XGroupInfo = {
+      def fail = throw XInfoError.UnexpectedGroupInfoReply(raw.toString)
+      raw match {
+        case entry: java.util.List[_] =>
+          val fields: Map[String, Any] = entry.asScala.toList
+            .grouped(2)
+            .collect { case (name: String) :: value :: Nil => name -> value }
+            .toMap
+          def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
+          def optionalLong(name: String): Option[Long]  = fields.get(name).flatMap(Option(_)).map(_.toString.toLong)
+          XGroupInfo(
+            name = required("name")(_.toString),
+            consumers = required("consumers")(_.toString.toLong),
+            pending = required("pending")(_.toString.toLong),
+            lastDeliveredId = required("last-delivered-id")(v => MessageId(v.toString)),
+            entriesRead = optionalLong("entries-read"),
+            lag = optionalLong("lag")
+          )
+        case _ => fail
+      }
+    }
+  }
 
   /** One entry of an `XINFO CONSUMERS` reply. `inactive` (time since the consumer's last successful command, distinct
     * from `idle` - time since its last attempted read) was added in Redis 7.2; `None` on servers that don't report it.
@@ -911,6 +1005,35 @@ object effects {
       idle: FiniteDuration,
       inactive: Option[FiniteDuration]
   )
+  object XConsumerInfo {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    /** Decodes one element of `XINFO CONSUMERS`' reply - a flat, untyped `List[Object]` of field-name/value pairs.
+      * `inactive` (time since the consumer's last successful command, distinct from `idle` - time since its last
+      * attempted read) was added in Redis 7.2; `None` on servers that don't report it.
+      */
+    private[redis4cats] def fromLettuce(raw: Any): XConsumerInfo = {
+      def fail = throw XInfoError.UnexpectedConsumerInfoReply(raw.toString)
+      raw match {
+        case entry: java.util.List[_] =>
+          val fields: Map[String, Any] = entry.asScala.toList
+            .grouped(2)
+            .collect { case (name: String) :: value :: Nil => name -> value }
+            .toMap
+          def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
+          XConsumerInfo(
+            name = required("name")(_.toString),
+            pending = required("pending")(_.toString.toLong),
+            idle = required("idle")(v => FiniteDuration(v.toString.toLong, TimeUnit.MILLISECONDS)),
+            inactive = fields
+              .get("inactive")
+              .flatMap(Option(_))
+              .map(v => FiniteDuration(v.toString.toLong, TimeUnit.MILLISECONDS))
+          )
+        case _ => fail
+      }
+    }
+  }
 
   /** Failure raised while decoding an `XINFO STREAM`/`XINFO GROUPS`/`XINFO CONSUMERS` reply. Lettuce hands these back
     * as untyped, flat key-value `List[Object]`s with no schema enforcement - a genuinely unexpected shape becomes one

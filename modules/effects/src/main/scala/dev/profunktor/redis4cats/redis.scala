@@ -2949,67 +2949,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.xlen(key).futureLift.map(Long.box(_)))
 
   override def xInfoStream(key: K): F[XStreamInfo[K, V]] =
-    async.flatMap(_.xinfoStream(key).futureLift).flatMap(reply => FutureLift[F].delay(toXStreamInfo(key, reply)))
-
-  // XINFO STREAM comes back from Lettuce as a flat, untyped List[Object]: alternating field-name/value pairs.
-  // first-entry/last-entry are each either null (empty stream) or a nested [id, [field, value, ...]] list - the id
-  // is always a plain String (mirroring core.StreamMessage#getId, which is String regardless of codec), while the
-  // field/value pairs are the actual K/V-decoded message body. Anything beyond the well-known fields (as of Redis
-  // 8.10, a handful of XCFGSET-related idempotency counters) is preserved verbatim in `extra` rather than assumed
-  // away.
-  private val xStreamInfoKnownFields = Set(
-    "length",
-    "radix-tree-keys",
-    "radix-tree-nodes",
-    "last-generated-id",
-    "max-deleted-entry-id",
-    "entries-added",
-    "recorded-first-entry-id",
-    "groups",
-    "first-entry",
-    "last-entry"
-  )
-
-  private def toXStreamInfo(key: K, reply: java.util.List[Object]): XStreamInfo[K, V] = {
-    def fail                 = throw XInfoError.UnexpectedStreamInfoReply(reply.toString)
-    def asLong(a: Any): Long = a.toString.toLong
-
-    def toEntry(raw: Any): StreamMessage[K, V] =
-      raw match {
-        case entry: java.util.List[_] =>
-          entry.asScala.toList match {
-            case (id: String) :: (fields: java.util.List[_]) :: Nil =>
-              val body = fields.asScala.toList
-                .grouped(2)
-                .collect { case (k: Any) :: (v: Any) :: Nil => k.asInstanceOf[K] -> v.asInstanceOf[V] }
-                .toMap
-              StreamMessage(MessageId(id), key, body)
-            case _ => fail
-          }
-        case _ => fail
-      }
-
-    val fields = reply.asScala.toList
-      .grouped(2)
-      .collect { case (name: String) :: value :: Nil => name -> value }
-      .toMap
-
-    def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
-
-    XStreamInfo[K, V](
-      length = required("length")(asLong),
-      radixTreeKeys = required("radix-tree-keys")(asLong),
-      radixTreeNodes = required("radix-tree-nodes")(asLong),
-      lastGeneratedId = required("last-generated-id")(v => MessageId(v.toString)),
-      maxDeletedEntryId = required("max-deleted-entry-id")(v => MessageId(v.toString)),
-      entriesAdded = required("entries-added")(asLong),
-      recordedFirstEntryId = required("recorded-first-entry-id")(v => MessageId(v.toString)),
-      groups = required("groups")(asLong),
-      firstEntry = fields.get("first-entry").flatMap(v => Option(v).map(toEntry)),
-      lastEntry = fields.get("last-entry").flatMap(v => Option(v).map(toEntry)),
-      extra = fields.view.filterKeys(k => !xStreamInfoKnownFields.contains(k)).mapValues(_.toString).toMap
-    )
-  }
+    async
+      .flatMap(_.xinfoStream(key).futureLift)
+      .flatMap(reply => FutureLift[F].delay(XStreamInfo.fromLettuce(key, reply)))
 
   override def xAdd(key: K, body: Map[K, V], args: XAddArgs): F[MessageId] = {
     val jArgs = JXAddArgs.Builder.nomkstream()
@@ -3090,58 +3032,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def xInfoGroups(key: K): F[List[XGroupInfo]] =
     async
       .flatMap(_.xinfoGroups(key).futureLift)
-      .flatMap(reply => FutureLift[F].delay(reply.asScala.toList.map(toXGroupInfo)))
-
-  // Each element of XINFO GROUPS' reply is itself a flat, untyped List[Object] of field-name/value pairs (one per
-  // group) - entries-read/lag are null when Redis can't compute them yet (e.g. right after XGROUP CREATE/XSETID).
-  private def toXGroupInfo(raw: Any): XGroupInfo = {
-    def fail = throw XInfoError.UnexpectedGroupInfoReply(raw.toString)
-    raw match {
-      case entry: java.util.List[_] =>
-        val fields: Map[String, Any] = entry.asScala.toList
-          .grouped(2)
-          .collect { case (name: String) :: value :: Nil => name -> value }
-          .toMap
-        def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
-        def optionalLong(name: String): Option[Long]  = fields.get(name).flatMap(v => Option(v).map(_.toString.toLong))
-        XGroupInfo(
-          name = required("name")(_.toString),
-          consumers = required("consumers")(_.toString.toLong),
-          pending = required("pending")(_.toString.toLong),
-          lastDeliveredId = required("last-delivered-id")(v => MessageId(v.toString)),
-          entriesRead = optionalLong("entries-read"),
-          lag = optionalLong("lag")
-        )
-      case _ => fail
-    }
-  }
+      .flatMap(reply => FutureLift[F].delay(reply.asScala.toList.map(XGroupInfo.fromLettuce)))
 
   override def xInfoConsumers(key: K, group: K): F[List[XConsumerInfo]] =
     async
       .flatMap(_.xinfoConsumers(key, group).futureLift)
-      .flatMap(reply => FutureLift[F].delay(reply.asScala.toList.map(toXConsumerInfo)))
-
-  // Each element of XINFO CONSUMERS' reply is itself a flat, untyped List[Object] of field-name/value pairs (one
-  // per consumer) - `inactive` was added in Redis 7.2, so it's treated as optional for older servers.
-  private def toXConsumerInfo(raw: Any): XConsumerInfo = {
-    def fail = throw XInfoError.UnexpectedConsumerInfoReply(raw.toString)
-    raw match {
-      case entry: java.util.List[_] =>
-        val fields: Map[String, Any] = entry.asScala.toList
-          .grouped(2)
-          .collect { case (name: String) :: value :: Nil => name -> value }
-          .toMap
-        def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
-        XConsumerInfo(
-          name = required("name")(_.toString),
-          pending = required("pending")(_.toString.toLong),
-          idle = required("idle")(v => FiniteDuration(v.toString.toLong, MILLISECONDS)),
-          inactive =
-            fields.get("inactive").flatMap(v => Option(v).map(v => FiniteDuration(v.toString.toLong, MILLISECONDS)))
-        )
-      case _ => fail
-    }
-  }
+      .flatMap(reply => FutureLift[F].delay(reply.asScala.toList.map(XConsumerInfo.fromLettuce)))
 
   override def xReadGroup(
       consumer: StreamConsumer[K],
