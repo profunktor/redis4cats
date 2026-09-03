@@ -75,14 +75,17 @@ import io.lettuce.core.{
   ScoredValue,
   SetArgs => JSetArgs,
   SortArgs => JSortArgs,
+  StreamDeletionPolicy => JStreamDeletionPolicy,
   StringMatchResult => JStringMatchResult,
   TrackingArgs => JTrackingArgs,
   TrackingInfo => JTrackingInfo,
   UnblockType => JUnblockType,
   XAddArgs => JXAddArgs,
   XAutoClaimArgs => JXAutoClaimArgs,
+  XCfgSetArgs => JXCfgSetArgs,
   XClaimArgs => JXClaimArgs,
   XGroupCreateArgs => JXGroupCreateArgs,
+  XNackMode => JXNackMode,
   XReadArgs,
   XTrimArgs => JXTrimArgs,
   ZAddArgs,
@@ -91,7 +94,12 @@ import io.lettuce.core.{
   ZStoreArgs
 }
 import io.lettuce.core.models.command.{ CommandDetail => JCommandDetail, CommandDetailParser }
-import io.lettuce.core.models.stream.{ ClaimedMessages, PendingMessage, PendingMessages }
+import io.lettuce.core.models.stream.{
+  ClaimedMessages,
+  PendingMessage,
+  PendingMessages,
+  StreamEntryDeletionResult => JStreamEntryDeletionResult
+}
 import io.lettuce.core.protocol.CommandType
 import org.typelevel.keypool.KeyPool
 
@@ -2940,6 +2948,69 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def xLen(key: K): F[Long] =
     async.flatMap(_.xlen(key).futureLift.map(Long.box(_)))
 
+  override def xInfoStream(key: K): F[XStreamInfo[K, V]] =
+    async.flatMap(_.xinfoStream(key).futureLift).flatMap(reply => FutureLift[F].delay(toXStreamInfo(key, reply)))
+
+  // XINFO STREAM comes back from Lettuce as a flat, untyped List[Object]: alternating field-name/value pairs.
+  // first-entry/last-entry are each either null (empty stream) or a nested [id, [field, value, ...]] list - the id
+  // is always a plain String (mirroring core.StreamMessage#getId, which is String regardless of codec), while the
+  // field/value pairs are the actual K/V-decoded message body. Anything beyond the well-known fields (as of Redis
+  // 8.10, a handful of XCFGSET-related idempotency counters) is preserved verbatim in `extra` rather than assumed
+  // away.
+  private val xStreamInfoKnownFields = Set(
+    "length",
+    "radix-tree-keys",
+    "radix-tree-nodes",
+    "last-generated-id",
+    "max-deleted-entry-id",
+    "entries-added",
+    "recorded-first-entry-id",
+    "groups",
+    "first-entry",
+    "last-entry"
+  )
+
+  private def toXStreamInfo(key: K, reply: java.util.List[Object]): XStreamInfo[K, V] = {
+    def fail                 = throw XInfoError.UnexpectedStreamInfoReply(reply.toString)
+    def asLong(a: Any): Long = a.toString.toLong
+
+    def toEntry(raw: Any): StreamMessage[K, V] =
+      raw match {
+        case entry: java.util.List[_] =>
+          entry.asScala.toList match {
+            case (id: String) :: (fields: java.util.List[_]) :: Nil =>
+              val body = fields.asScala.toList
+                .grouped(2)
+                .collect { case (k: Any) :: (v: Any) :: Nil => k.asInstanceOf[K] -> v.asInstanceOf[V] }
+                .toMap
+              StreamMessage(MessageId(id), key, body)
+            case _ => fail
+          }
+        case _ => fail
+      }
+
+    val fields = reply.asScala.toList
+      .grouped(2)
+      .collect { case (name: String) :: value :: Nil => name -> value }
+      .toMap
+
+    def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
+
+    XStreamInfo[K, V](
+      length = required("length")(asLong),
+      radixTreeKeys = required("radix-tree-keys")(asLong),
+      radixTreeNodes = required("radix-tree-nodes")(asLong),
+      lastGeneratedId = required("last-generated-id")(v => MessageId(v.toString)),
+      maxDeletedEntryId = required("max-deleted-entry-id")(v => MessageId(v.toString)),
+      entriesAdded = required("entries-added")(asLong),
+      recordedFirstEntryId = required("recorded-first-entry-id")(v => MessageId(v.toString)),
+      groups = required("groups")(asLong),
+      firstEntry = fields.get("first-entry").flatMap(v => Option(v).map(toEntry)),
+      lastEntry = fields.get("last-entry").flatMap(v => Option(v).map(toEntry)),
+      extra = fields.view.filterKeys(k => !xStreamInfoKnownFields.contains(k)).mapValues(_.toString).toMap
+    )
+  }
+
   override def xAdd(key: K, body: Map[K, V], args: XAddArgs): F[MessageId] = {
     val jArgs = JXAddArgs.Builder.nomkstream()
     jArgs.nomkstream(args.nomkstream)
@@ -2969,6 +3040,25 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def xDel(key: K, ids: String*): F[Long] =
     async.flatMap(_.xdel(key, ids: _*).futureLift.map(Long.box(_)))
 
+  override def xDelEx(key: K, policy: StreamDeletionPolicy, ids: String*): F[List[StreamEntryDeletionResult]] =
+    async
+      .flatMap(_.xdelex(key, toJStreamDeletionPolicy(policy), ids: _*).futureLift)
+      .map(_.asScala.toList.map(_.asScala))
+
+  override def xCfgSet(key: K, args: XCfgSetArgs): F[Unit] = {
+    val jArgs = new JXCfgSetArgs()
+    args.idempotencyMaxSize.foreach(jArgs.idmpMaxsize)
+    args.idempotencyDuration.foreach(jArgs.idmpDuration)
+    async.flatMap(_.xcfgset(key, jArgs).futureLift.void)
+  }
+
+  private def toJStreamDeletionPolicy(policy: StreamDeletionPolicy): JStreamDeletionPolicy =
+    policy match {
+      case StreamDeletionPolicy.KeepReferences   => JStreamDeletionPolicy.KEEP_REFERENCES
+      case StreamDeletionPolicy.DeleteReferences => JStreamDeletionPolicy.DELETE_REFERENCES
+      case StreamDeletionPolicy.Acknowledged     => JStreamDeletionPolicy.ACKNOWLEDGED
+    }
+
   // format: off
   /************************** Stream Consumer Groups API ************************/
   // format: on
@@ -2997,6 +3087,62 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def xGroupDelConsumer(key: K, consumer: StreamConsumer[K]): F[Long] =
     async.flatMap(_.xgroupDelconsumer(key, consumer.asJava).futureLift.map(x => Long.box(x)))
 
+  override def xInfoGroups(key: K): F[List[XGroupInfo]] =
+    async
+      .flatMap(_.xinfoGroups(key).futureLift)
+      .flatMap(reply => FutureLift[F].delay(reply.asScala.toList.map(toXGroupInfo)))
+
+  // Each element of XINFO GROUPS' reply is itself a flat, untyped List[Object] of field-name/value pairs (one per
+  // group) - entries-read/lag are null when Redis can't compute them yet (e.g. right after XGROUP CREATE/XSETID).
+  private def toXGroupInfo(raw: Any): XGroupInfo = {
+    def fail = throw XInfoError.UnexpectedGroupInfoReply(raw.toString)
+    raw match {
+      case entry: java.util.List[_] =>
+        val fields: Map[String, Any] = entry.asScala.toList
+          .grouped(2)
+          .collect { case (name: String) :: value :: Nil => name -> value }
+          .toMap
+        def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
+        def optionalLong(name: String): Option[Long]  = fields.get(name).flatMap(v => Option(v).map(_.toString.toLong))
+        XGroupInfo(
+          name = required("name")(_.toString),
+          consumers = required("consumers")(_.toString.toLong),
+          pending = required("pending")(_.toString.toLong),
+          lastDeliveredId = required("last-delivered-id")(v => MessageId(v.toString)),
+          entriesRead = optionalLong("entries-read"),
+          lag = optionalLong("lag")
+        )
+      case _ => fail
+    }
+  }
+
+  override def xInfoConsumers(key: K, group: K): F[List[XConsumerInfo]] =
+    async
+      .flatMap(_.xinfoConsumers(key, group).futureLift)
+      .flatMap(reply => FutureLift[F].delay(reply.asScala.toList.map(toXConsumerInfo)))
+
+  // Each element of XINFO CONSUMERS' reply is itself a flat, untyped List[Object] of field-name/value pairs (one
+  // per consumer) - `inactive` was added in Redis 7.2, so it's treated as optional for older servers.
+  private def toXConsumerInfo(raw: Any): XConsumerInfo = {
+    def fail = throw XInfoError.UnexpectedConsumerInfoReply(raw.toString)
+    raw match {
+      case entry: java.util.List[_] =>
+        val fields: Map[String, Any] = entry.asScala.toList
+          .grouped(2)
+          .collect { case (name: String) :: value :: Nil => name -> value }
+          .toMap
+        def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
+        XConsumerInfo(
+          name = required("name")(_.toString),
+          pending = required("pending")(_.toString.toLong),
+          idle = required("idle")(v => FiniteDuration(v.toString.toLong, MILLISECONDS)),
+          inactive =
+            fields.get("inactive").flatMap(v => Option(v).map(v => FiniteDuration(v.toString.toLong, MILLISECONDS)))
+        )
+      case _ => fail
+    }
+  }
+
   override def xReadGroup(
       consumer: StreamConsumer[K],
       streams: Set[XReadOffsets[K]],
@@ -3011,6 +3157,26 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def xAck(key: K, group: K, ids: String*): F[Long] =
     async.flatMap(_.xack(key, group, ids: _*).futureLift.map(x => Long.box(x)))
+
+  override def xAckDel(
+      key: K,
+      group: K,
+      policy: StreamDeletionPolicy,
+      ids: String*
+  ): F[List[StreamEntryDeletionResult]] =
+    async
+      .flatMap(_.xackdel(key, group, toJStreamDeletionPolicy(policy), ids: _*).futureLift)
+      .map(_.asScala.toList.map(_.asScala))
+
+  override def xNack(key: K, group: K, mode: XNackMode, ids: String*): F[Long] =
+    async.flatMap(_.xnack(key, group, toJXNackMode(mode), ids: _*).futureLift.map(x => Long.box(x)))
+
+  private def toJXNackMode(mode: XNackMode): JXNackMode =
+    mode match {
+      case XNackMode.Silent => JXNackMode.SILENT
+      case XNackMode.Fail   => JXNackMode.FAIL
+      case XNackMode.Fatal  => JXNackMode.FATAL
+    }
 
   override def xClaim(
       key: K,
@@ -3161,6 +3327,17 @@ private[redis4cats] trait RedisConversionOps {
 
   private[redis4cats] implicit class StreamConsumerOps[K](consumer: StreamConsumer[K]) {
     def asJava: JConsumer[K] = JConsumer.from(consumer.group, consumer.consumer)
+  }
+
+  private[redis4cats] implicit class StreamEntryDeletionResultOps(result: JStreamEntryDeletionResult) {
+    def asScala: StreamEntryDeletionResult =
+      result match {
+        case JStreamEntryDeletionResult.DELETED => StreamEntryDeletionResult.Deleted
+        case JStreamEntryDeletionResult.NOT_DELETED_UNACKNOWLEDGED_OR_STILL_REFERENCED =>
+          StreamEntryDeletionResult.NotDeletedUnacknowledgedOrStillReferenced
+        case JStreamEntryDeletionResult.NOT_FOUND => StreamEntryDeletionResult.NotFound
+        case JStreamEntryDeletionResult.UNKNOWN   => StreamEntryDeletionResult.Unknown
+      }
   }
 
   private[redis4cats] implicit class XClaimArgsOps(args: XClaimArgs) {

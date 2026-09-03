@@ -1740,9 +1740,10 @@ trait TestScenarios { self: FunSuite =>
       messageId2 <- redis.xAdd("testStream", body = Map("2" -> "b"))
       messageId3 <- redis.xAdd("testStream", body = Map("3" -> "c"))
       messageId4 <- redis.xAdd("testStream", body = Map("4" -> "d"))
+      message1 = StreamMessage(messageId1, "testStream", Map("1" -> "a"))
       message4 = StreamMessage(messageId4, "testStream", Map("4" -> "d"))
       allMessages = List(
-                      StreamMessage(messageId1, "testStream", Map("1" -> "a")),
+                      message1,
                       StreamMessage(messageId2, "testStream", Map("2" -> "b")),
                       StreamMessage(messageId3, "testStream", Map("3" -> "c")),
                       message4
@@ -1769,13 +1770,42 @@ trait TestScenarios { self: FunSuite =>
       messages <- redis.xRead(Set(XReadOffsets.Latest("testStream")))
       _ <- IO(assert(messages.isEmpty, "no messages when reading after the last message"))
 
+      // XINFO STREAM on a non-empty stream
+      info <- redis.xInfoStream("testStream")
+      _ <- IO(assertEquals(info.length, 4L))
+      _ <- IO(assertEquals(info.groups, 0L))
+      _ <- IO(assertEquals(info.lastGeneratedId, messageId4))
+      _ <- IO(assertEquals(info.entriesAdded, 4L))
+      _ <- IO(assertEquals(info.firstEntry, Some(message1)))
+      _ <- IO(assertEquals(info.lastEntry, Some(message4)))
+
+      // XCFGSET - idempotent-publish config takes effect and is reflected back by XINFO STREAM
+      _ <- redis.xCfgSet("testStream", XCfgSetArgs(idempotencyMaxSize = Some(500), idempotencyDuration = Some(60000)))
+      infoAfterCfgSet <- redis.xInfoStream("testStream")
+      _ <- IO(assertEquals(infoAfterCfgSet.extra.get("idmp-maxsize"), Some("500")))
+      _ <- IO(assertEquals(infoAfterCfgSet.extra.get("idmp-duration"), Some("60000")))
+
+      // XDELEX - like XDEL, but with control over consumer-group PEL references (irrelevant here, no groups yet)
+      delExResult <- redis.xDelEx("testStream", StreamDeletionPolicy.KeepReferences, messageId1.value)
+      _ <- IO(assertEquals(delExResult, List(StreamEntryDeletionResult.Deleted)))
+      delExMissing <- redis.xDelEx("testStream", StreamDeletionPolicy.KeepReferences, messageId1.value)
+      _ <- IO(assertEquals(delExMissing, List(StreamEntryDeletionResult.NotFound)))
+      len <- redis.xLen("testStream")
+      _ <- IO(assert(len == 3, "stream should have 3 entries after xdelex"))
+
       // Delete from stream
       _ <- redis.xTrim("testStream", XTrimArgs(XTrimArgs.Strategy.MAXLEN(2)))
       len <- redis.xLen("testStream")
-      _ <- IO(assert(len == 2, "stream should have 3 entries after xtrim"))
+      _ <- IO(assert(len == 2, "stream should have 2 entries after xtrim"))
       _ <- redis.xDel("testStream", messageId3.value, messageId4.value)
       len <- redis.xLen("testStream")
       _ <- IO(assert(len == 0, "stream should have no entries after xdel remaining "))
+
+      // XINFO STREAM on an empty (but existing) stream: first/last entry are absent
+      emptyInfo <- redis.xInfoStream("testStream")
+      _ <- IO(assertEquals(emptyInfo.length, 0L))
+      _ <- IO(assertEquals(emptyInfo.firstEntry, None))
+      _ <- IO(assertEquals(emptyInfo.lastEntry, None))
     } yield ()
 
   def publishAndStatsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
