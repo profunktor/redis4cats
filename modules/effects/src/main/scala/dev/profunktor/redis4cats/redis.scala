@@ -71,6 +71,7 @@ import io.lettuce.core.{
   XTrimArgs => JXTrimArgs,
   ZAddArgs,
   ZAggregateArgs,
+  ZPopArgs,
   ZStoreArgs
 }
 import io.lettuce.core.models.stream.{ ClaimedMessages, PendingMessage, PendingMessages }
@@ -1603,6 +1604,70 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     res.map(x => Long.box(x))
   }
 
+  override def zRangeStore(destination: K, key: K, start: Long, stop: Long): F[Long] =
+    async
+      .flatMap(_.zrangestore(destination, key, JRange.create[java.lang.Long](start, stop)).futureLift)
+      .map(x => Long.box(x))
+
+  override def zRangeStoreByScore[T: Numeric](
+      destination: K,
+      key: K,
+      range: ZRange[T],
+      limit: Option[RangeLimit]
+  ): F[Long] = {
+    val res = limit match {
+      case Some(x) =>
+        async.flatMap(
+          _.zrangestorebyscore(destination, key, range.asJavaRange, JLimit.create(x.offset, x.count)).futureLift
+        )
+      case None =>
+        async.flatMap(_.zrangestorebyscore(destination, key, range.asJavaRange, JLimit.unlimited()).futureLift)
+    }
+    res.map(x => Long.box(x))
+  }
+
+  override def zRangeStoreByLex(destination: K, key: K, range: ZRange[V], limit: Option[RangeLimit]): F[Long] = {
+    val jRange = JRange.create[V](range.start, range.end)
+    val res = limit match {
+      case Some(x) =>
+        async.flatMap(_.zrangestorebylex(destination, key, jRange, JLimit.create(x.offset, x.count)).futureLift)
+      case None => async.flatMap(_.zrangestorebylex(destination, key, jRange, JLimit.unlimited()).futureLift)
+    }
+    res.map(x => Long.box(x))
+  }
+
+  override def zRevRangeStore(destination: K, key: K, start: Long, stop: Long): F[Long] =
+    async
+      .flatMap(_.zrevrangestore(destination, key, JRange.create[java.lang.Long](start, stop)).futureLift)
+      .map(x => Long.box(x))
+
+  override def zRevRangeStoreByScore[T: Numeric](
+      destination: K,
+      key: K,
+      range: ZRange[T],
+      limit: Option[RangeLimit]
+  ): F[Long] = {
+    val res = limit match {
+      case Some(x) =>
+        async.flatMap(
+          _.zrevrangestorebyscore(destination, key, range.asJavaRange, JLimit.create(x.offset, x.count)).futureLift
+        )
+      case None =>
+        async.flatMap(_.zrevrangestorebyscore(destination, key, range.asJavaRange, JLimit.unlimited()).futureLift)
+    }
+    res.map(x => Long.box(x))
+  }
+
+  override def zRevRangeStoreByLex(destination: K, key: K, range: ZRange[V], limit: Option[RangeLimit]): F[Long] = {
+    val jRange = JRange.create[V](range.start, range.end)
+    val res = limit match {
+      case Some(x) =>
+        async.flatMap(_.zrevrangestorebylex(destination, key, jRange, JLimit.create(x.offset, x.count)).futureLift)
+      case None => async.flatMap(_.zrevrangestorebylex(destination, key, jRange, JLimit.unlimited()).futureLift)
+    }
+    res.map(x => Long.box(x))
+  }
+
   override def zCard(key: K): F[Long] =
     async.flatMap(_.zcard(key).futureLift.map(x => Long.unbox(x)))
 
@@ -1749,6 +1814,34 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       .flatMap(_.bzpopmax(timeout.toSecondsOrZero, keys.toList: _*).futureLift)
       .map(Option(_).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
+  override def zmPopMin(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]] =
+    async
+      .flatMap(_.zmpop(count.toInt, ZPopArgs.Builder.min(), keys.toList: _*).futureLift)
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
+
+  override def zmPopMax(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]] =
+    async
+      .flatMap(_.zmpop(count.toInt, ZPopArgs.Builder.max(), keys.toList: _*).futureLift)
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
+
+  override def bzmPopMin(
+      timeout: Duration,
+      keys: NonEmptyList[K],
+      count: Long
+  ): F[Option[(K, List[ScoreWithValue[V]])]] =
+    async
+      .flatMap(_.bzmpop(timeout.toSecondsOrZero, count, ZPopArgs.Builder.min(), keys.toList: _*).futureLift)
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
+
+  override def bzmPopMax(
+      timeout: Duration,
+      keys: NonEmptyList[K],
+      count: Long
+  ): F[Option[(K, List[ScoreWithValue[V]])]] =
+    async
+      .flatMap(_.bzmpop(timeout.toSecondsOrZero, count, ZPopArgs.Builder.max(), keys.toList: _*).futureLift)
+      .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
+
   override def zUnion(args: Option[ZAggregateArgs], keys: K*): F[List[V]] = {
     val res = args match {
       case Some(aggArgs) => async.flatMap(_.zunion(aggArgs, keys: _*).futureLift)
@@ -1780,6 +1873,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     }
     res.map(_.asScala.toList.map(_.asScoreWithValues))
   }
+
+  override def zInterCard(keys: K*): F[Long] =
+    async.flatMap(_.zintercard(keys: _*).futureLift.map(x => Long.box(x)))
+
+  override def zInterCard(limit: Long, keys: K*): F[Long] =
+    async.flatMap(_.zintercard(limit, keys: _*).futureLift.map(x => Long.box(x)))
 
   override def zDiff(keys: K*): F[List[V]] =
     async.flatMap(_.zdiff(keys: _*).futureLift.map(_.asScala.toList))
