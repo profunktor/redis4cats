@@ -1046,6 +1046,27 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(number, 23065))
       pos <- redis.bitPos(key, state = false)
       _ <- IO(assertEquals(pos, 4.toLong))
+      // New BITOP variants: keyA = bits {0,1} set, keyB = bits {1,2} set (bit1 shared, 0/2 each unique)
+      _ <- redis.setBit("bitop-a", 0, 1)
+      _ <- redis.setBit("bitop-a", 1, 1)
+      _ <- redis.setBit("bitop-b", 1, 1)
+      _ <- redis.setBit("bitop-b", 2, 1)
+      diffLen <- redis.bitOpDiff("bitop-diff", "bitop-a", "bitop-b")
+      _ <- IO(assertEquals(diffLen, 1L))
+      diffBits <- List(0, 1, 2).traverse(redis.getBit("bitop-diff", _))
+      _ <- IO(assertEquals(diffBits, List(Some(1L), Some(0L), Some(0L)))) // only bit0 (unique to A) survives
+      diff1Len <- redis.bitOpDiff1("bitop-diff1", "bitop-a", "bitop-b")
+      _ <- IO(assertEquals(diff1Len, 1L))
+      diff1Bits <- List(0, 1, 2).traverse(redis.getBit("bitop-diff1", _))
+      _ <- IO(assertEquals(diff1Bits, List(Some(0L), Some(0L), Some(1L)))) // only bit2 (unique to B) survives
+      andOrLen <- redis.bitOpAndOr("bitop-andor", "bitop-a", "bitop-b")
+      _ <- IO(assertEquals(andOrLen, 1L))
+      andOrBits <- List(0, 1, 2).traverse(redis.getBit("bitop-andor", _))
+      _ <- IO(assertEquals(andOrBits, List(Some(0L), Some(1L), Some(0L)))) // only bit1 (shared) survives
+      oneLen <- redis.bitOpOne("bitop-one", "bitop-a", "bitop-b")
+      _ <- IO(assertEquals(oneLen, 1L))
+      oneBits <- List(0, 1, 2).traverse(redis.getBit("bitop-one", _))
+      _ <- IO(assertEquals(oneBits, List(Some(1L), Some(0L), Some(1L)))) // bits in exactly one key: 0 and 2
     } yield ()
   }
 
@@ -1124,6 +1145,66 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(setRangeLen, 11L))
       setRangeVal <- redis.get("append-key")
       _ <- IO(assertEquals(setRangeVal, Some("Hello Redis")))
+      // LCS: the canonical Redis docs example ("ohmytext" vs "mynewtext" -> "mytext", len 6)
+      _ <- redis.set("lcs-key1", "ohmytext")
+      _ <- redis.set("lcs-key2", "mynewtext")
+      lcsPlain <- redis.lcs("lcs-key1", "lcs-key2")
+      _ <- IO(assertEquals(lcsPlain.matchString, Some("mytext")))
+      _ <- IO(assertEquals(lcsPlain.len, 6L))
+      _ <- IO(assert(lcsPlain.matches.isEmpty)) // idx not requested
+      lcsLen <- redis.lcsLen("lcs-key1", "lcs-key2")
+      _ <- IO(assertEquals(lcsLen, 6L))
+      lcsIdx <- redis.lcsIdx("lcs-key1", "lcs-key2")
+      _ <- IO(assertEquals(lcsIdx.matchString, None)) // idx mode doesn't return the match string
+      _ <- IO(assertEquals(lcsIdx.len, 6L))
+      _ <- IO(
+             assertEquals(
+               lcsIdx.matches,
+               List(
+                 LcsMatch(LcsMatchPosition(4, 7), LcsMatchPosition(5, 8), None),
+                 LcsMatch(LcsMatchPosition(2, 3), LcsMatchPosition(0, 1), None)
+               )
+             )
+           )
+      lcsIdxMinLen <- redis.lcsIdx("lcs-key1", "lcs-key2", minMatchLen = Some(4))
+      _ <- IO(assertEquals(lcsIdxMinLen.matches, List(LcsMatch(LcsMatchPosition(4, 7), LcsMatchPosition(5, 8), None))))
+      lcsIdxWithMatchLen <- redis.lcsIdx("lcs-key1", "lcs-key2", withMatchLen = true)
+      _ <- IO(
+             assertEquals(
+               lcsIdxWithMatchLen.matches,
+               List(
+                 LcsMatch(LcsMatchPosition(4, 7), LcsMatchPosition(5, 8), Some(4L)),
+                 LcsMatch(LcsMatchPosition(2, 3), LcsMatchPosition(0, 1), Some(2L))
+               )
+             )
+           )
+      // msetEx: atomic multi-key SET with a shared TTL
+      msetExOk <-
+        redis.msetEx(Map("msetex-a" -> "1", "msetex-b" -> "2"), MSetExArgs(ttl = Some(MSetExTtl.Ex(10.seconds))))
+      _ <- IO(assert(msetExOk))
+      msetExVals <- redis.mGet(Set("msetex-a", "msetex-b"))
+      _ <- IO(assertEquals(msetExVals, Map("msetex-a" -> "1", "msetex-b" -> "2")))
+      msetExTtl <- redis.ttl("msetex-a")
+      _ <- IO(assert(msetExTtl.nonEmpty))
+      // msetEx with NX: fails atomically (no key written) if any target key already exists
+      msetExNxBlocked <-
+        redis.msetEx(Map("msetex-a" -> "3", "msetex-c" -> "4"), MSetExArgs(existence = Some(SetArg.Existence.Nx)))
+      _ <- IO(assert(!msetExNxBlocked))
+      msetExCAfter <- redis.get("msetex-c")
+      _ <- IO(assert(msetExCAfter.isEmpty)) // the whole op was rejected, not just the conflicting key
+      // incrEx: plain form behaves like INCR on a fresh key
+      incrExPlain <- redis.incrEx("increx-key")
+      _ <- IO(assertEquals(incrExPlain, IncrexResult(1L, 1L)))
+      incrExBy5 <- redis.incrEx("increx-key", 5L, IncrexArgs())
+      _ <- IO(assertEquals(incrExBy5, IncrexResult(6L, 5L)))
+      // saturate: 6 + 100 would exceed upperBound=10, so the result clamps and the applied increment differs
+      incrExSaturated <- redis.incrEx("increx-key", 100L, IncrexArgs(upperBound = Some(10L), saturate = true))
+      _ <- IO(assertEquals(incrExSaturated, IncrexResult(10L, 4L)))
+      _ <- redis.incrEx("increx-key-ttl", 1L, IncrexArgs(ttl = Some(IncrexTtl.Ex(10.seconds))))
+      incrExTtl <- redis.ttl("increx-key-ttl")
+      _ <- IO(assert(incrExTtl.nonEmpty))
+      incrExFloatRes <- redis.incrExFloat("increx-float-key", 1.5, IncrexFloatArgs())
+      _ <- IO(assertEquals(incrExFloatRes, IncrexResult(1.5, 1.5)))
     } yield ()
   }
 

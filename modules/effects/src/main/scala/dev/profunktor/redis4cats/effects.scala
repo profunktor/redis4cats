@@ -577,6 +577,84 @@ object effects {
     def apply(ex: HSetExArg.Existence, ttl: HSetExArg.Ttl): HSetExArgs = HSetExArgs(Some(ex), Some(ttl))
   }
 
+  sealed trait MSetExTtl
+  object MSetExTtl {
+
+    /** Set expiration relative, in seconds */
+    case class Ex(duration: FiniteDuration) extends MSetExTtl
+
+    /** Set expiration relative, in millis */
+    case class Px(duration: FiniteDuration) extends MSetExTtl
+
+    /** Set expiration at an absolute time, second precision */
+    case class ExAt(at: Instant) extends MSetExTtl
+
+    /** Set expiration at an absolute time, millisecond precision */
+    case class PxAt(at: Instant) extends MSetExTtl
+
+    /** Retain the TTL already set on any keys being overwritten */
+    case object KeepTtl extends MSetExTtl
+  }
+
+  /** Args for `msetEx`: an atomic multi-key SET with a shared TTL/existence policy across every key. */
+  case class MSetExArgs(ttl: Option[MSetExTtl] = None, existence: Option[SetArg.Existence] = None)
+
+  /** A single match found by `lcsIdx`: matching character ranges in each of the two compared keys. `matchLen` is
+    * present only when the query asked for it.
+    */
+  case class LcsMatchPosition(start: Long, end: Long)
+  case class LcsMatch(a: LcsMatchPosition, b: LcsMatchPosition, matchLen: Option[Long])
+
+  /** Result of `lcs`/`lcsIdx`: `matchString` is present for the plain (non-idx) query, `matches` is populated only by
+    * `lcsIdx`, and `len` (the LCS length) is always present.
+    */
+  case class LcsResult(matchString: Option[String], matches: List[LcsMatch], len: Long)
+
+  sealed trait IncrexTtl
+  object IncrexTtl {
+
+    /** Set expiration relative, in seconds */
+    case class Ex(duration: FiniteDuration) extends IncrexTtl
+
+    /** Set expiration relative, in millis */
+    case class Px(duration: FiniteDuration) extends IncrexTtl
+
+    /** Set expiration at an absolute time, second precision */
+    case class ExAt(at: Instant) extends IncrexTtl
+
+    /** Set expiration at an absolute time, millisecond precision */
+    case class PxAt(at: Instant) extends IncrexTtl
+
+    /** Clear any existing expiration on the key */
+    case object Persist extends IncrexTtl
+  }
+
+  /** Args for `incrEx`: bounds are clamped-to (rather than rejecting the operation) when `saturate` is set — without
+    * it, an out-of-bounds increment is a no-op that leaves the key and its TTL unchanged. `ttlOnlyIfNoneSet` maps to
+    * Redis's ENX flag: apply `ttl` only if the key doesn't already have one.
+    */
+  case class IncrexArgs(
+      lowerBound: Option[Long] = None,
+      upperBound: Option[Long] = None,
+      saturate: Boolean = false,
+      ttl: Option[IncrexTtl] = None,
+      ttlOnlyIfNoneSet: Boolean = false
+  )
+
+  /** Float-bounded counterpart of `IncrexArgs`, for `incrExFloat`. */
+  case class IncrexFloatArgs(
+      lowerBound: Option[Double] = None,
+      upperBound: Option[Double] = None,
+      saturate: Boolean = false,
+      ttl: Option[IncrexTtl] = None,
+      ttlOnlyIfNoneSet: Boolean = false
+  )
+
+  /** Result of `incrEx`/`incrExFloat`: the key's new value, and the increment Redis actually applied (differs from the
+    * requested increment only when `saturate` clamped the result to a bound).
+    */
+  case class IncrexResult[A](value: A, appliedIncrement: A)
+
   sealed trait LMoveSide
   object LMoveSide {
     case object Left extends LMoveSide

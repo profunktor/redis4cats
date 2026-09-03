@@ -55,6 +55,18 @@ trait BitCommands[F[_], K, V] {
 
   def bitOpXor(destination: K, source: K, sources: K*): F[Long]
 
+  /** X ∧ ¬(Y1 ∨ Y2 ∨ …) — bits set in `source` but in none of `keys`. */
+  def bitOpDiff(destination: K, source: K, keys: K*): F[Long]
+
+  /** ¬X ∧ (Y1 ∨ Y2 ∨ …) — bits set in at least one of `keys` but not in `source`. */
+  def bitOpDiff1(destination: K, source: K, keys: K*): F[Long]
+
+  /** X ∧ (Y1 ∨ Y2 ∨ …) — bits set in `source` and in at least one of `keys`. */
+  def bitOpAndOr(destination: K, source: K, keys: K*): F[Long]
+
+  /** Bits set in exactly one of `keys` (a generalized XOR — for two keys it's equivalent to `bitOpXor`). */
+  def bitOpOne(destination: K, keys: K*): F[Long]
+
   def bitPos(key: K, state: Boolean): F[Long]
 
   def bitPos(key: K, state: Boolean, start: Long): F[Long]
