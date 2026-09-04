@@ -74,10 +74,7 @@ trait StreamSetter[F[_], K, V] {
     */
   def xDelEx(key: K, ids: String*): F[List[StreamEntryDeletionResult]]
 
-  /** `XDELEX` with explicit control over what happens to consumer-group PEL references to the deleted entries. A
-    * defaulted `policy` parameter can't precede a varargs `ids` and still be skippable at a normal (unnamed) call site,
-    * hence the separate overload rather than a default value on the method above.
-    */
+  /** `XDELEX` with explicit control over what happens to consumer-group PEL references to the deleted entries. */
   def xDelEx(key: K, policy: StreamDeletionPolicy, ids: String*): F[List[StreamEntryDeletionResult]]
 
   /** `XCFGSET` - sets stream-level idempotent-publish configuration (see [[XCfgSetArgs]]). */
@@ -120,9 +117,7 @@ trait StreamConsumerGroups[F[_], K, V] {
     */
   def xAckDel(key: K, group: K, ids: String*): F[List[StreamEntryDeletionResult]]
 
-  /** `XACKDEL` with explicit control over the deletion policy - see [[xDelEx]]'s two-overload note for why this isn't a
-    * defaulted parameter instead.
-    */
+  /** `XACKDEL` with explicit control over the deletion policy. */
   def xAckDel(key: K, group: K, policy: StreamDeletionPolicy, ids: String*): F[List[StreamEntryDeletionResult]]
 
   /** `XNACK` - negatively-acknowledges messages in `group`'s Pending Entries List, adjusting their delivery counter per
