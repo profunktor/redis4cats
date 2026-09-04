@@ -1785,13 +1785,16 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(infoAfterCfgSet.extra.get("idmp-maxsize"), Some("500")))
       _ <- IO(assertEquals(infoAfterCfgSet.extra.get("idmp-duration"), Some("60000")))
 
+      // XDELEX no-policy overload (defaults to KeepReferences, matching plain XDEL)
+      delExNoPolicy <- redis.xDelEx("testStream", messageId2.value)
+      _ <- IO(assertEquals(delExNoPolicy, List(StreamEntryDeletionResult.Deleted)))
       // XDELEX - like XDEL, but with control over consumer-group PEL references (irrelevant here, no groups yet)
       delExResult <- redis.xDelEx("testStream", StreamDeletionPolicy.KeepReferences, messageId1.value)
       _ <- IO(assertEquals(delExResult, List(StreamEntryDeletionResult.Deleted)))
       delExMissing <- redis.xDelEx("testStream", StreamDeletionPolicy.KeepReferences, messageId1.value)
       _ <- IO(assertEquals(delExMissing, List(StreamEntryDeletionResult.NotFound)))
       len <- redis.xLen("testStream")
-      _ <- IO(assert(len == 3, "stream should have 3 entries after xdelex"))
+      _ <- IO(assert(len == 2, "stream should have 2 entries after xdelex"))
 
       // Delete from stream
       _ <- redis.xTrim("testStream", XTrimArgs(XTrimArgs.Strategy.MAXLEN(2)))

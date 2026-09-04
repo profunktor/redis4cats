@@ -149,9 +149,13 @@ class RedisStreamConsumerGroupSpec extends Redis4CatsFunSuite(isCluster = false)
       for {
         _ <- redis.del(key)
         _ <- redis.xGroupCreate(key, group, offset = "0", args = XGroupCreateArgs(mkStream = true))
+        id0 <- redis.xAdd(key, Map("z" -> "0"))
         id1 <- redis.xAdd(key, Map("a" -> "1"))
         id2 <- redis.xAdd(key, Map("b" -> "2"))
         _ <- redis.xReadGroup(c1, XReadOffsets.custom(">", key))
+        // No-policy overload: also defaults to KeepReferences.
+        deletedNoPolicy <- redis.xAckDel(key, group, id0.value)
+        _ <- IO(assertEquals(deletedNoPolicy, List(StreamEntryDeletionResult.Deleted)))
         // KeepReferences (the default): the entry is removed from the stream but XACK still succeeds.
         deleted <- redis.xAckDel(key, group, StreamDeletionPolicy.KeepReferences, id1.value)
         _ <- IO(assertEquals(deleted, List(StreamEntryDeletionResult.Deleted)))

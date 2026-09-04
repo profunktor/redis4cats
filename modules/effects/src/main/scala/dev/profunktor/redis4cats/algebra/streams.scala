@@ -68,15 +68,17 @@ trait StreamSetter[F[_], K, V] {
   def xTrim(key: K, args: XTrimArgs): F[Long]
   def xDel(key: K, ids: String*): F[Long]
 
-  /** `XDELEX` - like [[xDel]], but with control over what happens to consumer-group PEL references to the deleted
-    * entries (`policy` defaults to `StreamDeletionPolicy.KeepReferences`, matching plain `XDEL`). Returns the per-id
-    * outcome, in the same order as `ids`.
+  /** `XDELEX` - like [[xDel]], but reports the per-id outcome (in the same order as `ids`) instead of just a count.
+    * Uses `StreamDeletionPolicy.KeepReferences`, matching plain `XDEL`'s behavior - use the `policy` overload to choose
+    * a different one.
     */
-  def xDelEx(
-      key: K,
-      policy: StreamDeletionPolicy = StreamDeletionPolicy.KeepReferences,
-      ids: String*
-  ): F[List[StreamEntryDeletionResult]]
+  def xDelEx(key: K, ids: String*): F[List[StreamEntryDeletionResult]]
+
+  /** `XDELEX` with explicit control over what happens to consumer-group PEL references to the deleted entries. A
+    * defaulted `policy` parameter can't precede a varargs `ids` and still be skippable at a normal (unnamed) call site,
+    * hence the separate overload rather than a default value on the method above.
+    */
+  def xDelEx(key: K, policy: StreamDeletionPolicy, ids: String*): F[List[StreamEntryDeletionResult]]
 
   /** `XCFGSET` - sets stream-level idempotent-publish configuration (see [[XCfgSetArgs]]). */
   def xCfgSet(key: K, args: XCfgSetArgs): F[Unit]
@@ -113,15 +115,15 @@ trait StreamConsumerGroups[F[_], K, V] {
 
   def xAck(key: K, group: K, ids: String*): F[Long]
 
-  /** `XACKDEL` - atomically combines [[xAck]] with an [[xDelEx]]-style deletion (`policy` defaults to
-    * `StreamDeletionPolicy.KeepReferences`). Returns the per-id deletion outcome, in the same order as `ids`.
+  /** `XACKDEL` - atomically combines [[xAck]] with an [[xDelEx]]-style deletion, using
+    * `StreamDeletionPolicy.KeepReferences`. Returns the per-id deletion outcome, in the same order as `ids`.
     */
-  def xAckDel(
-      key: K,
-      group: K,
-      policy: StreamDeletionPolicy = StreamDeletionPolicy.KeepReferences,
-      ids: String*
-  ): F[List[StreamEntryDeletionResult]]
+  def xAckDel(key: K, group: K, ids: String*): F[List[StreamEntryDeletionResult]]
+
+  /** `XACKDEL` with explicit control over the deletion policy - see [[xDelEx]]'s two-overload note for why this isn't a
+    * defaulted parameter instead.
+    */
+  def xAckDel(key: K, group: K, policy: StreamDeletionPolicy, ids: String*): F[List[StreamEntryDeletionResult]]
 
   /** `XNACK` - negatively-acknowledges messages in `group`'s Pending Entries List, adjusting their delivery counter per
     * `mode` without acknowledging or removing them. Returns the number of entries affected.

@@ -2982,6 +2982,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def xDel(key: K, ids: String*): F[Long] =
     async.flatMap(_.xdel(key, ids: _*).futureLift.map(Long.box(_)))
 
+  override def xDelEx(key: K, ids: String*): F[List[StreamEntryDeletionResult]] =
+    async.flatMap(_.xdelex(key, ids: _*).futureLift).map(_.asScala.toList.map(_.asScala))
+
   override def xDelEx(key: K, policy: StreamDeletionPolicy, ids: String*): F[List[StreamEntryDeletionResult]] =
     async
       .flatMap(_.xdelex(key, toJStreamDeletionPolicy(policy), ids: _*).futureLift)
@@ -3053,6 +3056,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def xAck(key: K, group: K, ids: String*): F[Long] =
     async.flatMap(_.xack(key, group, ids: _*).futureLift.map(x => Long.box(x)))
+
+  override def xAckDel(key: K, group: K, ids: String*): F[List[StreamEntryDeletionResult]] =
+    async.flatMap(_.xackdel(key, group, ids: _*).futureLift).map(_.asScala.toList.map(_.asScala))
 
   override def xAckDel(
       key: K,
