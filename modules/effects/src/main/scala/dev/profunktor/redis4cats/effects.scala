@@ -28,6 +28,7 @@ import io.lettuce.core.{
   ScriptOutputType => JScriptOutputType
 }
 import io.lettuce.core.models.command.{ CommandDetail => JCommandDetail }
+import io.lettuce.core.{ StringMatchResult => JStringMatchResult }
 import io.lettuce.core.{ TrackingInfo => JTrackingInfo }
 
 import java.util.concurrent.TimeUnit
@@ -606,11 +607,39 @@ object effects {
     */
   case class LcsMatchPosition(start: Long, end: Long)
   case class LcsMatch(a: LcsMatchPosition, b: LcsMatchPosition, matchLen: Option[Long])
+  object LcsMatch {
+    private[redis4cats] def fromLettuce(withMatchLen: Boolean)(m: JStringMatchResult.MatchedPosition): LcsMatch =
+      LcsMatch(
+        LcsMatchPosition(m.getA.getStart, m.getA.getEnd),
+        LcsMatchPosition(m.getB.getStart, m.getB.getEnd),
+        // matchLen is a Java primitive long (always 0 when WITHMATCHLEN wasn't requested) rather than a
+        // nullable field, so — same as GeoSearchResult — Option-ness is decided from what was actually
+        // requested, not inferred from the value.
+        if (withMatchLen) Some(m.getMatchLen) else None
+      )
+  }
 
   /** Result of `lcs`/`lcsIdx`: `matchString` is present for the plain (non-idx) query, `matches` is populated only by
     * `lcsIdx`, and `len` (the LCS length) is always present.
     */
   case class LcsResult(matchString: Option[String], matches: List[LcsMatch], len: Long)
+  object LcsResult {
+
+    // Redis's plain (non-LEN, non-IDX) LCS reply is just the matched string - no length field at all
+    // on the wire - so Lettuce's StringMatchResult.getLen() defaults to 0 in that mode, not the actual
+    // length. LEN/IDX replies do carry a real length. isIdx tells us which reply shape we're decoding;
+    // the plain case derives len from the matched string we do have, rather than trusting an unset 0.
+    private[redis4cats] def fromLettuce(isIdx: Boolean, withMatchLen: Boolean)(r: JStringMatchResult): LcsResult = {
+      import dev.profunktor.redis4cats.JavaConversions._
+
+      val matchString = Option(r.getMatchString)
+      // Redis counts LCS length in bytes, so the plain (non-IDX) case re-encodes via UTF-8 rather
+      // than using String#length()'s UTF-16 code units, to stay correct for any non-ASCII match.
+      val len =
+        if (isIdx) r.getLen else matchString.fold(0L)(_.getBytes(java.nio.charset.StandardCharsets.UTF_8).length.toLong)
+      LcsResult(matchString, r.getMatches.asScala.toList.map(LcsMatch.fromLettuce(withMatchLen)), len)
+    }
+  }
 
   sealed trait IncrexTtl
   object IncrexTtl {

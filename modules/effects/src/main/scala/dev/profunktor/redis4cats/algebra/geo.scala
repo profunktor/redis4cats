@@ -25,7 +25,9 @@ trait GeoCommands[F[_], K, V] extends GeoGetter[F, K, V] with GeoSetter[F, K, V]
 trait GeoGetter[F[_], K, V] {
   def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double]
   def geoHash(key: K, value: V, values: V*): F[List[Option[String]]]
-  def geoPos(key: K, value: V, values: V*): F[List[GeoCoordinate]]
+
+  /** `None` at a position whose member isn't in the geo set. */
+  def geoPos(key: K, value: V, values: V*): F[List[Option[GeoCoordinate]]]
   def geoSearch(key: K, ref: GeoSearchReference[V], predicate: GeoSearchPredicate): F[Set[V]]
   def geoSearch(key: K, ref: GeoSearchReference[V], predicate: GeoSearchPredicate, args: GeoArgs): F[List[GeoSearchResult[V]]]
 }

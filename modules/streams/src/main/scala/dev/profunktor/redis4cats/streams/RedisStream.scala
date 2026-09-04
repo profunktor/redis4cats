@@ -84,14 +84,31 @@ class RedisStream[F[_]: Sync, K, V](redis: RedisCommands[F, K, V]) extends Strea
         Stream.force {
           for {
             currentOffsets <- offsets.get
-            messages <- redis.xRead(currentOffsets.values.toSet, block, count)
-            _ <- offsets.set(currentOffsets ++ latestOffsets(messages))
+            resolvedOffsets <-
+              currentOffsets.toList.traverse { case (k, o) => resolveOffset(o).tupleLeft(k) }.map(_.toMap)
+            messages <- redis.xRead(resolvedOffsets.values.toSet, block, count)
+            _ <- offsets.set(resolvedOffsets ++ latestOffsets(messages))
           } yield Stream.fromIterator[F](iterator = messages.iterator, chunkSize = messages.size)
         }.repeat
 
       restartOnTimeout.wrap(streamMessages)
     }
   }
+
+  /** A `Latest` ($) offset re-resolves to "now" on every call, so a poll that returns no messages for that key would
+    * otherwise skip any entries published before the next poll. Pin it down to the stream's actual last id instead, so
+    * later reads use a stable, advancing id. Left as `Latest` if the stream doesn't exist yet - `XINFO STREAM` errors
+    * on a missing key, while `XREAD $` legitimately waits for the stream to be created.
+    */
+  private def resolveOffset(o: XReadOffsets[K]): F[XReadOffsets[K]] =
+    o match {
+      case XReadOffsets.Latest(key) =>
+        redis
+          .xInfoStream(key)
+          .map(info => XReadOffsets.Custom(key, info.lastGeneratedId.value): XReadOffsets[K])
+          .handleError(_ => o)
+      case _ => o.pure[F]
+    }
 
   private[streams] def latestOffsets(iter: Iterable[StreamMessage[K, V]]) =
     iter

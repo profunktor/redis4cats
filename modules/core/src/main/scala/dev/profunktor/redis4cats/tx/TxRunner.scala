@@ -53,7 +53,12 @@ private[redis4cats] object TxRunner {
                     .guarantee(gate.complete(()).void)
                 } {
                   case (_, Outcome.Succeeded(_)) =>
-                    gate.get *> t.eval(release).guarantee(fbs.get.flatMap(_.traverse_(_.join)))
+                    gate.get *> t.eval(release).guarantee {
+                      fbs.get.flatMap(_.traverse_(_.join.flatMap {
+                        case Outcome.Errored(e) => e.raiseError[F, Unit]
+                        case _                  => ().pure[F]
+                      }))
+                    }
                   case (_, _) =>
                     t.eval(onError).guarantee(fbs.get.flatMap(_.traverse_(_.cancel)))
                 }

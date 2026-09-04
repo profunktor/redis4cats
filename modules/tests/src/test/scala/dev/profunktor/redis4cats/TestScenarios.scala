@@ -53,7 +53,11 @@ trait TestScenarios { self: FunSuite =>
       x <- redis.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoArgs.Unit.km)
       _ <- IO(assertEquals(x, 18374.9052))
       y <- redis.geoPos(testKey, _RioDeJaneiro.value)
-      _ <- IO(assert(y.contains(GeoCoordinate(-43.17289799451828, -22.906801071586663))))
+      _ <- IO(assert(y.contains(Some(GeoCoordinate(-43.17289799451828, -22.906801071586663)))))
+      yMissing <- redis.geoPos(testKey, "Atlantis")
+      _ <- IO(assertEquals(yMissing, List(None)))
+      hMissing <- redis.geoHash(testKey, "Atlantis")
+      _ <- IO(assertEquals(hMissing, List(None)))
 
       // geoSearch: FromCoordinates x ByRadius (plain Set[V] result)
       byCoordRadius <- redis.geoSearch(
@@ -805,12 +809,12 @@ trait TestScenarios { self: FunSuite =>
       sorted <- redis.sort("{keystest}:sortsrc")
       _ <- IO(assertEquals(sorted, List("1", "2", "3")))
       sortedDesc <- redis.sortReadOnly("{keystest}:sortsrc", SortArgs(order = Some(SortOrder.Desc)))
-      _ <- IO(assertEquals(sortedDesc, List("3", "2", "1")))
+      _ <- IO(assertEquals(sortedDesc, List(Some("3"), Some("2"), Some("1"))))
       sortedLimit <- redis.sort(
                        "{keystest}:sortsrc",
                        SortArgs(order = Some(SortOrder.Asc), limit = Some(RangeLimit(0, 2)))
                      )
-      _ <- IO(assertEquals(sortedLimit, List("1", "2")))
+      _ <- IO(assertEquals(sortedLimit, List(Some("1"), Some("2"))))
       sortStoreCount <-
         redis.sortStore("{keystest}:sortsrc", SortArgs(order = Some(SortOrder.Asc)), "{keystest}:sortdst")
       _ <- IO(assertEquals(sortStoreCount, 3L))
