@@ -1734,8 +1734,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   // format: off
   /******************************* Geo API **********************************/
   // format: on
-  override def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double] =
-    async.flatMap(_.geodist(key, from, to, unit).futureLift.map(x => Double.box(x)))
+  override def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Option[Double]] =
+    async.flatMap(_.geodist(key, from, to, unit).futureLift.map(x => Option(x).map(Double.unbox)))
 
   override def geoHash(key: K, value: V, values: V*): F[List[Option[String]]] =
     async
@@ -2203,16 +2203,16 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
         .flatMap(parseClientInfo)
     )
 
+  private def parseSpaceSeparatedKeyValuePairs(line: String): Map[String, String] =
+    line
+      .split(" ")
+      .toList
+      .map(_.split("=", 2).toList)
+      .collect { case k :: v :: Nil => (k, v) }
+      .toMap
+
   private def parseClientInfo(info: String): F[Map[String, String]] =
-    FutureLift[F].delay(
-      info
-        .replace("\n", "")
-        .split(" ")
-        .toList
-        .map(_.split("=", 2).toList)
-        .collect { case k :: v :: Nil => (k, v) }
-        .toMap
-    )
+    FutureLift[F].delay(parseSpaceSeparatedKeyValuePairs(info.replace("\n", "")))
 
   override def echo(msg: V): F[V] =
     async.flatMap(_.echo(msg).futureLift)
@@ -2413,16 +2413,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   private def parseClientLines(info: String): F[List[Map[String, String]]] =
     FutureLift[F].delay(
-      info
-        .split("\\r?\\n")
-        .toList
-        .filter(_.nonEmpty)
-        .map(
-          _.split(" ").toList
-            .map(_.split("=", 2).toList)
-            .collect { case k :: v :: Nil => (k, v) }
-            .toMap
-        )
+      info.split("\\r?\\n").toList.filter(_.nonEmpty).map(parseSpaceSeparatedKeyValuePairs)
     )
 
   override def clientList: F[List[Map[String, String]]] =

@@ -29,7 +29,8 @@ import io.lettuce.core.{
 }
 
 import javax.crypto.Cipher
-import javax.crypto.spec.SecretKeySpec
+import javax.crypto.spec.{ IvParameterSpec, SecretKeySpec }
+import java.security.SecureRandom
 import java.{ util => ju }
 import java.lang.{ Long => JLong }
 
@@ -105,34 +106,49 @@ object data {
     ): RedisCodec[K, V] =
       RedisCodec(CipherCodec.forValues(codec.underlying, encrypt, decrypt))
 
+    // CBC needs an IV, but Lettuce's CipherCodec wire format only carries a $name+version$ key descriptor -
+    // no room for one. We smuggle a fresh random IV through as the descriptor's "name": encryptionKey()
+    // generates it and get() decodes it back out, and since Lettuce round-trips the exact same descriptor
+    // it read off the wire into the decrypt supplier's get(), the same IV comes back out on the way in. Key
+    // name/version-based rotation (the feature this field exists for) isn't otherwise exposed by this API.
+    private def ivOf(kd: CipherCodec.KeyDescriptor): IvParameterSpec =
+      new IvParameterSpec(ju.Base64.getUrlDecoder.decode(kd.getName))
+
     /** It creates a CipherSupplier given a secret key for encryption.
       *
       * A CipherSupplier is needed for [[RedisCodec.secure]]
       */
     def encryptSupplier[F[_]: Sync](key: SecretKeySpec): F[CipherCodec.CipherSupplier] =
-      cipherSupplier[F](key, Cipher.ENCRYPT_MODE)
+      Sync[F].delay(new SecureRandom).map { random =>
+        new CipherCodec.CipherSupplier {
+          override def encryptionKey(): CipherCodec.KeyDescriptor = {
+            val iv = new Array[Byte](16)
+            random.nextBytes(iv)
+            CipherCodec.KeyDescriptor.create(ju.Base64.getUrlEncoder.withoutPadding.encodeToString(iv))
+          }
+
+          override def get(kd: CipherCodec.KeyDescriptor): Cipher = {
+            val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+            cipher.init(Cipher.ENCRYPT_MODE, key, ivOf(kd))
+            cipher
+          }
+        }
+      }
 
     /** It creates a CipherSupplier given a secret key for decryption.
       *
       * A CipherSupplier is needed for [[RedisCodec.secure]]
       */
     def decryptSupplier[F[_]: Sync](key: SecretKeySpec): F[CipherCodec.CipherSupplier] =
-      cipherSupplier[F](key, Cipher.DECRYPT_MODE)
-
-    private def cipherSupplier[F[_]: Sync](key: SecretKeySpec, mode: Int): F[CipherCodec.CipherSupplier] = {
-      val mkCipher =
-        Sync[F].delay {
-          val cipher: Cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-          cipher.init(mode, key)
-          cipher
-        }
-
-      mkCipher.map { cipher =>
+      Sync[F].delay {
         new CipherCodec.CipherSupplier {
-          override def get(kd: CipherCodec.KeyDescriptor): Cipher = cipher
+          override def get(kd: CipherCodec.KeyDescriptor): Cipher = {
+            val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+            cipher.init(Cipher.DECRYPT_MODE, key, ivOf(kd))
+            cipher
+          }
         }
       }
-    }
 
   }
 

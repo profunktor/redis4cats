@@ -23,7 +23,8 @@ import io.lettuce.core.GeoArgs
 trait GeoCommands[F[_], K, V] extends GeoGetter[F, K, V] with GeoSetter[F, K, V]
 
 trait GeoGetter[F[_], K, V] {
-  def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Double]
+  /** `None` if either `from` or `to` isn't a member of the geo set at `key`. */
+  def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Option[Double]]
   def geoHash(key: K, value: V, values: V*): F[List[Option[String]]]
 
   /** `None` at a position whose member isn't in the geo set. */

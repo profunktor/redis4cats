@@ -51,7 +51,9 @@ trait TestScenarios { self: FunSuite =>
       addCountExisting <- redis.geoAdd(testKey, _Tokyo)
       _ <- IO(assertEquals(addCountExisting, 0L)) // re-adding an existing member updates it, adds nothing new
       x <- redis.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoArgs.Unit.km)
-      _ <- IO(assertEquals(x, 18374.9052))
+      _ <- IO(assertEquals(x, Some(18374.9052)))
+      xMissing <- redis.geoDist(testKey, _BuenosAires.value, "Atlantis", GeoArgs.Unit.km)
+      _ <- IO(assertEquals(xMissing, None))
       y <- redis.geoPos(testKey, _RioDeJaneiro.value)
       _ <- IO(assert(y.contains(Some(GeoCoordinate(-43.17289799451828, -22.906801071586663)))))
       yMissing <- redis.geoPos(testKey, "Atlantis")
