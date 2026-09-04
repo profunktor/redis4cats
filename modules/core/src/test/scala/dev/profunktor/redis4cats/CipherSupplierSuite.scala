@@ -43,13 +43,13 @@ class CipherSupplierSuite extends FunSuite {
       decrypt <- RedisCodec.decryptSupplier[IO](key)
     } yield RedisCodec.secure(RedisCodec(StringCodec.UTF8), encrypt, decrypt)).unsafeRunSync()
 
-    val encoded  = codec.underlying.encodeValue("hello world")
-    val decoded  = codec.underlying.decodeValue(encoded)
+    val encoded = codec.underlying.encodeValue("hello world")
+    val decoded = codec.underlying.decodeValue(encoded)
     assertEquals(decoded, "hello world")
   }
 
   test("encrypting the same plaintext twice produces different ciphertext (random IV per call)") {
-    val key = newKey()
+    val key     = newKey()
     val encrypt = RedisCodec.encryptSupplier[IO](key).unsafeRunSync()
     val codec   = RedisCodec.secure(RedisCodec(StringCodec.UTF8), encrypt, encrypt).underlying
 
