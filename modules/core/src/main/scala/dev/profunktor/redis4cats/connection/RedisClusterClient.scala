@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.jdk.DurationConverters._
 
-import cats.{ FlatMap, Functor }
+import cats.{ Functor, MonadThrow }
 import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
@@ -39,10 +39,21 @@ sealed abstract case class RedisClusterClient private (underlying: JClusterClien
 
 object RedisClusterClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: FlatMap: FutureLift: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: MonadThrow: FutureLift: Log](
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
+
+    def shutdownJClient(jClient: JClusterClient): F[Unit] =
+      FutureLift[F]
+        .lift(
+          jClient.shutdownAsync(
+            config.shutdown.quietPeriod.toNanos,
+            config.shutdown.timeout.toNanos,
+            TimeUnit.NANOSECONDS
+          )
+        )
+        .void
 
     val acquire: F[RedisClusterClient] =
       Log[F].info(s"Acquire Redis Cluster client") *>
@@ -51,20 +62,17 @@ object RedisClusterClient {
             val javaUris = uri.map(_.underlying).asJava
             config.clientResources.fold(JClusterClient.create(javaUris))(JClusterClient.create(_, javaUris))
           }
-          .flatTap(initializeClusterTopology[F](_, config.topologyViewRefreshStrategy, config.nodeFilter))
+          .flatTap { jClient =>
+            // The client is already allocated (real Netty resources) by this point; if topology
+            // initialization throws, it must be shut down here - Resource.make never calls `release` when
+            // `acquire` itself fails, so without this the just-created client would otherwise leak.
+            initializeClusterTopology[F](jClient, config.topologyViewRefreshStrategy, config.nodeFilter)
+              .onError { case _ => shutdownJClient(jClient) }
+          }
           .map(new RedisClusterClient(_) {})
 
     val release: RedisClusterClient => F[Unit] = client =>
-      Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *>
-        FutureLift[F]
-          .lift(
-            client.underlying.shutdownAsync(
-              config.shutdown.quietPeriod.toNanos,
-              config.shutdown.timeout.toNanos,
-              TimeUnit.NANOSECONDS
-            )
-          )
-          .void
+      Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *> shutdownJClient(client.underlying)
 
     (acquire, release)
   }
@@ -131,10 +139,10 @@ object RedisClusterClient {
       }
     }.void
 
-  def apply[F[_]: FlatMap: MkRedis](uri: RedisURI*): Resource[F, RedisClusterClient] =
+  def apply[F[_]: MonadThrow: MkRedis](uri: RedisURI*): Resource[F, RedisClusterClient] =
     configured[F](Redis4CatsConfig(), uri: _*)
 
-  def configured[F[_]: FlatMap: MkRedis](
+  def configured[F[_]: MonadThrow: MkRedis](
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): Resource[F, RedisClusterClient] = {

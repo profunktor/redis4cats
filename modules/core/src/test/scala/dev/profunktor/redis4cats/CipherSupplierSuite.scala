@@ -64,4 +64,14 @@ class CipherSupplierSuite extends FunSuite {
     val kd       = supplier.encryptionKey()
     assert(supplier.get(kd) ne supplier.get(kd))
   }
+
+  test("every random IV survives the KeyDescriptor round-trip (name may not contain '+' or '$')") {
+    val supplier = RedisCodec.encryptSupplier[IO](newKey()).unsafeRunSync()
+    // 16-byte random input, so ~1 in 4 draws would contain '+' under standard (non-URL-safe) base64 -
+    // enough trials to reliably catch a regression back to the standard encoder.
+    (1 to 500).foreach { _ =>
+      val kd = supplier.encryptionKey()
+      supplier.get(kd): Unit
+    }
+  }
 }

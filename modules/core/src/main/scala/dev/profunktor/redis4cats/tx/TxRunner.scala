@@ -54,11 +54,14 @@ private[redis4cats] object TxRunner {
                 } {
                   case (_, Outcome.Succeeded(_)) =>
                     gate.get *> t.eval(release).guarantee {
-                      fbs.get.flatMap(_.traverse_(_.join.flatMap {
-                        case Outcome.Errored(e)   => e.raiseError[F, Unit]
-                        case Outcome.Canceled()   => PipelineError.raiseError[F, Unit]
-                        case Outcome.Succeeded(_) => ().pure[F]
-                      }))
+                      // `.traverse` (not `.traverse_`) so every fiber is joined even if an earlier one
+                      // failed/was cancelled - deciding what to raise happens only after all of them are
+                      // in hand, so a later command's outcome is never left unobserved.
+                      fbs.get.flatMap(_.traverse(_.join)).flatMap { outcomes =>
+                        outcomes
+                          .collectFirst { case o @ (Outcome.Errored(_) | Outcome.Canceled()) => o }
+                          .fold(().pure[F])(_.embed(PipelineError.raiseError[F, Unit]))
+                      }
                     }
                   case (_, _) =>
                     t.eval(onError).guarantee(fbs.get.flatMap(_.traverse_(_.cancel)))

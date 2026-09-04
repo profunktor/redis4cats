@@ -22,7 +22,7 @@
 
 package dev.profunktor.redis4cats.effect
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{ Executors, ThreadPoolExecutor }
 
 import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
@@ -40,13 +40,20 @@ private[redis4cats] trait TxExecutor[F[_]] {
 private[redis4cats] object TxExecutor {
   def make[F[_]: Async]: Resource[F, TxExecutor[F]] =
     Resource
-      .make(Sync[F].delay(Executors.newFixedThreadPool(1, TxThreadFactory))) { ec =>
-        Sync[F]
-          .delay(ec.shutdownNow())
-          .ensure(new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread"))(
-            _.isEmpty
-          )
-          .void
+      .make(Sync[F].delay(Executors.newFixedThreadPool(1, TxThreadFactory).asInstanceOf[ThreadPoolExecutor])) { ec =>
+        // shutdownNow()'s returned list is only tasks that were queued but never started - per its own
+        // contract, a task already running is interrupted, not returned, so checking that list alone
+        // misses a command that was actively executing (and forcibly cut off) at shutdown time.
+        // getActiveCount() (read just before the shutdown, to avoid the interrupt racing this check to 0)
+        // catches that case too.
+        Sync[F].delay(ec.getActiveCount).flatMap { activeBefore =>
+          Sync[F]
+            .delay(ec.shutdownNow())
+            .ensure(new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread"))(
+              queued => queued.isEmpty && activeBefore == 0
+            )
+            .void
+        }
       }
       .map(es => fromEC(exitOnFatal(ExecutionContext.fromExecutorService(es))))
 

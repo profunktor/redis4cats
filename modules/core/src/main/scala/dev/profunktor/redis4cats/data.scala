@@ -124,6 +124,9 @@ object data {
           override def encryptionKey(): CipherCodec.KeyDescriptor = {
             val iv = new Array[Byte](16)
             random.nextBytes(iv)
+            // KeyDescriptor's name may not contain '+' or '$' - the URL-safe alphabet (-_ instead of +/)
+            // guarantees that for any input, unlike the standard encoder, which would occasionally emit
+            // '+' and throw here.
             CipherCodec.KeyDescriptor.create(ju.Base64.getUrlEncoder.withoutPadding.encodeToString(iv))
           }
 
