@@ -78,7 +78,6 @@ import io.lettuce.core.{
   StreamDeletionPolicy => JStreamDeletionPolicy,
   StringMatchResult => JStringMatchResult,
   TrackingArgs => JTrackingArgs,
-  TrackingInfo => JTrackingInfo,
   UnblockType => JUnblockType,
   XAddArgs => JXAddArgs,
   XAutoClaimArgs => JXAutoClaimArgs,
@@ -93,7 +92,7 @@ import io.lettuce.core.{
   ZPopArgs,
   ZStoreArgs
 }
-import io.lettuce.core.models.command.{ CommandDetail => JCommandDetail, CommandDetailParser }
+import io.lettuce.core.models.command.CommandDetailParser
 import io.lettuce.core.models.stream.{
   ClaimedMessages,
   PendingMessage,
@@ -953,7 +952,11 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   // the plain case derives len from the matched string we do have, rather than trusting an unset 0.
   private def toLcsResult(isIdx: Boolean, withMatchLen: Boolean)(r: JStringMatchResult): LcsResult = {
     val matchString = Option(r.getMatchString)
-    val len         = if (isIdx) r.getLen else matchString.fold(0L)(_.length.toLong)
+    // Redis counts LCS length in bytes (matching lcsLen's raw integer reply), not in UTF-16 code
+    // units - re-encoding via UTF-8 keeps the plain (non-IDX) case's derived length consistent with
+    // lcsLen's for any non-ASCII match, since String#length() alone would undercount those.
+    val len =
+      if (isIdx) r.getLen else matchString.fold(0L)(_.getBytes(java.nio.charset.StandardCharsets.UTF_8).length.toLong)
     LcsResult(matchString, r.getMatches.asScala.toList.map(toLcsMatch(withMatchLen)), len)
   }
 
@@ -1467,10 +1470,16 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case (LMoveSide.Right, LMoveSide.Right) => LMovemArgs.Builder.rightRight()
     }
 
+  private def toJLMoveOrdering(ordering: LMoveOrdering): LMovemArgs.Ordering =
+    ordering match {
+      case LMoveOrdering.OneByOne => LMovemArgs.Ordering.OBO
+      case LMoveOrdering.Bulk     => LMovemArgs.Ordering.BULK
+    }
+
   private def applyLMoveCount(args: LMovemArgs, count: LMoveCount): LMovemArgs =
     count match {
-      case LMoveCount.UpTo(n, ordering)    => args.count(n, ordering)
-      case LMoveCount.Exactly(n, ordering) => args.exactly(n, ordering)
+      case LMoveCount.UpTo(n, ordering)    => args.count(n, toJLMoveOrdering(ordering))
+      case LMoveCount.Exactly(n, ordering) => args.exactly(n, toJLMoveOrdering(ordering))
     }
 
   private def toBLMovemArgs(sourceSide: LMoveSide, destinationSide: LMoveSide): BLMovemArgs =
@@ -1483,8 +1492,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   private def applyLMoveCount(args: BLMovemArgs, count: LMoveCount): BLMovemArgs =
     count match {
-      case LMoveCount.UpTo(n, ordering)    => args.count(n, ordering)
-      case LMoveCount.Exactly(n, ordering) => args.exactly(n, ordering)
+      case LMoveCount.UpTo(n, ordering)    => args.count(n, toJLMoveOrdering(ordering))
+      case LMoveCount.Exactly(n, ordering) => args.exactly(n, toJLMoveOrdering(ordering))
     }
 
   private def toLMPopArgs(side: LMoveSide): LMPopArgs =
@@ -1626,11 +1635,11 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def lPos(key: K, value: V, args: LPosArgs): F[Option[Long]] =
     async.flatMap(_.lpos(key, value, toJLPosArgs(args)).futureLift.map(x => Option(x).map(Long.unbox)))
 
-  override def lPos(key: K, value: V, count: Long): F[List[Long]] =
-    async.flatMap(_.lpos(key, value, count.toInt).futureLift.map(_.asScala.toList.map(Long.unbox)))
+  override def lPos(key: K, value: V, count: Int): F[List[Long]] =
+    async.flatMap(_.lpos(key, value, count).futureLift.map(_.asScala.toList.map(Long.unbox)))
 
-  override def lPos(key: K, value: V, count: Long, args: LPosArgs): F[List[Long]] =
-    async.flatMap(_.lpos(key, value, count.toInt, toJLPosArgs(args)).futureLift.map(_.asScala.toList.map(Long.unbox)))
+  override def lPos(key: K, value: V, count: Int, args: LPosArgs): F[List[Long]] =
+    async.flatMap(_.lpos(key, value, count, toJLPosArgs(args)).futureLift.map(_.asScala.toList.map(Long.unbox)))
 
   override def rPush(key: K, values: V*): F[Long] =
     async.flatMap(_.rpush(key, values: _*).futureLift.map(x => Long.box(x)))
@@ -2090,14 +2099,14 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       .flatMap(_.bzpopmax(timeout.toSecondsOrZero, keys.toList: _*).futureLift)
       .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScoreWithValues)))
 
-  override def zmPopMin(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]] =
+  override def zmPopMin(keys: NonEmptyList[K], count: Int): F[Option[(K, List[ScoreWithValue[V]])]] =
     async
-      .flatMap(_.zmpop(count.toInt, ZPopArgs.Builder.min(), keys.toList: _*).futureLift)
+      .flatMap(_.zmpop(count, ZPopArgs.Builder.min(), keys.toList: _*).futureLift)
       .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
 
-  override def zmPopMax(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]] =
+  override def zmPopMax(keys: NonEmptyList[K], count: Int): F[Option[(K, List[ScoreWithValue[V]])]] =
     async
-      .flatMap(_.zmpop(count.toInt, ZPopArgs.Builder.max(), keys.toList: _*).futureLift)
+      .flatMap(_.zmpop(count, ZPopArgs.Builder.max(), keys.toList: _*).futureLift)
       .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
 
   override def bzmPopMin(
@@ -2224,36 +2233,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.readWrite().futureLift.void)
 
   override def role: F[RedisRole] =
-    async.flatMap(_.role().futureLift).flatMap(reply => FutureLift[F].delay(toRedisRole(reply)))
-
-  // The ROLE reply shape genuinely differs by role: a master reports its replication offset and
-  // the list of connected replicas; a replica reports its master's address and its own sync state.
-  // Lettuce hands this back as an untyped List[Object] — element types are read loosely (`.toString`)
-  // rather than assumed to be a specific boxed numeric type, since that's an implementation detail
-  // of Lettuce's RESP decoding this API doesn't otherwise commit to.
-  private def toRedisRole(reply: java.util.List[Object]): RedisRole = {
-    def asLong(a: Any): Long = a.toString.toLong
-
-    reply.asScala.toList match {
-      case (role: String) :: offset :: (replicas: java.util.List[_]) :: Nil if role == "master" =>
-        val nodes = replicas.asScala.toList.map {
-          case entry: java.util.List[_] =>
-            entry.asScala.toList match {
-              case ip :: port :: replOffset :: Nil =>
-                RedisRole.ReplicaNode(ip.toString, asLong(port), asLong(replOffset))
-              case other =>
-                throw ReplicationError.UnexpectedReplicaEntry(other.toString)
-            }
-          case other =>
-            throw ReplicationError.UnexpectedReplicaEntry(other.toString)
-        }
-        RedisRole.Master(asLong(offset), nodes)
-      case (role: String) :: host :: port :: state :: offset :: Nil if role == "slave" || role == "replica" =>
-        RedisRole.Replica(host.toString, asLong(port), state.toString, asLong(offset))
-      case other =>
-        throw ReplicationError.UnexpectedRoleReply(other.toString)
-    }
-  }
+    async.flatMap(_.role().futureLift).flatMap(reply => FutureLift[F].delay(RedisRole.fromLettuce(reply)))
 
   // format: off
   /******************************* ACL API **********************************/
@@ -2402,56 +2382,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.slowlogGet(count).futureLift).flatMap(toSlowLogEntries)
 
   private def toSlowLogEntries(reply: java.util.List[Object]): F[List[SlowLogEntry]] =
-    reply.asScala.toList.traverse(toSlowLogEntry).liftTo[F]
-
-  // SLOWLOG GET entries are [id, timestamp, duration, [args...]] on Redis < 4.0, or with
-  // client addr/name appended on 4.0+; Lettuce hands this back as untyped nested List[Object].
-  private def toSlowLogEntry(raw: Any): Either[UnexpectedSlowLogEntry, SlowLogEntry] =
-    raw match {
-      case entry: java.util.List[_] =>
-        entry.asScala.toList match {
-          case id :: ts :: dur :: (args: java.util.List[_]) :: Nil =>
-            Right(
-              SlowLogEntry(
-                id.toString.toLong,
-                Instant.ofEpochSecond(ts.toString.toLong),
-                FiniteDuration(dur.toString.toLong, TimeUnit.MICROSECONDS),
-                args.asScala.toList.map(_.toString),
-                None,
-                None,
-                None
-              )
-            )
-          case id :: ts :: dur :: (args: java.util.List[_]) :: addr :: name :: Nil =>
-            Right(
-              SlowLogEntry(
-                id.toString.toLong,
-                Instant.ofEpochSecond(ts.toString.toLong),
-                FiniteDuration(dur.toString.toLong, TimeUnit.MICROSECONDS),
-                args.asScala.toList.map(_.toString),
-                Some(addr.toString),
-                Some(name.toString),
-                None
-              )
-            )
-          // Redis 8.x adds a 7th field: the command's true argument count, which can exceed
-          // args.size when a long argument list is truncated for display.
-          case id :: ts :: dur :: (args: java.util.List[_]) :: addr :: name :: argCount :: Nil =>
-            Right(
-              SlowLogEntry(
-                id.toString.toLong,
-                Instant.ofEpochSecond(ts.toString.toLong),
-                FiniteDuration(dur.toString.toLong, TimeUnit.MICROSECONDS),
-                args.asScala.toList.map(_.toString),
-                Some(addr.toString),
-                Some(name.toString),
-                Some(argCount.toString.toInt)
-              )
-            )
-          case other => Left(UnexpectedSlowLogEntry(other.toString))
-        }
-      case other => Left(UnexpectedSlowLogEntry(other.toString))
-    }
+    reply.asScala.toList.traverse(SlowLogEntry.fromLettuce).liftTo[F]
 
   override def commandCount: F[Long] =
     async.flatMap(_.commandCount().futureLift.map(Long.unbox))
@@ -2463,47 +2394,10 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.commandInfo(names: _*).futureLift).flatMap(toCommandInfoList)
 
   private def toCommandInfoList(reply: java.util.List[Object]): F[List[CommandInfo]] =
-    CommandDetailParser.parse(reply).asScala.toList.traverse(toCommandInfo).liftTo[F]
-
-  private def toCommandInfo(cd: JCommandDetail): Either[AclError, CommandInfo] =
-    cd.getAclCategories.asScala.toList.traverse(AclCategory.fromJava).map(_.toSet).map { cats =>
-      CommandInfo(
-        name = cd.getName,
-        arity = cd.getArity,
-        flags = cd.getFlags.asScala.toSet.map(toCommandFlag),
-        firstKeyPosition = cd.getFirstKeyPosition,
-        lastKeyPosition = cd.getLastKeyPosition,
-        keyStepCount = cd.getKeyStepCount,
-        aclCategories = cats
-      )
-    }
-
-  private def toCommandFlag(f: JCommandDetail.Flag): CommandFlag =
-    f match {
-      case JCommandDetail.Flag.WRITE           => CommandFlag.Write
-      case JCommandDetail.Flag.READONLY        => CommandFlag.ReadOnly
-      case JCommandDetail.Flag.DENYOOM         => CommandFlag.DenyOom
-      case JCommandDetail.Flag.ADMIN           => CommandFlag.Admin
-      case JCommandDetail.Flag.PUBSUB          => CommandFlag.PubSub
-      case JCommandDetail.Flag.NOSCRIPT        => CommandFlag.NoScript
-      case JCommandDetail.Flag.RANDOM          => CommandFlag.Random
-      case JCommandDetail.Flag.SORT_FOR_SCRIPT => CommandFlag.SortForScript
-      case JCommandDetail.Flag.LOADING         => CommandFlag.Loading
-      case JCommandDetail.Flag.STALE           => CommandFlag.Stale
-      case JCommandDetail.Flag.SKIP_MONITOR    => CommandFlag.SkipMonitor
-      case JCommandDetail.Flag.ASKING          => CommandFlag.Asking
-      case JCommandDetail.Flag.FAST            => CommandFlag.Fast
-      case JCommandDetail.Flag.MOVABLEKEYS     => CommandFlag.MovableKeys
-    }
+    CommandDetailParser.parse(reply).asScala.toList.traverse(CommandInfo.fromLettuce).liftTo[F]
 
   override def time: F[RedisServerTime] =
-    async.flatMap(_.time().futureLift.map(reply => toRedisServerTime(reply)))
-
-  private def toRedisServerTime(reply: java.util.List[V]): RedisServerTime =
-    reply.asScala.toList match {
-      case s :: us :: Nil => RedisServerTime(s.toString.toLong, us.toString.toLong)
-      case other          => throw UnexpectedTimeReply(other.toString)
-    }
+    async.flatMap(_.time().futureLift.map(reply => RedisServerTime.fromLettuce(reply)))
 
   override def configGet(parameter: String): F[Map[String, String]] =
     async.flatMap(_.configGet(parameter).futureLift.map(_.asScala.toMap))
@@ -2576,8 +2470,11 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       case None => new JKillArgs()
       case Some(tpe) =>
         tpe match {
-          case ClientType.Normal  => JKillArgs.Builder.typeNormal()
-          case ClientType.Master  => JKillArgs.Builder.typeMaster()
+          case ClientType.Normal => JKillArgs.Builder.typeNormal()
+          case ClientType.Master => JKillArgs.Builder.typeMaster()
+          // Not a copy-paste slip: KillArgs.Builder genuinely has no typeReplica() (only the legacy
+          // typeSlave()), unlike ClientListArgs.Builder's typeReplica() used just above. Both map the
+          // same ClientType.Replica case, just to differently-named Lettuce factories.
           case ClientType.Replica => JKillArgs.Builder.typeSlave()
           case ClientType.PubSub  => JKillArgs.Builder.typePubsub()
         }
@@ -2624,27 +2521,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   }
 
   override def clientTrackingInfo: F[TrackingInfo] =
-    async.flatMap(_.clientTrackinginfo().futureLift).map(toTrackingInfo)
-
-  private def toTrackingInfo(info: JTrackingInfo): TrackingInfo =
-    TrackingInfo(
-      flags = info.getFlags.asScala.toSet.map(toTrackingFlag),
-      redirect = info.getRedirect,
-      prefixes = info.getPrefixes.asScala.toList
-    )
-
-  private def toTrackingFlag(f: JTrackingInfo.TrackingFlag): TrackingFlag =
-    f match {
-      case JTrackingInfo.TrackingFlag.OFF             => TrackingFlag.Off
-      case JTrackingInfo.TrackingFlag.ON              => TrackingFlag.On
-      case JTrackingInfo.TrackingFlag.BCAST           => TrackingFlag.Bcast
-      case JTrackingInfo.TrackingFlag.OPTIN           => TrackingFlag.OptIn
-      case JTrackingInfo.TrackingFlag.OPTOUT          => TrackingFlag.OptOut
-      case JTrackingInfo.TrackingFlag.CACHING_YES     => TrackingFlag.CachingYes
-      case JTrackingInfo.TrackingFlag.CACHING_NO      => TrackingFlag.CachingNo
-      case JTrackingInfo.TrackingFlag.NOLOOP          => TrackingFlag.NoLoop
-      case JTrackingInfo.TrackingFlag.BROKEN_REDIRECT => TrackingFlag.BrokenRedirect
-    }
+    async.flatMap(_.clientTrackinginfo().futureLift).map(TrackingInfo.fromLettuce)
 
   override def memoryUsage(key: K): F[Option[Long]] =
     async.flatMap(_.memoryUsage(key).futureLift.map(x => Option(x).map(Long.unbox)))

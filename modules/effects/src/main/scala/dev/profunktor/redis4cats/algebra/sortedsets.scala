@@ -59,11 +59,15 @@ trait SortedSetGetter[F[_], K, V] {
   def bzPopMax(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]]
   def bzPopMin(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]]
 
-  /** Pops up to `count` members with the lowest scores from the first non-empty of `keys`. */
-  def zmPopMin(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
+  /** Pops up to `count` members with the lowest scores from the first non-empty of `keys`. `count` is `Int`, not `Long`
+    * like its blocking sibling [[bzmPopMin]] - Lettuce's non-blocking `ZMPOP` only exposes an `Int`-count overload.
+    */
+  def zmPopMin(keys: NonEmptyList[K], count: Int): F[Option[(K, List[ScoreWithValue[V]])]]
 
-  /** Pops up to `count` members with the highest scores from the first non-empty of `keys`. */
-  def zmPopMax(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
+  /** Pops up to `count` members with the highest scores from the first non-empty of `keys`. See [[zmPopMin]] for why
+    * `count` is `Int` here but `Long` on the blocking [[bzmPopMax]].
+    */
+  def zmPopMax(keys: NonEmptyList[K], count: Int): F[Option[(K, List[ScoreWithValue[V]])]]
   def bzmPopMin(timeout: Duration, keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
   def bzmPopMax(timeout: Duration, keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
   def zUnion(args: Option[ZAggregateArgs], keys: K*): F[List[V]]

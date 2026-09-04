@@ -27,7 +27,7 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
 import fs2.Stream
-import io.lettuce.core.{ GeoArgs, LMovemArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs }
+import io.lettuce.core.{ GeoArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs }
 import munit.FunSuite
 
 import java.time.Instant
@@ -296,6 +296,14 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(onePair.exists { case (k, v) => hRandFields.get(k).contains(v) }))
       allPairs <- redis.hRandFieldWithValues(hRandKey, 3)
       _ <- IO(assertEquals(allPairs.toMap, hRandFields))
+      // A negative count switches Redis to "allow repeats" mode and always returns exactly
+      // |count| elements, unlike a positive count (capped at cardinality, no repeats).
+      negCountFields <- redis.hRandField(hRandKey, -5)
+      _ <- IO(assertEquals(negCountFields.size, 5))
+      _ <- IO(assert(negCountFields.forall(hRandFields.keySet.contains)))
+      negCountPairs <- redis.hRandFieldWithValues(hRandKey, -5)
+      _ <- IO(assertEquals(negCountPairs.size, 5))
+      _ <- IO(assert(negCountPairs.forall { case (k, v) => hRandFields.get(k).contains(v) }))
       missingField <- redis.hRandField("hrand-does-not-exist")
       _ <- IO(assertEquals(missingField, None))
       missingFieldList <- redis.hRandField("hrand-does-not-exist", 3)
@@ -408,7 +416,7 @@ trait TestScenarios { self: FunSuite =>
                    "{listmove}:lmm-dst",
                    LMoveSide.Right,
                    LMoveSide.Left,
-                   LMoveCount.UpTo(2, LMovemArgs.Ordering.BULK)
+                   LMoveCount.UpTo(2, LMoveOrdering.Bulk)
                  )
       _ <- IO(assertEquals(lmmUpTo, List("b", "c")))
       lmmDst <- redis.lRange("{listmove}:lmm-dst", 0, -1)
@@ -425,7 +433,7 @@ trait TestScenarios { self: FunSuite =>
                            "{listmove}:lmm-exactly-dst",
                            LMoveSide.Right,
                            LMoveSide.Left,
-                           LMoveCount.Exactly(2, LMovemArgs.Ordering.BULK)
+                           LMoveCount.Exactly(2, LMoveOrdering.Bulk)
                          )
       _ <- IO(assert(lmmExactlyShort.isEmpty))
       lmmExactlySrcUntouched <- redis.lRange("{listmove}:lmm-exactly-src", 0, -1)
@@ -439,7 +447,7 @@ trait TestScenarios { self: FunSuite =>
                          "{listmove}:blmm-dst",
                          LMoveSide.Right,
                          LMoveSide.Left,
-                         LMoveCount.UpTo(2, LMovemArgs.Ordering.BULK)
+                         LMoveCount.UpTo(2, LMoveOrdering.Bulk)
                        )
       _ <- IO(assertEquals(blmmImmediate, List("p", "q")))
       // blMoveMany: timeout expiry, no count block
@@ -482,10 +490,10 @@ trait TestScenarios { self: FunSuite =>
       lPosRank <- redis.lPos("lpos-key", "b", LPosArgs(rank = Some(2)))
       _ <- IO(assertEquals(lPosRank, Some(3L)))
       // lPos: COUNT 0 returns every occurrence
-      lPosCount <- redis.lPos("lpos-key", "b", 0L)
+      lPosCount <- redis.lPos("lpos-key", "b", 0)
       _ <- IO(assertEquals(lPosCount, List(1L, 3L)))
       // lPos: COUNT 0 with MAXLEN limits how much of the list is scanned
-      lPosCountArgs <- redis.lPos("lpos-key", "b", 0L, LPosArgs(maxLen = Some(2)))
+      lPosCountArgs <- redis.lPos("lpos-key", "b", 0, LPosArgs(maxLen = Some(2)))
       _ <- IO(assertEquals(lPosCountArgs, List(1L)))
 
       // lPop/rPop multi-pop
@@ -843,6 +851,12 @@ trait TestScenarios { self: FunSuite =>
       // (non-LFU) policy, so the real, correct behavior here is that it fails, not succeeds.
       freqAttempt <- redis.objectFreq("objkey").attempt
       _ <- IO(assert(freqAttempt.isLeft))
+      // Unlike objectEncoding (which models a missing key as None), a missing key's OBJECT
+      // REFCOUNT comes back from Lettuce as a plain 0, not a nil/error - verified empirically,
+      // since Redis's own nil-integer-reply handling is collapsed by Lettuce's decoder before it
+      // ever reaches redis4cats, leaving no information here to distinguish "missing" from "zero".
+      missingRefcount <- redis.objectRefcount("definitely-does-not-exist-xyz")
+      _ <- IO(assertEquals(missingRefcount, 0L))
       // MIGRATE: Redis checks the source key's existence before ever attempting to reach the
       // destination, so a missing key deterministically returns NOKEY (false) regardless of
       // whether "no-such-host" is actually reachable - no second live instance needed.
@@ -1407,14 +1421,20 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.clientNoTouch(false)
       _ <- redis.clientNoEvict(true)
       _ <- redis.clientNoEvict(false)
+      // A short pause: long enough to exercise the real wire call and millis/seconds unit
+      // conversion, short enough not to meaningfully delay the rest of this (sequential,
+      // non-parallel per build.sbt's Test / parallelExecution := false) test suite.
+      _ <- redis.clientPause(5.millis)
       // maintenance
       existingKeyUsage <- redis.memoryUsage("age")
       _ <- IO(assert(existingKeyUsage.exists(_ > 0)))
       missingKeyUsage <- redis.memoryUsage("no-such-key-for-memory-usage")
       _ <- IO(assert(missingKeyUsage.isEmpty))
-      // save/bgSave/bgRewriteAof all hold Redis's single persistence lock — calling more than
-      // one back-to-back reliably errors with "Background save already in progress" on a fresh
-      // fork. Only bgSave is exercised here as representative coverage.
+      // SAVE first (blocks synchronously until done, so nothing can already be mid-background-save
+      // when it runs), then bgSave/bgRewriteAof share Redis's single persistence lock - calling
+      // more than one of those back-to-back reliably errors with "Background save already in
+      // progress" on a fresh fork, so only bgSave is exercised as representative coverage of that pair.
+      _ <- redis.save
       _ <- redis.bgSave
     } yield ()
 
