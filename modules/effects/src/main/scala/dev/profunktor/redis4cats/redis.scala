@@ -1842,12 +1842,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     res.map(x => Long.box(x))
   }
 
-  override def zAddIncr(key: K, args: Option[ZAddArgs], member: ScoreWithValue[V]): F[Double] = {
+  override def zAddIncr(key: K, args: Option[ZAddArgs], member: ScoreWithValue[V]): F[Option[Double]] = {
     val res = args match {
       case Some(x) => async.flatMap(_.zaddincr(key, x, member.score.value, member.value).futureLift)
       case None    => async.flatMap(_.zaddincr(key, member.score.value, member.value).futureLift)
     }
-    res.map(x => Double.box(x))
+    res.map(_.toOption)
   }
 
   override def zIncrBy(key: K, member: V, amount: Double): F[Double] =
@@ -3009,8 +3009,10 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def pubSubShardChannels: F[List[RedisChannel[K]]] =
     async.flatMap(_.pubsubShardChannels().futureLift.map(_.asScala.toList.map(RedisChannel.apply)))
 
-  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]] =
-    pubSubSubscriptions(List(channel)).map(_.headOption)
+  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]] =
+    // PUBSUB NUMSUB always echoes back every queried channel, so a single-channel query always yields
+    // exactly one entry.
+    pubSubSubscriptions(List(channel)).map(_.head)
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     async.flatMap(_.pubsubNumsub(channels.map(_.underlying): _*).futureLift.map(toSubscription[K]))

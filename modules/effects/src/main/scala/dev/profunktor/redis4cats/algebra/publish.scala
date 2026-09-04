@@ -78,12 +78,15 @@ trait PubSubStats[F[_], K] {
 
   /** Returns the subscription information for a specific channel.
     *
+    * `PUBSUB NUMSUB` always echoes back the queried channel (with a subscriber count of `0` if nobody's subscribed) -
+    * it never omits it, so this always returns a value, not `None` when unsubscribed.
+    *
     * @param channel
     *   the channel to query
     * @return
-    *   subscription information if the channel exists
+    *   subscription information for the channel
     */
-  def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]]
+  def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]
 
   /** Returns the subscription information for the specified channels.
     *

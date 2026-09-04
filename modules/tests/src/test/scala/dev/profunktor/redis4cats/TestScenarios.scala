@@ -27,7 +27,7 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
 import fs2.Stream
-import io.lettuce.core.{ GeoArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs }
+import io.lettuce.core.{ GeoArgs, RedisCommandExecutionException, RedisException, ZAddArgs, ZAggregateArgs }
 import munit.FunSuite
 
 import java.time.Instant
@@ -624,6 +624,11 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(presentRevRank, Some(1L)))
       missingRevRank <- redis.zRevRank(testKey, 999L)
       _ <- IO(assertEquals(missingRevRank, None))
+      incrKey = "{same_hash_slot}:zaddincr"
+      incremented <- redis.zAddIncr(incrKey, args = None, ScoreWithValue(Score(5), 1L))
+      _ <- IO(assertEquals(incremented, Some(5d)))
+      blockedIncr <- redis.zAddIncr(incrKey, Some(ZAddArgs.Builder.nx()), ScoreWithValue(Score(10), 1L))
+      _ <- IO(assertEquals(blockedIncr, None))
       _ <- redis.zAdd(otherTestKey, args = None, scoreWithValue1, scoreWithValue3)
       zUnion <- redis.zUnion(args = None, testKey, otherTestKey)
       _ <- IO(assertEquals(zUnion, List(1L, 2L, 3L)))
@@ -1884,8 +1889,8 @@ trait TestScenarios { self: FunSuite =>
           _ <- IO(assert(channels.contains(channel1), "pubSubChannels should include channel1"))
 
           // Test pubSubSubscriptions for a single channel
-          sub1Option <- redis.pubSubSubscriptions(channel1)
-          _ <- IO(assert(sub1Option.exists(_.number == 1L), "channel1 should have 1 subscriber"))
+          sub1 <- redis.pubSubSubscriptions(channel1)
+          _ <- IO(assertEquals(sub1.number, 1L, "channel1 should have 1 subscriber"))
 
           // Test pubSubSubscriptions for multiple channels
           subs <- redis.pubSubSubscriptions(List(channel1, channel2))
