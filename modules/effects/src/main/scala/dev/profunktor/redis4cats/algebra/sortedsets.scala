@@ -64,8 +64,8 @@ trait SortedSetGetter[F[_], K, V] {
 
   /** Pops up to `count` members with the highest scores from the first non-empty of `keys`. */
   def zmPopMax(keys: NonEmptyList[K], count: Int): F[Option[(K, List[ScoreWithValue[V]])]]
-  def bzmPopMin(timeout: Duration, keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
-  def bzmPopMax(timeout: Duration, keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
+  def bzmPopMin(timeout: Duration, keys: NonEmptyList[K], count: Int): F[Option[(K, List[ScoreWithValue[V]])]]
+  def bzmPopMax(timeout: Duration, keys: NonEmptyList[K], count: Int): F[Option[(K, List[ScoreWithValue[V]])]]
   def zUnion(args: Option[ZAggregateArgs], keys: K*): F[List[V]]
   def zUnionWithScores(args: Option[ZAggregateArgs], keys: K*): F[List[ScoreWithValue[V]]]
   def zInter(args: Option[ZAggregateArgs], keys: K*): F[List[V]]

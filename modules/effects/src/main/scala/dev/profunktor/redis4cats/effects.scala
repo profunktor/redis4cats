@@ -23,11 +23,19 @@ import java.time.Instant
 import io.lettuce.core.{
   AclCategory => JAclCategory,
   GeoArgs,
+  GeoWithin => JGeoWithin,
   KeyScanArgs => JKeyScanArgs,
   ScanArgs => JScanArgs,
-  ScriptOutputType => JScriptOutputType
+  ScriptOutputType => JScriptOutputType,
+  StreamMessage => JStreamMessage
 }
 import io.lettuce.core.models.command.{ CommandDetail => JCommandDetail }
+import io.lettuce.core.models.stream.{
+  ClaimedMessages => JClaimedMessages,
+  PendingMessage => JPendingMessage,
+  PendingMessages => JPendingMessages,
+  StreamEntryDeletionResult => JStreamEntryDeletionResult
+}
 import io.lettuce.core.{ StringMatchResult => JStringMatchResult }
 import io.lettuce.core.{ TrackingInfo => JTrackingInfo }
 
@@ -67,6 +75,19 @@ object effects {
       hash: Option[GeoHash],
       coordinate: Option[GeoCoordinate]
   )
+  object GeoSearchResult {
+
+    // Lettuce's GeoWithin fields are null unless the corresponding GeoArgs flag was requested
+    // ("if requested, otherwise null" per its own scaladoc) — Option(...) is the correct, safe
+    // check here, since it wraps the (possibly-null) boxed reference before anything unboxes it.
+    private[redis4cats] def fromLettuce[V](v: JGeoWithin[V]): GeoSearchResult[V] =
+      GeoSearchResult[V](
+        v.getMember,
+        Option(v.getDistance).map(Distance(_)),
+        Option(v.getGeohash).map(GeoHash(_)),
+        Option(v.getCoordinates).map(c => GeoCoordinate(c.getX.doubleValue(), c.getY.doubleValue()))
+      )
+  }
 
   /** The subset of `GeoArgs` that `GEOSEARCHSTORE` actually accepts (COUNT/ASC/DESC) — unlike `GEOSEARCH`, it rejects
     * the WITHDIST/WITHHASH/WITHCOORD flags a raw `GeoArgs` could also carry.
@@ -825,6 +846,13 @@ object effects {
 
   object StreamMessage {
     implicit def eq[K: Eq, V: Eq]: Eq[StreamMessage[K, V]] = Eq.and(Eq.by(_.id), Eq.and(Eq.by(_.key), Eq.by(_.body)))
+
+    // The body is null for id-only replies (e.g. XCLAIM/XAUTOCLAIM with JUSTID).
+    private[redis4cats] def fromLettuce[K, V](msg: JStreamMessage[K, V]): StreamMessage[K, V] = {
+      import dev.profunktor.redis4cats.JavaConversions._
+      val body = Option(msg.getBody).map(_.asScala.toMap).getOrElse(Map.empty[K, V])
+      StreamMessage[K, V](MessageId(msg.getId), msg.getStream, body)
+    }
   }
 
   sealed abstract class XRangePoint extends Product with Serializable
@@ -895,6 +923,20 @@ object effects {
       maxId: Option[MessageId],
       consumers: Map[String, Long]
   )
+  object XPendingSummary {
+    private[redis4cats] def fromLettuce(pm: JPendingMessages): XPendingSummary = {
+      import dev.profunktor.redis4cats.JavaConversions._
+      val ids = Option(pm.getMessageIds)
+      def boundary(b: io.lettuce.core.Range.Boundary[String]): Option[MessageId] =
+        if (b == null || b.isUnbounded) None else Option(b.getValue).map(MessageId(_))
+      XPendingSummary(
+        count = pm.getCount,
+        minId = ids.flatMap(r => boundary(r.getLower)),
+        maxId = ids.flatMap(r => boundary(r.getUpper)),
+        consumers = pm.getConsumerMessageCount.asScala.iterator.map { case (k, v) => k -> Long.unbox(v) }.toMap
+      )
+    }
+  }
 
   /** A single entry from the extended form of `XPENDING`. */
   final case class XPendingMessage(
@@ -903,12 +945,27 @@ object effects {
       sinceLastDelivery: FiniteDuration,
       redeliveryCount: Long
   )
+  object XPendingMessage {
+    private[redis4cats] def fromLettuce(pm: JPendingMessage): XPendingMessage =
+      XPendingMessage(
+        id = MessageId(pm.getId),
+        consumer = pm.getConsumer,
+        sinceLastDelivery = FiniteDuration(pm.getMsSinceLastDelivery, java.util.concurrent.TimeUnit.MILLISECONDS),
+        redeliveryCount = pm.getRedeliveryCount
+      )
+  }
 
   /** Result of `XAUTOCLAIM`: the cursor to resume from plus the claimed messages. */
   final case class XAutoClaimResult[K, V](
       nextId: MessageId,
       messages: List[StreamMessage[K, V]]
   )
+  object XAutoClaimResult {
+    private[redis4cats] def fromLettuce[K, V](cm: JClaimedMessages[K, V]): XAutoClaimResult[K, V] = {
+      import dev.profunktor.redis4cats.JavaConversions._
+      XAutoClaimResult(MessageId(cm.getId), cm.getMessages.asScala.toList.map(StreamMessage.fromLettuce))
+    }
+  }
 
   /** Reply to `XINFO STREAM`. `firstEntry`/`lastEntry` are `None` when the stream currently holds no entries (Redis
     * reports them as a null reply in that case, per its own docs). `extra` carries any key/value pairs beyond the
@@ -1115,6 +1172,15 @@ object effects {
     case object NotDeletedUnacknowledgedOrStillReferenced extends StreamEntryDeletionResult
     case object NotFound extends StreamEntryDeletionResult
     case object Unknown extends StreamEntryDeletionResult
+
+    private[redis4cats] def fromLettuce(result: JStreamEntryDeletionResult): StreamEntryDeletionResult =
+      result match {
+        case JStreamEntryDeletionResult.DELETED => Deleted
+        case JStreamEntryDeletionResult.NOT_DELETED_UNACKNOWLEDGED_OR_STILL_REFERENCED =>
+          NotDeletedUnacknowledgedOrStillReferenced
+        case JStreamEntryDeletionResult.NOT_FOUND => NotFound
+        case JStreamEntryDeletionResult.UNKNOWN   => Unknown
+      }
   }
 
   /** How `XNACK` adjusts a message's delivery counter in the consumer group's Pending Entries List. Mirrors Lettuce's

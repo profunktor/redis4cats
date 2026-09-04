@@ -27,7 +27,7 @@ import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config._
 import dev.profunktor.redis4cats.data.NodeId
 import dev.profunktor.redis4cats.effect._
-import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions, RedisClusterNode }
+import io.lettuce.core.cluster.models.partitions.RedisClusterNode
 import io.lettuce.core.cluster.{
   ClusterClientOptions,
   ClusterTopologyRefreshOptions,
@@ -148,15 +148,22 @@ object RedisClusterClient {
   def fromUnderlying(underlying: JClusterClient): RedisClusterClient =
     new RedisClusterClient(underlying) {}
 
+  /** `None` when no partition currently covers `keyName`'s slot - e.g. mid-resharding, or before a cluster's slots are
+    * fully assigned.
+    */
   def nodeId[F[_]: Sync](
       client: RedisClusterClient,
       keyName: String
-  ): F[NodeId] =
+  ): F[Option[NodeId]] =
     Sync[F].delay(SlotHash.getSlot(keyName)).flatMap { slot =>
-      partitions(client).map(_.getPartitionBySlot(slot).getNodeId).map(NodeId.apply)
+      partitions(client).map(_.find(_.hasSlot(slot)).map(n => NodeId(n.getNodeId)))
     }
 
-  def partitions[F[_]: Sync](client: RedisClusterClient): F[JPartitions] =
-    Sync[F].delay(client.underlying.getPartitions())
+  /** An immutable snapshot of the cluster's current topology, taken at call time. Lettuce's own `Partitions` is a live
+    * collection it mutates in place on every topology refresh; this copies it once so callers don't observe surprise
+    * mutation (or risk a `ConcurrentModificationException` while iterating).
+    */
+  def partitions[F[_]: Sync](client: RedisClusterClient): F[List[RedisClusterNode]] =
+    Sync[F].delay(client.underlying.getPartitions().asScala.toList)
 
 }

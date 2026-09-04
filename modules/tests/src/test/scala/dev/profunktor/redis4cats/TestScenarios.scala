@@ -610,6 +610,18 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(y == 2L))
       z <- redis.zCount(testKey, ZRange(0, 1))
       _ <- IO(assert(z == 1L))
+      presentScore <- redis.zScore(testKey, 1L)
+      _ <- IO(assertEquals(presentScore, Some(1d)))
+      missingScore <- redis.zScore(testKey, 999L)
+      _ <- IO(assertEquals(missingScore, None))
+      presentRank <- redis.zRank(testKey, 1L)
+      _ <- IO(assertEquals(presentRank, Some(0L)))
+      missingRank <- redis.zRank(testKey, 999L)
+      _ <- IO(assertEquals(missingRank, None))
+      presentRevRank <- redis.zRevRank(testKey, 1L)
+      _ <- IO(assertEquals(presentRevRank, Some(1L)))
+      missingRevRank <- redis.zRevRank(testKey, 999L)
+      _ <- IO(assertEquals(missingRevRank, None))
       _ <- redis.zAdd(otherTestKey, args = None, scoreWithValue1, scoreWithValue3)
       zUnion <- redis.zUnion(args = None, testKey, otherTestKey)
       _ <- IO(assertEquals(zUnion, List(1L, 2L, 3L)))
@@ -1646,9 +1658,10 @@ trait TestScenarios { self: FunSuite =>
   }
 
   def hyperloglogScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
-    val key  = "hll"
-    val key2 = "hll2"
-    val key3 = "hll3"
+    // PFMERGE requires all of its keys to hash to the same cluster slot.
+    val key  = "{same_hash_slot}:hll"
+    val key2 = "{same_hash_slot}:hll2"
+    val key3 = "{same_hash_slot}:hll3"
     for {
       x <- redis.get(key)
       _ <- IO(assert(x.isEmpty))

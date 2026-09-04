@@ -29,7 +29,6 @@ import dev.profunktor.redis4cats.effect.FutureLift._
 import dev.profunktor.redis4cats.effect._
 import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.tx.{ TransactionDiscarded, TxRunner, TxStore }
-import io.lettuce.core
 import io.lettuce.core.XReadArgs.StreamOffset
 import io.lettuce.core.api.async.RedisAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
@@ -50,7 +49,6 @@ import io.lettuce.core.{
   FunctionRestoreMode => JFunctionRestoreMode,
   GeoArgs,
   GeoSearch,
-  GeoWithin,
   GetExArgs => JGetExArgs,
   HGetExArgs => JHGetExArgs,
   HSetExArgs => JHSetExArgs,
@@ -92,12 +90,6 @@ import io.lettuce.core.{
   ZStoreArgs
 }
 import io.lettuce.core.models.command.CommandDetailParser
-import io.lettuce.core.models.stream.{
-  ClaimedMessages,
-  PendingMessage,
-  PendingMessages,
-  StreamEntryDeletionResult => JStreamEntryDeletionResult
-}
 import io.lettuce.core.protocol.CommandType
 import org.typelevel.keypool.KeyPool
 
@@ -1801,7 +1793,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   ): F[List[GeoSearchResult[V]]] =
     async
       .flatMap(_.geosearch(key, toGeoRef(ref), toGeoPredicate(predicate), args).futureLift)
-      .map(_.asScala.toList.map(_.asGeoSearchResult))
+      .map(_.asScala.toList.map(GeoSearchResult.fromLettuce))
 
   override def geoAdd(key: K, geoValues: GeoLocation[V]*): F[Long] = {
     val triplets = geoValues.flatMap(g => Seq[Any](g.lon.value, g.lat.value, g.value)).asInstanceOf[Seq[AnyRef]]
@@ -2114,19 +2106,19 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def bzmPopMin(
       timeout: Duration,
       keys: NonEmptyList[K],
-      count: Long
+      count: Int
   ): F[Option[(K, List[ScoreWithValue[V]])]] =
     async
-      .flatMap(_.bzmpop(timeout.toSecondsOrZero, count.toInt, ZPopArgs.Builder.min(), keys.toList: _*).futureLift)
+      .flatMap(_.bzmpop(timeout.toSecondsOrZero, count, ZPopArgs.Builder.min(), keys.toList: _*).futureLift)
       .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
 
   override def bzmPopMax(
       timeout: Duration,
       keys: NonEmptyList[K],
-      count: Long
+      count: Int
   ): F[Option[(K, List[ScoreWithValue[V]])]] =
     async
-      .flatMap(_.bzmpop(timeout.toSecondsOrZero, count.toInt, ZPopArgs.Builder.max(), keys.toList: _*).futureLift)
+      .flatMap(_.bzmpop(timeout.toSecondsOrZero, count, ZPopArgs.Builder.max(), keys.toList: _*).futureLift)
       .map(Option(_).filter(_.hasValue).map(kv => (kv.getKey, kv.getValue.asScala.toList.map(_.asScoreWithValues))))
 
   override def zUnion(args: Option[ZAggregateArgs], keys: K*): F[List[V]] = {
@@ -2804,13 +2796,13 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
             redis.xread(XReadArgs.Builder.block(block.toMillis).count(count), offsets: _*)
         }).futureLift
       }
-      .map(_.toScala)
+      .map(_.asScala.toList.map(StreamMessage.fromLettuce))
   }
 
   override def xRange(key: K, start: XRangePoint, end: XRangePoint, count: Option[Long]): F[List[StreamMessage[K, V]]] =
     async
       .flatMap(_.xrange(key, (start, end).asJavaRange, count.fold(JLimit.unlimited())(JLimit.from)).futureLift)
-      .map(_.toScala)
+      .map(_.asScala.toList.map(StreamMessage.fromLettuce))
 
   override def xRevRange(
       key: K,
@@ -2820,7 +2812,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   ): F[List[StreamMessage[K, V]]] =
     async
       .flatMap(_.xrevrange(key, (start, end).asJavaRange, count.fold(JLimit.unlimited())(JLimit.from)).futureLift)
-      .map(_.toScala)
+      .map(_.asScala.toList.map(StreamMessage.fromLettuce))
 
   override def xLen(key: K): F[Long] =
     async.flatMap(_.xlen(key).futureLift.map(Long.box(_)))
@@ -2860,12 +2852,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.xdel(key, ids: _*).futureLift.map(Long.box(_)))
 
   override def xDelEx(key: K, ids: String*): F[List[StreamEntryDeletionResult]] =
-    async.flatMap(_.xdelex(key, ids: _*).futureLift).map(_.asScala.toList.map(_.asScala))
+    async.flatMap(_.xdelex(key, ids: _*).futureLift).map(_.asScala.toList.map(StreamEntryDeletionResult.fromLettuce))
 
   override def xDelEx(key: K, policy: StreamDeletionPolicy, ids: String*): F[List[StreamEntryDeletionResult]] =
     async
       .flatMap(_.xdelex(key, toJStreamDeletionPolicy(policy), ids: _*).futureLift)
-      .map(_.asScala.toList.map(_.asScala))
+      .map(_.asScala.toList.map(StreamEntryDeletionResult.fromLettuce))
 
   override def xCfgSet(key: K, args: XCfgSetArgs): F[Unit] = {
     val jArgs = new JXCfgSetArgs()
@@ -2928,14 +2920,18 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     val jArgs   = new XReadArgs().noack(args.noack)
     args.count.foreach(jArgs.count)
     args.block.foreach(b => jArgs.block(b.toMillis))
-    async.flatMap(_.xreadgroup(consumer.asJava, jArgs, offsets: _*).futureLift).map(_.toScala)
+    async
+      .flatMap(_.xreadgroup(consumer.asJava, jArgs, offsets: _*).futureLift)
+      .map(_.asScala.toList.map(StreamMessage.fromLettuce))
   }
 
   override def xAck(key: K, group: K, ids: String*): F[Long] =
     async.flatMap(_.xack(key, group, ids: _*).futureLift.map(x => Long.box(x)))
 
   override def xAckDel(key: K, group: K, ids: String*): F[List[StreamEntryDeletionResult]] =
-    async.flatMap(_.xackdel(key, group, ids: _*).futureLift).map(_.asScala.toList.map(_.asScala))
+    async
+      .flatMap(_.xackdel(key, group, ids: _*).futureLift)
+      .map(_.asScala.toList.map(StreamEntryDeletionResult.fromLettuce))
 
   override def xAckDel(
       key: K,
@@ -2945,7 +2941,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   ): F[List[StreamEntryDeletionResult]] =
     async
       .flatMap(_.xackdel(key, group, toJStreamDeletionPolicy(policy), ids: _*).futureLift)
-      .map(_.asScala.toList.map(_.asScala))
+      .map(_.asScala.toList.map(StreamEntryDeletionResult.fromLettuce))
 
   override def xNack(key: K, group: K, mode: XNackMode, ids: String*): F[Long] =
     async.flatMap(_.xnack(key, group, toJXNackMode(mode), ids: _*).futureLift.map(x => Long.box(x)))
@@ -2963,13 +2959,15 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       args: XClaimArgs,
       ids: String*
   ): F[List[StreamMessage[K, V]]] =
-    async.flatMap(_.xclaim(key, consumer.asJava, args.asJava, ids: _*).futureLift).map(_.toScala)
+    async
+      .flatMap(_.xclaim(key, consumer.asJava, args.asJava, ids: _*).futureLift)
+      .map(_.asScala.toList.map(StreamMessage.fromLettuce))
 
   override def xAutoClaim(key: K, args: XAutoClaimArgs[K]): F[XAutoClaimResult[K, V]] =
-    async.flatMap(_.xautoclaim(key, args.asJava).futureLift.map(_.asScalaResult))
+    async.flatMap(_.xautoclaim(key, args.asJava).futureLift.map(XAutoClaimResult.fromLettuce))
 
   override def xPending(key: K, group: K): F[XPendingSummary] =
-    async.flatMap(_.xpending(key, group).futureLift.map(_.asScalaSummary))
+    async.flatMap(_.xpending(key, group).futureLift.map(XPendingSummary.fromLettuce))
 
   override def xPending(
       key: K,
@@ -2980,7 +2978,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   ): F[List[XPendingMessage]] = {
     val range = (start, end).asJavaRange
     val limit = JLimit.from(count)
-    async.flatMap(_.xpending(key, group, range, limit).futureLift).map(_.asScala.map(_.asScalaMessage).toList)
+    async
+      .flatMap(_.xpending(key, group, range, limit).futureLift)
+      .map(_.asScala.map(XPendingMessage.fromLettuce).toList)
   }
 
   override def xPending(
@@ -2992,7 +2992,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   ): F[List[XPendingMessage]] = {
     val range = (start, end).asJavaRange
     val limit = JLimit.from(count)
-    async.flatMap(_.xpending(key, consumer.asJava, range, limit).futureLift).map(_.asScala.map(_.asScalaMessage).toList)
+    async
+      .flatMap(_.xpending(key, consumer.asJava, range, limit).futureLift)
+      .map(_.asScala.map(XPendingMessage.fromLettuce).toList)
   }
 
   // format: off
@@ -3027,21 +3029,6 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 }
 
 private[redis4cats] trait RedisConversionOps {
-
-  import dev.profunktor.redis4cats.JavaConversions._
-
-  private[redis4cats] implicit class GeoWithinOps[V](v: GeoWithin[V]) {
-    // Lettuce's GeoWithin fields are null unless the corresponding GeoArgs flag was requested
-    // ("if requested, otherwise null" per its own scaladoc) — Option(...) is the correct, safe
-    // check here, since it wraps the (possibly-null) boxed reference before anything unboxes it.
-    def asGeoSearchResult: GeoSearchResult[V] =
-      GeoSearchResult[V](
-        v.getMember,
-        Option(v.getDistance).map(Distance(_)),
-        Option(v.getGeohash).map(GeoHash(_)),
-        Option(v.getCoordinates).map(c => GeoCoordinate(c.getX.doubleValue(), c.getY.doubleValue()))
-      )
-  }
 
   private[redis4cats] implicit class ZRangeOps[T: Numeric](range: ZRange[T]) {
     def asJavaRange: JRange[Number] = {
@@ -3095,28 +3082,8 @@ private[redis4cats] trait RedisConversionOps {
       }
   }
 
-  private[redis4cats] implicit class StreamMessagesOps[K, V](list: util.List[core.StreamMessage[K, V]]) {
-    def toScala: List[StreamMessage[K, V]] =
-      list.asScala.map { msg =>
-        // The body is null for id-only replies (e.g. XCLAIM/XAUTOCLAIM with JUSTID).
-        val body = Option(msg.getBody).map(_.asScala.toMap).getOrElse(Map.empty[K, V])
-        StreamMessage[K, V](MessageId(msg.getId), msg.getStream, body)
-      }.toList
-  }
-
   private[redis4cats] implicit class StreamConsumerOps[K](consumer: StreamConsumer[K]) {
     def asJava: JConsumer[K] = JConsumer.from(consumer.group, consumer.consumer)
-  }
-
-  private[redis4cats] implicit class StreamEntryDeletionResultOps(result: JStreamEntryDeletionResult) {
-    def asScala: StreamEntryDeletionResult =
-      result match {
-        case JStreamEntryDeletionResult.DELETED => StreamEntryDeletionResult.Deleted
-        case JStreamEntryDeletionResult.NOT_DELETED_UNACKNOWLEDGED_OR_STILL_REFERENCED =>
-          StreamEntryDeletionResult.NotDeletedUnacknowledgedOrStillReferenced
-        case JStreamEntryDeletionResult.NOT_FOUND => StreamEntryDeletionResult.NotFound
-        case JStreamEntryDeletionResult.UNKNOWN   => StreamEntryDeletionResult.Unknown
-      }
   }
 
   private[redis4cats] implicit class XClaimArgsOps(args: XClaimArgs) {
@@ -3143,35 +3110,6 @@ private[redis4cats] trait RedisConversionOps {
       if (args.justId) { jArgs.justid(); () }
       jArgs
     }
-  }
-
-  private[redis4cats] implicit class PendingMessagesOps(pm: PendingMessages) {
-    def asScalaSummary: XPendingSummary = {
-      val ids = Option(pm.getMessageIds)
-      def boundary(b: JRange.Boundary[String]): Option[MessageId] =
-        if (b == null || b.isUnbounded) None else Option(b.getValue).map(MessageId(_))
-      XPendingSummary(
-        count = pm.getCount,
-        minId = ids.flatMap(r => boundary(r.getLower)),
-        maxId = ids.flatMap(r => boundary(r.getUpper)),
-        consumers = pm.getConsumerMessageCount.asScala.iterator.map { case (k, v) => k -> Long.unbox(v) }.toMap
-      )
-    }
-  }
-
-  private[redis4cats] implicit class PendingMessageOps(pm: PendingMessage) {
-    def asScalaMessage: XPendingMessage =
-      XPendingMessage(
-        id = MessageId(pm.getId),
-        consumer = pm.getConsumer,
-        sinceLastDelivery = FiniteDuration(pm.getMsSinceLastDelivery, MILLISECONDS),
-        redeliveryCount = pm.getRedeliveryCount
-      )
-  }
-
-  private[redis4cats] implicit class ClaimedMessagesOps[K, V](cm: ClaimedMessages[K, V]) {
-    def asScalaResult: XAutoClaimResult[K, V] =
-      XAutoClaimResult(MessageId(cm.getId), cm.getMessages.toScala)
   }
 
   private[redis4cats] implicit class CopyArgOps(underlying: CopyArgs) {
