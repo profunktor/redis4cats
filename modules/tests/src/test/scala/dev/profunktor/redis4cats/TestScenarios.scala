@@ -777,7 +777,9 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(i, true))
       e <- redis.ttl("f2")
       _ <- IO(assert(e.nonEmpty))
-      _ <- IO.sleep(50.millis)
+      // Sleep well past the 50ms TTL - checking right at the boundary races Redis's own expiry timing
+      // (lazy expiry + the active-expire cycle) and is flaky under CI's less predictable scheduling.
+      _ <- IO.sleep(300.millis)
       f <- redis.ttl("f2")
       _ <- IO(assertEquals(f, None))
       _ <- redis.set("f3", "yay")
@@ -787,7 +789,9 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(expiref3nx, false))
       ttlf3 <- redis.ttl("f3")
       _ <- IO(assert(ttlf3.nonEmpty))
-      _ <- IO.sleep(50.millis)
+      // Sleep well past the 50ms TTL - checking right at the boundary races Redis's own expiry timing
+      // (lazy expiry + the active-expire cycle) and is flaky under CI's less predictable scheduling.
+      _ <- IO.sleep(300.millis)
       ttlf3AfterSleep <- redis.ttl("f3")
       _ <- IO(assert(ttlf3AfterSleep.isEmpty))
       j <- redis.expire("_not_existing_key_", 50.millis)
