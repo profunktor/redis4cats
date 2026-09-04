@@ -851,10 +851,9 @@ trait TestScenarios { self: FunSuite =>
       // (non-LFU) policy, so the real, correct behavior here is that it fails, not succeeds.
       freqAttempt <- redis.objectFreq("objkey").attempt
       _ <- IO(assert(freqAttempt.isLeft))
-      // Unlike objectEncoding (which models a missing key as None), a missing key's OBJECT
-      // REFCOUNT comes back from Lettuce as a plain 0, not a nil/error - verified empirically,
-      // since Redis's own nil-integer-reply handling is collapsed by Lettuce's decoder before it
-      // ever reaches redis4cats, leaving no information here to distinguish "missing" from "zero".
+      // A missing key's OBJECT REFCOUNT comes back from Lettuce as a plain 0, not an error - Redis's
+      // nil-integer reply is collapsed by Lettuce's decoder before it reaches redis4cats, leaving no
+      // information here to distinguish "missing" from "zero".
       missingRefcount <- redis.objectRefcount("definitely-does-not-exist-xyz")
       _ <- IO(assertEquals(missingRefcount, 0L))
       // MIGRATE: Redis checks the source key's existence before ever attempting to reach the

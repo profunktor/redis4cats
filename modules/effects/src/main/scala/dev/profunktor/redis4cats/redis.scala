@@ -952,9 +952,8 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   // the plain case derives len from the matched string we do have, rather than trusting an unset 0.
   private def toLcsResult(isIdx: Boolean, withMatchLen: Boolean)(r: JStringMatchResult): LcsResult = {
     val matchString = Option(r.getMatchString)
-    // Redis counts LCS length in bytes (matching lcsLen's raw integer reply), not in UTF-16 code
-    // units - re-encoding via UTF-8 keeps the plain (non-IDX) case's derived length consistent with
-    // lcsLen's for any non-ASCII match, since String#length() alone would undercount those.
+    // Redis counts LCS length in bytes, so the plain (non-IDX) case re-encodes via UTF-8 rather
+    // than using String#length()'s UTF-16 code units, to stay correct for any non-ASCII match.
     val len =
       if (isIdx) r.getLen else matchString.fold(0L)(_.getBytes(java.nio.charset.StandardCharsets.UTF_8).length.toLong)
     LcsResult(matchString, r.getMatches.asScala.toList.map(toLcsMatch(withMatchLen)), len)
@@ -2472,9 +2471,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
         tpe match {
           case ClientType.Normal => JKillArgs.Builder.typeNormal()
           case ClientType.Master => JKillArgs.Builder.typeMaster()
-          // Not a copy-paste slip: KillArgs.Builder genuinely has no typeReplica() (only the legacy
-          // typeSlave()), unlike ClientListArgs.Builder's typeReplica() used just above. Both map the
-          // same ClientType.Replica case, just to differently-named Lettuce factories.
+          // KillArgs.Builder has no typeReplica() - only the legacy typeSlave().
           case ClientType.Replica => JKillArgs.Builder.typeSlave()
           case ClientType.PubSub  => JKillArgs.Builder.typePubsub()
         }

@@ -64,7 +64,6 @@ trait ListGetter[F[_], K, V] {
   def lPos(key: K, value: V): F[Option[Long]]
   def lPos(key: K, value: V, args: LPosArgs): F[Option[Long]]
 
-  /** `count` is `Int`, not `Long` - Lettuce's multi-match `LPOS` only exposes an `Int`-count overload. */
   def lPos(key: K, value: V, count: Int): F[List[Long]]
   def lPos(key: K, value: V, count: Int, args: LPosArgs): F[List[Long]]
 }
