@@ -153,7 +153,9 @@ object Subscriber {
               // We use parallel dispatcher because multiple subscribers can be interested in the same key.
               // Allocate it last so that nothing that can fail runs between acquiring it and the guarded
               // block below; otherwise the dispatcher would leak (its finalizer is only reachable via `sub`).
-              dispatcherTpl <- Dispatcher.parallel[F].allocated
+              // If this allocation itself fails, release the topic subscription acquired above - it isn't
+              // reachable from the guarded block's cleanup either.
+              dispatcherTpl <- Dispatcher.parallel[F].allocated.onError { case _ => releaseFirstSub.attempt.void }
               (dispatcher, cleanupDispatcher) = dispatcherTpl
               listener                        = makeListener(dispatcher, topic)
               cleanupListener                 = Sync[F].delay(subConnection.removeListener(listener))

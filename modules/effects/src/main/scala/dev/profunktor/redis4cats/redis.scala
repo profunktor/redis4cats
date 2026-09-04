@@ -733,8 +733,12 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
         case _                           => conn.async.flatMap(_.exec().futureLift)
       }
       .flatMap {
-        case res if res.wasDiscarded() || res.isEmpty() => TransactionDiscarded.raiseError
-        case _                                          => Applicative[F].unit
+        // wasDiscarded() and isEmpty() are independent per Lettuce's TransactionResult: a transaction
+        // with zero queued commands legitimately succeeds with discarded=false and an empty result, and
+        // isn't itself evidence the transaction was aborted (only wasDiscarded() - e.g. a WATCH conflict -
+        // is).
+        case res if res.wasDiscarded() => TransactionDiscarded.raiseError
+        case _                         => Applicative[F].unit
       }
 
   def discard: F[Unit] =
@@ -1569,7 +1573,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.lpop(key).futureLift.map(Option.apply))
 
   override def lPop(key: K, count: Long): F[List[V]] =
-    async.flatMap(_.lpop(key, count).futureLift.map(_.asScala.toList))
+    async.flatMap(_.lpop(key, count).futureLift.map(x => Option(x).fold(List.empty[V])(_.asScala.toList)))
 
   override def lPush(key: K, values: V*): F[Long] =
     async.flatMap(_.lpush(key, values: _*).futureLift.map(x => Long.box(x)))
@@ -1581,7 +1585,7 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.rpop(key).futureLift.map(Option.apply))
 
   override def rPop(key: K, count: Long): F[List[V]] =
-    async.flatMap(_.rpop(key, count).futureLift.map(_.asScala.toList))
+    async.flatMap(_.rpop(key, count).futureLift.map(x => Option(x).fold(List.empty[V])(_.asScala.toList)))
 
   override def rPopLPush(source: K, destination: K): F[Option[V]] =
     async.flatMap(_.lmove(source, destination, LMoveArgs.Builder.rightLeft()).futureLift.map(Option.apply))

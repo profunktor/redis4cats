@@ -51,8 +51,13 @@ object RedisClient {
         .flatTap { jClient =>
           // setOptions runs after the client itself is already allocated (real Netty resources); if it
           // throws, the client must be shut down here - Resource.make never calls `release` when `acquire`
-          // itself fails, so without this the just-created client would otherwise leak.
-          FutureLift[F].delay(jClient.setOptions(opts)).onError { case _ => shutdownJClient[F](jClient, config) }
+          // itself fails, so without this the just-created client would otherwise leak. onError only
+          // re-raises the original error after this action succeeds, so a shutdown failure here must be
+          // swallowed (.attempt.void) or it would replace the real setOptions failure instead of just
+          // failing to clean up after it.
+          FutureLift[F]
+            .delay(jClient.setOptions(opts))
+            .onError { case _ => shutdownJClient[F](jClient, config).attempt.void }
         }
         .map(new RedisClient(_, uri) {})
 

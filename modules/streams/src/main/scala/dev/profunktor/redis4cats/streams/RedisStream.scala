@@ -26,7 +26,7 @@ import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.effects.{ MessageId, StreamMessage, XReadOffsets }
 import dev.profunktor.redis4cats.streams.data._
 import fs2.Stream
-import io.lettuce.core.{ ReadFrom => JReadFrom }
+import io.lettuce.core.{ ReadFrom => JReadFrom, RedisCommandExecutionException }
 
 import scala.concurrent.duration.Duration
 
@@ -106,7 +106,14 @@ class RedisStream[F[_]: Sync, K, V](redis: RedisCommands[F, K, V]) extends Strea
         redis
           .xInfoStream(key)
           .map(info => XReadOffsets.Custom(key, info.lastGeneratedId.value): XReadOffsets[K])
-          .handleError(_ => o)
+          .recover {
+            // Only a missing stream falls back to Latest - any other failure (e.g. a timeout) must
+            // propagate, both so RestartOnTimeout's cumulative-elapsed accounting sees it and so this
+            // doesn't silently reintroduce the $ skip-window this whole resolution step exists to close.
+            case e: RedisCommandExecutionException
+                if e.getMessage != null && e.getMessage.startsWith("ERR no such key") =>
+              o
+          }
       case _ => o.pure[F]
     }
 

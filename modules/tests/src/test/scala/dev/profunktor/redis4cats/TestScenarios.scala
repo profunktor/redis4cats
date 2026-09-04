@@ -1525,6 +1525,10 @@ trait TestScenarios { self: FunSuite =>
             assertEquals(y, Some(val3))
           }
         }
+        // A transaction with zero queued commands legitimately succeeds (discarded=false, empty result) -
+        // it must not be misreported as TransactionDiscarded, which is reserved for a real abort (e.g. a
+        // WATCH conflict).
+        .flatMap(_ => redis.transact_(Nil))
   }
 
   def scriptsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
@@ -1535,9 +1539,9 @@ trait TestScenarios { self: FunSuite =>
         |return redis.status_reply('OK')""".stripMargin
     for {
       fortyTwo <- redis.eval("return 42", ScriptOutputType.Integer)
-      _ <- IO(assertEquals(fortyTwo, 42L))
+      _ <- IO(assertEquals(fortyTwo, Some(42L)))
       value <- redis.eval("return 'Hello World'", ScriptOutputType.Value)
-      _ <- IO(assertEquals(value, "Hello World"))
+      _ <- IO(assertEquals(value, Some("Hello World")))
       bool <- redis.eval("return true", ScriptOutputType.Boolean, List("Foo"))
       _ <- IO(assert(bool))
       list <- redis.eval(
@@ -1564,9 +1568,9 @@ trait TestScenarios { self: FunSuite =>
            )
       sha42 <- redis.scriptLoad("return 42")
       fortyTwoSha <- redis.evalSha(sha42, ScriptOutputType.Integer)
-      _ <- IO(assertEquals(fortyTwoSha, 42L))
+      _ <- IO(assertEquals(fortyTwoSha, Some(42L)))
       fortyTwoShaReadOnly <- redis.evalShaReadOnly(sha42, ScriptOutputType.Integer)
-      _ <- IO(assertEquals(fortyTwoShaReadOnly, 42L))
+      _ <- IO(assertEquals(fortyTwoShaReadOnly, Some(42L)))
       shaStatusScript <- redis.scriptLoad(statusScript)
       _ <- redis.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
       exists <- redis.scriptExists(sha42, "foobar")
@@ -1606,7 +1610,7 @@ trait TestScenarios { self: FunSuite =>
                keys = List("luaExt"),
                values = List("x", "42", "10")
              )
-             .map(assertEquals(_, 1L, "1 field, 'x', should be set for key=luaExt"))
+             .map(assertEquals(_, Some(1L), "1 field, 'x', should be set for key=luaExt"))
       _ <- redis.hGet(key = "luaExt", field = "x").map(assertEquals(_, "42".some))
       firstTtl <- redis.ttl("luaExt")
       _ <- IO(assert(firstTtl.map(_.toSeconds).exists(ttl => ttl > 0 && ttl <= 10)))
@@ -1618,7 +1622,7 @@ trait TestScenarios { self: FunSuite =>
                keys = List("luaExt"),
                values = List("y", "84", "20")
              )
-             .map(assertEquals(_, 1L, "1 field, 'y', should be set for key=luaExt"))
+             .map(assertEquals(_, Some(1L), "1 field, 'y', should be set for key=luaExt"))
       _ <- redis.hGet(key = "luaExt", field = "y").map(assertEquals(_, "84".some))
       secondTtl <- redis.ttl("luaExt")
       _ <- IO(assert(secondTtl.map(_.toSeconds).exists(ttl => ttl > 0 && ttl <= 20)))

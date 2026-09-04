@@ -144,18 +144,23 @@ object effects {
       override private[redis4cats] def convert(in: java.lang.Boolean): Boolean = scala.Boolean.box(in)
     }
 
-    def Integer[V]: ScriptOutputType.Aux[V, Long] = new ScriptOutputType[V] {
-      type R                              = Long
+    // A script that conditionally returns Lua nil/false converts to a nil reply here too - None
+    // distinguishes that from a real integer 0, which Long.box(in) alone can't (unboxing a null
+    // java.lang.Long silently yields 0).
+    def Integer[V]: ScriptOutputType.Aux[V, Option[Long]] = new ScriptOutputType[V] {
+      type R                              = Option[Long]
       private[redis4cats] type Underlying = java.lang.Long
-      override private[redis4cats] val outputType                        = JScriptOutputType.INTEGER
-      override private[redis4cats] def convert(in: java.lang.Long): Long = Long.box(in)
+      override private[redis4cats] val outputType                                = JScriptOutputType.INTEGER
+      override private[redis4cats] def convert(in: java.lang.Long): Option[Long] = in.toOption
     }
 
-    def Value[V]: ScriptOutputType.Aux[V, V] = new ScriptOutputType[V] {
-      type R                              = V
+    // A script that conditionally returns Lua nil converts to a nil reply here too - passing it through
+    // unwrapped would leak a raw null of type V to the caller.
+    def Value[V]: ScriptOutputType.Aux[V, Option[V]] = new ScriptOutputType[V] {
+      type R                              = Option[V]
       private[redis4cats] type Underlying = V
-      override private[redis4cats] val outputType        = JScriptOutputType.VALUE
-      override private[redis4cats] def convert(in: V): V = in
+      override private[redis4cats] val outputType                = JScriptOutputType.VALUE
+      override private[redis4cats] def convert(in: V): Option[V] = Option(in)
     }
 
     def Multi[V]: ScriptOutputType.Aux[V, List[V]] = new ScriptOutputType[V] {

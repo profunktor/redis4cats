@@ -65,9 +65,12 @@ object RedisClusterClient {
           .flatTap { jClient =>
             // The client is already allocated (real Netty resources) by this point; if topology
             // initialization throws, it must be shut down here - Resource.make never calls `release` when
-            // `acquire` itself fails, so without this the just-created client would otherwise leak.
+            // `acquire` itself fails, so without this the just-created client would otherwise leak. onError
+            // only re-raises the original error after this action succeeds, so a shutdown failure here must
+            // be swallowed (.attempt.void) or it would replace the real topology-init failure instead of
+            // just failing to clean up after it.
             initializeClusterTopology[F](jClient, config.topologyViewRefreshStrategy, config.nodeFilter)
-              .onError { case _ => shutdownJClient(jClient) }
+              .onError { case _ => shutdownJClient(jClient).attempt.void }
           }
           .map(new RedisClusterClient(_) {})
 
