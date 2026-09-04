@@ -22,7 +22,7 @@
 
 package dev.profunktor.redis4cats.effect
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{ Executors, ThreadPoolExecutor, TimeUnit }
 
 import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
@@ -40,13 +40,23 @@ private[redis4cats] trait TxExecutor[F[_]] {
 private[redis4cats] object TxExecutor {
   def make[F[_]: Async]: Resource[F, TxExecutor[F]] =
     Resource
-      .make(Sync[F].delay(Executors.newFixedThreadPool(1, TxThreadFactory))) { ec =>
-        Sync[F]
-          .delay(ec.shutdownNow())
-          .ensure(new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread"))(
-            _.isEmpty
-          )
-          .void
+      .make(Sync[F].delay(Executors.newFixedThreadPool(1, TxThreadFactory).asInstanceOf[ThreadPoolExecutor])) { ec =>
+        // shutdownNow()'s returned list is only tasks that were queued but never started - per its own
+        // contract, a task already running is interrupted, not returned, so checking that list alone
+        // misses a command that was actively executing (and forcibly cut off) at shutdown time. A separate
+        // getActiveCount() snapshot doesn't fix this reliably either: reading it just before shutdownNow()
+        // races the pool's single worker finishing its last task naturally in that same window, which would
+        // misreport a genuinely clean shutdown as having outstanding work. Waiting briefly for the pool to
+        // actually terminate after the interrupt is a direct, race-free signal instead: a task that merely
+        // needed a moment to notice the interrupt and unwind terminates well within the grace period, while
+        // one that's truly stuck (e.g. blocked on uninterruptible I/O) does not.
+        Async[F].blocking(ec.shutdownNow()).flatMap { queued =>
+          Async[F].blocking(ec.awaitTermination(500, TimeUnit.MILLISECONDS)).flatMap { terminated =>
+            new IllegalStateException("There were outstanding tasks at time of shutdown of the Redis thread")
+              .raiseError[F, Unit]
+              .unlessA(queued.isEmpty && terminated)
+          }
+        }
       }
       .map(es => fromEC(exitOnFatal(ExecutionContext.fromExecutorService(es))))
 

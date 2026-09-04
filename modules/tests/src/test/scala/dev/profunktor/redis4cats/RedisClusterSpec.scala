@@ -42,13 +42,17 @@ class RedisClusterSpec extends Redis4CatsFunSuite(true) with TestScenarios {
 
   test("cluster: server api")(withRedisCluster(serverScenario))
 
-  test("cluster: scripts")(withRedis(scriptsScenario))
+  test("cluster: scripts")(withRedisCluster(scriptsScenario))
 
-  test("cluster: scripts lua extensions")(withRedis(scriptingLuaExtensionsScenario))
+  test("cluster: scripts lua extensions")(withRedisCluster(scriptingLuaExtensionsScenario))
 
-  test("cluster: functions")(withRedis(functionsScenario))
+  // Not run against the cluster: FUNCTION LOAD isn't cluster-wide - it only registers the library on
+  // whichever single node happens to receive it, so a subsequent FCALL routed by key to a different node
+  // fails with "Function not found". Exercising this properly needs per-node FUNCTION LOAD, which redis4cats
+  // has no API for yet.
+  test("functions")(withRedis(functionsScenario))
 
-  test("cluster: hyperloglog api")(withRedis(hyperloglogScenario))
+  test("cluster: hyperloglog api")(withRedisCluster(hyperloglogScenario))
 
   test("cluster: streams api")(withRedisCluster(streamsScenario))
 

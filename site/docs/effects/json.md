@@ -90,13 +90,13 @@ commandsApi.use { redis =>
     // Append more items
     _ <- redis.arrAppendStr(listKey, itemsPath, """"eggs"""", """"butter"""")
 
-    // Get array length
-    length <- redis.arrLen(listKey, itemsPath)
-    _ <- putStrLn(s"Items count: $length")
+    // Get array length. One result per JSON value itemsPath matched - None where it didn't match.
+    lengths <- redis.arrLen(listKey, itemsPath)
+    _ <- putStrLn(s"Items count: ${lengths.headOption.flatten}")
 
-    // Find index of an item
-    idx <- redis.arrIndexStr(listKey, itemsPath, """"milk"""")
-    _ <- putStrLn(s"Milk at index: $idx")
+    // Find index of an item. Same per-match shape as arrLen above.
+    indices <- redis.arrIndexStr(listKey, itemsPath, """"milk"""")
+    _ <- putStrLn(s"Milk at index: ${indices.headOption.flatten}")
 
     // Insert at specific position
     _ <- redis.arrInsertStr(listKey, itemsPath, 0, """"coffee"""")

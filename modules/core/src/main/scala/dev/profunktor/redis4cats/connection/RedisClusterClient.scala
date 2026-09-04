@@ -20,14 +20,14 @@ import java.util.concurrent.TimeUnit
 
 import scala.jdk.DurationConverters._
 
-import cats.{ FlatMap, Functor }
+import cats.{ Functor, MonadThrow }
 import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.JavaConversions._
 import dev.profunktor.redis4cats.config._
 import dev.profunktor.redis4cats.data.NodeId
 import dev.profunktor.redis4cats.effect._
-import io.lettuce.core.cluster.models.partitions.{ Partitions => JPartitions, RedisClusterNode }
+import io.lettuce.core.cluster.models.partitions.RedisClusterNode
 import io.lettuce.core.cluster.{
   ClusterClientOptions,
   ClusterTopologyRefreshOptions,
@@ -39,10 +39,21 @@ sealed abstract case class RedisClusterClient private (underlying: JClusterClien
 
 object RedisClusterClient {
 
-  private[redis4cats] def acquireAndRelease[F[_]: FlatMap: FutureLift: Log](
+  private[redis4cats] def acquireAndRelease[F[_]: MonadThrow: FutureLift: Log](
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): (F[RedisClusterClient], RedisClusterClient => F[Unit]) = {
+
+    def shutdownJClient(jClient: JClusterClient): F[Unit] =
+      FutureLift[F]
+        .lift(
+          jClient.shutdownAsync(
+            config.shutdown.quietPeriod.toNanos,
+            config.shutdown.timeout.toNanos,
+            TimeUnit.NANOSECONDS
+          )
+        )
+        .void
 
     val acquire: F[RedisClusterClient] =
       Log[F].info(s"Acquire Redis Cluster client") *>
@@ -51,20 +62,20 @@ object RedisClusterClient {
             val javaUris = uri.map(_.underlying).asJava
             config.clientResources.fold(JClusterClient.create(javaUris))(JClusterClient.create(_, javaUris))
           }
-          .flatTap(initializeClusterTopology[F](_, config.topologyViewRefreshStrategy, config.nodeFilter))
+          .flatTap { jClient =>
+            // The client is already allocated (real Netty resources) by this point; if topology
+            // initialization throws, it must be shut down here - Resource.make never calls `release` when
+            // `acquire` itself fails, so without this the just-created client would otherwise leak. onError
+            // only re-raises the original error after this action succeeds, so a shutdown failure here must
+            // be swallowed (.attempt.void) or it would replace the real topology-init failure instead of
+            // just failing to clean up after it.
+            initializeClusterTopology[F](jClient, config.topologyViewRefreshStrategy, config.nodeFilter)
+              .onError { case _ => shutdownJClient(jClient).attempt.void }
+          }
           .map(new RedisClusterClient(_) {})
 
     val release: RedisClusterClient => F[Unit] = client =>
-      Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *>
-        FutureLift[F]
-          .lift(
-            client.underlying.shutdownAsync(
-              config.shutdown.quietPeriod.toNanos,
-              config.shutdown.timeout.toNanos,
-              TimeUnit.NANOSECONDS
-            )
-          )
-          .void
+      Log[F].info(s"Releasing Redis Cluster client: ${client.underlying}") *> shutdownJClient(client.underlying)
 
     (acquire, release)
   }
@@ -131,10 +142,10 @@ object RedisClusterClient {
       }
     }.void
 
-  def apply[F[_]: FlatMap: MkRedis](uri: RedisURI*): Resource[F, RedisClusterClient] =
+  def apply[F[_]: MonadThrow: MkRedis](uri: RedisURI*): Resource[F, RedisClusterClient] =
     configured[F](Redis4CatsConfig(), uri: _*)
 
-  def configured[F[_]: FlatMap: MkRedis](
+  def configured[F[_]: MonadThrow: MkRedis](
       config: Redis4CatsConfig,
       uri: RedisURI*
   ): Resource[F, RedisClusterClient] = {
@@ -148,15 +159,22 @@ object RedisClusterClient {
   def fromUnderlying(underlying: JClusterClient): RedisClusterClient =
     new RedisClusterClient(underlying) {}
 
+  /** `None` when no partition currently covers `keyName`'s slot - e.g. mid-resharding, or before a cluster's slots are
+    * fully assigned.
+    */
   def nodeId[F[_]: Sync](
       client: RedisClusterClient,
       keyName: String
-  ): F[NodeId] =
+  ): F[Option[NodeId]] =
     Sync[F].delay(SlotHash.getSlot(keyName)).flatMap { slot =>
-      partitions(client).map(_.getPartitionBySlot(slot).getNodeId).map(NodeId.apply)
+      partitions(client).map(_.find(_.hasSlot(slot)).map(n => NodeId(n.getNodeId)))
     }
 
-  def partitions[F[_]: Sync](client: RedisClusterClient): F[JPartitions] =
-    Sync[F].delay(client.underlying.getPartitions())
+  /** An immutable snapshot of the cluster's current topology, taken at call time. Lettuce's own `Partitions` is a live
+    * collection it mutates in place on every topology refresh; this copies it once so callers don't observe surprise
+    * mutation (or risk a `ConcurrentModificationException` while iterating).
+    */
+  def partitions[F[_]: Sync](client: RedisClusterClient): F[List[RedisClusterNode]] =
+    Sync[F].delay(client.underlying.getPartitions().asScala.toList)
 
 }

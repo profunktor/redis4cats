@@ -17,16 +17,27 @@
 package dev.profunktor.redis4cats
 
 import cats.Eq
+import cats.syntax.all._
 
 import java.time.Instant
 import io.lettuce.core.{
   AclCategory => JAclCategory,
   GeoArgs,
+  GeoWithin => JGeoWithin,
   KeyScanArgs => JKeyScanArgs,
-  LMovemArgs,
   ScanArgs => JScanArgs,
-  ScriptOutputType => JScriptOutputType
+  ScriptOutputType => JScriptOutputType,
+  StreamMessage => JStreamMessage
 }
+import io.lettuce.core.models.command.{ CommandDetail => JCommandDetail }
+import io.lettuce.core.models.stream.{
+  ClaimedMessages => JClaimedMessages,
+  PendingMessage => JPendingMessage,
+  PendingMessages => JPendingMessages,
+  StreamEntryDeletionResult => JStreamEntryDeletionResult
+}
+import io.lettuce.core.{ StringMatchResult => JStringMatchResult }
+import io.lettuce.core.{ TrackingInfo => JTrackingInfo }
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{ Duration, FiniteDuration }
@@ -64,6 +75,19 @@ object effects {
       hash: Option[GeoHash],
       coordinate: Option[GeoCoordinate]
   )
+  object GeoSearchResult {
+
+    // Lettuce's GeoWithin fields are null unless the corresponding GeoArgs flag was requested
+    // ("if requested, otherwise null" per its own scaladoc) — Option(...) is the correct, safe
+    // check here, since it wraps the (possibly-null) boxed reference before anything unboxes it.
+    private[redis4cats] def fromLettuce[V](v: JGeoWithin[V]): GeoSearchResult[V] =
+      GeoSearchResult[V](
+        v.getMember,
+        Option(v.getDistance).map(Distance(_)),
+        Option(v.getGeohash).map(GeoHash(_)),
+        Option(v.getCoordinates).map(c => GeoCoordinate(c.getX.doubleValue(), c.getY.doubleValue()))
+      )
+  }
 
   /** The subset of `GeoArgs` that `GEOSEARCHSTORE` actually accepts (COUNT/ASC/DESC) — unlike `GEOSEARCH`, it rejects
     * the WITHDIST/WITHHASH/WITHCOORD flags a raw `GeoArgs` could also carry.
@@ -120,18 +144,23 @@ object effects {
       override private[redis4cats] def convert(in: java.lang.Boolean): Boolean = scala.Boolean.box(in)
     }
 
-    def Integer[V]: ScriptOutputType.Aux[V, Long] = new ScriptOutputType[V] {
-      type R                              = Long
+    // A script that conditionally returns Lua nil/false converts to a nil reply here too - None
+    // distinguishes that from a real integer 0, which Long.box(in) alone can't (unboxing a null
+    // java.lang.Long silently yields 0).
+    def Integer[V]: ScriptOutputType.Aux[V, Option[Long]] = new ScriptOutputType[V] {
+      type R                              = Option[Long]
       private[redis4cats] type Underlying = java.lang.Long
-      override private[redis4cats] val outputType                        = JScriptOutputType.INTEGER
-      override private[redis4cats] def convert(in: java.lang.Long): Long = Long.box(in)
+      override private[redis4cats] val outputType                                = JScriptOutputType.INTEGER
+      override private[redis4cats] def convert(in: java.lang.Long): Option[Long] = in.toOption
     }
 
-    def Value[V]: ScriptOutputType.Aux[V, V] = new ScriptOutputType[V] {
-      type R                              = V
+    // A script that conditionally returns Lua nil converts to a nil reply here too - passing it through
+    // unwrapped would leak a raw null of type V to the caller.
+    def Value[V]: ScriptOutputType.Aux[V, Option[V]] = new ScriptOutputType[V] {
+      type R                              = Option[V]
       private[redis4cats] type Underlying = V
-      override private[redis4cats] val outputType        = JScriptOutputType.VALUE
-      override private[redis4cats] def convert(in: V): V = in
+      override private[redis4cats] val outputType                = JScriptOutputType.VALUE
+      override private[redis4cats] def convert(in: V): Option[V] = Option(in)
     }
 
     def Multi[V]: ScriptOutputType.Aux[V, List[V]] = new ScriptOutputType[V] {
@@ -604,11 +633,39 @@ object effects {
     */
   case class LcsMatchPosition(start: Long, end: Long)
   case class LcsMatch(a: LcsMatchPosition, b: LcsMatchPosition, matchLen: Option[Long])
+  object LcsMatch {
+    private[redis4cats] def fromLettuce(withMatchLen: Boolean)(m: JStringMatchResult.MatchedPosition): LcsMatch =
+      LcsMatch(
+        LcsMatchPosition(m.getA.getStart, m.getA.getEnd),
+        LcsMatchPosition(m.getB.getStart, m.getB.getEnd),
+        // matchLen is a Java primitive long (always 0 when WITHMATCHLEN wasn't requested) rather than a
+        // nullable field, so — same as GeoSearchResult — Option-ness is decided from what was actually
+        // requested, not inferred from the value.
+        if (withMatchLen) Some(m.getMatchLen) else None
+      )
+  }
 
   /** Result of `lcs`/`lcsIdx`: `matchString` is present for the plain (non-idx) query, `matches` is populated only by
     * `lcsIdx`, and `len` (the LCS length) is always present.
     */
   case class LcsResult(matchString: Option[String], matches: List[LcsMatch], len: Long)
+  object LcsResult {
+
+    // Redis's plain (non-LEN, non-IDX) LCS reply is just the matched string - no length field at all
+    // on the wire - so Lettuce's StringMatchResult.getLen() defaults to 0 in that mode, not the actual
+    // length. LEN/IDX replies do carry a real length. isIdx tells us which reply shape we're decoding;
+    // the plain case derives len from the matched string we do have, rather than trusting an unset 0.
+    private[redis4cats] def fromLettuce(isIdx: Boolean, withMatchLen: Boolean)(r: JStringMatchResult): LcsResult = {
+      import dev.profunktor.redis4cats.JavaConversions._
+
+      val matchString = Option(r.getMatchString)
+      // Redis counts LCS length in bytes, so the plain (non-IDX) case re-encodes via UTF-8 rather
+      // than using String#length()'s UTF-16 code units, to stay correct for any non-ASCII match.
+      val len =
+        if (isIdx) r.getLen else matchString.fold(0L)(_.getBytes(java.nio.charset.StandardCharsets.UTF_8).length.toLong)
+      LcsResult(matchString, r.getMatches.asScala.toList.map(LcsMatch.fromLettuce(withMatchLen)), len)
+    }
+  }
 
   sealed trait IncrexTtl
   object IncrexTtl {
@@ -664,14 +721,25 @@ object effects {
   /** The optional COUNT/EXACTLY block of LMOVEM/BLMOVEM. Without one, LMOVEM/BLMOVEM behave like LMOVE/BLMOVE (move a
     * single element) — use `lMove`/`blMove` for that case instead.
     */
+  /** Ordering in which `lMoveMany`/`blMoveMany` pop elements from the source and push them to the destination. */
+  sealed trait LMoveOrdering
+  object LMoveOrdering {
+
+    /** Move elements one by one, preserving the reversed order produced by popping one element at a time. */
+    case object OneByOne extends LMoveOrdering
+
+    /** Move all elements in bulk, preserving their original order. */
+    case object Bulk extends LMoveOrdering
+  }
+
   sealed trait LMoveCount
   object LMoveCount {
 
     /** Move up to `count` elements. */
-    final case class UpTo(count: Long, ordering: LMovemArgs.Ordering) extends LMoveCount
+    final case class UpTo(count: Long, ordering: LMoveOrdering) extends LMoveCount
 
     /** Move exactly `count` elements, or none at all if the source doesn't have enough. */
-    final case class Exactly(count: Long, ordering: LMovemArgs.Ordering) extends LMoveCount
+    final case class Exactly(count: Long, ordering: LMoveOrdering) extends LMoveCount
   }
 
   final case class LPosArgs(rank: Option[Long] = None, maxLen: Option[Long] = None)
@@ -783,6 +851,13 @@ object effects {
 
   object StreamMessage {
     implicit def eq[K: Eq, V: Eq]: Eq[StreamMessage[K, V]] = Eq.and(Eq.by(_.id), Eq.and(Eq.by(_.key), Eq.by(_.body)))
+
+    // The body is null for id-only replies (e.g. XCLAIM/XAUTOCLAIM with JUSTID).
+    private[redis4cats] def fromLettuce[K, V](msg: JStreamMessage[K, V]): StreamMessage[K, V] = {
+      import dev.profunktor.redis4cats.JavaConversions._
+      val body = Option(msg.getBody).map(_.asScala.toMap).getOrElse(Map.empty[K, V])
+      StreamMessage[K, V](MessageId(msg.getId), msg.getStream, body)
+    }
   }
 
   sealed abstract class XRangePoint extends Product with Serializable
@@ -853,6 +928,20 @@ object effects {
       maxId: Option[MessageId],
       consumers: Map[String, Long]
   )
+  object XPendingSummary {
+    private[redis4cats] def fromLettuce(pm: JPendingMessages): XPendingSummary = {
+      import dev.profunktor.redis4cats.JavaConversions._
+      val ids = Option(pm.getMessageIds)
+      def boundary(b: io.lettuce.core.Range.Boundary[String]): Option[MessageId] =
+        if (b == null || b.isUnbounded) None else Option(b.getValue).map(MessageId(_))
+      XPendingSummary(
+        count = pm.getCount,
+        minId = ids.flatMap(r => boundary(r.getLower)),
+        maxId = ids.flatMap(r => boundary(r.getUpper)),
+        consumers = pm.getConsumerMessageCount.asScala.iterator.map { case (k, v) => k -> Long.unbox(v) }.toMap
+      )
+    }
+  }
 
   /** A single entry from the extended form of `XPENDING`. */
   final case class XPendingMessage(
@@ -861,12 +950,27 @@ object effects {
       sinceLastDelivery: FiniteDuration,
       redeliveryCount: Long
   )
+  object XPendingMessage {
+    private[redis4cats] def fromLettuce(pm: JPendingMessage): XPendingMessage =
+      XPendingMessage(
+        id = MessageId(pm.getId),
+        consumer = pm.getConsumer,
+        sinceLastDelivery = FiniteDuration(pm.getMsSinceLastDelivery, java.util.concurrent.TimeUnit.MILLISECONDS),
+        redeliveryCount = pm.getRedeliveryCount
+      )
+  }
 
   /** Result of `XAUTOCLAIM`: the cursor to resume from plus the claimed messages. */
   final case class XAutoClaimResult[K, V](
       nextId: MessageId,
       messages: List[StreamMessage[K, V]]
   )
+  object XAutoClaimResult {
+    private[redis4cats] def fromLettuce[K, V](cm: JClaimedMessages[K, V]): XAutoClaimResult[K, V] = {
+      import dev.profunktor.redis4cats.JavaConversions._
+      XAutoClaimResult(MessageId(cm.getId), cm.getMessages.asScala.toList.map(StreamMessage.fromLettuce))
+    }
+  }
 
   /** Reply to `XINFO STREAM`. `firstEntry`/`lastEntry` are `None` when the stream currently holds no entries (Redis
     * reports them as a null reply in that case, per its own docs). `extra` carries any key/value pairs beyond the
@@ -1073,6 +1177,15 @@ object effects {
     case object NotDeletedUnacknowledgedOrStillReferenced extends StreamEntryDeletionResult
     case object NotFound extends StreamEntryDeletionResult
     case object Unknown extends StreamEntryDeletionResult
+
+    private[redis4cats] def fromLettuce(result: JStreamEntryDeletionResult): StreamEntryDeletionResult =
+      result match {
+        case JStreamEntryDeletionResult.DELETED => Deleted
+        case JStreamEntryDeletionResult.NOT_DELETED_UNACKNOWLEDGED_OR_STILL_REFERENCED =>
+          NotDeletedUnacknowledgedOrStillReferenced
+        case JStreamEntryDeletionResult.NOT_FOUND => NotFound
+        case JStreamEntryDeletionResult.UNKNOWN   => Unknown
+      }
   }
 
   /** How `XNACK` adjusts a message's delivery counter in the consumer group's Pending Entries List. Mirrors Lettuce's
@@ -1117,14 +1230,51 @@ object effects {
   }
 
   /** The reply to the Redis `ROLE` command. Lettuce decodes this as an untyped `List[Object]` (its RESP shape genuinely
-    * differs between a master and a replica) — this models both cases.
+    * differs by role) — this models all three shapes, including a Sentinel instance's.
     */
   sealed trait RedisRole
   object RedisRole {
+    import dev.profunktor.redis4cats.JavaConversions._
+
     final case class ReplicaNode(ip: String, port: Long, replicationOffset: Long)
     final case class Master(replicationOffset: Long, replicas: List[ReplicaNode]) extends RedisRole
     final case class Replica(masterHost: String, masterPort: Long, replicationState: String, replicationOffset: Long)
         extends RedisRole
+
+    /** A Sentinel instance's ROLE reply: just the names of the masters it's currently monitoring. */
+    final case class Sentinel(masters: List[String]) extends RedisRole
+
+    // The ROLE reply shape genuinely differs by role: a master reports its replication offset and
+    // the list of connected replicas; a replica reports its master's address and its own sync state;
+    // a Sentinel reports only the master names it monitors. Lettuce hands this back as an untyped
+    // List[Object] — element types are read loosely (`.toString`) rather than assumed to be a specific
+    // boxed numeric type, since that's an implementation detail of Lettuce's RESP decoding this API
+    // doesn't otherwise commit to.
+    private[redis4cats] def fromLettuce(reply: java.util.List[Object]): RedisRole = {
+      def asLong(a: Any): Long = a.toString.toLong
+
+      reply.asScala.toList match {
+        case (role: String) :: offset :: (replicas: java.util.List[_]) :: Nil if role == "master" =>
+          val nodes = replicas.asScala.toList.map {
+            case entry: java.util.List[_] =>
+              entry.asScala.toList match {
+                case ip :: port :: replOffset :: Nil =>
+                  RedisRole.ReplicaNode(ip.toString, asLong(port), asLong(replOffset))
+                case other =>
+                  throw ReplicationError.UnexpectedReplicaEntry(other.toString)
+              }
+            case other =>
+              throw ReplicationError.UnexpectedReplicaEntry(other.toString)
+          }
+          RedisRole.Master(asLong(offset), nodes)
+        case (role: String) :: host :: port :: state :: offset :: Nil if role == "slave" || role == "replica" =>
+          RedisRole.Replica(host.toString, asLong(port), state.toString, asLong(offset))
+        case (role: String) :: (masters: java.util.List[_]) :: Nil if role == "sentinel" =>
+          RedisRole.Sentinel(masters.asScala.toList.map(_.toString))
+        case other =>
+          throw ReplicationError.UnexpectedRoleReply(other.toString)
+      }
+    }
   }
 
   /** Failure raised while decoding a `ROLE` reply into [[RedisRole]]. */
@@ -1144,6 +1294,15 @@ object effects {
     * positional list access.
     */
   final case class RedisServerTime(epochSecond: Long, microseconds: Long)
+  object RedisServerTime {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    private[redis4cats] def fromLettuce[V](reply: java.util.List[V]): RedisServerTime =
+      reply.asScala.toList match {
+        case s :: us :: Nil => RedisServerTime(s.toString.toLong, us.toString.toLong)
+        case other          => throw UnexpectedTimeReply(other.toString)
+      }
+  }
 
   /** Failure raised while decoding a `TIME` reply into [[RedisServerTime]]. Its `[seconds, microseconds]` shape has
     * been stable since Redis 1.0.0, so this should never fire in practice.
@@ -1207,6 +1366,24 @@ object effects {
     case object Asking extends CommandFlag
     case object Fast extends CommandFlag
     case object MovableKeys extends CommandFlag
+
+    private[redis4cats] def fromLettuce(f: JCommandDetail.Flag): CommandFlag =
+      f match {
+        case JCommandDetail.Flag.WRITE           => CommandFlag.Write
+        case JCommandDetail.Flag.READONLY        => CommandFlag.ReadOnly
+        case JCommandDetail.Flag.DENYOOM         => CommandFlag.DenyOom
+        case JCommandDetail.Flag.ADMIN           => CommandFlag.Admin
+        case JCommandDetail.Flag.PUBSUB          => CommandFlag.PubSub
+        case JCommandDetail.Flag.NOSCRIPT        => CommandFlag.NoScript
+        case JCommandDetail.Flag.RANDOM          => CommandFlag.Random
+        case JCommandDetail.Flag.SORT_FOR_SCRIPT => CommandFlag.SortForScript
+        case JCommandDetail.Flag.LOADING         => CommandFlag.Loading
+        case JCommandDetail.Flag.STALE           => CommandFlag.Stale
+        case JCommandDetail.Flag.SKIP_MONITOR    => CommandFlag.SkipMonitor
+        case JCommandDetail.Flag.ASKING          => CommandFlag.Asking
+        case JCommandDetail.Flag.FAST            => CommandFlag.Fast
+        case JCommandDetail.Flag.MOVABLEKEYS     => CommandFlag.MovableKeys
+      }
   }
 
   /** One entry of a `COMMAND`/`COMMAND INFO` reply. `firstKeyPosition`/`lastKeyPosition`/`keyStepCount` describe where
@@ -1222,6 +1399,22 @@ object effects {
       keyStepCount: Int,
       aclCategories: Set[AclCategory]
   )
+  object CommandInfo {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    private[redis4cats] def fromLettuce(cd: JCommandDetail): Either[AclError, CommandInfo] =
+      cd.getAclCategories.asScala.toList.traverse(AclCategory.fromJava).map(_.toSet).map { cats =>
+        CommandInfo(
+          name = cd.getName,
+          arity = cd.getArity,
+          flags = cd.getFlags.asScala.toSet.map(CommandFlag.fromLettuce),
+          firstKeyPosition = cd.getFirstKeyPosition,
+          lastKeyPosition = cd.getLastKeyPosition,
+          keyStepCount = cd.getKeyStepCount,
+          aclCategories = cats
+        )
+      }
+  }
 
   /** One entry of a `SLOWLOG GET` reply. `clientAddr`/`clientName` are absent on Redis servers older than 4.0, which
     * only reported `id`/`timestamp`/`duration`/`args`. `originalArgCount` is a newer field still - it's the true number
@@ -1237,6 +1430,58 @@ object effects {
       clientName: Option[String],
       originalArgCount: Option[Int]
   )
+  object SlowLogEntry {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    // SLOWLOG GET entries are [id, timestamp, duration, [args...]] on Redis < 4.0, or with
+    // client addr/name appended on 4.0+; Lettuce hands this back as untyped nested List[Object].
+    private[redis4cats] def fromLettuce(raw: Any): Either[UnexpectedSlowLogEntry, SlowLogEntry] =
+      raw match {
+        case entry: java.util.List[_] =>
+          entry.asScala.toList match {
+            case id :: ts :: dur :: (args: java.util.List[_]) :: Nil =>
+              Right(
+                SlowLogEntry(
+                  id.toString.toLong,
+                  Instant.ofEpochSecond(ts.toString.toLong),
+                  FiniteDuration(dur.toString.toLong, TimeUnit.MICROSECONDS),
+                  args.asScala.toList.map(_.toString),
+                  None,
+                  None,
+                  None
+                )
+              )
+            case id :: ts :: dur :: (args: java.util.List[_]) :: addr :: name :: Nil =>
+              Right(
+                SlowLogEntry(
+                  id.toString.toLong,
+                  Instant.ofEpochSecond(ts.toString.toLong),
+                  FiniteDuration(dur.toString.toLong, TimeUnit.MICROSECONDS),
+                  args.asScala.toList.map(_.toString),
+                  Some(addr.toString),
+                  Some(name.toString),
+                  None
+                )
+              )
+            // Redis 8.x adds a 7th field: the command's true argument count, which can exceed
+            // args.size when a long argument list is truncated for display.
+            case id :: ts :: dur :: (args: java.util.List[_]) :: addr :: name :: argCount :: Nil =>
+              Right(
+                SlowLogEntry(
+                  id.toString.toLong,
+                  Instant.ofEpochSecond(ts.toString.toLong),
+                  FiniteDuration(dur.toString.toLong, TimeUnit.MICROSECONDS),
+                  args.asScala.toList.map(_.toString),
+                  Some(addr.toString),
+                  Some(name.toString),
+                  Some(argCount.toString.toInt)
+                )
+              )
+            case other => Left(UnexpectedSlowLogEntry(other.toString))
+          }
+        case other => Left(UnexpectedSlowLogEntry(other.toString))
+      }
+  }
 
   /** Failure raised while decoding a `SLOWLOG GET` reply into [[SlowLogEntry]]. */
   final case class UnexpectedSlowLogEntry(entry: String) extends RuntimeException(s"Unexpected SLOWLOG entry: $entry")
@@ -1270,8 +1515,31 @@ object effects {
     case object CachingNo extends TrackingFlag
     case object NoLoop extends TrackingFlag
     case object BrokenRedirect extends TrackingFlag
+
+    private[redis4cats] def fromLettuce(f: JTrackingInfo.TrackingFlag): TrackingFlag =
+      f match {
+        case JTrackingInfo.TrackingFlag.OFF             => TrackingFlag.Off
+        case JTrackingInfo.TrackingFlag.ON              => TrackingFlag.On
+        case JTrackingInfo.TrackingFlag.BCAST           => TrackingFlag.Bcast
+        case JTrackingInfo.TrackingFlag.OPTIN           => TrackingFlag.OptIn
+        case JTrackingInfo.TrackingFlag.OPTOUT          => TrackingFlag.OptOut
+        case JTrackingInfo.TrackingFlag.CACHING_YES     => TrackingFlag.CachingYes
+        case JTrackingInfo.TrackingFlag.CACHING_NO      => TrackingFlag.CachingNo
+        case JTrackingInfo.TrackingFlag.NOLOOP          => TrackingFlag.NoLoop
+        case JTrackingInfo.TrackingFlag.BROKEN_REDIRECT => TrackingFlag.BrokenRedirect
+      }
   }
 
   /** The reply to `CLIENT TRACKINGINFO`. */
   final case class TrackingInfo(flags: Set[TrackingFlag], redirect: Long, prefixes: List[String])
+  object TrackingInfo {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    private[redis4cats] def fromLettuce(info: JTrackingInfo): TrackingInfo =
+      TrackingInfo(
+        flags = info.getFlags.asScala.toSet.map(TrackingFlag.fromLettuce),
+        redirect = info.getRedirect,
+        prefixes = info.getPrefixes.asScala.toList
+      )
+  }
 }

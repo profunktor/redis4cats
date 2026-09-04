@@ -63,8 +63,9 @@ trait ListGetter[F[_], K, V] {
   def lRange(key: K, start: Long, stop: Long): F[List[V]]
   def lPos(key: K, value: V): F[Option[Long]]
   def lPos(key: K, value: V, args: LPosArgs): F[Option[Long]]
-  def lPos(key: K, value: V, count: Long): F[List[Long]]
-  def lPos(key: K, value: V, count: Long, args: LPosArgs): F[List[Long]]
+
+  def lPos(key: K, value: V, count: Int): F[List[Long]]
+  def lPos(key: K, value: V, count: Int, args: LPosArgs): F[List[Long]]
 }
 
 trait ListSetter[F[_], K, V] {

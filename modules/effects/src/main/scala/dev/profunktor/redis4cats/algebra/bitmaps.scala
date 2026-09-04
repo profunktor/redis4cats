@@ -17,12 +17,13 @@
 package dev.profunktor.redis4cats.algebra
 
 import dev.profunktor.redis4cats.algebra.BitCommandOperation.Overflows.Overflows
-import io.lettuce.core.BitFieldArgs.BitFieldType
 
 sealed trait BitCommandOperation
 
 object BitCommandOperation {
-  final case class Get(bitFieldType: BitFieldType, offset: Int) extends BitCommandOperation
+  final case class GetSigned(offset: Int, bits: Int = 1) extends BitCommandOperation
+
+  final case class GetUnsigned(offset: Int, bits: Int = 1) extends BitCommandOperation
 
   final case class SetSigned(offset: Int, value: Long, bits: Int = 1) extends BitCommandOperation
 
@@ -45,7 +46,10 @@ trait BitCommands[F[_], K, V] {
 
   def bitCount(key: K, start: Long, end: Long): F[Long]
 
-  def bitField(key: K, operations: BitCommandOperation*): F[List[Long]]
+  /** `None` at a position produced by a `SetSigned`/`SetUnsigned`/`IncrSignedBy`/`IncrUnsignedBy` operation that
+    * overflowed under an `Overflow(FAIL)` policy.
+    */
+  def bitField(key: K, operations: BitCommandOperation*): F[List[Option[Long]]]
 
   def bitOpAnd(destination: K, source: K, sources: K*): F[Long]
 
