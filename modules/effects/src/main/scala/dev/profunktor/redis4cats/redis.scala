@@ -75,14 +75,17 @@ import io.lettuce.core.{
   ScoredValue,
   SetArgs => JSetArgs,
   SortArgs => JSortArgs,
+  StreamDeletionPolicy => JStreamDeletionPolicy,
   StringMatchResult => JStringMatchResult,
   TrackingArgs => JTrackingArgs,
   TrackingInfo => JTrackingInfo,
   UnblockType => JUnblockType,
   XAddArgs => JXAddArgs,
   XAutoClaimArgs => JXAutoClaimArgs,
+  XCfgSetArgs => JXCfgSetArgs,
   XClaimArgs => JXClaimArgs,
   XGroupCreateArgs => JXGroupCreateArgs,
+  XNackMode => JXNackMode,
   XReadArgs,
   XTrimArgs => JXTrimArgs,
   ZAddArgs,
@@ -91,7 +94,12 @@ import io.lettuce.core.{
   ZStoreArgs
 }
 import io.lettuce.core.models.command.{ CommandDetail => JCommandDetail, CommandDetailParser }
-import io.lettuce.core.models.stream.{ ClaimedMessages, PendingMessage, PendingMessages }
+import io.lettuce.core.models.stream.{
+  ClaimedMessages,
+  PendingMessage,
+  PendingMessages,
+  StreamEntryDeletionResult => JStreamEntryDeletionResult
+}
 import io.lettuce.core.protocol.CommandType
 import org.typelevel.keypool.KeyPool
 
@@ -2940,6 +2948,11 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def xLen(key: K): F[Long] =
     async.flatMap(_.xlen(key).futureLift.map(Long.box(_)))
 
+  override def xInfoStream(key: K): F[XStreamInfo[K, V]] =
+    async
+      .flatMap(_.xinfoStream(key).futureLift)
+      .flatMap(reply => FutureLift[F].delay(XStreamInfo.fromLettuce(key, reply)))
+
   override def xAdd(key: K, body: Map[K, V], args: XAddArgs): F[MessageId] = {
     val jArgs = JXAddArgs.Builder.nomkstream()
     jArgs.nomkstream(args.nomkstream)
@@ -2969,6 +2982,28 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def xDel(key: K, ids: String*): F[Long] =
     async.flatMap(_.xdel(key, ids: _*).futureLift.map(Long.box(_)))
 
+  override def xDelEx(key: K, ids: String*): F[List[StreamEntryDeletionResult]] =
+    async.flatMap(_.xdelex(key, ids: _*).futureLift).map(_.asScala.toList.map(_.asScala))
+
+  override def xDelEx(key: K, policy: StreamDeletionPolicy, ids: String*): F[List[StreamEntryDeletionResult]] =
+    async
+      .flatMap(_.xdelex(key, toJStreamDeletionPolicy(policy), ids: _*).futureLift)
+      .map(_.asScala.toList.map(_.asScala))
+
+  override def xCfgSet(key: K, args: XCfgSetArgs): F[Unit] = {
+    val jArgs = new JXCfgSetArgs()
+    args.idempotencyMaxSize.foreach(jArgs.idmpMaxsize)
+    args.idempotencyDuration.foreach(jArgs.idmpDuration)
+    async.flatMap(_.xcfgset(key, jArgs).futureLift.void)
+  }
+
+  private def toJStreamDeletionPolicy(policy: StreamDeletionPolicy): JStreamDeletionPolicy =
+    policy match {
+      case StreamDeletionPolicy.KeepReferences   => JStreamDeletionPolicy.KEEP_REFERENCES
+      case StreamDeletionPolicy.DeleteReferences => JStreamDeletionPolicy.DELETE_REFERENCES
+      case StreamDeletionPolicy.Acknowledged     => JStreamDeletionPolicy.ACKNOWLEDGED
+    }
+
   // format: off
   /************************** Stream Consumer Groups API ************************/
   // format: on
@@ -2997,6 +3032,16 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def xGroupDelConsumer(key: K, consumer: StreamConsumer[K]): F[Long] =
     async.flatMap(_.xgroupDelconsumer(key, consumer.asJava).futureLift.map(x => Long.box(x)))
 
+  override def xInfoGroups(key: K): F[List[XGroupInfo]] =
+    async
+      .flatMap(_.xinfoGroups(key).futureLift)
+      .flatMap(reply => FutureLift[F].delay(reply.asScala.toList.map(XGroupInfo.fromLettuce)))
+
+  override def xInfoConsumers(key: K, group: K): F[List[XConsumerInfo]] =
+    async
+      .flatMap(_.xinfoConsumers(key, group).futureLift)
+      .flatMap(reply => FutureLift[F].delay(reply.asScala.toList.map(XConsumerInfo.fromLettuce)))
+
   override def xReadGroup(
       consumer: StreamConsumer[K],
       streams: Set[XReadOffsets[K]],
@@ -3011,6 +3056,29 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def xAck(key: K, group: K, ids: String*): F[Long] =
     async.flatMap(_.xack(key, group, ids: _*).futureLift.map(x => Long.box(x)))
+
+  override def xAckDel(key: K, group: K, ids: String*): F[List[StreamEntryDeletionResult]] =
+    async.flatMap(_.xackdel(key, group, ids: _*).futureLift).map(_.asScala.toList.map(_.asScala))
+
+  override def xAckDel(
+      key: K,
+      group: K,
+      policy: StreamDeletionPolicy,
+      ids: String*
+  ): F[List[StreamEntryDeletionResult]] =
+    async
+      .flatMap(_.xackdel(key, group, toJStreamDeletionPolicy(policy), ids: _*).futureLift)
+      .map(_.asScala.toList.map(_.asScala))
+
+  override def xNack(key: K, group: K, mode: XNackMode, ids: String*): F[Long] =
+    async.flatMap(_.xnack(key, group, toJXNackMode(mode), ids: _*).futureLift.map(x => Long.box(x)))
+
+  private def toJXNackMode(mode: XNackMode): JXNackMode =
+    mode match {
+      case XNackMode.Silent => JXNackMode.SILENT
+      case XNackMode.Fail   => JXNackMode.FAIL
+      case XNackMode.Fatal  => JXNackMode.FATAL
+    }
 
   override def xClaim(
       key: K,
@@ -3161,6 +3229,17 @@ private[redis4cats] trait RedisConversionOps {
 
   private[redis4cats] implicit class StreamConsumerOps[K](consumer: StreamConsumer[K]) {
     def asJava: JConsumer[K] = JConsumer.from(consumer.group, consumer.consumer)
+  }
+
+  private[redis4cats] implicit class StreamEntryDeletionResultOps(result: JStreamEntryDeletionResult) {
+    def asScala: StreamEntryDeletionResult =
+      result match {
+        case JStreamEntryDeletionResult.DELETED => StreamEntryDeletionResult.Deleted
+        case JStreamEntryDeletionResult.NOT_DELETED_UNACKNOWLEDGED_OR_STILL_REFERENCED =>
+          StreamEntryDeletionResult.NotDeletedUnacknowledgedOrStillReferenced
+        case JStreamEntryDeletionResult.NOT_FOUND => StreamEntryDeletionResult.NotFound
+        case JStreamEntryDeletionResult.UNKNOWN   => StreamEntryDeletionResult.Unknown
+      }
   }
 
   private[redis4cats] implicit class XClaimArgsOps(args: XClaimArgs) {

@@ -868,6 +868,247 @@ object effects {
       messages: List[StreamMessage[K, V]]
   )
 
+  /** Reply to `XINFO STREAM`. `firstEntry`/`lastEntry` are `None` when the stream currently holds no entries (Redis
+    * reports them as a null reply in that case, per its own docs). `extra` carries any key/value pairs beyond the
+    * well-established ones as flat strings - as of Redis 8.10 that includes a handful of idempotent-publish bookkeeping
+    * fields (`idmp-duration`, `idmp-maxsize`, `pids-tracked`, `iids-tracked`, `iids-added`, `iids-duplicates`)
+    * introduced alongside `XCFGSET`. Those are still new/evolving as of this writing, so rather than freeze their exact
+    * names/shape into named fields, they land in `extra` - nothing Lettuce hands back is silently dropped, without
+    * over-committing this type to an unstable surface.
+    */
+  final case class XStreamInfo[K, V](
+      length: Long,
+      radixTreeKeys: Long,
+      radixTreeNodes: Long,
+      lastGeneratedId: MessageId,
+      maxDeletedEntryId: MessageId,
+      entriesAdded: Long,
+      recordedFirstEntryId: MessageId,
+      groups: Long,
+      firstEntry: Option[StreamMessage[K, V]],
+      lastEntry: Option[StreamMessage[K, V]],
+      extra: Map[String, String] = Map.empty
+  )
+  object XStreamInfo {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    private val knownFields = Set(
+      "length",
+      "radix-tree-keys",
+      "radix-tree-nodes",
+      "last-generated-id",
+      "max-deleted-entry-id",
+      "entries-added",
+      "recorded-first-entry-id",
+      "groups",
+      "first-entry",
+      "last-entry"
+    )
+
+    // A first-entry/last-entry value is Lettuce's untyped stand-in for a StreamMessage: [id, [field, value, ...]].
+    // The K/V pairs have already passed through the connection's codec by the time they reach us as Object - the
+    // cast here is exactly as safe as the one Lettuce's own typed StreamMessage[K, V] getters perform internally,
+    // just visible instead of hidden behind a generic type parameter.
+    private def toEntry[K, V](key: K, raw: Any): StreamMessage[K, V] =
+      raw match {
+        case entry: java.util.List[_] =>
+          entry.asScala.toList match {
+            case (id: String) :: (fields: java.util.List[_]) :: Nil =>
+              val body = fields.asScala.toList
+                .grouped(2)
+                .collect { case (k: Any) :: (v: Any) :: Nil => k.asInstanceOf[K] -> v.asInstanceOf[V] }
+                .toMap
+              StreamMessage(MessageId(id), key, body)
+            case other => throw XInfoError.UnexpectedStreamInfoReply(other.toString)
+          }
+        case other => throw XInfoError.UnexpectedStreamInfoReply(other.toString)
+      }
+
+    /** Decodes `XINFO STREAM`'s reply - a flat, untyped `List[Object]` of alternating field-name/value pairs. */
+    private[redis4cats] def fromLettuce[K, V](key: K, reply: java.util.List[Object]): XStreamInfo[K, V] = {
+      def fail                 = throw XInfoError.UnexpectedStreamInfoReply(reply.toString)
+      def asLong(a: Any): Long = a.toString.toLong
+
+      val fields = reply.asScala.toList
+        .grouped(2)
+        .collect { case (name: String) :: value :: Nil => name -> value }
+        .toMap
+
+      def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
+      // Redis reports an empty stream's first-entry/last-entry as a nil reply, which the field map above
+      // stores as a present key with a null value rather than a missing key - Option(_) collapses that null
+      // to None, same as Map.get already does for a genuinely absent key.
+      def optional[A](name: String)(f: Any => A): Option[A] = fields.get(name).flatMap(Option(_)).map(f)
+
+      XStreamInfo[K, V](
+        length = required("length")(asLong),
+        radixTreeKeys = required("radix-tree-keys")(asLong),
+        radixTreeNodes = required("radix-tree-nodes")(asLong),
+        lastGeneratedId = required("last-generated-id")(v => MessageId(v.toString)),
+        maxDeletedEntryId = required("max-deleted-entry-id")(v => MessageId(v.toString)),
+        entriesAdded = required("entries-added")(asLong),
+        recordedFirstEntryId = required("recorded-first-entry-id")(v => MessageId(v.toString)),
+        groups = required("groups")(asLong),
+        firstEntry = optional("first-entry")(toEntry(key, _)),
+        lastEntry = optional("last-entry")(toEntry(key, _)),
+        extra = fields.collect { case (k, v) if !knownFields.contains(k) => k -> v.toString }
+      )
+    }
+  }
+
+  /** One entry of an `XINFO GROUPS` reply. `entriesRead`/`lag` are `None` when Redis cannot determine them (e.g. right
+    * after `XGROUP CREATE`/`XSETID`, before anything has been read).
+    */
+  final case class XGroupInfo(
+      name: String,
+      consumers: Long,
+      pending: Long,
+      lastDeliveredId: MessageId,
+      entriesRead: Option[Long],
+      lag: Option[Long]
+  )
+  object XGroupInfo {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    /** Decodes one element of `XINFO GROUPS`' reply - a flat, untyped `List[Object]` of field-name/value pairs.
+      * `entries-read`/`lag` are null when Redis can't compute them yet (e.g. right after `XGROUP CREATE`/`XSETID`).
+      */
+    private[redis4cats] def fromLettuce(raw: Any): XGroupInfo = {
+      def fail = throw XInfoError.UnexpectedGroupInfoReply(raw.toString)
+      raw match {
+        case entry: java.util.List[_] =>
+          val fields: Map[String, Any] = entry.asScala.toList
+            .grouped(2)
+            .collect { case (name: String) :: value :: Nil => name -> value }
+            .toMap
+          def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
+          def optionalLong(name: String): Option[Long]  = fields.get(name).flatMap(Option(_)).map(_.toString.toLong)
+          XGroupInfo(
+            name = required("name")(_.toString),
+            consumers = required("consumers")(_.toString.toLong),
+            pending = required("pending")(_.toString.toLong),
+            lastDeliveredId = required("last-delivered-id")(v => MessageId(v.toString)),
+            entriesRead = optionalLong("entries-read"),
+            lag = optionalLong("lag")
+          )
+        case _ => fail
+      }
+    }
+  }
+
+  /** One entry of an `XINFO CONSUMERS` reply. `inactive` (time since the consumer's last successful command, distinct
+    * from `idle` - time since its last attempted read) was added in Redis 7.2; `None` on servers that don't report it.
+    */
+  final case class XConsumerInfo(
+      name: String,
+      pending: Long,
+      idle: FiniteDuration,
+      inactive: Option[FiniteDuration]
+  )
+  object XConsumerInfo {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    /** Decodes one element of `XINFO CONSUMERS`' reply - a flat, untyped `List[Object]` of field-name/value pairs.
+      * `inactive` (time since the consumer's last successful command, distinct from `idle` - time since its last
+      * attempted read) was added in Redis 7.2; `None` on servers that don't report it.
+      */
+    private[redis4cats] def fromLettuce(raw: Any): XConsumerInfo = {
+      def fail = throw XInfoError.UnexpectedConsumerInfoReply(raw.toString)
+      raw match {
+        case entry: java.util.List[_] =>
+          val fields: Map[String, Any] = entry.asScala.toList
+            .grouped(2)
+            .collect { case (name: String) :: value :: Nil => name -> value }
+            .toMap
+          def required[A](name: String)(f: Any => A): A = fields.get(name).map(f).getOrElse(fail)
+          XConsumerInfo(
+            name = required("name")(_.toString),
+            pending = required("pending")(_.toString.toLong),
+            idle = required("idle")(v => FiniteDuration(v.toString.toLong, TimeUnit.MILLISECONDS)),
+            inactive = fields
+              .get("inactive")
+              .flatMap(Option(_))
+              .map(v => FiniteDuration(v.toString.toLong, TimeUnit.MILLISECONDS))
+          )
+        case _ => fail
+      }
+    }
+  }
+
+  /** Failure raised while decoding an `XINFO STREAM`/`XINFO GROUPS`/`XINFO CONSUMERS` reply. Lettuce hands these back
+    * as untyped, flat key-value `List[Object]`s with no schema enforcement - a genuinely unexpected shape becomes one
+    * of these instead of a `ClassCastException`/`NoSuchElementException` deep inside a fold.
+    */
+  sealed abstract class XInfoError(message: String) extends RuntimeException(message)
+  object XInfoError {
+    final case class UnexpectedStreamInfoReply(reply: String)
+        extends XInfoError(s"Unexpected XINFO STREAM reply: $reply")
+    final case class UnexpectedGroupInfoReply(reply: String)
+        extends XInfoError(s"Unexpected XINFO GROUPS entry: $reply")
+    final case class UnexpectedConsumerInfoReply(reply: String)
+        extends XInfoError(s"Unexpected XINFO CONSUMERS entry: $reply")
+  }
+
+  /** Which stream entries `XDELEX`/`XACKDEL` are allowed to remove, and how they treat consumer-group PEL references to
+    * them. Mirrors Lettuce's `StreamDeletionPolicy`, modelled as our own ADT since that type is marked `@Experimental`
+    * upstream. Redis defaults to [[KeepReferences]] when none is given - the same behavior as plain `XDEL`.
+    */
+  sealed trait StreamDeletionPolicy
+  object StreamDeletionPolicy {
+
+    /** `KEEPREF` (default): delete the entry but leave any consumer-group PEL references to it in place. */
+    case object KeepReferences extends StreamDeletionPolicy
+
+    /** `DELREF`: delete the entry and remove all consumer-group PEL references to it. */
+    case object DeleteReferences extends StreamDeletionPolicy
+
+    /** `ACKED`: only delete entries that have already been read and acknowledged by every consumer group. */
+    case object Acknowledged extends StreamDeletionPolicy
+  }
+
+  /** Per-id outcome of `XDELEX`/`XACKDEL`. Mirrors Lettuce's `StreamEntryDeletionResult`. */
+  sealed trait StreamEntryDeletionResult
+  object StreamEntryDeletionResult {
+    case object Deleted extends StreamEntryDeletionResult
+    case object NotDeletedUnacknowledgedOrStillReferenced extends StreamEntryDeletionResult
+    case object NotFound extends StreamEntryDeletionResult
+    case object Unknown extends StreamEntryDeletionResult
+  }
+
+  /** How `XNACK` adjusts a message's delivery counter in the consumer group's Pending Entries List. Mirrors Lettuce's
+    * `XNackMode`.
+    */
+  sealed trait XNackMode
+  object XNackMode {
+
+    /** Internal error/shutdown on this consumer - decrements the delivery counter by 1, allowing normal redelivery
+      * elsewhere.
+      */
+    case object Silent extends XNackMode
+
+    /** The message is problematic for this consumer specifically but may succeed elsewhere - delivery counter left
+      * unchanged.
+      */
+    case object Fail extends XNackMode
+
+    /** The message is invalid/malicious - delivery counter is set to `LLONG_MAX`, effectively preventing further
+      * redelivery.
+      */
+    case object Fatal extends XNackMode
+  }
+
+  /** Options for `XCFGSET`, Redis's per-stream idempotent-publish configuration. Both setters are independent -
+    * mirroring Lettuce's `XCfgSetArgs` - and an unset field is left unchanged server-side rather than reset.
+    * @param idempotencyMaxSize
+    *   the maximum number of tracked producer ids to retain (`IDMP-MAXSIZE`)
+    * @param idempotencyDuration
+    *   how long a tracked producer id remains valid, in the unit Redis's own `IDMP-DURATION` argument expects
+    */
+  final case class XCfgSetArgs(
+      idempotencyMaxSize: Option[Long] = None,
+      idempotencyDuration: Option[Long] = None
+  )
+
   implicit class TimePrecisionOps(val duration: FiniteDuration) extends AnyVal {
     def refine: Long = duration.unit match {
       case TimeUnit.MILLISECONDS | TimeUnit.MICROSECONDS | TimeUnit.NANOSECONDS => duration.toMillis

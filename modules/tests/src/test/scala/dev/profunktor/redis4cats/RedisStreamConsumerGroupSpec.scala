@@ -102,4 +102,108 @@ class RedisStreamConsumerGroupSpec extends Redis4CatsFunSuite(isCluster = false)
       } yield ()
     }
   }
+
+  test("consumer groups: xInfoGroups and xInfoConsumers") {
+    val key   = "test-cg-info"
+    val group = "test-cg-info-group"
+    val other = "test-cg-info-other-group"
+    val c1    = StreamConsumer(group, "info-consumer-1")
+
+    withRedis { redis =>
+      for {
+        _ <- redis.del(key)
+        _ <- redis.xGroupCreate(key, group, offset = "0", args = XGroupCreateArgs(mkStream = true))
+        _ <- redis.xGroupCreate(key, other, offset = "0")
+        // Fresh group, nothing read yet: no consumers/pending, and entries-read is not yet determinable.
+        freshGroups <- redis.xInfoGroups(key)
+        freshGroup = freshGroups.find(_.name == group).getOrElse(fail(s"group $group not found in $freshGroups"))
+        _ <- IO(assertEquals(freshGroup.consumers, 0L))
+        _ <- IO(assertEquals(freshGroup.pending, 0L))
+        _ <- IO(assertEquals(freshGroup.entriesRead, None))
+        id1 <- redis.xAdd(key, Map("a" -> "1"))
+        _ <- redis.xReadGroup(c1, XReadOffsets.custom(">", key))
+        groupsAfterRead <- redis.xInfoGroups(key)
+        _ <- IO(assertEquals(groupsAfterRead.map(_.name).toSet, Set(group, other)))
+        groupAfterRead = groupsAfterRead.find(_.name == group).getOrElse(fail("group not found"))
+        _ <- IO(assertEquals(groupAfterRead.consumers, 1L))
+        _ <- IO(assertEquals(groupAfterRead.pending, 1L))
+        _ <- IO(assertEquals(groupAfterRead.lastDeliveredId, id1))
+        _ <- IO(assertEquals(groupAfterRead.entriesRead, Some(1L)))
+        consumers <- redis.xInfoConsumers(key, group)
+        _ <- IO(assertEquals(consumers.map(_.name), List("info-consumer-1")))
+        _ <- IO(assertEquals(consumers.head.pending, 1L))
+        _ <- IO(assert(consumers.head.idle >= 0.millis, "idle time should be non-negative"))
+        otherConsumers <- redis.xInfoConsumers(key, other)
+        _ <- IO(assertEquals(otherConsumers, List.empty))
+        _ <- redis.del(key)
+      } yield ()
+    }
+  }
+
+  test("consumer groups: xAckDel acknowledges and deletes in one call") {
+    val key   = "test-cg-ackdel"
+    val group = "test-cg-ackdel-group"
+    val c1    = StreamConsumer(group, "ackdel-consumer")
+
+    withRedis { redis =>
+      for {
+        _ <- redis.del(key)
+        _ <- redis.xGroupCreate(key, group, offset = "0", args = XGroupCreateArgs(mkStream = true))
+        id0 <- redis.xAdd(key, Map("z" -> "0"))
+        id1 <- redis.xAdd(key, Map("a" -> "1"))
+        id2 <- redis.xAdd(key, Map("b" -> "2"))
+        _ <- redis.xReadGroup(c1, XReadOffsets.custom(">", key))
+        // No-policy overload: also defaults to KeepReferences.
+        deletedNoPolicy <- redis.xAckDel(key, group, id0.value)
+        _ <- IO(assertEquals(deletedNoPolicy, List(StreamEntryDeletionResult.Deleted)))
+        // KeepReferences (the default): the entry is removed from the stream but XACK still succeeds.
+        deleted <- redis.xAckDel(key, group, StreamDeletionPolicy.KeepReferences, id1.value)
+        _ <- IO(assertEquals(deleted, List(StreamEntryDeletionResult.Deleted)))
+        len <- redis.xLen(key)
+        _ <- IO(assertEquals(len, 1L))
+        pendingAfter <- redis.xPending(key, group)
+        _ <- IO(assertEquals(pendingAfter.count, 1L), "id1 should no longer be pending after xAckDel")
+        // Re-running against an id that's already gone reports NotFound rather than failing.
+        deletedAgain <- redis.xAckDel(key, group, StreamDeletionPolicy.KeepReferences, id1.value)
+        _ <- IO(assertEquals(deletedAgain, List(StreamEntryDeletionResult.NotFound)))
+        // DeleteReferences explicitly: same effect as above for a still-pending id, but also clears the PEL entry.
+        deletedWithPolicy <- redis.xAckDel(key, group, StreamDeletionPolicy.DeleteReferences, id2.value)
+        _ <- IO(assertEquals(deletedWithPolicy, List(StreamEntryDeletionResult.Deleted)))
+        pendingFinal <- redis.xPending(key, group)
+        _ <- IO(assertEquals(pendingFinal.count, 0L))
+        _ <- redis.del(key)
+      } yield ()
+    }
+  }
+
+  test("consumer groups: xNack releases a message back to the PEL without acking it") {
+    val key   = "test-cg-nack"
+    val group = "test-cg-nack-group"
+    val c1    = StreamConsumer(group, "nack-consumer")
+
+    withRedis { redis =>
+      for {
+        _ <- redis.del(key)
+        _ <- redis.xGroupCreate(key, group, offset = "0", args = XGroupCreateArgs(mkStream = true))
+        id1 <- redis.xAdd(key, Map("a" -> "1"))
+        _ <- redis.xReadGroup(c1, XReadOffsets.custom(">", key))
+        pendingBefore <- redis.xPending(key, group, XRangePoint.Unbounded, XRangePoint.Unbounded, count = 10L)
+        _ <- IO(assertEquals(pendingBefore.map(_.redeliveryCount), List(1L)))
+        // FAIL leaves the delivery counter unchanged but the message remains pending (not acked/deleted).
+        affected <- redis.xNack(key, group, XNackMode.Fail, id1.value)
+        _ <- IO(assertEquals(affected, 1L))
+        pendingAfterFail <- redis.xPending(key, group, XRangePoint.Unbounded, XRangePoint.Unbounded, count = 10L)
+        _ <- IO(assertEquals(pendingAfterFail.map(_.id), List(id1)))
+        _ <- IO(assertEquals(pendingAfterFail.map(_.redeliveryCount), List(1L)))
+        // SILENT decrements the delivery counter by one.
+        _ <- redis.xNack(key, group, XNackMode.Silent, id1.value)
+        pendingAfterSilent <- redis.xPending(key, group, XRangePoint.Unbounded, XRangePoint.Unbounded, count = 10L)
+        _ <- IO(assertEquals(pendingAfterSilent.map(_.redeliveryCount), List(0L)))
+        // Nacking an id that isn't pending affects nothing.
+        affectedMissing <- redis.xNack(key, group, XNackMode.Fail, "0-1")
+        _ <- IO(assertEquals(affectedMissing, 0L))
+        _ <- redis.del(key)
+      } yield ()
+    }
+  }
 }
