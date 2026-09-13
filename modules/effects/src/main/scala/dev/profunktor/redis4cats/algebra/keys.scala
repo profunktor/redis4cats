@@ -73,9 +73,13 @@ trait KeyCommands[F[_], K, V] {
   def scan(previous: KeyScanCursor[K], scanArgs: ScanArgs): F[KeyScanCursor[K]]
   def scan(cursor: KeyScanCursor[K], keyScanArgs: KeyScanArgs): F[KeyScanCursor[K]]
   def sort(key: K): F[List[V]]
-  def sort(key: K, sortArgs: SortArgs): F[List[V]]
+
+  /** `None` at a position whose `sortArgs`' `GET` pattern didn't resolve to an existing key. */
+  def sort(key: K, sortArgs: SortArgs): F[List[Option[V]]]
   def sortReadOnly(key: K): F[List[V]]
-  def sortReadOnly(key: K, sortArgs: SortArgs): F[List[V]]
+
+  /** `None` at a position whose `sortArgs`' `GET` pattern didn't resolve to an existing key. */
+  def sortReadOnly(key: K, sortArgs: SortArgs): F[List[Option[V]]]
   def sortStore(key: K, sortArgs: SortArgs, destination: K): F[Long]
   def typeOf(key: K): F[Option[RedisType]]
   def ttl(key: K): F[Option[FiniteDuration]]

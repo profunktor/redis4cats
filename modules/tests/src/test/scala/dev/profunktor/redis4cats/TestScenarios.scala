@@ -27,7 +27,7 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
 import fs2.Stream
-import io.lettuce.core.{ GeoArgs, LMovemArgs, RedisCommandExecutionException, RedisException, ZAggregateArgs }
+import io.lettuce.core.{ GeoArgs, RedisCommandExecutionException, RedisException, ZAddArgs, ZAggregateArgs }
 import munit.FunSuite
 
 import java.time.Instant
@@ -51,9 +51,15 @@ trait TestScenarios { self: FunSuite =>
       addCountExisting <- redis.geoAdd(testKey, _Tokyo)
       _ <- IO(assertEquals(addCountExisting, 0L)) // re-adding an existing member updates it, adds nothing new
       x <- redis.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoArgs.Unit.km)
-      _ <- IO(assertEquals(x, 18374.9052))
+      _ <- IO(assertEquals(x, Some(18374.9052)))
+      xMissing <- redis.geoDist(testKey, _BuenosAires.value, "Atlantis", GeoArgs.Unit.km)
+      _ <- IO(assertEquals(xMissing, None))
       y <- redis.geoPos(testKey, _RioDeJaneiro.value)
-      _ <- IO(assert(y.contains(GeoCoordinate(-43.17289799451828, -22.906801071586663))))
+      _ <- IO(assert(y.contains(Some(GeoCoordinate(-43.17289799451828, -22.906801071586663)))))
+      yMissing <- redis.geoPos(testKey, "Atlantis")
+      _ <- IO(assertEquals(yMissing, List(None)))
+      hMissing <- redis.geoHash(testKey, "Atlantis")
+      _ <- IO(assertEquals(hMissing, List(None)))
 
       // geoSearch: FromCoordinates x ByRadius (plain Set[V] result)
       byCoordRadius <- redis.geoSearch(
@@ -296,6 +302,14 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(onePair.exists { case (k, v) => hRandFields.get(k).contains(v) }))
       allPairs <- redis.hRandFieldWithValues(hRandKey, 3)
       _ <- IO(assertEquals(allPairs.toMap, hRandFields))
+      // A negative count switches Redis to "allow repeats" mode and always returns exactly
+      // |count| elements, unlike a positive count (capped at cardinality, no repeats).
+      negCountFields <- redis.hRandField(hRandKey, -5)
+      _ <- IO(assertEquals(negCountFields.size, 5))
+      _ <- IO(assert(negCountFields.forall(hRandFields.keySet.contains)))
+      negCountPairs <- redis.hRandFieldWithValues(hRandKey, -5)
+      _ <- IO(assertEquals(negCountPairs.size, 5))
+      _ <- IO(assert(negCountPairs.forall { case (k, v) => hRandFields.get(k).contains(v) }))
       missingField <- redis.hRandField("hrand-does-not-exist")
       _ <- IO(assertEquals(missingField, None))
       missingFieldList <- redis.hRandField("hrand-does-not-exist", 3)
@@ -408,7 +422,7 @@ trait TestScenarios { self: FunSuite =>
                    "{listmove}:lmm-dst",
                    LMoveSide.Right,
                    LMoveSide.Left,
-                   LMoveCount.UpTo(2, LMovemArgs.Ordering.BULK)
+                   LMoveCount.UpTo(2, LMoveOrdering.Bulk)
                  )
       _ <- IO(assertEquals(lmmUpTo, List("b", "c")))
       lmmDst <- redis.lRange("{listmove}:lmm-dst", 0, -1)
@@ -425,7 +439,7 @@ trait TestScenarios { self: FunSuite =>
                            "{listmove}:lmm-exactly-dst",
                            LMoveSide.Right,
                            LMoveSide.Left,
-                           LMoveCount.Exactly(2, LMovemArgs.Ordering.BULK)
+                           LMoveCount.Exactly(2, LMoveOrdering.Bulk)
                          )
       _ <- IO(assert(lmmExactlyShort.isEmpty))
       lmmExactlySrcUntouched <- redis.lRange("{listmove}:lmm-exactly-src", 0, -1)
@@ -439,7 +453,7 @@ trait TestScenarios { self: FunSuite =>
                          "{listmove}:blmm-dst",
                          LMoveSide.Right,
                          LMoveSide.Left,
-                         LMoveCount.UpTo(2, LMovemArgs.Ordering.BULK)
+                         LMoveCount.UpTo(2, LMoveOrdering.Bulk)
                        )
       _ <- IO(assertEquals(blmmImmediate, List("p", "q")))
       // blMoveMany: timeout expiry, no count block
@@ -482,10 +496,10 @@ trait TestScenarios { self: FunSuite =>
       lPosRank <- redis.lPos("lpos-key", "b", LPosArgs(rank = Some(2)))
       _ <- IO(assertEquals(lPosRank, Some(3L)))
       // lPos: COUNT 0 returns every occurrence
-      lPosCount <- redis.lPos("lpos-key", "b", 0L)
+      lPosCount <- redis.lPos("lpos-key", "b", 0)
       _ <- IO(assertEquals(lPosCount, List(1L, 3L)))
       // lPos: COUNT 0 with MAXLEN limits how much of the list is scanned
-      lPosCountArgs <- redis.lPos("lpos-key", "b", 0L, LPosArgs(maxLen = Some(2)))
+      lPosCountArgs <- redis.lPos("lpos-key", "b", 0, LPosArgs(maxLen = Some(2)))
       _ <- IO(assertEquals(lPosCountArgs, List(1L)))
 
       // lPop/rPop multi-pop
@@ -598,6 +612,23 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assert(y == 2L))
       z <- redis.zCount(testKey, ZRange(0, 1))
       _ <- IO(assert(z == 1L))
+      presentScore <- redis.zScore(testKey, 1L)
+      _ <- IO(assertEquals(presentScore, Some(1d)))
+      missingScore <- redis.zScore(testKey, 999L)
+      _ <- IO(assertEquals(missingScore, None))
+      presentRank <- redis.zRank(testKey, 1L)
+      _ <- IO(assertEquals(presentRank, Some(0L)))
+      missingRank <- redis.zRank(testKey, 999L)
+      _ <- IO(assertEquals(missingRank, None))
+      presentRevRank <- redis.zRevRank(testKey, 1L)
+      _ <- IO(assertEquals(presentRevRank, Some(1L)))
+      missingRevRank <- redis.zRevRank(testKey, 999L)
+      _ <- IO(assertEquals(missingRevRank, None))
+      incrKey = "{same_hash_slot}:zaddincr"
+      incremented <- redis.zAddIncr(incrKey, args = None, ScoreWithValue(Score(5), 1L))
+      _ <- IO(assertEquals(incremented, Some(5d)))
+      blockedIncr <- redis.zAddIncr(incrKey, Some(ZAddArgs.Builder.nx()), ScoreWithValue(Score(10), 1L))
+      _ <- IO(assertEquals(blockedIncr, None))
       _ <- redis.zAdd(otherTestKey, args = None, scoreWithValue1, scoreWithValue3)
       zUnion <- redis.zUnion(args = None, testKey, otherTestKey)
       _ <- IO(assertEquals(zUnion, List(1L, 2L, 3L)))
@@ -751,7 +782,9 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(i, true))
       e <- redis.ttl("f2")
       _ <- IO(assert(e.nonEmpty))
-      _ <- IO.sleep(50.millis)
+      // Sleep well past the 50ms TTL - checking right at the boundary races Redis's own expiry timing
+      // (lazy expiry + the active-expire cycle) and is flaky under CI's less predictable scheduling.
+      _ <- IO.sleep(300.millis)
       f <- redis.ttl("f2")
       _ <- IO(assertEquals(f, None))
       _ <- redis.set("f3", "yay")
@@ -761,7 +794,9 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(expiref3nx, false))
       ttlf3 <- redis.ttl("f3")
       _ <- IO(assert(ttlf3.nonEmpty))
-      _ <- IO.sleep(50.millis)
+      // Sleep well past the 50ms TTL - checking right at the boundary races Redis's own expiry timing
+      // (lazy expiry + the active-expire cycle) and is flaky under CI's less predictable scheduling.
+      _ <- IO.sleep(300.millis)
       ttlf3AfterSleep <- redis.ttl("f3")
       _ <- IO(assert(ttlf3AfterSleep.isEmpty))
       j <- redis.expire("_not_existing_key_", 50.millis)
@@ -797,12 +832,12 @@ trait TestScenarios { self: FunSuite =>
       sorted <- redis.sort("{keystest}:sortsrc")
       _ <- IO(assertEquals(sorted, List("1", "2", "3")))
       sortedDesc <- redis.sortReadOnly("{keystest}:sortsrc", SortArgs(order = Some(SortOrder.Desc)))
-      _ <- IO(assertEquals(sortedDesc, List("3", "2", "1")))
+      _ <- IO(assertEquals(sortedDesc, List(Some("3"), Some("2"), Some("1"))))
       sortedLimit <- redis.sort(
                        "{keystest}:sortsrc",
                        SortArgs(order = Some(SortOrder.Asc), limit = Some(RangeLimit(0, 2)))
                      )
-      _ <- IO(assertEquals(sortedLimit, List("1", "2")))
+      _ <- IO(assertEquals(sortedLimit, List(Some("1"), Some("2"))))
       sortStoreCount <-
         redis.sortStore("{keystest}:sortsrc", SortArgs(order = Some(SortOrder.Asc)), "{keystest}:sortdst")
       _ <- IO(assertEquals(sortStoreCount, 3L))
@@ -843,6 +878,11 @@ trait TestScenarios { self: FunSuite =>
       // (non-LFU) policy, so the real, correct behavior here is that it fails, not succeeds.
       freqAttempt <- redis.objectFreq("objkey").attempt
       _ <- IO(assert(freqAttempt.isLeft))
+      // A missing key's OBJECT REFCOUNT comes back from Lettuce as a plain 0, not an error - Redis's
+      // nil-integer reply is collapsed by Lettuce's decoder before it reaches redis4cats, leaving no
+      // information here to distinguish "missing" from "zero".
+      missingRefcount <- redis.objectRefcount("definitely-does-not-exist-xyz")
+      _ <- IO(assertEquals(missingRefcount, 0L))
       // MIGRATE: Redis checks the source key's existence before ever attempting to reach the
       // destination, so a missing key deterministically returns NOKEY (false) regardless of
       // whether "no-such-host" is actually reachable - no second live instance needed.
@@ -1407,14 +1447,20 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.clientNoTouch(false)
       _ <- redis.clientNoEvict(true)
       _ <- redis.clientNoEvict(false)
+      // A short pause: long enough to exercise the real wire call and millis/seconds unit
+      // conversion, short enough not to meaningfully delay the rest of this (sequential,
+      // non-parallel per build.sbt's Test / parallelExecution := false) test suite.
+      _ <- redis.clientPause(5.millis)
       // maintenance
       existingKeyUsage <- redis.memoryUsage("age")
       _ <- IO(assert(existingKeyUsage.exists(_ > 0)))
       missingKeyUsage <- redis.memoryUsage("no-such-key-for-memory-usage")
       _ <- IO(assert(missingKeyUsage.isEmpty))
-      // save/bgSave/bgRewriteAof all hold Redis's single persistence lock — calling more than
-      // one back-to-back reliably errors with "Background save already in progress" on a fresh
-      // fork. Only bgSave is exercised here as representative coverage.
+      // SAVE first (blocks synchronously until done, so nothing can already be mid-background-save
+      // when it runs), then bgSave/bgRewriteAof share Redis's single persistence lock - calling
+      // more than one of those back-to-back reliably errors with "Background save already in
+      // progress" on a fresh fork, so only bgSave is exercised as representative coverage of that pair.
+      _ <- redis.save
       _ <- redis.bgSave
     } yield ()
 
@@ -1479,6 +1525,10 @@ trait TestScenarios { self: FunSuite =>
             assertEquals(y, Some(val3))
           }
         }
+        // A transaction with zero queued commands legitimately succeeds (discarded=false, empty result) -
+        // it must not be misreported as TransactionDiscarded, which is reserved for a real abort (e.g. a
+        // WATCH conflict).
+        .flatMap(_ => redis.transact_(Nil))
   }
 
   def scriptsScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
@@ -1489,9 +1539,9 @@ trait TestScenarios { self: FunSuite =>
         |return redis.status_reply('OK')""".stripMargin
     for {
       fortyTwo <- redis.eval("return 42", ScriptOutputType.Integer)
-      _ <- IO(assertEquals(fortyTwo, 42L))
+      _ <- IO(assertEquals(fortyTwo, Some(42L)))
       value <- redis.eval("return 'Hello World'", ScriptOutputType.Value)
-      _ <- IO(assertEquals(value, "Hello World"))
+      _ <- IO(assertEquals(value, Some("Hello World")))
       bool <- redis.eval("return true", ScriptOutputType.Boolean, List("Foo"))
       _ <- IO(assert(bool))
       list <- redis.eval(
@@ -1518,9 +1568,9 @@ trait TestScenarios { self: FunSuite =>
            )
       sha42 <- redis.scriptLoad("return 42")
       fortyTwoSha <- redis.evalSha(sha42, ScriptOutputType.Integer)
-      _ <- IO(assertEquals(fortyTwoSha, 42L))
+      _ <- IO(assertEquals(fortyTwoSha, Some(42L)))
       fortyTwoShaReadOnly <- redis.evalShaReadOnly(sha42, ScriptOutputType.Integer)
-      _ <- IO(assertEquals(fortyTwoShaReadOnly, 42L))
+      _ <- IO(assertEquals(fortyTwoShaReadOnly, Some(42L)))
       shaStatusScript <- redis.scriptLoad(statusScript)
       _ <- redis.evalSha(shaStatusScript, ScriptOutputType.Status, List("test"), List("foo", "bar"))
       exists <- redis.scriptExists(sha42, "foobar")
@@ -1560,7 +1610,7 @@ trait TestScenarios { self: FunSuite =>
                keys = List("luaExt"),
                values = List("x", "42", "10")
              )
-             .map(assertEquals(_, 1L, "1 field, 'x', should be set for key=luaExt"))
+             .map(assertEquals(_, Some(1L), "1 field, 'x', should be set for key=luaExt"))
       _ <- redis.hGet(key = "luaExt", field = "x").map(assertEquals(_, "42".some))
       firstTtl <- redis.ttl("luaExt")
       _ <- IO(assert(firstTtl.map(_.toSeconds).exists(ttl => ttl > 0 && ttl <= 10)))
@@ -1572,7 +1622,7 @@ trait TestScenarios { self: FunSuite =>
                keys = List("luaExt"),
                values = List("y", "84", "20")
              )
-             .map(assertEquals(_, 1L, "1 field, 'y', should be set for key=luaExt"))
+             .map(assertEquals(_, Some(1L), "1 field, 'y', should be set for key=luaExt"))
       _ <- redis.hGet(key = "luaExt", field = "y").map(assertEquals(_, "84".some))
       secondTtl <- redis.ttl("luaExt")
       _ <- IO(assert(secondTtl.map(_.toSeconds).exists(ttl => ttl > 0 && ttl <= 20)))
@@ -1623,9 +1673,10 @@ trait TestScenarios { self: FunSuite =>
   }
 
   def hyperloglogScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
-    val key  = "hll"
-    val key2 = "hll2"
-    val key3 = "hll3"
+    // PFMERGE requires all of its keys to hash to the same cluster slot.
+    val key  = "{same_hash_slot}:hll"
+    val key2 = "{same_hash_slot}:hll2"
+    val key3 = "{same_hash_slot}:hll3"
     for {
       x <- redis.get(key)
       _ <- IO(assert(x.isEmpty))
@@ -1842,8 +1893,8 @@ trait TestScenarios { self: FunSuite =>
           _ <- IO(assert(channels.contains(channel1), "pubSubChannels should include channel1"))
 
           // Test pubSubSubscriptions for a single channel
-          sub1Option <- redis.pubSubSubscriptions(channel1)
-          _ <- IO(assert(sub1Option.exists(_.number == 1L), "channel1 should have 1 subscriber"))
+          sub1 <- redis.pubSubSubscriptions(channel1)
+          _ <- IO(assertEquals(sub1.number, 1L, "channel1 should have 1 subscriber"))
 
           // Test pubSubSubscriptions for multiple channels
           subs <- redis.pubSubSubscriptions(List(channel1, channel2))

@@ -51,8 +51,10 @@ private[pubsub] class LivePubSubStats[F[_]: FlatMap: FutureLift, K, V](
       .lift(pubConnection.async().pubsubShardChannels())
       .map(_.asScala.toList.map(RedisChannel[K]))
 
-  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]] =
-    pubSubSubscriptions(List(channel)).map(_.headOption)
+  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]] =
+    // PUBSUB NUMSUB always echoes back every queried channel, so a single-channel query always yields
+    // exactly one entry.
+    pubSubSubscriptions(List(channel)).map(_.head)
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     FutureLift[F]

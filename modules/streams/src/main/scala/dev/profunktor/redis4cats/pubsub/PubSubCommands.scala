@@ -25,7 +25,11 @@ trait PubSubStats[F[_], K] {
   def numSub: F[List[Subscription[K]]]
   def pubSubChannels: F[List[RedisChannel[K]]]
   def pubSubShardChannels: F[List[RedisChannel[K]]]
-  def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]]
+
+  /** `PUBSUB NUMSUB` always echoes back the queried channel (with a subscriber count of `0` if nobody's subscribed) -
+    * it never omits it, so this always returns a value, not `None` when unsubscribed.
+    */
+  def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]
   def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
   def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
 }

@@ -144,10 +144,18 @@ object Subscriber {
             val makeSubscription = for {
               _ <- Log[F].info(s"Creating subscription for $key")
               topic <- Topic[F, Option[SubValue]]
+              // Register our queue with the topic *before* issuing the Redis SUBSCRIBE, so that any message
+              // Redis forwards as soon as it acknowledges the subscription has somewhere to land. Registering
+              // only when the returned Stream is later pulled (i.e. via a plain `topic.subscribe`) would leave
+              // a window between the ack and that pull in which published messages are silently dropped.
+              firstSubTpl <- topic.subscribeAwait(500).allocated
+              (firstRawStream, releaseFirstSub) = firstSubTpl
               // We use parallel dispatcher because multiple subscribers can be interested in the same key.
               // Allocate it last so that nothing that can fail runs between acquiring it and the guarded
               // block below; otherwise the dispatcher would leak (its finalizer is only reachable via `sub`).
-              dispatcherTpl <- Dispatcher.parallel[F].allocated
+              // If this allocation itself fails, release the topic subscription acquired above - it isn't
+              // reachable from the guarded block's cleanup either.
+              dispatcherTpl <- Dispatcher.parallel[F].allocated.onError { case _ => releaseFirstSub.attempt.void }
               (dispatcher, cleanupDispatcher) = dispatcherTpl
               listener                        = makeListener(dispatcher, topic)
               cleanupListener                 = Sync[F].delay(subConnection.removeListener(listener))
@@ -163,12 +171,15 @@ object Subscriber {
               // release and the original error is the one that propagates.
               _ <- (Sync[F].delay(subConnection.addListener(listener)) *> subscribeToRedis)
                      .onError { case _ =>
-                       unsubscribeFromRedis.attempt *> cleanupListener.attempt *> cleanupDispatcher.attempt.void
+                       releaseFirstSub.attempt *>
+                         unsubscribeFromRedis.attempt *> cleanupListener.attempt *> cleanupDispatcher.attempt.void
                      }
               sub            = Redis4CatsSubscription(topic, subscribers = 1, cleanup)
               newSubscribers = subscribers.updated(key, sub)
               _ <- Log[F].debug(s"Created subscription for $key")
-            } yield (newSubscribers, stream(sub))
+              firstStream = firstRawStream.unNoneTerminate
+                              .onFinalize(releaseFirstSub *> onStreamTermination(subs, key))
+            } yield (newSubscribers, firstStream)
 
             makeSubscription.uncancelable
         }
