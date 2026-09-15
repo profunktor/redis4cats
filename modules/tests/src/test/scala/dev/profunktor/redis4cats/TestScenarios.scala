@@ -1393,7 +1393,10 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.ping
       slowLogEntries <- redis.slowLogGet
       _ <- IO(assert(slowLogEntries.nonEmpty))
-      _ <- IO(assert(slowLogEntries.head.args.headOption.exists(_.equalsIgnoreCase("ping"))))
+      // Checked by existence, not position: with threshold 0, Redis logs every command it processes,
+      // including unrelated server-side traffic (e.g. replication housekeeping against ReplicaNode) that
+      // can land after our own ping and outrank it as the most recent entry.
+      _ <- IO(assert(slowLogEntries.exists(_.args.headOption.exists(_.equalsIgnoreCase("ping")))))
       slowLogEntriesLimited <- redis.slowLogGet(1)
       _ <- IO(assertEquals(slowLogEntriesLimited.size, 1))
       _ <- originalSlowlogThreshold
