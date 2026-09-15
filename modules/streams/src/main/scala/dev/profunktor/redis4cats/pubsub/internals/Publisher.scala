@@ -19,6 +19,7 @@ package pubsub
 package internals
 
 import cats.FlatMap
+import cats.data.NonEmptyList
 import cats.syntax.functor._
 import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.effect.FutureLift
@@ -44,18 +45,18 @@ private[pubsub] class Publisher[F[_]: FlatMap: FutureLift, K, V](
   override def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]] =
     pubSubStats.pubSubSubscriptions(channel)
 
-  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+  override def pubSubSubscriptions(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.pubSubSubscriptions(channels)
 
   override def numPat: F[Long] =
     pubSubStats.numPat
 
-  override def numSub: F[List[Subscription[K]]] =
-    pubSubStats.numSub
+  override def numSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
+    pubSubStats.numSub(channels)
 
   override def pubSubShardChannels: F[List[RedisChannel[K]]] =
     pubSubStats.pubSubShardChannels
 
-  override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+  override def shardNumSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.shardNumSub(channels)
 }

@@ -17,20 +17,25 @@
 package dev.profunktor.redis4cats
 package pubsub
 
+import cats.data.NonEmptyList
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 
 trait PubSubStats[F[_], K] {
   def numPat: F[Long]
-  def numSub: F[List[Subscription[K]]]
+
+  /** @param channels
+    *   non-empty list of channels to query
+    */
+  def numSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
   def pubSubChannels: F[List[RedisChannel[K]]]
   def pubSubShardChannels: F[List[RedisChannel[K]]]
 
   /** `PUBSUB NUMSUB` always echoes back the queried channel, with a subscriber count of `0` if nobody's subscribed.
     */
   def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]
-  def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
-  def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
+  def pubSubSubscriptions(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
+  def shardNumSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
 }
 
 /** @tparam F

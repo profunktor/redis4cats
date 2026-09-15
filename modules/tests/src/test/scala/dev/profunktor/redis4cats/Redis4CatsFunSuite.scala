@@ -16,6 +16,7 @@
 
 package dev.profunktor.redis4cats
 
+import cats.data.NonEmptyList
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.Redis4CatsFunSuite.Fs2Streaming
@@ -132,7 +133,7 @@ abstract class Redis4CatsFunSuite(isCluster: Boolean) extends IOSuite {
         implicit loc: Location
     ): IO[Unit] =
       waitUntilEquals(
-        pubSub.pubSubSubscriptions(List(channel)),
+        pubSub.pubSubSubscriptions(NonEmptyList.one(channel)),
         List(Subscription(channel, count)),
         waitFor
       )

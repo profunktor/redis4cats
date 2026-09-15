@@ -18,6 +18,7 @@ package dev.profunktor.redis4cats
 package pubsub
 package internals
 
+import cats.data.NonEmptyList
 import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data.RedisChannel
@@ -65,8 +66,8 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
   override def numPat: F[Long] =
     pubSubStats.numPat
 
-  override def numSub: F[List[Subscription[K]]] =
-    pubSubStats.numSub
+  override def numSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
+    pubSubStats.numSub(channels)
 
   override def pubSubChannels: F[List[RedisChannel[K]]] =
     pubSubStats.pubSubChannels
@@ -77,9 +78,9 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
   override def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]] =
     pubSubStats.pubSubSubscriptions(channel)
 
-  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+  override def pubSubSubscriptions(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.pubSubSubscriptions(channels)
 
-  override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+  override def shardNumSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.shardNumSub(channels)
 }

@@ -90,20 +90,20 @@ trait PubSubStats[F[_], K] {
   /** Returns the subscription information for the specified channels.
     *
     * @param channels
-    *   the channels to query
+    *   non-empty list of channels to query
     * @return
     *   list of subscriptions for the specified channels
     */
-  def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
+  def pubSubSubscriptions(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
 
   /** Returns the number of subscribers for the specified shard channels.
     *
     * @param channels
-    *   the shard channels to query
+    *   non-empty list of shard channels to query
     * @return
     *   list of subscriptions for the specified shard channels
     */
-  def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
+  def shardNumSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
 }
 
 /** Combines publishing and pub/sub statistics commands.

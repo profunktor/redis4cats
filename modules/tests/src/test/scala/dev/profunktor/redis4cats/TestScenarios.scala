@@ -1897,7 +1897,7 @@ trait TestScenarios { self: FunSuite =>
           _ <- IO(assertEquals(sub1.number, 1L, "channel1 should have 1 subscriber"))
 
           // Test pubSubSubscriptions for multiple channels
-          subs <- redis.pubSubSubscriptions(List(channel1, channel2))
+          subs <- redis.pubSubSubscriptions(NonEmptyList.of(channel1, channel2))
           _ <-
             IO(assert(subs.exists(s => s.channel == channel1 && s.number == 1L), "channel1 should have 1 subscriber"))
           _ <-
@@ -1943,7 +1943,7 @@ trait TestScenarios { self: FunSuite =>
             IO(assert(channels2.contains(channel1) && channels2.contains(channel2), "both channels should be active"))
 
           // Test pubSubSubscriptions for both channels
-          subs2 <- redis.pubSubSubscriptions(List(channel1, channel2))
+          subs2 <- redis.pubSubSubscriptions(NonEmptyList.of(channel1, channel2))
           _ <-
             IO(assert(subs2.exists(s => s.channel == channel1 && s.number == 1L), "channel1 should have 1 subscriber"))
           _ <-
@@ -1972,7 +1972,7 @@ trait TestScenarios { self: FunSuite =>
                )
 
           // Test shardNumSub
-          shardSubs <- redis.shardNumSub(List(shardChannel)).attempt
+          shardSubs <- redis.shardNumSub(NonEmptyList.one(shardChannel)).attempt
           _ <- IO(
                  assert(
                    shardSubs.isRight || shardSubs.left.exists(_.getMessage.contains("only supported in cluster mode")),
