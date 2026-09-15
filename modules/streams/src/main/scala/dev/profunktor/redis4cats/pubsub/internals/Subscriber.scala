@@ -144,10 +144,16 @@ object Subscriber {
             val makeSubscription = for {
               _ <- Log[F].info(s"Creating subscription for $key")
               topic <- Topic[F, Option[SubValue]]
-              // We use parallel dispatcher because multiple subscribers can be interested in the same key.
-              // Allocate it last so that nothing that can fail runs between acquiring it and the guarded
-              // block below; otherwise the dispatcher would leak (its finalizer is only reachable via `sub`).
-              dispatcherTpl <- Dispatcher.parallel[F].allocated
+              // Registered before the Redis SUBSCRIBE (rather than via a plain topic.subscribe, which only
+              // registers once pulled) so a message Redis forwards right after acking the subscription
+              // always has a queue to land in.
+              firstSubTpl <- topic.subscribeAwait(500).allocated
+              (firstRawStream, releaseFirstSub) = firstSubTpl
+              // Parallel dispatcher, since multiple subscribers can share a key. Allocated last so nothing
+              // between it and the guarded block below can fail and leak it (its finalizer is only
+              // reachable via `sub`); its own failure releases the topic subscription acquired above for
+              // the same reason.
+              dispatcherTpl <- Dispatcher.parallel[F].allocated.onError { case _ => releaseFirstSub.attempt.void }
               (dispatcher, cleanupDispatcher) = dispatcherTpl
               listener                        = makeListener(dispatcher, topic)
               cleanupListener                 = Sync[F].delay(subConnection.removeListener(listener))
@@ -156,19 +162,21 @@ object Subscriber {
                             unsubscribeFromRedis *> cleanupListener *> cleanupDispatcher *>
                             Log[F].debug(s"Cleaned up resources for $key subscription")
                         ).uncancelable
-              // If registering the listener or subscribing to Redis fails, release everything we have
-              // already acquired. Otherwise it leaks: `cleanup` is only reachable through `sub`, which is
-              // never created or stored on failure. We also unsubscribe in case we partially subscribed
-              // server-side, and attempt each step independently so one failure can't skip the dispatcher
-              // release and the original error is the one that propagates.
+              // On failure here, release everything acquired so far - cleanup is only reachable through
+              // sub, which is never created on failure. Unsubscribe defensively in case we partially
+              // subscribed server-side, and attempt each release independently so one failing step can't
+              // skip the rest, and the original error is what propagates.
               _ <- (Sync[F].delay(subConnection.addListener(listener)) *> subscribeToRedis)
                      .onError { case _ =>
-                       unsubscribeFromRedis.attempt *> cleanupListener.attempt *> cleanupDispatcher.attempt.void
+                       releaseFirstSub.attempt *>
+                         unsubscribeFromRedis.attempt *> cleanupListener.attempt *> cleanupDispatcher.attempt.void
                      }
               sub            = Redis4CatsSubscription(topic, subscribers = 1, cleanup)
               newSubscribers = subscribers.updated(key, sub)
               _ <- Log[F].debug(s"Created subscription for $key")
-            } yield (newSubscribers, stream(sub))
+              firstStream = firstRawStream.unNoneTerminate
+                              .onFinalize(releaseFirstSub *> onStreamTermination(subs, key))
+            } yield (newSubscribers, firstStream)
 
             makeSubscription.uncancelable
         }

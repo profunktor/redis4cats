@@ -71,7 +71,7 @@ object config {
 
   final case class Periodic(interval: FiniteDuration = 60.seconds) extends TopologyViewRefreshStrategy
   final case class Adaptive(timeout: FiniteDuration = 30.seconds) extends TopologyViewRefreshStrategy
-  // sets periodic to 1 hour by default and the default adaptive timeout to 30 seconds
+  // sets periodic to 2 hours by default and the default adaptive timeout to 30 seconds
   // see https://github.com/profunktor/redis4cats/issues/656
   final case class Both(periodic: Periodic = Periodic(2.hours), adaptive: Adaptive = Adaptive())
       extends TopologyViewRefreshStrategy

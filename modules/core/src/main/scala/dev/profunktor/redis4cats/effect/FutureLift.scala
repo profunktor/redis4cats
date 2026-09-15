@@ -53,7 +53,10 @@ object FutureLift {
   implicit final class FutureLiftOps[F[_]: ApplicativeThrow: FutureLift: Log, A](fa: => RedisFuture[A]) {
     def futureLift: F[A] =
       FutureLift[F].lift(fa).onError { case e: ExecutionException =>
-        Log[F].error(s"${e.getMessage()} - ${Option(e.getCause())}")
+        // onError re-raises the original error only after this action succeeds - if the (user-supplied,
+        // swappable) Log[F] instance itself throws, that failure would otherwise replace the real Redis
+        // error instead of just failing to log it.
+        Log[F].error(s"${e.getMessage()} - ${Option(e.getCause())}").attempt.void
       }
   }
 

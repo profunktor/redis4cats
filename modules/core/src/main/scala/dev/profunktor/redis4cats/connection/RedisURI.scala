@@ -30,8 +30,14 @@ sealed abstract class RedisURI private (val underlying: JRedisURI) {
     * Host, port, database, SSL and all other settings are preserved. The original URI is not mutated. Tokens containing
     * URI-reserved characters (e.g. `@`, `:`, `/`) need no escaping.
     */
-  def withCredentials(credentials: RedisCredentials): RedisURI =
-    RedisURI.fromUnderlying(RedisURI.applyCredentials(JRedisURI.builder(underlying), credentials).build())
+  def withCredentials(credentials: RedisCredentials): RedisURI = {
+    // JRedisURI.builder(underlying) copies ssl/auth/timeout/database/clientName/host-or-socket, but not
+    // the Sentinel master id or sentinel node list - those have to be copied over separately.
+    val builder = JRedisURI.builder(underlying)
+    Option(underlying.getSentinelMasterId).foreach(builder.withSentinelMasterId)
+    underlying.getSentinels.forEach(sentinel => builder.withSentinel(sentinel): Unit)
+    RedisURI.fromUnderlying(RedisURI.applyCredentials(builder, credentials).build())
+  }
 }
 
 object RedisURI {

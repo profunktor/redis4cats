@@ -74,7 +74,7 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
   override def pubSubShardChannels: F[List[RedisChannel[K]]] =
     pubSubStats.pubSubShardChannels
 
-  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]] =
+  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]] =
     pubSubStats.pubSubSubscriptions(channel)
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =

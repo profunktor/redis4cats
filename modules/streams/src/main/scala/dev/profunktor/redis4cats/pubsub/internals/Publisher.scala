@@ -41,7 +41,7 @@ private[pubsub] class Publisher[F[_]: FlatMap: FutureLift, K, V](
   override def pubSubChannels: F[List[RedisChannel[K]]] =
     pubSubStats.pubSubChannels
 
-  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Option[Subscription[K]]] =
+  override def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]] =
     pubSubStats.pubSubSubscriptions(channel)
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =

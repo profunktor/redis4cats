@@ -20,7 +20,6 @@ import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.GeoCommands
 import dev.profunktor.redis4cats.effect.Log.NoOp._
 import dev.profunktor.redis4cats.effects._
-import io.lettuce.core.GeoArgs
 
 object RedisGeoDemo extends LoggerIOApp {
 
@@ -43,14 +42,14 @@ object RedisGeoDemo extends LoggerIOApp {
         _ <- redis.geoAdd(testKey, _RioDeJaneiro)
         _ <- redis.geoAdd(testKey, _Montevideo)
         _ <- redis.geoAdd(testKey, _Tokyo)
-        x <- redis.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoArgs.Unit.km)
+        x <- redis.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoUnit.Kilometers)
         _ <- IO.println(s"Distance from ${_BuenosAires.value} to Tokyo: $x km")
         y <- redis.geoPos(testKey, _RioDeJaneiro.value)
         _ <- IO.println(s"Geo Pos of ${_RioDeJaneiro.value}: ${y.headOption}")
         z <- redis.geoSearch(
                testKey,
                GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
-               GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km)
+               GeoSearchPredicate.ByRadius(Distance(10000.0), GeoUnit.Kilometers)
              )
         _ <- IO.println(s"Geo Radius in 1000 km: $z")
       } yield ()

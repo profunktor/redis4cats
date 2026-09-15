@@ -46,21 +46,19 @@ trait RestartOnTimeout {
   ): F[A] = {
     val currentTime = clock.monotonic
 
-    def onTimeout(startedAt: FiniteDuration): F[A] =
-      for {
-        now <- currentTime
-        elapsed = now - startedAt
-        restart = apply(elapsed)
-        a <- if (restart) doOp else monoid.empty
-      } yield a
+    // `startedAt` is captured once, at the very first attempt, and threaded through every retry so `elapsed`
+    // is cumulative across the whole restart loop rather than reset by each individual attempt.
+    def loop(startedAt: FiniteDuration): F[A] =
+      fa.recoverWith { case _: RedisCommandTimeoutException =>
+        for {
+          now <- currentTime
+          elapsed = now - startedAt
+          restart = apply(elapsed)
+          a <- if (restart) loop(startedAt) else monoid.empty
+        } yield a
+      }
 
-    def doOp: F[A] =
-      for {
-        startedAt <- currentTime
-        a <- fa.recoverWith { case _: RedisCommandTimeoutException => onTimeout(startedAt) }
-      } yield a
-
-    doOp
+    currentTime.flatMap(loop)
   }
 }
 object RestartOnTimeout {

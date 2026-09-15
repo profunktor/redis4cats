@@ -42,7 +42,12 @@ object RedisClusterTransactionsDemo extends LoggerIOApp {
         val nodeCmdResource =
           for {
             _ <- Resource.eval(cmd.set(key1, "empty"))
-            nodeId <- Resource.eval(RedisClusterClient.nodeId[IO](client, key1))
+            nodeId <-
+              Resource.eval(
+                RedisClusterClient
+                  .nodeId[IO](client, key1)
+                  .flatMap(IO.fromOption(_)(new NoSuchElementException(s"No cluster node found for key: $key1")))
+              )
             redis <- Redis[IO].fromClusterClientByNode(client, stringCodec, nodeId)()
           } yield redis
 

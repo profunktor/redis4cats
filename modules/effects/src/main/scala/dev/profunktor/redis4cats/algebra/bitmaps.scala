@@ -16,27 +16,41 @@
 
 package dev.profunktor.redis4cats.algebra
 
-import dev.profunktor.redis4cats.algebra.BitCommandOperation.Overflows.Overflows
-import io.lettuce.core.BitFieldArgs.BitFieldType
-
 sealed trait BitCommandOperation
 
 object BitCommandOperation {
-  final case class Get(bitFieldType: BitFieldType, offset: Int) extends BitCommandOperation
+  sealed trait Encoding
+  object Encoding {
+    case object Signed extends Encoding
+    case object Unsigned extends Encoding
+  }
 
-  final case class SetSigned(offset: Int, value: Long, bits: Int = 1) extends BitCommandOperation
+  final case class Get(encoding: Encoding, offset: Int, bits: Int = 1) extends BitCommandOperation
+  object Get {
+    def signed(offset: Int, bits: Int = 1): Get   = Get(Encoding.Signed, offset, bits)
+    def unsigned(offset: Int, bits: Int = 1): Get = Get(Encoding.Unsigned, offset, bits)
+  }
 
-  final case class SetUnsigned(offset: Int, value: Long, bits: Int = 1) extends BitCommandOperation
+  final case class Set(encoding: Encoding, offset: Int, value: Long, bits: Int = 1) extends BitCommandOperation
+  object Set {
+    def signed(offset: Int, value: Long, bits: Int = 1): Set   = Set(Encoding.Signed, offset, value, bits)
+    def unsigned(offset: Int, value: Long, bits: Int = 1): Set = Set(Encoding.Unsigned, offset, value, bits)
+  }
 
-  final case class IncrSignedBy(offset: Int, increment: Long, bits: Int = 1) extends BitCommandOperation
+  final case class IncrBy(encoding: Encoding, offset: Int, increment: Long, bits: Int = 1) extends BitCommandOperation
+  object IncrBy {
+    def signed(offset: Int, increment: Long, bits: Int = 1): IncrBy = IncrBy(Encoding.Signed, offset, increment, bits)
+    def unsigned(offset: Int, increment: Long, bits: Int = 1): IncrBy =
+      IncrBy(Encoding.Unsigned, offset, increment, bits)
+  }
 
-  final case class IncrUnsignedBy(offset: Int, increment: Long, bits: Int = 1) extends BitCommandOperation
+  final case class Overflow(policy: OverflowPolicy) extends BitCommandOperation
 
-  final case class Overflow(overflow: Overflows) extends BitCommandOperation
-
-  object Overflows extends Enumeration {
-    type Overflows = Value
-    val WRAP, SAT, FAIL = Value
+  sealed trait OverflowPolicy
+  object OverflowPolicy {
+    case object Wrap extends OverflowPolicy
+    case object Sat extends OverflowPolicy
+    case object Fail extends OverflowPolicy
   }
 }
 
@@ -45,7 +59,9 @@ trait BitCommands[F[_], K, V] {
 
   def bitCount(key: K, start: Long, end: Long): F[Long]
 
-  def bitField(key: K, operations: BitCommandOperation*): F[List[Long]]
+  /** `None` at a position produced by a `Set`/`IncrBy` operation that overflowed under an `Overflow(Fail)` policy.
+    */
+  def bitField(key: K, operations: BitCommandOperation*): F[List[Option[Long]]]
 
   def bitOpAnd(destination: K, source: K, sources: K*): F[Long]
 

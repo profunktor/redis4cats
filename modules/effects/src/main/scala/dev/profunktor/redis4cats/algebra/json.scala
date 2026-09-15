@@ -50,7 +50,9 @@ trait JsonGet[F[_], K, V] {
   def jGet(key: K, arg: JsonGetArgs, path: JsonPath, paths: JsonPath*): F[List[JsonValue]]
   def jMget(path: JsonPath, key: K, keys: K*): F[List[JsonValue]]
   def jObjKeys(key: K, path: JsonPath): F[List[V]]
-  def jObjLen(key: K, path: JsonPath): F[Long]
+
+  /** One element per JSON value matched by `path`; `None` where `path` didn't match at that position. */
+  def jObjLen(key: K, path: JsonPath): F[List[Option[Long]]]
 }
 trait JsonSet[F[_], K, V] {
   def jMset(key: K, values: (JsonPath, JsonValue)*): F[Boolean]
@@ -64,46 +66,48 @@ trait JsonSet[F[_], K, V] {
   def jsonMergeStr(key: K, jsonPath: JsonPath, jsonString: String): F[String]
 }
 trait JsonNumber[F[_], K, V] {
-  def numIncrBy(key: K, path: JsonPath, number: Number): F[List[Number]]
+
+  /** One element per JSON value matched by `path`; `None` where `path` didn't match at that position. */
+  def numIncrBy(key: K, path: JsonPath, number: Number): F[List[Option[Number]]]
 }
 trait JsonString[F[_], K, V] {
-  def strAppend(key: K, path: JsonPath, value: JsonValue): F[List[Long]]
-  def strAppendStr(key: K, path: JsonPath, jsonString: String): F[List[Long]]
-  def strAppend(key: K, value: JsonValue): F[List[Long]]
-  def strAppendStr(key: K, jsonString: String): F[List[Long]]
-  def jsonStrLen(key: K, path: JsonPath): F[List[Long]]
-  def jsonStrLen(key: K): F[List[Long]]
+  def strAppend(key: K, path: JsonPath, value: JsonValue): F[List[Option[Long]]]
+  def strAppendStr(key: K, path: JsonPath, jsonString: String): F[List[Option[Long]]]
+  def strAppend(key: K, value: JsonValue): F[List[Option[Long]]]
+  def strAppendStr(key: K, jsonString: String): F[List[Option[Long]]]
+  def jsonStrLen(key: K, path: JsonPath): F[List[Option[Long]]]
+  def jsonStrLen(key: K): F[List[Option[Long]]]
 }
 trait JsonBoolean[F[_], K, V] {
-  def toggle(key: K, path: JsonPath): F[List[Long]]
+  def toggle(key: K, path: JsonPath): F[List[Option[Long]]]
 }
 
 trait JsonArray[F[_], K, V] {
   // JsonValue variants
-  def arrAppend(key: K, path: JsonPath, value: JsonValue*): F[List[Long]]
-  def arrAppend(key: K, value: JsonValue*): F[List[Long]]
+  def arrAppend(key: K, path: JsonPath, value: JsonValue*): F[List[Option[Long]]]
+  def arrAppend(key: K, value: JsonValue*): F[List[Option[Long]]]
   // String variants (for convenience)
-  def arrAppendStr(key: K, path: JsonPath, jsonStrings: String*): F[List[Long]]
-  def arrAppendStr(key: K, jsonStrings: String*): F[List[Long]]
+  def arrAppendStr(key: K, path: JsonPath, jsonStrings: String*): F[List[Option[Long]]]
+  def arrAppendStr(key: K, jsonStrings: String*): F[List[Option[Long]]]
 
-  def arrIndex(key: K, path: JsonPath, value: JsonValue, range: JsonRangeArgs): F[List[Long]]
-  def arrIndex(key: K, path: JsonPath, value: JsonValue): F[List[Long]]
-  def arrIndexStr(key: K, path: JsonPath, jsonString: String): F[List[Long]]
-  def arrIndexStr(key: K, path: JsonPath, jsonString: String, range: JsonRangeArgs): F[List[Long]]
+  def arrIndex(key: K, path: JsonPath, value: JsonValue, range: JsonRangeArgs): F[List[Option[Long]]]
+  def arrIndex(key: K, path: JsonPath, value: JsonValue): F[List[Option[Long]]]
+  def arrIndexStr(key: K, path: JsonPath, jsonString: String): F[List[Option[Long]]]
+  def arrIndexStr(key: K, path: JsonPath, jsonString: String, range: JsonRangeArgs): F[List[Option[Long]]]
 
   // JsonValue variants
-  def arrInsert(key: K, path: JsonPath, index: Int, value: JsonValue*): F[List[Long]]
+  def arrInsert(key: K, path: JsonPath, index: Int, value: JsonValue*): F[List[Option[Long]]]
   // String variants (for convenience)
-  def arrInsertStr(key: K, path: JsonPath, index: Int, jsonStrings: String*): F[List[Long]]
+  def arrInsertStr(key: K, path: JsonPath, index: Int, jsonStrings: String*): F[List[Option[Long]]]
 
-  def arrLen(key: K, path: JsonPath): F[List[Long]]
-  def arrLen(key: K): F[List[Long]]
+  def arrLen(key: K, path: JsonPath): F[List[Option[Long]]]
+  def arrLen(key: K): F[List[Option[Long]]]
 
   def arrPop(key: K, path: JsonPath, index: Int): F[List[JsonValue]]
   def arrPop(key: K, path: JsonPath): F[List[JsonValue]]
   def arrPop(key: K): F[List[JsonValue]]
 
-  def arrTrim(key: K, path: JsonPath, range: JsonRangeArgs): F[List[Long]]
+  def arrTrim(key: K, path: JsonPath, range: JsonRangeArgs): F[List[Option[Long]]]
 
 }
 

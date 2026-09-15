@@ -31,9 +31,9 @@ import dev.profunktor.redis4cats.effects.{
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
-trait ServerCommands[F[_], K, V]
+trait ServerCommands[F[_], K]
     extends Flush[F, K]
-    with Diagnostic[F, V]
+    with Diagnostic[F]
     with Config[F]
     with ClientAdmin[F]
     with Maintenance[F, K]
@@ -46,7 +46,7 @@ trait Flush[F[_], K] {
   def flushDb(mode: FlushMode): F[Unit]
 }
 
-trait Diagnostic[F[_], V] {
+trait Diagnostic[F[_]] {
   def info: F[Map[String, String]]
   def info(section: String): F[Map[String, String]]
   def dbsize: F[Long]

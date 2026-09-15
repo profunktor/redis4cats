@@ -60,12 +60,12 @@ trait SortedSetGetter[F[_], K, V] {
   def bzPopMin(timeout: Duration, keys: NonEmptyList[K]): F[Option[(K, ScoreWithValue[V])]]
 
   /** Pops up to `count` members with the lowest scores from the first non-empty of `keys`. */
-  def zmPopMin(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
+  def zmPopMin(keys: NonEmptyList[K], count: Int): F[Option[(K, List[ScoreWithValue[V]])]]
 
   /** Pops up to `count` members with the highest scores from the first non-empty of `keys`. */
-  def zmPopMax(keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
-  def bzmPopMin(timeout: Duration, keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
-  def bzmPopMax(timeout: Duration, keys: NonEmptyList[K], count: Long): F[Option[(K, List[ScoreWithValue[V]])]]
+  def zmPopMax(keys: NonEmptyList[K], count: Int): F[Option[(K, List[ScoreWithValue[V]])]]
+  def bzmPopMin(timeout: Duration, keys: NonEmptyList[K], count: Int): F[Option[(K, List[ScoreWithValue[V]])]]
+  def bzmPopMax(timeout: Duration, keys: NonEmptyList[K], count: Int): F[Option[(K, List[ScoreWithValue[V]])]]
   def zUnion(args: Option[ZAggregateArgs], keys: K*): F[List[V]]
   def zUnionWithScores(args: Option[ZAggregateArgs], keys: K*): F[List[ScoreWithValue[V]]]
   def zInter(args: Option[ZAggregateArgs], keys: K*): F[List[V]]
@@ -82,7 +82,9 @@ trait SortedSetGetter[F[_], K, V] {
 
 trait SortedSetSetter[F[_], K, V] {
   def zAdd(key: K, args: Option[ZAddArgs], values: ScoreWithValue[V]*): F[Long]
-  def zAddIncr(key: K, args: Option[ZAddArgs], value: ScoreWithValue[V]): F[Double]
+
+  /** `None` when a conditional `args` (`NX`/`XX`/`GT`/`LT`) blocks the increment. */
+  def zAddIncr(key: K, args: Option[ZAddArgs], value: ScoreWithValue[V]): F[Option[Double]]
   def zIncrBy(key: K, member: V, amount: Double): F[Double]
   def zInterStore(destination: K, args: Option[ZStoreArgs], keys: K*): F[Long]
   def zRem(key: K, value: V, values: V*): F[Long]

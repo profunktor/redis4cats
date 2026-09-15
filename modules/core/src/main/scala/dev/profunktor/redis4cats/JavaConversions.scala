@@ -18,4 +18,17 @@ package dev.profunktor.redis4cats
 
 import scala.collection.convert.{ AsJavaExtensions, AsScalaExtensions }
 
-object JavaConversions extends AsJavaExtensions with AsScalaExtensions
+object JavaConversions extends AsJavaExtensions with AsScalaExtensions {
+
+  // Lettuce reply elements are frequently a boxed java.lang.Long/Double that's null for a per-position
+  // miss (e.g. a JSONPath that didn't match, or a GET pattern that resolved to nothing) - null-checking
+  // the boxed reference via Option(...) before unboxing is the only safe order; unboxing first and
+  // wrapping the result in Option afterwards defeats the null check.
+  implicit class JLongOps(private val l: java.lang.Long) extends AnyVal {
+    def toOption: Option[Long] = Option(l).map(Long.unbox)
+  }
+
+  implicit class JDoubleOps(private val d: java.lang.Double) extends AnyVal {
+    def toOption: Option[Double] = Option(d).map(Double.unbox)
+  }
+}
