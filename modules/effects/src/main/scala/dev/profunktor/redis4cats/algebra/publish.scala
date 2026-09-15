@@ -78,8 +78,7 @@ trait PubSubStats[F[_], K] {
 
   /** Returns the subscription information for a specific channel.
     *
-    * `PUBSUB NUMSUB` always echoes back the queried channel (with a subscriber count of `0` if nobody's subscribed) -
-    * it never omits it, so this always returns a value, not `None` when unsubscribed.
+    * `PUBSUB NUMSUB` always echoes back the queried channel, with a subscriber count of `0` if nobody's subscribed.
     *
     * @param channel
     *   the channel to query

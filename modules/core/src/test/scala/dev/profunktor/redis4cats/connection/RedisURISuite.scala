@@ -239,6 +239,25 @@ class RedisURISuite extends FunSuite {
     assertEquals(SentinelNode("h1").withPassword("pw"), SentinelNode("h1", 26379, Some("pw")))
   }
 
+  test("withCredentials on a Sentinel-built RedisURI preserves the master id and sentinel nodes") {
+    val sentinelUri = unsafeCfg(
+      RedisUriConfig.sentinel(
+        "mymaster",
+        SentinelNode("h1", 26379),
+        SentinelNode("h2", 26380)
+      )
+    )
+
+    val uri = sentinelUri.withCredentials(RedisCredentials.UsernameAndPassword("alice", "tok@123"))
+
+    assertEquals(uri.underlying.getSentinelMasterId, "mymaster")
+    assertEquals(uri.underlying.getSentinels.size, 2)
+    assertEquals(uri.underlying.getSentinels.get(0).getHost, "h1")
+    assertEquals(uri.underlying.getSentinels.get(1).getPort, 26380)
+    assertEquals(usernameOf(uri), Some("alice"))
+    assertEquals(passwordOf(uri), "tok@123")
+  }
+
   test("fromConfig Sentinel keeps distinct per-node passwords on the correct nodes") {
     val uri = unsafeCfg(
       RedisUriConfig.sentinel(

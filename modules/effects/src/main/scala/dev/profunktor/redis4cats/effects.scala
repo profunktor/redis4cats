@@ -22,7 +22,6 @@ import cats.syntax.all._
 import java.time.Instant
 import io.lettuce.core.{
   AclCategory => JAclCategory,
-  GeoArgs,
   GeoWithin => JGeoWithin,
   KeyScanArgs => JKeyScanArgs,
   ScanArgs => JScanArgs,
@@ -57,10 +56,24 @@ object effects {
     final case class FromMember[V](value: V) extends GeoSearchReference[V]
   }
 
+  sealed trait GeoUnit
+  object GeoUnit {
+    case object Meters extends GeoUnit
+    case object Kilometers extends GeoUnit
+    case object Feet extends GeoUnit
+    case object Miles extends GeoUnit
+  }
+
+  sealed trait GeoSortOrder
+  object GeoSortOrder {
+    case object Asc extends GeoSortOrder
+    case object Desc extends GeoSortOrder
+  }
+
   sealed trait GeoSearchPredicate
   object GeoSearchPredicate {
-    final case class ByRadius(dist: Distance, unit: GeoArgs.Unit) extends GeoSearchPredicate
-    final case class ByBox(width: Distance, height: Distance, unit: GeoArgs.Unit) extends GeoSearchPredicate
+    final case class ByRadius(dist: Distance, unit: GeoUnit) extends GeoSearchPredicate
+    final case class ByBox(width: Distance, height: Distance, unit: GeoUnit) extends GeoSearchPredicate
   }
 
   final case class GeoCoordinate(x: Double, y: Double)
@@ -92,7 +105,20 @@ object effects {
   /** The subset of `GeoArgs` that `GEOSEARCHSTORE` actually accepts (COUNT/ASC/DESC) — unlike `GEOSEARCH`, it rejects
     * the WITHDIST/WITHHASH/WITHCOORD flags a raw `GeoArgs` could also carry.
     */
-  final case class GeoStoreArgs(count: Option[Long] = None, sort: Option[GeoArgs.Sort] = None)
+  final case class GeoStoreArgs(count: Option[Long] = None, sort: Option[GeoSortOrder] = None)
+
+  /** `any` requests that `GEOSEARCH`/`GEOSEARCHSTORE` complete as soon as `count` matches are found, rather than the
+    * ones closest to the reference point.
+    */
+  final case class GeoCount(count: Long, any: Boolean = false)
+
+  final case class GeoSearchArgs(
+      withDistance: Boolean = false,
+      withCoordinates: Boolean = false,
+      withHash: Boolean = false,
+      count: Option[GeoCount] = None,
+      sort: Option[GeoSortOrder] = None
+  )
 
   final case class Score(value: Double) extends AnyVal
   final case class ScoreWithValue[V](score: Score, value: V)
@@ -1308,6 +1334,12 @@ object effects {
     * been stable since Redis 1.0.0, so this should never fire in practice.
     */
   final case class UnexpectedTimeReply(reply: String) extends RuntimeException(s"Unexpected TIME reply: $reply")
+
+  /** Failure raised when a single-channel `PUBSUB NUMSUB` reply doesn't contain exactly the queried channel. This
+    * should never fire in practice: `PUBSUB NUMSUB` always echoes back every queried channel.
+    */
+  final case class UnexpectedPubSubReply(reply: String)
+      extends RuntimeException(s"Expected PUBSUB NUMSUB to echo back the queried channel, got: $reply")
 
   /** Which kind of client connection a `CLIENT LIST`/`CLIENT KILL` filter targets. */
   sealed trait ClientType

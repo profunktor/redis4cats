@@ -13,7 +13,7 @@ import cats.effect.{IO, Resource}
 import cats.implicits._
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.algebra.BitCommands
-import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrUnsignedBy, SetUnsigned }
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrBy, Set => BitSet }
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.log4cats._
 import org.typelevel.log4cats.Logger
@@ -57,13 +57,13 @@ commandsApi.use { cmd => // BitCommands[IO, String, String]
     } yield s1 + s2 + s3 + s4 + s5 + s6
     bf <- cmd.bitField(
       "inmap",
-      SetUnsigned(2, 1),
-      SetUnsigned(3, 1),
-      SetUnsigned(5, 1),
-      SetUnsigned(10, 1),
-      SetUnsigned(11, 1),
-      SetUnsigned(14, 1),
-      IncrUnsignedBy(14, 1)
+      BitSet.unsigned(2, 1),
+      BitSet.unsigned(3, 1),
+      BitSet.unsigned(5, 1),
+      BitSet.unsigned(10, 1),
+      BitSet.unsigned(11, 1),
+      BitSet.unsigned(14, 1),
+      IncrBy.unsigned(14, 1)
     )
     _ <- putStrLn(s"Via bitfield $bf")
   } yield ()

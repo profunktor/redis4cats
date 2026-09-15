@@ -21,7 +21,7 @@ import cats.data.NonEmptyList
 import cats.effect.kernel._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.algebra.{ json, BitCommandOperation }
-import dev.profunktor.redis4cats.algebra.BitCommandOperation.Overflows
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ Encoding, OverflowPolicy }
 import dev.profunktor.redis4cats.config.Redis4CatsConfig
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data._
@@ -1673,23 +1673,23 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
         _.bitfield(
           key,
           operations.foldLeft(new BitFieldArgs()) {
-            case (b, BitCommandOperation.GetSigned(offset, bits)) =>
+            case (b, BitCommandOperation.Get(Encoding.Signed, offset, bits)) =>
               b.get(BitFieldArgs.signed(bits), offset)
-            case (b, BitCommandOperation.GetUnsigned(offset, bits)) =>
+            case (b, BitCommandOperation.Get(Encoding.Unsigned, offset, bits)) =>
               b.get(BitFieldArgs.unsigned(bits), offset)
-            case (b, BitCommandOperation.SetSigned(offset, value, bits)) =>
+            case (b, BitCommandOperation.Set(Encoding.Signed, offset, value, bits)) =>
               b.set(BitFieldArgs.signed(bits), offset, value)
-            case (b, BitCommandOperation.SetUnsigned(offset, value, bits)) =>
+            case (b, BitCommandOperation.Set(Encoding.Unsigned, offset, value, bits)) =>
               b.set(BitFieldArgs.unsigned(bits), offset, value)
-            case (b, BitCommandOperation.IncrSignedBy(offset, value, bits)) =>
+            case (b, BitCommandOperation.IncrBy(Encoding.Signed, offset, value, bits)) =>
               b.incrBy(BitFieldArgs.signed(bits), offset, value)
-            case (b, BitCommandOperation.IncrUnsignedBy(offset, value, bits)) =>
+            case (b, BitCommandOperation.IncrBy(Encoding.Unsigned, offset, value, bits)) =>
               b.incrBy(BitFieldArgs.unsigned(bits), offset, value)
-            case (b, BitCommandOperation.Overflow(Overflows.SAT)) =>
-              b.overflow(BitFieldArgs.OverflowType.SAT)
-            case (b, BitCommandOperation.Overflow(Overflows.WRAP)) =>
+            case (b, BitCommandOperation.Overflow(OverflowPolicy.Wrap)) =>
               b.overflow(BitFieldArgs.OverflowType.WRAP)
-            case (b, BitCommandOperation.Overflow(_)) =>
+            case (b, BitCommandOperation.Overflow(OverflowPolicy.Sat)) =>
+              b.overflow(BitFieldArgs.OverflowType.SAT)
+            case (b, BitCommandOperation.Overflow(OverflowPolicy.Fail)) =>
               b.overflow(BitFieldArgs.OverflowType.FAIL)
           }
         ).futureLift
@@ -1738,8 +1738,22 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   // format: off
   /******************************* Geo API **********************************/
   // format: on
-  override def geoDist(key: K, from: V, to: V, unit: GeoArgs.Unit): F[Option[Double]] =
-    async.flatMap(_.geodist(key, from, to, unit).futureLift.map(_.toOption))
+  private def toJGeoUnit(unit: GeoUnit): GeoArgs.Unit =
+    unit match {
+      case GeoUnit.Meters     => GeoArgs.Unit.m
+      case GeoUnit.Kilometers => GeoArgs.Unit.km
+      case GeoUnit.Feet       => GeoArgs.Unit.ft
+      case GeoUnit.Miles      => GeoArgs.Unit.mi
+    }
+
+  private def toJGeoSort(sort: GeoSortOrder): GeoArgs.Sort =
+    sort match {
+      case GeoSortOrder.Asc  => GeoArgs.Sort.asc
+      case GeoSortOrder.Desc => GeoArgs.Sort.desc
+    }
+
+  override def geoDist(key: K, from: V, to: V, unit: GeoUnit): F[Option[Double]] =
+    async.flatMap(_.geodist(key, from, to, toJGeoUnit(unit)).futureLift.map(_.toOption))
 
   override def geoHash(key: K, value: V, values: V*): F[List[Option[String]]] =
     async
@@ -1772,15 +1786,25 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   private def toGeoPredicate(predicate: GeoSearchPredicate): GeoSearch.GeoPredicate =
     predicate match {
       case GeoSearchPredicate.ByRadius(dist, unit) =>
-        GeoSearch.byRadius(dist.value, unit)
+        GeoSearch.byRadius(dist.value, toJGeoUnit(unit))
       case GeoSearchPredicate.ByBox(width, height, unit) =>
-        GeoSearch.byBox(width.value, height.value, unit)
+        GeoSearch.byBox(width.value, height.value, toJGeoUnit(unit))
     }
 
   private def toGeoArgs(args: GeoStoreArgs): GeoArgs = {
     val jArgs = new GeoArgs()
     args.count.foreach(jArgs.withCount)
-    args.sort.foreach(jArgs.sort)
+    args.sort.foreach(sort => jArgs.sort(toJGeoSort(sort)))
+    jArgs
+  }
+
+  private def toGeoArgs(args: GeoSearchArgs): GeoArgs = {
+    val jArgs = new GeoArgs()
+    if (args.withDistance) jArgs.withDistance(): Unit
+    if (args.withCoordinates) jArgs.withCoordinates(): Unit
+    if (args.withHash) jArgs.withHash(): Unit
+    args.count.foreach(c => jArgs.withCount(c.count, c.any))
+    args.sort.foreach(sort => jArgs.sort(toJGeoSort(sort)))
     jArgs
   }
 
@@ -1793,10 +1817,10 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
       key: K,
       ref: GeoSearchReference[V],
       predicate: GeoSearchPredicate,
-      args: GeoArgs
+      args: GeoSearchArgs
   ): F[List[GeoSearchResult[V]]] =
     async
-      .flatMap(_.geosearch(key, toGeoRef(ref), toGeoPredicate(predicate), args).futureLift)
+      .flatMap(_.geosearch(key, toGeoRef(ref), toGeoPredicate(predicate), toGeoArgs(args)).futureLift)
       .map(_.asScala.toList.map(GeoSearchResult.fromLettuce))
 
   override def geoAdd(key: K, geoValues: GeoLocation[V]*): F[Long] = {
@@ -3014,9 +3038,10 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.pubsubShardChannels().futureLift.map(_.asScala.toList.map(RedisChannel.apply)))
 
   override def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]] =
-    // PUBSUB NUMSUB always echoes back every queried channel, so a single-channel query always yields
-    // exactly one entry.
-    pubSubSubscriptions(List(channel)).map(_.head)
+    pubSubSubscriptions(List(channel)).map {
+      case sub :: Nil => sub
+      case other      => throw UnexpectedPubSubReply(other.toString)
+    }
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     async.flatMap(_.pubsubNumsub(channels.map(_.underlying): _*).futureLift.map(toSubscription[K]))

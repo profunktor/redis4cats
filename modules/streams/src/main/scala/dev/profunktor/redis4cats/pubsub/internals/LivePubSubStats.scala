@@ -22,6 +22,7 @@ import cats.FlatMap
 import cats.syntax.all._
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect.FutureLift
+import dev.profunktor.redis4cats.effects.UnexpectedPubSubReply
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 import dev.profunktor.redis4cats.JavaConversions._
@@ -52,9 +53,10 @@ private[pubsub] class LivePubSubStats[F[_]: FlatMap: FutureLift, K, V](
       .map(_.asScala.toList.map(RedisChannel[K]))
 
   override def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]] =
-    // PUBSUB NUMSUB always echoes back every queried channel, so a single-channel query always yields
-    // exactly one entry.
-    pubSubSubscriptions(List(channel)).map(_.head)
+    pubSubSubscriptions(List(channel)).map {
+      case sub :: Nil => sub
+      case other      => throw UnexpectedPubSubReply(other.toString)
+    }
 
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     FutureLift[F]

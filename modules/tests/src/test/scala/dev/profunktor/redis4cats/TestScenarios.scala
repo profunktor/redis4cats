@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats
 import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
-import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrUnsignedBy, SetUnsigned }
+import dev.profunktor.redis4cats.algebra.BitCommandOperation.{ IncrBy, Set => BitSet }
 import dev.profunktor.redis4cats.algebra.BitCommands
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
@@ -27,7 +27,7 @@ import dev.profunktor.redis4cats.effects._
 import dev.profunktor.redis4cats.pubsub.PubSub
 import dev.profunktor.redis4cats.tx._
 import fs2.Stream
-import io.lettuce.core.{ GeoArgs, RedisCommandExecutionException, RedisException, ZAddArgs, ZAggregateArgs }
+import io.lettuce.core.{ RedisCommandExecutionException, RedisException, ZAddArgs, ZAggregateArgs }
 import munit.FunSuite
 
 import java.time.Instant
@@ -50,9 +50,9 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.geoAdd(testKey, _Tokyo)
       addCountExisting <- redis.geoAdd(testKey, _Tokyo)
       _ <- IO(assertEquals(addCountExisting, 0L)) // re-adding an existing member updates it, adds nothing new
-      x <- redis.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoArgs.Unit.km)
+      x <- redis.geoDist(testKey, _BuenosAires.value, _Tokyo.value, GeoUnit.Kilometers)
       _ <- IO(assertEquals(x, Some(18374.9052)))
-      xMissing <- redis.geoDist(testKey, _BuenosAires.value, "Atlantis", GeoArgs.Unit.km)
+      xMissing <- redis.geoDist(testKey, _BuenosAires.value, "Atlantis", GeoUnit.Kilometers)
       _ <- IO(assertEquals(xMissing, None))
       y <- redis.geoPos(testKey, _RioDeJaneiro.value)
       _ <- IO(assert(y.contains(Some(GeoCoordinate(-43.17289799451828, -22.906801071586663)))))
@@ -65,7 +65,7 @@ trait TestScenarios { self: FunSuite =>
       byCoordRadius <- redis.geoSearch(
                          testKey,
                          GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
-                         GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km)
+                         GeoSearchPredicate.ByRadius(Distance(10000.0), GeoUnit.Kilometers)
                        )
       _ <- IO(
              assert(
@@ -73,12 +73,12 @@ trait TestScenarios { self: FunSuite =>
              )
            )
 
-      // geoSearch: FromCoordinates x ByRadius, with GeoArgs (List[GeoSearchResult[V]] result)
+      // geoSearch: FromCoordinates x ByRadius, with GeoSearchArgs (List[GeoSearchResult[V]] result)
       byCoordRadiusArgs <- redis.geoSearch(
                              testKey,
                              GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
-                             GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
-                             GeoArgs.Builder.full()
+                             GeoSearchPredicate.ByRadius(Distance(10000.0), GeoUnit.Kilometers),
+                             GeoSearchArgs(withDistance = true, withCoordinates = true, withHash = true)
                            )
       _ <- IO(assert(byCoordRadiusArgs.map(_.value).toSet == byCoordRadius))
 
@@ -86,16 +86,16 @@ trait TestScenarios { self: FunSuite =>
       byMemberRadius <- redis.geoSearch(
                           testKey,
                           GeoSearchReference.FromMember(_Montevideo.value),
-                          GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km)
+                          GeoSearchPredicate.ByRadius(Distance(10000.0), GeoUnit.Kilometers)
                         )
       _ <- IO(assertEquals(byMemberRadius, byCoordRadius))
 
-      // geoSearch: FromMember x ByRadius, with GeoArgs
+      // geoSearch: FromMember x ByRadius, with GeoSearchArgs
       byMemberRadiusArgs <- redis.geoSearch(
                               testKey,
                               GeoSearchReference.FromMember(_Montevideo.value),
-                              GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
-                              GeoArgs.Builder.full()
+                              GeoSearchPredicate.ByRadius(Distance(10000.0), GeoUnit.Kilometers),
+                              GeoSearchArgs(withDistance = true, withCoordinates = true, withHash = true)
                             )
       _ <- IO(assertEquals(byMemberRadiusArgs.map(_.value).toSet, byCoordRadius))
 
@@ -103,7 +103,7 @@ trait TestScenarios { self: FunSuite =>
       byCoordBox <- redis.geoSearch(
                       testKey,
                       GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
-                      GeoSearchPredicate.ByBox(Distance(10000.0), Distance(10000.0), GeoArgs.Unit.km)
+                      GeoSearchPredicate.ByBox(Distance(10000.0), Distance(10000.0), GeoUnit.Kilometers)
                     )
       _ <- IO(assert(byCoordBox.contains(_Montevideo.value)))
 
@@ -111,7 +111,7 @@ trait TestScenarios { self: FunSuite =>
       byMemberBox <- redis.geoSearch(
                        testKey,
                        GeoSearchReference.FromMember(_Montevideo.value),
-                       GeoSearchPredicate.ByBox(Distance(10000.0), Distance(10000.0), GeoArgs.Unit.km)
+                       GeoSearchPredicate.ByBox(Distance(10000.0), Distance(10000.0), GeoUnit.Kilometers)
                      )
       _ <- IO(assert(byMemberBox.contains(_Montevideo.value)))
 
@@ -119,7 +119,7 @@ trait TestScenarios { self: FunSuite =>
       asymmetricBox <- redis.geoSearch(
                          testKey,
                          GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
-                         GeoSearchPredicate.ByBox(Distance(20000.0), Distance(1.0), GeoArgs.Unit.km)
+                         GeoSearchPredicate.ByBox(Distance(20000.0), Distance(1.0), GeoUnit.Kilometers)
                        )
       _ <- IO(assert(asymmetricBox.contains(_Montevideo.value)))
 
@@ -127,7 +127,7 @@ trait TestScenarios { self: FunSuite =>
       emptyResult <- redis.geoSearch(
                        testKey,
                        GeoSearchReference.FromCoordinates(Longitude(0.0), Latitude(0.0)),
-                       GeoSearchPredicate.ByRadius(Distance(1.0), GeoArgs.Unit.km)
+                       GeoSearchPredicate.ByRadius(Distance(1.0), GeoUnit.Kilometers)
                      )
       _ <- IO(assert(emptyResult.isEmpty))
 
@@ -137,7 +137,7 @@ trait TestScenarios { self: FunSuite =>
           .geoSearch(
             testKey,
             GeoSearchReference.FromMember("does-not-exist"),
-            GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km)
+            GeoSearchPredicate.ByRadius(Distance(10000.0), GeoUnit.Kilometers)
           )
           .attempt
       _ <- IO(assert(nonExistentMemberAttempt.isLeft))
@@ -147,7 +147,7 @@ trait TestScenarios { self: FunSuite =>
                        "{geosearch}:location-store-1",
                        testKey,
                        GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
-                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
+                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoUnit.Kilometers),
                        storeDist = false
                      )
       _ <- IO(assertEquals(storeCount1, 3L))
@@ -159,17 +159,17 @@ trait TestScenarios { self: FunSuite =>
                        "{geosearch}:location-store-2",
                        testKey,
                        GeoSearchReference.FromCoordinates(_Montevideo.lon, _Montevideo.lat),
-                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
+                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoUnit.Kilometers),
                        storeDist = true
                      )
       _ <- IO(assertEquals(storeCount2, 3L))
 
-      // geoSearchStore: FromMember, storeDist = false, with GeoArgs (count = 1)
+      // geoSearchStore: FromMember, storeDist = false, with GeoStoreArgs (count = 1)
       storeCount3 <- redis.geoSearchStore(
                        "{geosearch}:location-store-3",
                        testKey,
                        GeoSearchReference.FromMember(_Montevideo.value),
-                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
+                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoUnit.Kilometers),
                        storeDist = false,
                        GeoStoreArgs(count = Some(1))
                      )
@@ -180,7 +180,7 @@ trait TestScenarios { self: FunSuite =>
                        "{geosearch}:location-store-4",
                        testKey,
                        GeoSearchReference.FromMember(_Montevideo.value),
-                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoArgs.Unit.km),
+                       GeoSearchPredicate.ByRadius(Distance(10000.0), GeoUnit.Kilometers),
                        storeDist = true
                      )
       _ <- IO(assertEquals(storeCount4, 3L))
@@ -190,7 +190,7 @@ trait TestScenarios { self: FunSuite =>
                            "{geosearch}:location-store-empty",
                            testKey,
                            GeoSearchReference.FromCoordinates(Longitude(0.0), Latitude(0.0)),
-                           GeoSearchPredicate.ByRadius(Distance(1.0), GeoArgs.Unit.km),
+                           GeoSearchPredicate.ByRadius(Distance(1.0), GeoUnit.Kilometers),
                            storeDist = false
                          )
       _ <- IO(assertEquals(storeCountEmpty, 0L))
@@ -1074,12 +1074,12 @@ trait TestScenarios { self: FunSuite =>
       _ <- IO(assertEquals(k, Some(1.toLong)))
       _ <- redis.bitField(
              secondKey,
-             SetUnsigned(2, 1),
-             SetUnsigned(3, 1),
-             SetUnsigned(5, 1),
-             SetUnsigned(10, 1),
-             SetUnsigned(11, 1),
-             IncrUnsignedBy(14, 1)
+             BitSet.unsigned(2, 1),
+             BitSet.unsigned(3, 1),
+             BitSet.unsigned(5, 1),
+             BitSet.unsigned(10, 1),
+             BitSet.unsigned(11, 1),
+             IncrBy.unsigned(14, 1)
            )
       bits <- 0.to(14).toList.traverse(offset => redis.getBit(secondKey, offset.toLong))
       number <- IO.pure(Integer.parseInt(bits.map(_.getOrElse(0L).toString).foldLeft("")(_ + _), 2))
