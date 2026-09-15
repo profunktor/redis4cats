@@ -1393,7 +1393,10 @@ trait TestScenarios { self: FunSuite =>
       _ <- redis.ping
       slowLogEntries <- redis.slowLogGet
       _ <- IO(assert(slowLogEntries.nonEmpty))
-      _ <- IO(assert(slowLogEntries.head.args.headOption.exists(_.equalsIgnoreCase("ping"))))
+      // Checked by existence, not position: with threshold 0, Redis logs every command it processes,
+      // including unrelated server-side traffic (e.g. replication housekeeping against ReplicaNode) that
+      // can land after our own ping and outrank it as the most recent entry.
+      _ <- IO(assert(slowLogEntries.exists(_.args.headOption.exists(_.equalsIgnoreCase("ping")))))
       slowLogEntriesLimited <- redis.slowLogGet(1)
       _ <- IO(assertEquals(slowLogEntriesLimited.size, 1))
       _ <- originalSlowlogThreshold
@@ -1897,7 +1900,7 @@ trait TestScenarios { self: FunSuite =>
           _ <- IO(assertEquals(sub1.number, 1L, "channel1 should have 1 subscriber"))
 
           // Test pubSubSubscriptions for multiple channels
-          subs <- redis.pubSubSubscriptions(List(channel1, channel2))
+          subs <- redis.pubSubSubscriptions(NonEmptyList.of(channel1, channel2))
           _ <-
             IO(assert(subs.exists(s => s.channel == channel1 && s.number == 1L), "channel1 should have 1 subscriber"))
           _ <-
@@ -1943,7 +1946,7 @@ trait TestScenarios { self: FunSuite =>
             IO(assert(channels2.contains(channel1) && channels2.contains(channel2), "both channels should be active"))
 
           // Test pubSubSubscriptions for both channels
-          subs2 <- redis.pubSubSubscriptions(List(channel1, channel2))
+          subs2 <- redis.pubSubSubscriptions(NonEmptyList.of(channel1, channel2))
           _ <-
             IO(assert(subs2.exists(s => s.channel == channel1 && s.number == 1L), "channel1 should have 1 subscriber"))
           _ <-
@@ -1972,13 +1975,22 @@ trait TestScenarios { self: FunSuite =>
                )
 
           // Test shardNumSub
-          shardSubs <- redis.shardNumSub(List(shardChannel)).attempt
+          shardSubs <- redis.shardNumSub(NonEmptyList.one(shardChannel)).attempt
           _ <- IO(
                  assert(
                    shardSubs.isRight || shardSubs.left.exists(_.getMessage.contains("only supported in cluster mode")),
                    "shardNumSub should work or fail with cluster-only error"
                  )
                )
+
+          // Test numSub/pubSubSubscriptions/shardNumSub with an empty channel list: handled locally, no
+          // round trip to Redis (Lettuce's own command builder rejects an empty channel list).
+          emptyNumSub <- redis.numSub(List.empty)
+          _ <- IO(assertEquals(emptyNumSub, List.empty[Subscription[String]]))
+          emptySubs <- redis.pubSubSubscriptions(List.empty)
+          _ <- IO(assertEquals(emptySubs, List.empty[Subscription[String]]))
+          emptyShardSubs <- redis.shardNumSub(List.empty)
+          _ <- IO(assertEquals(emptyShardSubs, List.empty[Subscription[String]]))
 
           // Clean up subscriptions
           _ <- subscription1.cancel

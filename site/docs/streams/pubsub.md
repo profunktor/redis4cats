@@ -37,10 +37,12 @@ When using the `PubSub` interpreter the types will be `Stream[F, V]` and `Stream
 ### Publisher / PubSubStats
 
 ```scala mdoc:silent
+import cats.data.NonEmptyList
+
 trait PubSubStats[F[_], K] {
   def pubSubChannels: F[List[K]]
   def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]
-  def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
+  def pubSubSubscriptions(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
 }
 
 trait PublishCommands[F[_], K, V] extends PubSubStats[F, K] {
@@ -53,6 +55,7 @@ When using the `PubSub` interpreter the `publish` function will be defined as a 
 ### PubSub example
 
 ```scala mdoc:silent
+import cats.data.NonEmptyList
 import cats.effect._
 import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
@@ -92,7 +95,7 @@ object PubSubDemo extends IOApp.Simple {
              Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
              Stream.awakeDelay[IO](11.seconds) >> Stream.eval(pubSub.unsubscribe(gamesChannel)),
              Stream.awakeEvery[IO](6.seconds) >> 
-               Stream.eval(pubSub.pubSubSubscriptions(List(eventsChannel, gamesChannel)))
+               Stream.eval(pubSub.pubSubSubscriptions(NonEmptyList.of(eventsChannel, gamesChannel)))
                  .evalMap(x => IO(println(x)))
            ).parJoin(6).void
     } yield ()

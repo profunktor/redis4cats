@@ -19,6 +19,7 @@ package dev.profunktor.redis4cats
 import scala.concurrent.duration._
 import scala.util.Random
 
+import cats.data.NonEmptyList
 import cats.effect.IO
 import dev.profunktor.redis4cats.connection._
 import dev.profunktor.redis4cats.data.RedisChannel
@@ -59,7 +60,7 @@ object PubSubDemo extends LoggerIOApp {
       Stream.awakeEvery[IO](5.seconds) >> Stream.emit("Pac-Man!").through(pub2),
       Stream.awakeDelay[IO](11.seconds) >> Stream.eval(pubSub.unsubscribe(gamesChannel)),
       Stream.awakeEvery[IO](6.seconds) >> Stream
-        .eval(pubSub.pubSubSubscriptions(List(eventsChannel, gamesChannel, txChannel)))
+        .eval(pubSub.pubSubSubscriptions(NonEmptyList.of(eventsChannel, gamesChannel, txChannel)))
         .evalMap(IO.println),
       Stream.sleep[IO](1.second) ++ Stream.exec(redis.transact_(ops))
     ).parJoinUnbounded.drain

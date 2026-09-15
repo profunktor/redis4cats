@@ -62,6 +62,17 @@ trait PubSubStats[F[_], K] {
     */
   def numSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
 
+  /** Returns the number of subscribers for the specified channels. `PUBSUB NUMSUB` is valid to call without channels
+    * and simply returns an empty list in that case - handled locally without a round trip, since Lettuce's own command
+    * builder rejects an empty channel list.
+    *
+    * @param channels
+    *   the channels to query
+    * @return
+    *   list of subscriptions for the specified channels
+    */
+  def numSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
+
   /** Lists all currently active channels.
     *
     * @return
@@ -90,6 +101,17 @@ trait PubSubStats[F[_], K] {
   /** Returns the subscription information for the specified channels.
     *
     * @param channels
+    *   non-empty list of channels to query
+    * @return
+    *   list of subscriptions for the specified channels
+    */
+  def pubSubSubscriptions(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
+
+  /** Returns the subscription information for the specified channels. `PUBSUB NUMSUB` is valid to call without channels
+    * and simply returns an empty list in that case - handled locally without a round trip, since Lettuce's own command
+    * builder rejects an empty channel list.
+    *
+    * @param channels
     *   the channels to query
     * @return
     *   list of subscriptions for the specified channels
@@ -97,6 +119,17 @@ trait PubSubStats[F[_], K] {
   def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
 
   /** Returns the number of subscribers for the specified shard channels.
+    *
+    * @param channels
+    *   non-empty list of shard channels to query
+    * @return
+    *   list of subscriptions for the specified shard channels
+    */
+  def shardNumSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
+
+  /** Returns the number of subscribers for the specified shard channels. `PUBSUB SHARDNUMSUB` is valid to call without
+    * channels and simply returns an empty list in that case - handled locally without a round trip, since Lettuce's own
+    * command builder rejects an empty channel list.
     *
     * @param channels
     *   the shard channels to query

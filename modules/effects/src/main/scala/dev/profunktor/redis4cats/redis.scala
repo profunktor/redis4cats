@@ -3031,6 +3031,9 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def numSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
     async.flatMap(_.pubsubNumsub(channels.toList.map(_.underlying): _*).futureLift.map(toSubscription[K]))
 
+  override def numSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    NonEmptyList.fromList(channels).fold(List.empty[Subscription[K]].pure[F])(numSub)
+
   override def pubSubChannels: F[List[RedisChannel[K]]] =
     async.flatMap(_.pubsubChannels().futureLift.map(_.asScala.toList.map(RedisChannel.apply)))
 
@@ -3038,16 +3041,22 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
     async.flatMap(_.pubsubShardChannels().futureLift.map(_.asScala.toList.map(RedisChannel.apply)))
 
   override def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]] =
-    pubSubSubscriptions(List(channel)).map {
+    pubSubSubscriptions(NonEmptyList.one(channel)).map {
       case sub :: Nil => sub
       case other      => throw UnexpectedPubSubReply(other.toString)
     }
 
+  override def pubSubSubscriptions(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
+    async.flatMap(_.pubsubNumsub(channels.toList.map(_.underlying): _*).futureLift.map(toSubscription[K]))
+
   override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
-    async.flatMap(_.pubsubNumsub(channels.map(_.underlying): _*).futureLift.map(toSubscription[K]))
+    NonEmptyList.fromList(channels).fold(List.empty[Subscription[K]].pure[F])(pubSubSubscriptions)
+
+  override def shardNumSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
+    async.flatMap(_.pubsubShardNumsub(channels.toList.map(_.underlying): _*).futureLift.map(toSubscription[K]))
 
   override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
-    async.flatMap(_.pubsubShardNumsub(channels.map(_.underlying): _*).futureLift.map(toSubscription[K]))
+    NonEmptyList.fromList(channels).fold(List.empty[Subscription[K]].pure[F])(shardNumSub)
 }
 
 private[redis4cats] trait RedisConversionOps {

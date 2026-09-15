@@ -17,6 +17,7 @@
 package dev.profunktor.redis4cats
 
 import dev.profunktor.redis4cats.data.{ RedisChannel, RedisPattern, RedisPatternEvent }
+import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.effect.kernel.Deferred
 
@@ -150,6 +151,35 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
         _ <- sub1.joinWith(IO.raiseError(new Exception("sub1 should not have been cancelled")))
         _ <- sub2.joinWith(IO.raiseError(new Exception("sub2 should not have been cancelled")))
         _ <- pubSub.internalPatternSubscriptions.map(assertEquals(_, Map.empty[RedisPattern[String], Long]))
+      } yield ()
+    }
+  }
+
+  test("numSub: returns subscriber counts for the queried channels") {
+    withRedisPubSub { pubSub =>
+      val subscribedChannel   = RedisChannel("test-pubsub-numsub-subscribed")
+      val unsubscribedChannel = RedisChannel("test-pubsub-numsub-unsubscribed")
+
+      for {
+        sub <- pubSub.subscribe(subscribedChannel).compile.drain.start
+        _ <- IO.sleep(200.millis) // Wait to make sure the fiber started.
+        result <- pubSub.numSub(NonEmptyList.of(subscribedChannel, unsubscribedChannel))
+        _ <- IO(assertEquals(result.find(_.channel == subscribedChannel).map(_.number), Some(1L)))
+        _ <- IO(assertEquals(result.find(_.channel == unsubscribedChannel).map(_.number), Some(0L)))
+        _ <- sub.cancel
+      } yield ()
+    }
+  }
+
+  test("numSub/pubSubSubscriptions/shardNumSub: an empty channel list returns an empty list locally") {
+    withRedisPubSub { pubSub =>
+      for {
+        a <- pubSub.numSub(List.empty)
+        _ <- IO(assertEquals(a, List.empty))
+        b <- pubSub.pubSubSubscriptions(List.empty)
+        _ <- IO(assertEquals(b, List.empty))
+        c <- pubSub.shardNumSub(List.empty)
+        _ <- IO(assertEquals(c, List.empty))
       } yield ()
     }
   }
