@@ -43,6 +43,9 @@ private[pubsub] class LivePubSubStats[F[_]: FlatMap: FutureLift, K, V](
       .lift(pubConnection.async().pubsubNumsub(channels.toList.map(_.underlying): _*))
       .map(toSubscription[K])
 
+  override def numSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    NonEmptyList.fromList(channels).fold(FutureLift[F].delay(List.empty[Subscription[K]]))(numSub)
+
   override def pubSubChannels: F[List[RedisChannel[K]]] =
     FutureLift[F]
       .lift(pubConnection.async().pubsubChannels())
@@ -64,10 +67,16 @@ private[pubsub] class LivePubSubStats[F[_]: FlatMap: FutureLift, K, V](
       .lift(pubConnection.async().pubsubNumsub(channels.toList.map(_.underlying): _*))
       .map(toSubscription[K])
 
+  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    NonEmptyList.fromList(channels).fold(FutureLift[F].delay(List.empty[Subscription[K]]))(pubSubSubscriptions)
+
   override def shardNumSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
     FutureLift[F]
       .lift(pubConnection.async().pubsubShardNumsub(channels.toList.map(_.underlying): _*))
       .map(toSubscription[K])
+
+  override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    NonEmptyList.fromList(channels).fold(FutureLift[F].delay(List.empty[Subscription[K]]))(shardNumSub)
 }
 object LivePubSubStats {
   private def toSubscription[K](map: ju.Map[K, JLong]): List[Subscription[K]] =

@@ -69,6 +69,9 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
   override def numSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.numSub(channels)
 
+  override def numSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    pubSubStats.numSub(channels)
+
   override def pubSubChannels: F[List[RedisChannel[K]]] =
     pubSubStats.pubSubChannels
 
@@ -81,6 +84,12 @@ private[pubsub] class LivePubSubCommands[F[_]: Async: Log, K, V](
   override def pubSubSubscriptions(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.pubSubSubscriptions(channels)
 
+  override def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
+    pubSubStats.pubSubSubscriptions(channels)
+
   override def shardNumSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]] =
+    pubSubStats.shardNumSub(channels)
+
+  override def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]] =
     pubSubStats.shardNumSub(channels)
 }

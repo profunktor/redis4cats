@@ -171,6 +171,19 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
     }
   }
 
+  test("numSub/pubSubSubscriptions/shardNumSub: an empty channel list returns an empty list locally") {
+    withRedisPubSub { pubSub =>
+      for {
+        a <- pubSub.numSub(List.empty)
+        _ <- IO(assertEquals(a, List.empty))
+        b <- pubSub.pubSubSubscriptions(List.empty)
+        _ <- IO(assertEquals(b, List.empty))
+        c <- pubSub.shardNumSub(List.empty)
+        _ <- IO(assertEquals(c, List.empty))
+      } yield ()
+    }
+  }
+
   test("subscribing to a silent channel should not fail with RedisCommandTimeoutException") {
     timeoutingOperationTest { (options, _) =>
       fs2.Stream.resource(withRedisPubSubOptionsResource(options)).flatMap { pubSub =>

@@ -28,6 +28,14 @@ trait PubSubStats[F[_], K] {
     *   non-empty list of channels to query
     */
   def numSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
+
+  /** `PUBSUB NUMSUB` is valid to call without channels and simply returns an empty list in that case - handled locally
+    * without a round trip, since Lettuce's own command builder rejects an empty channel list.
+    *
+    * @param channels
+    *   the channels to query
+    */
+  def numSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
   def pubSubChannels: F[List[RedisChannel[K]]]
   def pubSubShardChannels: F[List[RedisChannel[K]]]
 
@@ -35,7 +43,17 @@ trait PubSubStats[F[_], K] {
     */
   def pubSubSubscriptions(channel: RedisChannel[K]): F[Subscription[K]]
   def pubSubSubscriptions(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
+
+  /** Same as the `NonEmptyList` overload, but an empty `channels` returns an empty list locally instead of requiring a
+    * non-empty list - `PUBSUB NUMSUB` is valid to call without channels.
+    */
+  def pubSubSubscriptions(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
   def shardNumSub(channels: NonEmptyList[RedisChannel[K]]): F[List[Subscription[K]]]
+
+  /** Same as the `NonEmptyList` overload, but an empty `channels` returns an empty list locally instead of requiring a
+    * non-empty list - `PUBSUB SHARDNUMSUB` is valid to call without channels.
+    */
+  def shardNumSub(channels: List[RedisChannel[K]]): F[List[Subscription[K]]]
 }
 
 /** @tparam F

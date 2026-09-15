@@ -1980,6 +1980,15 @@ trait TestScenarios { self: FunSuite =>
                  )
                )
 
+          // Test numSub/pubSubSubscriptions/shardNumSub with an empty channel list: handled locally, no
+          // round trip to Redis (Lettuce's own command builder rejects an empty channel list).
+          emptyNumSub <- redis.numSub(List.empty)
+          _ <- IO(assertEquals(emptyNumSub, List.empty[Subscription[String]]))
+          emptySubs <- redis.pubSubSubscriptions(List.empty)
+          _ <- IO(assertEquals(emptySubs, List.empty[Subscription[String]]))
+          emptyShardSubs <- redis.shardNumSub(List.empty)
+          _ <- IO(assertEquals(emptyShardSubs, List.empty[Subscription[String]]))
+
           // Clean up subscriptions
           _ <- subscription1.cancel
           _ <- subscription2.cancel
