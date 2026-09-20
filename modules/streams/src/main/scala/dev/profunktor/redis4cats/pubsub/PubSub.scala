@@ -23,7 +23,7 @@ import cats.syntax.all._
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data._
 import dev.profunktor.redis4cats.effect._
-import dev.profunktor.redis4cats.pubsub.internals.{ LivePubSubCommands, PubSubState, Publisher, Subscriber }
+import dev.profunktor.redis4cats.pubsub.internals.{ LivePubSubCommands, Publisher, Subscriber }
 import fs2.Stream
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 
@@ -56,10 +56,10 @@ object PubSub {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
     // One exclusive connection for subscriptions and another connection for publishing / stats
     for {
-      state <- Resource.eval(PubSubState.make[F, K, V])
       sConn <- Resource.make(acquire)(release)
       pConn <- Resource.make(acquire)(release)
-    } yield new LivePubSubCommands[F, K, V](state, sConn, pConn)
+      subCommands <- Subscriber.make[F, K, V](sConn)
+    } yield new LivePubSubCommands[F, K, V](subCommands, pConn)
   }
 
   /** Creates a PubSub connection.
@@ -83,10 +83,7 @@ object PubSub {
       codec: RedisCodec[K, V]
   ): Resource[F, SubscribeCommands[F, Stream[F, *], K, V]] = {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
-    for {
-      state <- Resource.eval(PubSubState.make[F, K, V])
-      conn <- Resource.make(acquire)(release)
-    } yield new Subscriber(state, conn)
+    Resource.make(acquire)(release).flatMap(Subscriber.make[F, K, V])
   }
 
 }
