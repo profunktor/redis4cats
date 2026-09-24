@@ -1697,6 +1697,50 @@ trait TestScenarios { self: FunSuite =>
     } yield ()
   }
 
+  def bloomFilterScenario(redis: RedisCommands[IO, String, String]): IO[Unit] = {
+    val key         = "bloom"
+    val restoredKey = "bloom:restored"
+    val fullKey     = "bloom:full"
+
+    def dumpAll(iterator: Long, acc: List[BfScanDumpChunk]): IO[List[BfScanDumpChunk]] =
+      redis.bfScanDump(key, iterator).flatMap { chunk =>
+        if (chunk.iterator == 0L) IO.pure(acc.reverse) else dumpAll(chunk.iterator, chunk :: acc)
+      }
+
+    for {
+      _ <- redis.bfReserve(key, 0.001, 100L)
+      a1 <- redis.bfAdd(key, "a")
+      a2 <- redis.bfAdd(key, "a")
+      _ <- IO(assertEquals((a1, a2), (true, false)))
+      m <- redis.bfMAdd(key, "a", "b", "c")
+      _ <- IO(assertEquals(m, List(Some(false), Some(true), Some(true))))
+      e <- redis.bfExists(key, "b")
+      _ <- IO(assert(e))
+      me <- redis.bfMExists(key, "a", "c")
+      _ <- IO(assertEquals(me, List(true, true)))
+      card <- redis.bfCard(key)
+      _ <- IO(assertEquals(card, 3L))
+      info <- redis.bfInfo(key)
+      _ <- IO(assertEquals((info.capacity, info.numberOfItemsInserted, info.expansionRate), (100L, 3L, Some(2L))))
+      chunks <- dumpAll(0L, Nil)
+      _ <- chunks.traverse_(c => redis.bfLoadChunk(restoredKey, c.iterator, c.data))
+      restored <- redis.bfMExists(restoredKey, "a", "b", "c")
+      _ <- IO(assertEquals(restored, List(true, true, true)))
+      noCreate <- redis.bfInsert(fullKey, BfInsertArgs.NoCreate, "a").attempt
+      _ <- IO(assert(noCreate.isLeft))
+      full <- redis.bfInsert(
+                fullKey,
+                BfInsertArgs.Create(capacity = Some(2L), scaling = Some(BfScaling.NonScaling)),
+                "a",
+                "b",
+                "c"
+              )
+      _ <- IO(assertEquals(full, List(Some(true), Some(true), None)))
+      fullInfo <- redis.bfInfo(fullKey)
+      _ <- IO(assertEquals(fullInfo.expansionRate, None))
+    } yield ()
+  }
+
   def keyPatternSubScenario(client: RedisClient): IO[Unit] = {
     import dev.profunktor.redis4cats.effect.Log.NoOp._
 
