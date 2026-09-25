@@ -1703,8 +1703,9 @@ trait TestScenarios { self: FunSuite =>
     val fullKey     = "bloom:full"
 
     def dumpAll(iterator: Long, acc: List[BfScanDumpChunk]): IO[List[BfScanDumpChunk]] =
-      redis.bfScanDump(key, iterator).flatMap { chunk =>
-        if (chunk.iterator == 0L) IO.pure(acc.reverse) else dumpAll(chunk.iterator, chunk :: acc)
+      redis.bfScanDump(key, iterator).flatMap {
+        case None        => IO.pure(acc.reverse)
+        case Some(chunk) => dumpAll(chunk.iterator, chunk :: acc)
       }
 
     for {

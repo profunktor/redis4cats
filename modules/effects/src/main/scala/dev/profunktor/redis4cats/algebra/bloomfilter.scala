@@ -30,5 +30,9 @@ trait BloomFilterCommands[F[_], K, V] {
   def bfMExists(key: K, value: V, values: V*): F[List[Boolean]]
   def bfReserve(key: K, errorRate: Double, capacity: Long): F[Unit]
   def bfReserve(key: K, errorRate: Double, capacity: Long, args: BfReserveArgs): F[Unit]
-  def bfScanDump(key: K, iterator: Long): F[BfScanDumpChunk]
+
+  /** Incremental save of a Bloom filter. `None` is returned when the iterator reaches 0, indicating that the scan is
+    * complete.
+    */
+  def bfScanDump(key: K, iterator: Long): F[Option[BfScanDumpChunk]]
 }

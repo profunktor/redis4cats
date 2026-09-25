@@ -2854,8 +2854,10 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def bfReserve(key: K, errorRate: Double, capacity: Long, args: BfReserveArgs): F[Unit] =
     async.flatMap(_.bfReserve(key, errorRate, capacity, toJBfReserveArgs(args)).futureLift.void)
 
-  override def bfScanDump(key: K, iterator: Long): F[BfScanDumpChunk] =
-    async.flatMap(_.bfScanDump(key, iterator).futureLift.map(v => BfScanDumpChunk(v.getIterator, v.getData)))
+  override def bfScanDump(key: K, iterator: Long): F[Option[BfScanDumpChunk]] =
+    async.flatMap(_.bfScanDump(key, iterator).futureLift.map { v =>
+      Option.unless(v.getIterator == 0L)(BfScanDumpChunk(v.getIterator, v.getData))
+    })
 
   // format: off
   /******************************* Streams API **********************************/

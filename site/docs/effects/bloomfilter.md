@@ -53,4 +53,4 @@ commandsApi.use { redis => // BloomFilterCommands[IO, String, String]
 may have existed already, and `None` if adding it failed (e.g. a non-scaling filter reached its capacity).
 
 A filter can be copied chunk by chunk with `bfScanDump` and `bfLoadChunk`, starting from iterator `0` and
-stopping once `bfScanDump` returns iterator `0`.
+stopping once `bfScanDump` returns `None`.
