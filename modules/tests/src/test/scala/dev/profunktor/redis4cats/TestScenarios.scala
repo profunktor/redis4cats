@@ -1728,7 +1728,10 @@ trait TestScenarios { self: FunSuite =>
       restored <- redis.bfMExists(restoredKey, "a", "b", "c")
       _ <- IO(assertEquals(restored, List(true, true, true)))
       noCreate <- redis.bfInsert(fullKey, BfInsertArgs.NoCreate, "a").attempt
-      _ <- IO(assert(noCreate.isLeft))
+      _ <- IO(assert(noCreate.left.exists { ex =>
+             ex.isInstanceOf[RedisCommandExecutionException] &&
+             ex.getMessage.startsWith("ERR not found")
+           }))
       full <- redis.bfInsert(
                 fullKey,
                 BfInsertArgs.Create(capacity = Some(2L), scaling = Some(BfScaling.NonScaling)),
