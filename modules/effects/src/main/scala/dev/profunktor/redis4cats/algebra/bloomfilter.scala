@@ -26,6 +26,7 @@ trait BloomFilterCommands[F[_], K, V] {
   def bfInsert(key: K, value: V, values: V*): F[List[Option[Boolean]]]
   def bfInsert(key: K, args: BfInsertArgs, value: V, values: V*): F[List[Option[Boolean]]]
   def bfLoadChunk(key: K, iterator: Long, data: Array[Byte]): F[Unit]
+  def bfLoadChunk(key: K, chunk: BfScanDumpChunk): F[Unit] = bfLoadChunk(key, chunk.iterator, chunk.data)
   def bfMAdd(key: K, value: V, values: V*): F[List[Option[Boolean]]]
   def bfMExists(key: K, value: V, values: V*): F[List[Boolean]]
   def bfReserve(key: K, errorRate: Double, capacity: Long): F[Unit]
