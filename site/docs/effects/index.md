@@ -11,6 +11,7 @@ The API that operates at the effect level `F[_]` on top of `cats-effect`.
 
 - **[ACL API](./acl.html)**
 - **[Bitmaps API](./bitmaps.html)**
+- **[Bloom Filter API](./bloomfilter.html)**
 - **[Connection API](./connection.html)**
 - **[Geo API](./geo.html)**
 - **[Hashes API](./hashes.html)**

@@ -35,6 +35,7 @@ import io.lettuce.core.models.stream.{
   PendingMessages => JPendingMessages,
   StreamEntryDeletionResult => JStreamEntryDeletionResult
 }
+import io.lettuce.core.probabilistic.{ BfInfoValue => JBfInfoValue }
 import io.lettuce.core.{ StringMatchResult => JStringMatchResult }
 import io.lettuce.core.{ TrackingInfo => JTrackingInfo }
 
@@ -1574,4 +1575,44 @@ object effects {
         prefixes = info.getPrefixes.asScala.toList
       )
   }
+
+  sealed trait BfScaling
+  object BfScaling {
+    final case class Expansion(rate: Long) extends BfScaling
+    case object NonScaling extends BfScaling
+  }
+
+  final case class BfReserveArgs(scaling: Option[BfScaling] = None)
+
+  sealed trait BfInsertArgs
+  object BfInsertArgs {
+    final case class Create(
+        capacity: Option[Long] = None,
+        errorRate: Option[Double] = None,
+        scaling: Option[BfScaling] = None
+    ) extends BfInsertArgs
+    case object NoCreate extends BfInsertArgs
+  }
+
+  final case class BfInfo(
+      capacity: Long,
+      size: Long,
+      numberOfFilters: Long,
+      numberOfItemsInserted: Long,
+      expansionRate: Option[Long]
+  )
+  object BfInfo {
+    import dev.profunktor.redis4cats.JavaConversions._
+
+    private[redis4cats] def fromLettuce(info: JBfInfoValue): BfInfo =
+      BfInfo(
+        capacity = Long.unbox(info.getCapacity),
+        size = Long.unbox(info.getSize),
+        numberOfFilters = Long.unbox(info.getNumberOfFilters),
+        numberOfItemsInserted = Long.unbox(info.getNumberOfItemsInserted),
+        expansionRate = info.getExpansionRate.toOption
+      )
+  }
+
+  final case class BfScanDumpChunk(iterator: Long, data: Array[Byte])
 }

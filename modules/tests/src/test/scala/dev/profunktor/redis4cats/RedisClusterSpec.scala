@@ -54,6 +54,10 @@ class RedisClusterSpec extends Redis4CatsFunSuite(true) with TestScenarios {
 
   test("cluster: hyperloglog api")(withRedisCluster(hyperloglogScenario))
 
+  // Not run against the cluster yet: the yisraelu/redis-cluster image ships redisbloom.so but doesn't load it.
+  // Enable once the image's redis-cluster.tmpl includes `loadmodule /usr/local/lib/redis/modules/redisbloom.so`.
+  // test("cluster: bloom filter api")(withRedisCluster(bloomFilterScenario))
+
   test("cluster: streams api")(withRedisCluster(streamsScenario))
 
   // FIXME: The Cluster impl cannot connect to a single node just yet
