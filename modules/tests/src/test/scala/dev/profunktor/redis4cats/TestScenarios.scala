@@ -1709,6 +1709,7 @@ trait TestScenarios { self: FunSuite =>
       }
 
     for {
+      _ <- redis.del(key, restoredKey, fullKey) // ensure bfReserve doesn't fail due to an existing key
       _ <- redis.bfReserve(key, 0.001, 100L)
       a1 <- redis.bfAdd(key, "a")
       a2 <- redis.bfAdd(key, "a")
