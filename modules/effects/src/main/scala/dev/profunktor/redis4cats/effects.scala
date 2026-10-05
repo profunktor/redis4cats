@@ -126,6 +126,19 @@ object effects {
   final case class ZRange[V](start: V, end: V)
   final case class RangeLimit(offset: Long, count: Long)
 
+  /** Selector for the unified `ZRANGE` family: by rank (index), by score, or lexicographically, each optionally
+    * reversed. `ByLex` deliberately sits outside the sealed hierarchy: a lex range carries no scores, so only
+    * index/score selectors can back `zRangeWithScores`.
+    */
+  sealed trait ZRangeBy
+  object ZRangeBy {
+    final case class ByIndex(start: Long, stop: Long, rev: Boolean = false) extends ZRangeBy
+    final case class ByScore[T](range: ZRange[T], limit: Option[RangeLimit] = None, rev: Boolean = false)(
+        implicit private[redis4cats] val num: Numeric[T]
+    ) extends ZRangeBy
+    final case class ByLex[V](range: ZRange[V], limit: Option[RangeLimit] = None, rev: Boolean = false)
+  }
+
   sealed trait SortOrder
   object SortOrder {
     case object Asc extends SortOrder

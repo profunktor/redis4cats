@@ -87,6 +87,7 @@ import io.lettuce.core.{
   ZAddArgs,
   ZAggregateArgs,
   ZPopArgs,
+  ZRange => JZRange,
   ZStoreArgs
 }
 import io.lettuce.core.models.command.CommandDetailParser
@@ -932,24 +933,20 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def strLen(key: K): F[Long] =
     async.flatMap(_.strlen(key).futureLift.map(x => Long.unbox(x)))
 
-  // Lettuce's LcsArgs.Builder.keys(String...) takes raw key names rather than K-encoded values (it
-  // calls CommandArgs.add(String), not addKey(K)) — a Lettuce API limitation, not a redis4cats one.
-  // key.toString only produces the correct Redis key when K's toString matches its actual encoded
-  // text, which holds for the common String/UTF8 codec but isn't guaranteed for an arbitrary K.
   override def lcs(key1: K, key2: K): F[LcsResult] =
     async.flatMap(
-      _.lcs(JLcsArgs.Builder.keys(key1.toString, key2.toString)).futureLift
+      _.lcs(key1, key2, new JLcsArgs()).futureLift
         .map(LcsResult.fromLettuce(isIdx = false, withMatchLen = false))
     )
 
   override def lcsLen(key1: K, key2: K): F[Long] =
-    async.flatMap(_.lcs(JLcsArgs.Builder.keys(key1.toString, key2.toString).justLen()).futureLift.map(_.getLen))
+    async.flatMap(_.lcs(key1, key2, JLcsArgs.Builder.justLen()).futureLift.map(_.getLen))
 
   override def lcsIdx(key1: K, key2: K, minMatchLen: Option[Int], withMatchLen: Boolean): F[LcsResult] = {
-    val jArgs = JLcsArgs.Builder.keys(key1.toString, key2.toString).withIdx()
+    val jArgs = JLcsArgs.Builder.withIdx()
     minMatchLen.foreach(jArgs.minMatchLen)
     if (withMatchLen) jArgs.withMatchLen(): Unit
-    async.flatMap(_.lcs(jArgs).futureLift.map(LcsResult.fromLettuce(isIdx = true, withMatchLen)))
+    async.flatMap(_.lcs(key1, key2, jArgs).futureLift.map(LcsResult.fromLettuce(isIdx = true, withMatchLen)))
   }
 
   override def mGet(keys: Set[K]): F[Map[K, V]] =
@@ -2009,37 +2006,43 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
   override def zRange(key: K, start: Long, stop: Long): F[List[V]] =
     async.flatMap(_.zrange(key, start, stop).futureLift.map(_.asScala.toList))
 
-  override def zRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]] = {
-    val res = limit match {
-      case Some(x) =>
-        async.flatMap(
-          _.zrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)).futureLift
-        )
-      case None =>
-        async.flatMap(_.zrangebylex(key, JRange.create[V](range.start, range.end)).futureLift)
+  // The JZRange selectors are fluent-mutable (rev()/limit() return the same instance), so each is
+  // built fresh per call and never shared.
+  private def toJZRange(by: ZRangeBy.ByIndex): JZRange.ByIndex = {
+    val j = JZRange.byIndex(by.start, by.stop)
+    if (by.rev) j.rev() else j
+  }
+
+  private def toJZRange[T](by: ZRangeBy.ByScore[T]): JZRange.ByScore = {
+    implicit val num: Numeric[T] = by.num
+    val j                        = JZRange.byScore(by.range.asJavaRange)
+    if (by.rev) j.rev(): Unit
+    by.limit.foreach(l => j.limit(l.offset, l.count))
+    j
+  }
+
+  private def toJZRange(by: ZRangeBy.ByLex[V]): JZRange.ByLex[V] = {
+    val j = JZRange.byLex(JRange.create[V](by.range.start, by.range.end))
+    if (by.rev) j.rev(): Unit
+    by.limit.foreach(l => j.limit(l.offset, l.count))
+    j
+  }
+
+  override def zRange(key: K, by: ZRangeBy): F[List[V]] = {
+    val res = by match {
+      case i: ZRangeBy.ByIndex    => async.flatMap(_.zrange(key, toJZRange(i)).futureLift)
+      case s: ZRangeBy.ByScore[_] => async.flatMap(_.zrange(key, toJZRange(s)).futureLift)
     }
     res.map(_.asScala.toList)
   }
 
-  override def zRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]] = {
-    val res = limit match {
-      case Some(x) =>
-        async.flatMap(_.zrangebyscore(key, range.asJavaRange, JLimit.create(x.offset, x.count)).futureLift)
-      case None => async.flatMap(_.zrangebyscore(key, range.asJavaRange).futureLift)
-    }
-    res.map(_.asScala.toList)
-  }
+  override def zRange(key: K, by: ZRangeBy.ByLex[V]): F[List[V]] =
+    async.flatMap(_.zrange(key, toJZRange(by)).futureLift.map(_.asScala.toList))
 
-  override def zRangeByScoreWithScores[T: Numeric](
-      key: K,
-      range: ZRange[T],
-      limit: Option[RangeLimit]
-  ): F[List[ScoreWithValue[V]]] = {
-    val res = limit match {
-      case Some(x) =>
-        async.flatMap(_.zrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)).futureLift)
-      case None =>
-        async.flatMap(_.zrangebyscoreWithScores(key, range.asJavaRange).futureLift)
+  override def zRangeWithScores(key: K, by: ZRangeBy): F[List[ScoreWithValue[V]]] = {
+    val res = by match {
+      case i: ZRangeBy.ByIndex    => async.flatMap(_.zrangeWithScores(key, toJZRange(i)).futureLift)
+      case s: ZRangeBy.ByScore[_] => async.flatMap(_.zrangeWithScores(key, toJZRange(s)).futureLift)
     }
     res.map(_.asScala.toList.map(_.asScoreWithValues))
   }
@@ -2051,50 +2054,6 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def zRank(key: K, value: V): F[Option[Long]] =
     async.flatMap(_.zrank(key, value).futureLift.map(x => Option(Long.unbox(x))))
-
-  override def zRevRange(key: K, start: Long, stop: Long): F[List[V]] =
-    async.flatMap(_.zrevrange(key, start, stop).futureLift.map(_.asScala.toList))
-
-  override def zRevRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]] = {
-    val res = limit match {
-      case Some(x) =>
-        async.flatMap(
-          _.zrevrangebylex(key, JRange.create[V](range.start, range.end), JLimit.create(x.offset, x.count)).futureLift
-        )
-      case None =>
-        async.flatMap(_.zrevrangebylex(key, JRange.create[V](range.start, range.end)).futureLift)
-    }
-    res.map(_.asScala.toList)
-  }
-
-  override def zRevRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]] = {
-    val res = limit match {
-      case Some(x) =>
-        async.flatMap(_.zrevrangebyscore(key, range.asJavaRange, JLimit.create(x.offset, x.count)).futureLift)
-      case None =>
-        async.flatMap(_.zrevrangebyscore(key, range.asJavaRange).futureLift)
-    }
-    res.map(_.asScala.toList)
-  }
-
-  override def zRevRangeByScoreWithScores[T: Numeric](
-      key: K,
-      range: ZRange[T],
-      limit: Option[RangeLimit]
-  ): F[List[ScoreWithValue[V]]] = {
-    val res = limit match {
-      case Some(x) =>
-        async.flatMap(_.zrevrangebyscoreWithScores(key, range.asJavaRange, JLimit.create(x.offset, x.count)).futureLift)
-      case None =>
-        async.flatMap(_.zrevrangebyscoreWithScores(key, range.asJavaRange).futureLift)
-    }
-    res.map(_.asScala.toList.map(_.asScoreWithValues))
-  }
-
-  override def zRevRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]] =
-    async
-      .flatMap(_.zrevrangeWithScores(key, start, stop).futureLift)
-      .map(_.asScala.toList.map(_.asScoreWithValues))
 
   override def zRevRank(key: K, value: V): F[Option[Long]] =
     async.flatMap(_.zrevrank(key, value).futureLift.map(x => Option(Long.unbox(x))))

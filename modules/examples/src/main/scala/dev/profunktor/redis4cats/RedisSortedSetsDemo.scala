@@ -19,7 +19,7 @@ package dev.profunktor.redis4cats
 import cats.effect.{ IO, Resource }
 import dev.profunktor.redis4cats.algebra.SortedSetCommands
 import dev.profunktor.redis4cats.effect.Log.NoOp._
-import dev.profunktor.redis4cats.effects.{ Score, ScoreWithValue, ZRange }
+import dev.profunktor.redis4cats.effects.{ Score, ScoreWithValue, ZRange, ZRangeBy }
 
 object RedisSortedSetsDemo extends LoggerIOApp {
 
@@ -34,7 +34,7 @@ object RedisSortedSetsDemo extends LoggerIOApp {
     commandsApi.use { redis =>
       for {
         _ <- redis.zAdd(testKey, args = None, ScoreWithValue(Score(1), 1), ScoreWithValue(Score(3), 2))
-        x <- redis.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
+        x <- redis.zRange(testKey, ZRangeBy.ByScore(ZRange(0, 2), rev = true))
         _ <- IO.println(s"Score: $x")
         y <- redis.zCard(testKey)
         _ <- IO.println(s"Size: $y")

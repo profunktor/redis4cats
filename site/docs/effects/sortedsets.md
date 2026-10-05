@@ -31,7 +31,7 @@ Once you have acquired a connection you can start using it:
 
 ```scala mdoc:silent
 import cats.effect.IO
-import dev.profunktor.redis4cats.effects.{Score, ScoreWithValue, ZRange}
+import dev.profunktor.redis4cats.effects.{Score, ScoreWithValue, ZRange, ZRangeBy}
 
 val testKey = "zztop"
 
@@ -40,7 +40,7 @@ def putStrLn(str: String): IO[Unit] = IO(println(str))
 commandsApi.use { redis => // SortedSetCommands[IO, String, Long]
   for {
     _ <- redis.zAdd(testKey, args = None, ScoreWithValue(Score(1), 1), ScoreWithValue(Score(3), 2))
-    x <- redis.zRevRangeByScore(testKey, ZRange(0, 2), limit = None)
+    x <- redis.zRange(testKey, ZRangeBy.ByScore(ZRange(0, 2), rev = true))
     _ <- putStrLn(s"Score: $x")
     y <- redis.zCard(testKey)
     _ <- putStrLn(s"Size: $y")
