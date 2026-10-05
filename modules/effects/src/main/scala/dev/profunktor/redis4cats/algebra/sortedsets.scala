@@ -17,7 +17,7 @@
 package dev.profunktor.redis4cats.algebra
 
 import cats.data.NonEmptyList
-import dev.profunktor.redis4cats.effects.{ RangeLimit, ScoreWithValue, ZRange }
+import dev.profunktor.redis4cats.effects.{ RangeLimit, ScoreWithValue, ZRange, ZRangeBy }
 import io.lettuce.core.{ ZAddArgs, ZAggregateArgs, ZStoreArgs }
 
 import scala.concurrent.duration.Duration
@@ -33,25 +33,16 @@ trait SortedSetGetter[F[_], K, V] {
   def zRandMember(key: K, count: Long): F[List[V]]
   def zRandMemberWithScores(key: K): F[Option[ScoreWithValue[V]]]
   def zRandMemberWithScores(key: K, count: Long): F[List[ScoreWithValue[V]]]
+
+  /** By-rank `ZRANGE [start, stop]`, ascending; use a [[ZRangeBy]] selector for score/rev/limit forms. */
   def zRange(key: K, start: Long, stop: Long): F[List[V]]
-  def zRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]]
-  def zRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]]
-  def zRangeByScoreWithScores[T: Numeric](
-      key: K,
-      range: ZRange[T],
-      limit: Option[RangeLimit]
-  ): F[List[ScoreWithValue[V]]]
+  def zRange(key: K, by: ZRangeBy): F[List[V]]
+
+  /** `ZRANGE ... BYLEX`; separate overload because a lex range cannot back a `WithScores` query. */
+  def zRange(key: K, by: ZRangeBy.ByLex[V]): F[List[V]]
   def zRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]]
+  def zRangeWithScores(key: K, by: ZRangeBy): F[List[ScoreWithValue[V]]]
   def zRank(key: K, value: V): F[Option[Long]]
-  def zRevRange(key: K, start: Long, stop: Long): F[List[V]]
-  def zRevRangeByLex(key: K, range: ZRange[V], limit: Option[RangeLimit]): F[List[V]]
-  def zRevRangeByScore[T: Numeric](key: K, range: ZRange[T], limit: Option[RangeLimit]): F[List[V]]
-  def zRevRangeByScoreWithScores[T: Numeric](
-      key: K,
-      range: ZRange[T],
-      limit: Option[RangeLimit]
-  ): F[List[ScoreWithValue[V]]]
-  def zRevRangeWithScores(key: K, start: Long, stop: Long): F[List[ScoreWithValue[V]]]
   def zRevRank(key: K, value: V): F[Option[Long]]
   def zScore(key: K, value: V): F[Option[Double]]
   def zPopMin(key: K, count: Long): F[List[ScoreWithValue[V]]]
