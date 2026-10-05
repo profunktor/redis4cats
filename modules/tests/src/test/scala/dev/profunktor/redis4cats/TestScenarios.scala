@@ -1725,7 +1725,7 @@ trait TestScenarios { self: FunSuite =>
       info <- redis.bfInfo(key)
       _ <- IO(assertEquals((info.capacity, info.numberOfItemsInserted, info.expansionRate), (100L, 3L, Some(2L))))
       chunks <- dumpAll(0L, Nil)
-      _ <- chunks.traverse_(c => redis.bfLoadChunk(restoredKey, c.iterator, c.data))
+      _ <- chunks.traverse_(c => redis.bfLoadChunk(restoredKey, c))
       restored <- redis.bfMExists(restoredKey, "a", "b", "c")
       _ <- IO(assertEquals(restored, List(true, true, true)))
       noCreate <- redis.bfInsert(fullKey, BfInsertArgs.NoCreate, "a").attempt
