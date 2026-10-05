@@ -31,4 +31,8 @@ object JavaConversions extends AsJavaExtensions with AsScalaExtensions {
   implicit class JDoubleOps(private val d: java.lang.Double) extends AnyVal {
     def toOption: Option[Double] = Option(d).map(Double.unbox)
   }
+
+  implicit class JBooleanOps(private val b: java.lang.Boolean) extends AnyVal {
+    def toOption: Option[Boolean] = Option(b).map(Boolean.unbox)
+  }
 }

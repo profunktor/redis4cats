@@ -90,6 +90,7 @@ import io.lettuce.core.{
   ZStoreArgs
 }
 import io.lettuce.core.models.command.CommandDetailParser
+import io.lettuce.core.probabilistic.arguments.{ BfInsertArgs => JBfInsertArgs, BfReserveArgs => JBfReserveArgs }
 import io.lettuce.core.protocol.CommandType
 import org.typelevel.keypool.KeyPool
 
@@ -2790,6 +2791,73 @@ private[redis4cats] class BaseRedis[F[_]: FutureLift: MonadThrow: Log, K, V](
 
   override def pfMerge(outputKey: K, inputKeys: K*): F[Unit] =
     async.flatMap(_.pfmerge(outputKey, inputKeys: _*).futureLift.void)
+
+  // format: off
+  /******************************* Bloom Filter API **********************************/
+  // format: on
+  private def toJBfReserveArgs(args: BfReserveArgs): JBfReserveArgs = {
+    val jArgs = new JBfReserveArgs()
+    args.scaling.foreach {
+      case BfScaling.Expansion(rate) => jArgs.expansion(rate)
+      case BfScaling.NonScaling      => jArgs.nonScaling()
+    }
+    jArgs
+  }
+
+  private def toJBfInsertArgs(args: BfInsertArgs): JBfInsertArgs =
+    args match {
+      case BfInsertArgs.Create(capacity, errorRate, scaling) =>
+        val jArgs = new JBfInsertArgs()
+        capacity.foreach(jArgs.capacity)
+        errorRate.foreach(jArgs.error)
+        scaling.foreach {
+          case BfScaling.Expansion(rate) => jArgs.expansion(rate)
+          case BfScaling.NonScaling      => jArgs.nonScaling()
+        }
+        jArgs
+      case BfInsertArgs.NoCreate =>
+        new JBfInsertArgs().noCreate()
+    }
+
+  override def bfAdd(key: K, value: V): F[Boolean] =
+    async.flatMap(_.bfAdd(key, value).futureLift.map(x => Boolean.unbox(x)))
+
+  override def bfCard(key: K): F[Long] =
+    async.flatMap(_.bfCard(key).futureLift.map(x => Long.unbox(x)))
+
+  override def bfExists(key: K, value: V): F[Boolean] =
+    async.flatMap(_.bfExists(key, value).futureLift.map(x => Boolean.unbox(x)))
+
+  override def bfInfo(key: K): F[BfInfo] =
+    async.flatMap(_.bfInfo(key).futureLift.map(BfInfo.fromLettuce))
+
+  override def bfInsert(key: K, value: V, values: V*): F[List[Option[Boolean]]] =
+    async.flatMap(_.bfInsert(key, (value +: values): _*).futureLift.map(_.asScala.toList.map(_.toOption)))
+
+  override def bfInsert(key: K, args: BfInsertArgs, value: V, values: V*): F[List[Option[Boolean]]] =
+    async.flatMap(
+      _.bfInsert(key, toJBfInsertArgs(args), (value +: values): _*).futureLift.map(_.asScala.toList.map(_.toOption))
+    )
+
+  override def bfLoadChunk(key: K, iterator: Long, data: Array[Byte]): F[Unit] =
+    async.flatMap(_.bfLoadChunk(key, iterator, data).futureLift.void)
+
+  override def bfMAdd(key: K, value: V, values: V*): F[List[Option[Boolean]]] =
+    async.flatMap(_.bfMAdd(key, (value +: values): _*).futureLift.map(_.asScala.toList.map(_.toOption)))
+
+  override def bfMExists(key: K, value: V, values: V*): F[List[Boolean]] =
+    async.flatMap(_.bfMExists(key, (value +: values): _*).futureLift.map(_.asScala.toList.map(x => Boolean.unbox(x))))
+
+  override def bfReserve(key: K, errorRate: Double, capacity: Long): F[Unit] =
+    async.flatMap(_.bfReserve(key, errorRate, capacity).futureLift.void)
+
+  override def bfReserve(key: K, errorRate: Double, capacity: Long, args: BfReserveArgs): F[Unit] =
+    async.flatMap(_.bfReserve(key, errorRate, capacity, toJBfReserveArgs(args)).futureLift.void)
+
+  override def bfScanDump(key: K, iterator: Long): F[Option[BfScanDumpChunk]] =
+    async.flatMap(_.bfScanDump(key, iterator).futureLift.map { v =>
+      Option.unless(v.getIterator == 0L)(BfScanDumpChunk(v.getIterator, v.getData))
+    })
 
   // format: off
   /******************************* Streams API **********************************/
