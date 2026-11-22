@@ -12,7 +12,7 @@ object Dependencies {
 
     val lettuce = "7.8.0.RELEASE"
 
-    val logback = "1.6.7"
+    val logback = "1.6.8"
 
     val munit           = "1.3.6"
     val munitScalacheck = "1.3.1"
