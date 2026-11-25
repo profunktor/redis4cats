@@ -20,6 +20,7 @@ import dev.profunktor.redis4cats.data.{ RedisChannel, RedisPattern, RedisPattern
 import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.effect.kernel.Deferred
+import cats.syntax.all._
 
 import scala.concurrent.duration._
 
@@ -151,6 +152,92 @@ class RedisPubSubSpec extends Redis4CatsFunSuite(isCluster = false) {
         _ <- sub1.joinWith(IO.raiseError(new Exception("sub1 should not have been cancelled")))
         _ <- sub2.joinWith(IO.raiseError(new Exception("sub2 should not have been cancelled")))
         _ <- pubSub.internalPatternSubscriptions.map(assertEquals(_, Map.empty[RedisPattern[String], Long]))
+      } yield ()
+    }
+  }
+
+  test("subscribe: ending the subscriptions to some channels does not affect other channels") {
+    withRedisPubSub { pubSub =>
+      val cancelled    = RedisChannel("test-pubsub-independent:cancelled")
+      val unsubscribed = RedisChannel("test-pubsub-independent:unsubscribed")
+      val other        = RedisChannel("test-pubsub-independent:other")
+
+      for {
+        cancelledSub <- pubSub.subscribe(cancelled).compile.drain.start
+        unsubscribedSub <- pubSub.subscribe(unsubscribed).compile.drain.start
+        otherSub <- pubSub.subscribe(other).take(1).compile.toVector.start
+        _ <- List(cancelled, unsubscribed, other).traverse_(pubSub.shouldHaveNSubs(_, 1, waitFor = 1.second))
+        _ <- cancelledSub.cancel
+        _ <- pubSub.unsubscribe(unsubscribed)
+        _ <- unsubscribedSub.joinWith(IO.raiseError(new Exception("unsubscribedSub should not have been cancelled")))
+        _ <- pubSub.shouldHaveNSubs(cancelled, 0)
+        _ <- pubSub.shouldHaveNSubs(unsubscribed, 0, waitFor = 1.second)
+        _ <- pubSub.publish(other, "hello")
+        otherResult <- otherSub
+                         .joinWith(IO.raiseError(new Exception("otherSub should not have been cancelled")))
+                         .timeout(5.seconds)
+        _ <- IO(assertEquals(otherResult, Vector("hello")))
+        // Re-subscribing to the channels whose subscriptions ended delivers messages again.
+        resubscribed <-
+          List(cancelled, unsubscribed).traverse(ch => pubSub.subscribe(ch).take(1).compile.toVector.start)
+        _ <- List(cancelled, unsubscribed).traverse_(pubSub.shouldHaveNSubs(_, 1, waitFor = 1.second))
+        _ <- List(cancelled, unsubscribed).traverse_(ch => pubSub.publish(ch, ch.underlying))
+        results <- resubscribed.traverse(
+                     _.joinWith(IO.raiseError(new Exception("resubscribed sub should not have been cancelled")))
+                       .timeout(5.seconds)
+                   )
+        _ <- IO(assertEquals(results, List(Vector(cancelled.underlying), Vector(unsubscribed.underlying))))
+      } yield ()
+    }
+  }
+
+  test("subscribe: a stalled subscriber ending releases delivery to other channels") {
+    withRedisPubSub { pubSub =>
+      val stalled = RedisChannel("test-pubsub-stalled:stalled")
+      val other   = RedisChannel("test-pubsub-stalled:other")
+
+      for {
+        // Takes the first message and never pulls again, so its queue fills up and blocks delivery on the connection.
+        stalledSub <- pubSub.subscribe(stalled).evalMap(_ => IO.never[Unit]).compile.drain.start
+        otherSub <- pubSub.subscribe(other).take(1).compile.toVector.start
+        _ <- pubSub.shouldHaveNSubs(stalled, 1, waitFor = 1.second)
+        _ <- pubSub.shouldHaveNSubs(other, 1, waitFor = 1.second)
+        _ <- fs2.Stream.range(0, 1000).map(_.toString).through(pubSub.publish(stalled)).compile.drain
+        _ <- IO.sleep(200.millis) // Wait for the queue to fill up.
+        _ <- stalledSub.cancel.timeout(5.seconds)
+        _ <- pubSub.publish(other, "hello")
+        result <- otherSub
+                    .joinWith(IO.raiseError(new Exception("otherSub should not have been cancelled")))
+                    .timeout(5.seconds)
+        _ <- IO(assertEquals(result, Vector("hello")))
+      } yield ()
+    }
+  }
+
+  test("subscribe/psubscribe: messages on many channels and a pattern are all delivered") {
+    withRedisPubSub { pubSub =>
+      val channels = (1 to 50).toList.map(i => RedisChannel(s"test-pubsub-many:$i"))
+      val pattern  = RedisPattern("test-pubsub-many:*")
+
+      for {
+        channelSubs <- channels.traverse(ch => pubSub.subscribe(ch).take(1).compile.toVector.start)
+        patternSub <- pubSub.psubscribe(pattern).take(channels.size.toLong).compile.toVector.start
+        _ <- channels.traverse_(pubSub.shouldHaveNSubs(_, 1, waitFor = 1.second))
+        _ <- IO.sleep(200.millis) // Wait for the pattern subscription to start.
+        _ <- channels.traverse_(ch => pubSub.publish(ch, ch.underlying))
+        channelResults <- channelSubs.traverse(
+                            _.joinWith(IO.raiseError(new Exception("channel sub should not have been cancelled")))
+                              .timeout(5.seconds)
+                          )
+        patternResults <- patternSub
+                            .joinWith(IO.raiseError(new Exception("pattern sub should not have been cancelled")))
+                            .timeout(5.seconds)
+        _ <- IO(assertEquals(channelResults, channels.map(ch => Vector(ch.underlying))))
+        _ <- IO(assertEquals(patternResults.map(_.channel).toSet, channels.map(_.underlying).toSet))
+        _ <-
+          IO(
+            assertEquals(patternResults.map(e => e.channel -> e.data), patternResults.map(e => e.channel -> e.channel))
+          )
       } yield ()
     }
   }
