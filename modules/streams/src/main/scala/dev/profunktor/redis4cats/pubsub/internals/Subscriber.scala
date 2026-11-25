@@ -31,7 +31,8 @@ import io.lettuce.core.pubsub.{ RedisPubSubListener, StatefulRedisPubSubConnecti
 
 private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
     state: PubSubState[F, K, V],
-    subConnection: StatefulRedisPubSubConnection[K, V]
+    subConnection: StatefulRedisPubSubConnection[K, V],
+    dispatcher: Dispatcher[F]
 ) extends SubscribeCommands[F, Stream[F, *], K, V] {
 
   override def subscribe(channel: RedisChannel[K]): Stream[F, V] =
@@ -41,9 +42,7 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
       subConnection,
       subscribeToRedis = FutureLift[F].lift(subConnection.async().subscribe(channel.underlying)).void,
       unsubscribeFromRedis = FutureLift[F].lift(subConnection.async().unsubscribe(channel.underlying)).void
-    )((dispatcher, topic) =>
-      PubSubInternals.channelListener(channel, (v: V) => topic.publish1(Some(v)).void, dispatcher)
-    )
+    )(topic => PubSubInternals.channelListener(channel, (v: V) => topic.publish1(Some(v)).void, dispatcher))
 
   override def unsubscribe(channel: RedisChannel[K]): F[Unit] =
     Subscriber.unsubscribeFrom(channel, state.channelSubs)
@@ -57,7 +56,7 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
       subConnection,
       subscribeToRedis = FutureLift[F].lift(subConnection.async().psubscribe(pattern.underlying)).void,
       unsubscribeFromRedis = FutureLift[F].lift(subConnection.async().punsubscribe(pattern.underlying)).void
-    )((dispatcher, topic) =>
+    )(topic =>
       PubSubInternals
         .patternListener(pattern, (evt: RedisPatternEvent[K, V]) => topic.publish1(Some(evt)).void, dispatcher)
     )
@@ -72,6 +71,14 @@ private[pubsub] class Subscriber[F[_]: Async: FutureLift: Log, K, V](
     state.patternSubs.get.map(_.iterator.map { case (k, v) => k -> v.subscribers }.toMap)
 }
 object Subscriber {
+
+  /** Runs the listeners of all subscriptions on one connection. Lettuce delivers a connection's messages on a single
+    * I/O thread and each listener blocks it in `unsafeRunSync`, so messages are handled one at a time anyway and one
+    * sequential dispatcher costs no throughput.
+    *
+    * Allocate it before the connection, so that the connection and its listeners are closed first.
+    */
+  private[pubsub] def dispatcher[F[_]: Async]: Resource[F, Dispatcher[F]] = Dispatcher.sequential[F]
 
   /** Check if we have a subscriber for this channel and remove it if we do.
     *
@@ -121,7 +128,7 @@ object Subscriber {
       subConnection: StatefulRedisPubSubConnection[K, V],
       subscribeToRedis: F[Unit],
       unsubscribeFromRedis: F[Unit]
-  )(makeListener: (Dispatcher[F], Topic[F, Option[SubValue]]) => RedisPubSubListener[K, V]): Stream[F, SubValue] =
+  )(makeListener: Topic[F, Option[SubValue]] => RedisPubSubListener[K, V]): Stream[F, SubValue] =
     Stream
       .eval(subs.evalModify { subscribers =>
         def stream(sub: Redis4CatsSubscription[F, SubValue]) =
@@ -149,17 +156,11 @@ object Subscriber {
               // always has a queue to land in.
               firstSubTpl <- topic.subscribeAwait(500).allocated
               (firstRawStream, releaseFirstSub) = firstSubTpl
-              // Parallel dispatcher, since multiple subscribers can share a key. Allocated last so nothing
-              // between it and the guarded block below can fail and leak it (its finalizer is only
-              // reachable via `sub`); its own failure releases the topic subscription acquired above for
-              // the same reason.
-              dispatcherTpl <- Dispatcher.parallel[F].allocated.onError { case _ => releaseFirstSub.attempt.void }
-              (dispatcher, cleanupDispatcher) = dispatcherTpl
-              listener                        = makeListener(dispatcher, topic)
-              cleanupListener                 = Sync[F].delay(subConnection.removeListener(listener))
+              listener                          = makeListener(topic)
+              cleanupListener                   = Sync[F].delay(subConnection.removeListener(listener))
               cleanup = (
                           Log[F].debug(s"Cleaning up resources for $key subscription") *>
-                            unsubscribeFromRedis *> cleanupListener *> cleanupDispatcher *>
+                            unsubscribeFromRedis *> cleanupListener *>
                             Log[F].debug(s"Cleaned up resources for $key subscription")
                         ).uncancelable
               // On failure here, release everything acquired so far - cleanup is only reachable through
@@ -169,7 +170,7 @@ object Subscriber {
               _ <- (Sync[F].delay(subConnection.addListener(listener)) *> subscribeToRedis)
                      .onError { case _ =>
                        releaseFirstSub.attempt *>
-                         unsubscribeFromRedis.attempt *> cleanupListener.attempt *> cleanupDispatcher.attempt.void
+                         unsubscribeFromRedis.attempt *> cleanupListener.attempt.void
                      }
               sub            = Redis4CatsSubscription(topic, subscribers = 1, cleanup)
               newSubscribers = subscribers.updated(key, sub)

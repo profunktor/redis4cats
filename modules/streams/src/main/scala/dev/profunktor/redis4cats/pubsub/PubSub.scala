@@ -57,9 +57,10 @@ object PubSub {
     // One exclusive connection for subscriptions and another connection for publishing / stats
     for {
       state <- Resource.eval(PubSubState.make[F, K, V])
+      dispatcher <- Subscriber.dispatcher[F]
       sConn <- Resource.make(acquire)(release)
       pConn <- Resource.make(acquire)(release)
-    } yield new LivePubSubCommands[F, K, V](state, sConn, pConn)
+    } yield new LivePubSubCommands[F, K, V](state, sConn, pConn, dispatcher)
   }
 
   /** Creates a PubSub connection.
@@ -85,8 +86,9 @@ object PubSub {
     val (acquire, release) = acquireAndRelease[F, K, V](client, codec)
     for {
       state <- Resource.eval(PubSubState.make[F, K, V])
+      dispatcher <- Subscriber.dispatcher[F]
       conn <- Resource.make(acquire)(release)
-    } yield new Subscriber(state, conn)
+    } yield new Subscriber(state, conn, dispatcher)
   }
 
 }
